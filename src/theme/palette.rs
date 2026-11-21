@@ -9,15 +9,19 @@ use gpui::{Hsla, rgb};
 use super::Accent;
 use super::contrast::{self, UI_MIN};
 
-/// Text on accent fills is one of these, whichever contrasts more (S0.3.3).
+/// The dark choice for text on accent fills; text there is whichever of the two
+/// contrasts more (S0.3.3).
 const ON_ACCENT_DARK: u32 = 0x111111;
+/// The light choice for text on accent fills.
 const ON_ACCENT_LIGHT: u32 = 0xFFFFFF;
 
 /// Colors for one render pass.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Palette {
+    /// Whether this is a dark palette, for choices a color token can't express.
     pub dark: bool,
 
+    /// The user's accent color, used for fills behind `on_accent`.
     pub accent: Hsla,
     /// Text and icons drawn on an accent fill. Meets 4.5:1 against `accent`.
     pub on_accent: Hsla,
@@ -27,24 +31,38 @@ pub struct Palette {
     /// `on_accent` keep using `accent`.
     pub accent_fg: Hsla,
 
+    /// The window background.
     pub background: Hsla,
     /// Recessed areas: text fields, the player preview, seek bar track.
     pub sunken: Hsla,
+    /// Outlines of buttons, fields and cards.
     pub border: Hsla,
+    /// A secondary button's face.
     pub button: Hsla,
+    /// A secondary button's face under the pointer.
     pub button_hover: Hsla,
 
+    /// Headings and emphasized text.
     pub text_strong: Hsla,
+    /// Body text.
     pub text: Hsla,
+    /// Secondary text: hints, captions and disabled labels.
     pub text_muted: Hsla,
+    /// Icons drawn on `background`.
     pub icon: Hsla,
 
+    /// The window's title strip.
     pub title_bar: Hsla,
+    /// The player's control bar.
     pub control_bar: Hsla,
+    /// The filled part of the volume bar.
     pub volume: Hsla,
 
+    /// The face of a keyboard-shortcut key cap.
     pub key_face: Hsla,
+    /// The lower edge that gives a key cap its depth.
     pub key_edge: Hsla,
+    /// A key cap's outline.
     pub key_border: Hsla,
 
     /// The library's icon rail (`library/sidebar/*`, `player/screens/light`).
@@ -62,17 +80,23 @@ pub struct Palette {
     pub menu: Hsla,
     /// Dims the window behind a modal dialog.
     pub scrim: Hsla,
+    /// A tooltip's background.
     pub tooltip: Hsla,
+    /// A tooltip's text.
     pub tooltip_text: Hsla,
+    /// Errors and destructive actions.
     pub danger: Hsla,
+    /// Confirmations.
     pub success: Hsla,
+    /// Warnings that don't block anything.
     pub warning: Hsla,
     /// Keyboard focus outline.
     pub focus_ring: Hsla,
     /// Letterboxing around video: always black, whatever the theme.
     pub video: Hsla,
-    /// Windows' red hover on the title bar Close button, and its icon color.
+    /// Windows' red hover on the title bar Close button.
     pub close_hover: Hsla,
+    /// The Close button's icon while `close_hover` is behind it.
     pub close_hover_icon: Hsla,
 
     // Component kit (S0.4), sampled from `shared/components/*` and the panels.
@@ -91,8 +115,9 @@ pub struct Palette {
     pub accent_strong: Hsla,
     /// Toggle OFF knob.
     pub knob: Hsla,
-    /// The filled part and the thumb of a neutral slider.
+    /// The filled part of a neutral slider.
     pub slider_fill: Hsla,
+    /// The thumb of a neutral slider.
     pub slider_thumb: Hsla,
     /// In-player panels and popovers (`player/panels/*`).
     pub popover: Hsla,
@@ -100,15 +125,18 @@ pub struct Palette {
     pub selection: Hsla,
 }
 
+/// An opaque color from `0xRRGGBB`.
 pub(super) fn hex(value: u32) -> Hsla {
     rgb(value).into()
 }
 
+/// A color from `0xRRGGBB` with the given opacity.
 fn hexa(value: u32, alpha: f32) -> Hsla {
     Hsla { a: alpha, ..hex(value) }
 }
 
 impl Palette {
+    /// The palette for the dark or light theme with the given accent.
     pub fn new(dark: bool, accent: Accent) -> Self {
         let accent_color = accent.color();
         let on_accent =
@@ -133,6 +161,12 @@ impl Palette {
         self.selection = Hsla { a: 0.35, ..self.accent };
     }
 
+    /// The dark theme's colors.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one exhaustive table of color tokens; splitting it loses the compiler's \
+                  check that the theme sets every token"
+    )]
     fn dark(s: Shared) -> Self {
         Palette {
             dark: true,
@@ -186,6 +220,12 @@ impl Palette {
         }
     }
 
+    /// The light theme's colors.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one exhaustive table of color tokens; splitting it loses the compiler's \
+                  check that the theme sets every token"
+    )]
     fn light(s: Shared) -> Self {
         Palette {
             dark: false,
@@ -246,6 +286,11 @@ impl Palette {
 
     /// Windows High Contrast / forced colors (S0.3.6): every token maps to one of
     /// the user's system colors, and the theme and accent are ignored.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one exhaustive table of color tokens; splitting it loses the compiler's \
+                  check that the theme sets every token"
+    )]
     pub fn high_contrast(sys: SystemColors) -> Self {
         Palette {
             dark: contrast::luminance(sys.window) < 0.18,
@@ -297,6 +342,8 @@ impl Palette {
     }
 }
 
+/// The accent-derived colors both themes start from.
+#[derive(Clone, Copy)]
 struct Shared {
     accent: Hsla,
     on_accent: Hsla,
@@ -307,10 +354,16 @@ struct Shared {
 /// The OS's high-contrast colors (Windows `GetSysColor`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SystemColors {
+    /// The window background.
     pub window: Hsla,
+    /// Text on `window`.
     pub window_text: Hsla,
+    /// The background of selected items.
     pub highlight: Hsla,
+    /// Text on `highlight`.
     pub highlight_text: Hsla,
+    /// Hyperlinks.
     pub hotlight: Hsla,
+    /// Button faces.
     pub button_face: Hsla,
 }

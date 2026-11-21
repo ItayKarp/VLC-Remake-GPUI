@@ -43,7 +43,8 @@ macro_rules! icons {
         static ASSETS: &[(&str, &[u8])] = &[$(
             (
                 concat!("icons/", $file),
-                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icons/", $file)) as &[u8],
+                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icons/", $file))
+                    as &[u8],
             ),
         )*];
     };
@@ -71,7 +72,7 @@ icons! {
     THEME_SYSTEM => "theme-system.svg",
     MORE => "more.svg",
     /// The sidebar toggle arrives with the library (Stage 4).
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "the sidebar toggle arrives with the library (Stage 4)")]
     SIDEBAR => "sidebar.svg",
     FOLDER => "folder.svg",
     FILE => "file.svg",
@@ -91,15 +92,20 @@ icons! {
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TwoTone {
+    /// The layer drawn in the icon color.
     pub base: &'static str,
+    /// The layer drawn in the accent color.
     pub accent: &'static str,
 }
 
+/// The two-tone icons, pairing each base layer with its accent layer.
 pub mod two_tone {
     use super::{TwoTone, icons};
 
+    /// The info icon, for toasts and banners.
     pub const INFO: TwoTone =
         TwoTone { base: icons::INFO_TWO_TONE, accent: icons::INFO_TWO_TONE_ACCENT };
+    /// The check box icon.
     pub const CHECK_BOX: TwoTone =
         TwoTone { base: icons::CHECK_BOX, accent: icons::CHECK_BOX_ACCENT };
 
@@ -107,6 +113,7 @@ pub mod two_tone {
     pub const ALL: &[TwoTone] = &[INFO, CHECK_BOX];
 }
 
+/// Serves the embedded assets to GPUI by path.
 pub struct Assets;
 
 impl AssetSource for Assets {

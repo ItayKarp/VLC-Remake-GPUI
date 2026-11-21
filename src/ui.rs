@@ -52,12 +52,17 @@ pub mod metrics {
     pub const FIELD_HEIGHT: f32 = 44.;
     /// Panel section headers (`video_colors-collapsed`: 360×48).
     pub const SECTION_HEIGHT: f32 = 48.;
+    /// Corner radius of controls.
     pub const RADIUS: f32 = 4.;
+    /// Corner radius of floating surfaces: menus, popovers, toasts.
     pub const RADIUS_LARGE: f32 = 8.;
     /// The well's inset around a control's face.
     pub const WELL_INSET: f32 = 2.;
+    /// Body text size.
     pub const TEXT: f32 = 16.;
+    /// Secondary text size: hints and shortcuts.
     pub const TEXT_SMALL: f32 = 13.;
+    /// Icon size in controls.
     pub const ICON: f32 = 20.;
     /// Space kept between floating surfaces and the window edges.
     pub const EDGE_MARGIN: f32 = 8.;

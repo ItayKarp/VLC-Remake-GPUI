@@ -7,6 +7,7 @@ use gpui::{AnyView, App, Context, SharedString, Window, div, prelude::*, px};
 
 use crate::theme;
 
+/// The tooltip view GPUI shows on hover.
 pub struct Tooltip {
     label: SharedString,
     shortcut: Option<SharedString>,

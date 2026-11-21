@@ -40,15 +40,18 @@ actions!(
 /// Key context of the main window, for its bindings.
 pub const MAIN_WINDOW_CONTEXT: &str = "MainWindow";
 
+/// The app id the desktop environment groups our windows by.
 const APP_ID: &str = "org.redesignedvlc.app";
 
-/// Main window: default size and the smallest it can be resized to (S0.3.5).
+/// The main window's default size (S0.3.5).
 const MAIN_DEFAULT_SIZE: (f32, f32) = (1280., 800.);
+/// The main window's minimum size, unless the display is smaller.
 const MAIN_MIN_SIZE: (f32, f32) = (800., 500.);
 /// Onboarding shrinks to fit small screens, down to this size (S0.2.7); below it the
 /// body scrolls.
 const ONBOARDING_MIN_SIZE: (f32, f32) = (900., 640.);
 
+/// Registers the app-wide actions, key bindings and (on macOS) the menu bar.
 pub fn init(cx: &mut App) {
     cx.on_action(|_: &Quit, cx| cx.quit());
     cx.on_action(|_: &CloseWindow, cx| {
@@ -103,6 +106,7 @@ pub fn reopen(cx: &mut App) {
     }
 }
 
+/// Opens onboarding on `display`, at its design size or shrunk to fit.
 pub fn open_onboarding(
     display: Option<DisplayId>,
     cx: &mut App,
@@ -131,6 +135,8 @@ pub fn open_onboarding(
     Ok(correct_dpi_drift(handle, bounds, cx))
 }
 
+/// Opens the main window where it was last saved (or centered at the default size),
+/// with `files` to open in it.
 pub fn open_main_window(
     display: Option<DisplayId>,
     files: Vec<PathBuf>,
@@ -165,7 +171,7 @@ pub fn open_main_window(
     Ok(correct_dpi_drift(handle, bounds, cx))
 }
 
-/// The component kit gallery (`--component-gallery`).
+/// Opens the component kit gallery (`--component-gallery`).
 pub fn open_gallery(
     display: Option<DisplayId>,
     cx: &mut App,

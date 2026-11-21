@@ -9,38 +9,91 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, App, ElementId, SharedString, Window, accesskit, div, prelude::*, px};
+use gpui::{
+    AnyElement, App, Div, ElementId, KeyDownEvent, SharedString, Stateful, Window, accesskit, div,
+    prelude::*, px,
+};
 
 use super::focus::{self, Axis, Layout};
 use super::metrics;
-use crate::theme;
+use crate::theme::{self, Palette};
 
+/// Called with the index of the option the user picked.
 type SelectHandler = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
 
 /// Applies an arrow key to a radio group and reports the new selection.
 fn radio_keys(
-    group: gpui::Stateful<gpui::Div>,
+    group: Stateful<Div>,
     selected: usize,
     len: usize,
     axis: Axis,
     on_select: Option<SelectHandler>,
-) -> gpui::Stateful<gpui::Div> {
+) -> Stateful<Div> {
     let Some(on_select) = on_select else {
         return group;
     };
     group.on_key_down(move |event, window, cx| {
-        let Some(movement) = focus::group_key(event, axis) else {
+        let Some(next) = arrow_target(event, axis, selected, len) else {
             return;
         };
-        if let Some(next) = focus::step(Some(selected), len, movement, Layout::LIST, |_| true) {
-            cx.stop_propagation();
-            if next != selected {
-                on_select(&next, window, cx);
-            }
+        cx.stop_propagation();
+        if next != selected {
+            on_select(&next, window, cx);
         }
     })
 }
 
+/// The option an arrow, Home or End key moves the selection to; `None` for other keys.
+fn arrow_target(event: &KeyDownEvent, axis: Axis, selected: usize, len: usize) -> Option<usize> {
+    let movement = focus::group_key(event, axis)?;
+    focus::step(Some(selected), len, movement, Layout::LIST, |_| true)
+}
+
+/// What one radio option looks like and does, before its layout: the accent tint when
+/// selected, a hover face otherwise, and a click that selects it.
+fn radio_option(
+    index: usize,
+    selected: usize,
+    p: &Palette,
+    on_select: Option<SelectHandler>,
+) -> Stateful<Div> {
+    let is_selected = index == selected;
+    let hover = p.button_hover;
+    div()
+        .id(index)
+        .rounded(px(metrics::RADIUS))
+        .text_size(px(metrics::TEXT))
+        .bg(if is_selected { p.accent_tint } else { p.control })
+        .text_color(if is_selected { p.accent_on_tint } else { p.text_muted })
+        .role(accesskit::Role::RadioButton)
+        .aria_selected(is_selected)
+        .when(!is_selected, |s| s.cursor_pointer().hover(move |s| s.bg(hover)))
+        .when_some(on_select, |s, f| {
+            s.on_click(move |_, window, cx| {
+                if !is_selected {
+                    f(&index, window, cx);
+                }
+            })
+        })
+}
+
+/// The well that holds a radio group's options; one tab stop.
+fn radio_group(id: ElementId, label: SharedString, p: &Palette) -> Stateful<Div> {
+    div()
+        .id(id)
+        .flex()
+        .gap(px(metrics::WELL_INSET))
+        .p(px(metrics::WELL_INSET))
+        .rounded(px(metrics::RADIUS + 2.))
+        .bg(p.well)
+        .border_2()
+        .border_color(p.well)
+        .tab_index(0)
+        .role(accesskit::Role::RadioGroup)
+        .aria_label(label)
+}
+
+/// A row of 2 or 3 equal segments, one of them selected.
 #[derive(IntoElement)]
 pub struct Segmented {
     id: ElementId,
@@ -51,6 +104,8 @@ pub struct Segmented {
 }
 
 impl Segmented {
+    /// A control named `label` for screen readers, showing `options` with the one at
+    /// index `selected` selected.
     pub fn new(
         id: impl Into<ElementId>,
         label: impl Into<SharedString>,
@@ -66,6 +121,7 @@ impl Segmented {
         }
     }
 
+    /// Called when the user clicks another segment or moves to one with the arrow keys.
     pub fn on_select(mut self, f: impl Fn(&usize, &mut Window, &mut App) + 'static) -> Self {
         self.on_select = Some(Rc::new(f));
         self
@@ -80,11 +136,7 @@ impl RenderOnce for Segmented {
         let on_select = self.on_select.clone();
 
         let segments = self.options.into_iter().enumerate().map(|(i, label)| {
-            let is_selected = i == selected;
-            let on_select = on_select.clone();
-            let hover = p.button_hover;
-            div()
-                .id(i)
+            radio_option(i, selected, &p, on_select.clone())
                 .flex_1()
                 .min_w_0()
                 .h_full()
@@ -92,37 +144,12 @@ impl RenderOnce for Segmented {
                 .items_center()
                 .justify_center()
                 .px(px(8.))
-                .rounded(px(metrics::RADIUS))
-                .text_size(px(metrics::TEXT))
-                .bg(if is_selected { p.accent_tint } else { p.control })
-                .text_color(if is_selected { p.accent_on_tint } else { p.text_muted })
-                .role(accesskit::Role::RadioButton)
-                .aria_selected(is_selected)
-                .when(!is_selected, |s| s.cursor_pointer().hover(move |s| s.bg(hover)))
-                .when_some(on_select, |s, f| {
-                    s.on_click(move |_, window, cx| {
-                        if !is_selected {
-                            f(&i, window, cx);
-                        }
-                    })
-                })
                 .child(div().truncate().child(label))
         });
 
-        let group = div()
-            .id(self.id)
+        let group = radio_group(self.id, self.label, &p)
             .h(px(metrics::FIELD_HEIGHT))
-            .flex()
             .flex_row()
-            .gap(px(metrics::WELL_INSET))
-            .p(px(metrics::WELL_INSET))
-            .rounded(px(metrics::RADIUS + 2.))
-            .bg(p.well)
-            .border_2()
-            .border_color(p.well)
-            .tab_index(0)
-            .role(accesskit::Role::RadioGroup)
-            .aria_label(self.label)
             .children(segments);
         radio_keys(focus::ring(group, &p), selected, len, Axis::Horizontal, self.on_select)
     }
@@ -135,6 +162,7 @@ pub struct Choice {
 }
 
 impl Choice {
+    /// A row showing `label`.
     pub fn new(label: impl Into<SharedString>) -> Self {
         Self { label: label.into(), field: None }
     }
@@ -146,6 +174,7 @@ impl Choice {
     }
 }
 
+/// A column of full-width choices, one of them selected.
 #[derive(IntoElement)]
 pub struct StackedChoice {
     id: ElementId,
@@ -156,6 +185,8 @@ pub struct StackedChoice {
 }
 
 impl StackedChoice {
+    /// A control named `label` for screen readers, showing `choices` with the one at
+    /// index `selected` selected.
     pub fn new(
         id: impl Into<ElementId>,
         label: impl Into<SharedString>,
@@ -165,6 +196,7 @@ impl StackedChoice {
         Self { id: id.into(), label: label.into(), choices, selected, on_select: None }
     }
 
+    /// Called when the user clicks another row or moves to one with the arrow keys.
     pub fn on_select(mut self, f: impl Fn(&usize, &mut Window, &mut App) + 'static) -> Self {
         self.on_select = Some(Rc::new(f));
         self
@@ -179,11 +211,7 @@ impl RenderOnce for StackedChoice {
         let on_select = self.on_select.clone();
 
         let rows = self.choices.into_iter().enumerate().map(|(i, choice)| {
-            let is_selected = i == selected;
-            let on_select = on_select.clone();
-            let hover = p.button_hover;
-            div()
-                .id(i)
+            radio_option(i, selected, &p, on_select.clone())
                 .h(px(36.))
                 .flex()
                 .flex_row()
@@ -192,40 +220,13 @@ impl RenderOnce for StackedChoice {
                 .pl(px(12.))
                 .pr(px(2.))
                 .py(px(2.))
-                .rounded(px(metrics::RADIUS))
-                .text_size(px(metrics::TEXT))
-                .bg(if is_selected { p.accent_tint } else { p.control })
-                .text_color(if is_selected { p.accent_on_tint } else { p.text_muted })
-                .role(accesskit::Role::RadioButton)
-                .aria_selected(is_selected)
-                .when(!is_selected, |s| s.cursor_pointer().hover(move |s| s.bg(hover)))
-                .when_some(on_select, |s, f| {
-                    s.on_click(move |_, window, cx| {
-                        if !is_selected {
-                            f(&i, window, cx);
-                        }
-                    })
-                })
                 .child(div().flex_none().child(choice.label))
                 .when_some(choice.field, |s, field| {
                     s.child(div().flex_1().min_w_0().h_full().child(field))
                 })
         });
 
-        let group = div()
-            .id(self.id)
-            .flex()
-            .flex_col()
-            .gap(px(metrics::WELL_INSET))
-            .p(px(metrics::WELL_INSET))
-            .rounded(px(metrics::RADIUS + 2.))
-            .bg(p.well)
-            .border_2()
-            .border_color(p.well)
-            .tab_index(0)
-            .role(accesskit::Role::RadioGroup)
-            .aria_label(self.label)
-            .children(rows);
+        let group = radio_group(self.id, self.label, &p).flex_col().children(rows);
         radio_keys(focus::ring(group, &p), selected, len, Axis::Vertical, self.on_select)
     }
 }

@@ -32,14 +32,22 @@ use crate::theme::Palette;
 pub struct BoundsTracker(Rc<Cell<Option<Bounds<Pixels>>>>);
 
 impl BoundsTracker {
+    /// A tracker that hasn't seen a frame yet.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// The bounds from the last frame, or `None` before the first one.
     pub fn bounds(&self) -> Option<Bounds<Pixels>> {
         self.0.get()
     }
 
+    /// Whether `position` was inside the element last frame.
+    #[allow(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "dropdowns and the gallery call this with `&event.position`; they are \
+                  outside this change"
+    )]
     pub fn contains(&self, position: &Point<Pixels>) -> bool {
         self.bounds().is_some_and(|b| b.contains(position))
     }
@@ -61,7 +69,7 @@ pub enum Side {
     /// Below, left edges aligned (dropdowns, title bar menus).
     Below,
     /// Above, right edges aligned (control bar popovers at the bottom right).
-    #[allow(dead_code)] // The control bar (Stage 2).
+    #[allow(dead_code, reason = "the control bar uses it (Stage 2)")]
     AboveEnd,
     /// Above, centered (control bar popovers).
     Above,
@@ -127,6 +135,8 @@ pub fn max_height(window: &Window) -> Pixels {
     max_height_for(window.viewport_size().height)
 }
 
+/// The tallest a floating surface may be in a viewport this tall: the viewport less
+/// its edge margins, but never less than a usable minimum.
 pub fn max_height_for(viewport_height: Pixels) -> Pixels {
     (viewport_height - px(2. * metrics::EDGE_MARGIN)).max(px(48.))
 }

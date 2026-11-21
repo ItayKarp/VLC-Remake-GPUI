@@ -5,37 +5,48 @@ use gpui::{Bounds, Pixels, WindowBounds, point, px, size};
 
 use crate::settings::{WindowGeometry, WindowMode};
 
+/// An axis-aligned rectangle in logical pixels: origin `(x, y)`, size `(w, h)`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
+    /// Left edge.
     pub x: f32,
+    /// Top edge.
     pub y: f32,
+    /// Width.
     pub w: f32,
+    /// Height.
     pub h: f32,
 }
 
 impl Rect {
+    /// A rectangle at `(x, y)` of size `w` by `h`.
     pub const fn new(x: f32, y: f32, w: f32, h: f32) -> Self {
         Rect { x, y, w, h }
     }
 
+    /// The area `self` and `other` overlap by; zero when they don't.
     fn intersection_area(&self, other: &Rect) -> f32 {
         let w = (self.x + self.w).min(other.x + other.w) - self.x.max(other.x);
         let h = (self.y + self.h).min(other.y + other.h) - self.y.max(other.y);
         if w > 0. && h > 0. { w * h } else { 0. }
     }
 
+    /// The center point.
     pub fn center(&self) -> (f32, f32) {
         (self.x + self.w / 2., self.y + self.h / 2.)
     }
 
+    /// Whether the point lies inside (the right and bottom edges are outside).
     pub fn contains(&self, (x, y): (f32, f32)) -> bool {
         x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
     }
 
+    /// A `w` by `h` rectangle centered in `area`.
     pub fn centered_in(w: f32, h: f32, area: &Rect) -> Rect {
         Rect::new(area.x + (area.w - w) / 2., area.y + (area.h - h) / 2., w, h)
     }
 
+    /// Converts GPUI bounds.
     pub fn from_gpui(bounds: Bounds<Pixels>) -> Self {
         Rect::new(
             f32::from(bounds.origin.x),
@@ -45,6 +56,7 @@ impl Rect {
         )
     }
 
+    /// Converts to GPUI bounds.
     pub fn to_gpui(self) -> Bounds<Pixels> {
         Bounds::new(point(px(self.x), px(self.y)), size(px(self.w), px(self.h)))
     }
@@ -74,10 +86,8 @@ pub fn restore(
     fallback: &Rect,
     min: (f32, f32),
 ) -> Option<WindowBounds> {
-    let valid = |v: f32| v.is_finite();
-    if !(valid(saved.x) && valid(saved.y) && saved.width > 0. && saved.height > 0.)
-        || !(valid(saved.width) && valid(saved.height))
-    {
+    let finite = [saved.x, saved.y, saved.width, saved.height].iter().all(|v| v.is_finite());
+    if !finite || saved.width <= 0. || saved.height <= 0. {
         return None;
     }
     let rect = Rect::new(saved.x, saved.y, saved.width, saved.height);
@@ -87,7 +97,9 @@ pub fn restore(
         .filter(|(_, area)| *area > 0.)
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .map(|(d, _)| *d);
-    let placed = if let Some(display) = display { clamp_into(rect, &display, min) } else {
+    let placed = if let Some(display) = display {
+        clamp_into(rect, &display, min)
+    } else {
         let clamped = clamp_into(rect, fallback, min);
         Rect::centered_in(clamped.w, clamped.h, fallback)
     };

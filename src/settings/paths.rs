@@ -3,8 +3,11 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
+/// The directory our settings live in, inside the platform config folders.
 pub const APP_DIR_NAME: &str = "RedesignedVLC";
+/// The roaming preferences file.
 pub const PREFS_FILE_NAME: &str = "settings.toml";
+/// The machine-local state file.
 pub const LOCAL_FILE_NAME: &str = "local.toml";
 /// Overrides both settings directories (tests, portable mode, debugging).
 pub const CONFIG_DIR_ENV: &str = "RVLC_CONFIG_DIR";
@@ -31,6 +34,7 @@ impl Locations {
         Self::resolve_with(std::env::var_os(CONFIG_DIR_ENV))
     }
 
+    /// Like [`Self::resolve`], with the override directory passed in (for tests).
     pub fn resolve_with(override_dir: Option<OsString>) -> Option<Self> {
         if let Some(dir) = override_dir.filter(|dir| !dir.is_empty()) {
             let dir = PathBuf::from(dir);
@@ -42,7 +46,8 @@ impl Locations {
         // `APPDATA`/`USERPROFILE` being set.
         let config = dirs::config_dir()?.join(APP_DIR_NAME);
         let local = dirs::state_dir()
-            .or_else(dirs::data_local_dir).map_or_else(|| config.clone(), |dir| dir.join(APP_DIR_NAME));
+            .or_else(dirs::data_local_dir)
+            .map_or_else(|| config.clone(), |dir| dir.join(APP_DIR_NAME));
         Some(Locations { prefs: config.join(PREFS_FILE_NAME), local: local.join(LOCAL_FILE_NAME) })
     }
 }

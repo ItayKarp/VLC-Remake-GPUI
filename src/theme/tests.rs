@@ -1,8 +1,12 @@
+//! Tests for the palettes: contrast targets for every accent and theme, high contrast,
+//! and theme mode resolution.
+
+use gpui::WindowAppearance;
+
 use super::contrast::{self, TEXT_MIN, UI_MIN, ratio};
 use super::palette::SystemColors;
 use super::palette::hex;
 use super::{Accent, Palette, ThemeMode};
-use gpui::WindowAppearance;
 
 #[test]
 fn on_accent_meets_aa_for_every_accent_and_theme() {

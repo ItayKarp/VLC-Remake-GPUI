@@ -11,7 +11,8 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, App, Context, ElementId, Hsla, SharedString, Window, accesskit, div, prelude::*, px,
+    App, Context, Div, ElementId, Hsla, SharedString, Stateful, Window, accesskit, div, prelude::*,
+    px,
 };
 
 use super::button::{Button, ButtonStyle, IconButton};
@@ -20,18 +21,30 @@ use super::metrics;
 use crate::assets::{icons, two_tone as icons2};
 use crate::theme::{self, Palette};
 
+/// The most toasts shown at once; older ones drop off.
 pub const MAX_VISIBLE: usize = 4;
+/// How long info and success toasts stay.
 const AUTO_DISMISS: Duration = Duration::from_secs(6);
+/// A toast card's width, when the window has room for it.
+const TOAST_WIDTH: f32 = 360.;
+/// The size of the level icon in toasts and banners.
+const ICON_SIZE: f32 = 18.;
 
+/// How important a message is, which sets its color and whether it goes away alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Level {
+    /// News that needs no action.
     Info,
+    /// Something finished as asked.
     Success,
+    /// Something the user may want to act on.
     Warning,
+    /// Something failed.
     Error,
 }
 
 impl Level {
+    /// The accent color for this level's icon and border.
     fn color(self, p: &Palette) -> Hsla {
         match self {
             Level::Info => p.accent_fg,
@@ -47,8 +60,10 @@ impl Level {
     }
 }
 
+/// Runs when the user presses a toast's or banner's button.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 
+/// A transient message for a [`Toasts`] stack.
 pub struct Toast {
     id: u64,
     level: Level,
@@ -57,10 +72,12 @@ pub struct Toast {
 }
 
 impl Toast {
+    /// A toast showing `message` at `level`.
     pub fn new(level: Level, message: impl Into<SharedString>) -> Self {
         Self { id: 0, level, message: message.into(), action: None }
     }
 
+    /// Adds a button labelled `label` that dismisses the toast and runs `f`.
     pub fn action(
         mut self,
         label: impl Into<SharedString>,
@@ -71,6 +88,7 @@ impl Toast {
     }
 }
 
+/// A window's stack of toasts, drawn at its bottom right.
 #[derive(Default)]
 pub struct Toasts {
     toasts: Vec<Toast>,
@@ -78,10 +96,13 @@ pub struct Toasts {
 }
 
 impl Toasts {
+    /// An empty stack.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Shows `toast`, dropping old ones past [`MAX_VISIBLE`], and schedules its
+    /// dismissal if its level goes away alone.
     pub fn push(&mut self, mut toast: Toast, cx: &mut Context<Self>) {
         self.next_id += 1;
         toast.id = self.next_id;
@@ -99,6 +120,7 @@ impl Toasts {
         cx.notify();
     }
 
+    /// Removes the toast with `id`, if it's still showing.
     pub fn dismiss(&mut self, id: u64, cx: &mut Context<Self>) {
         self.toasts.retain(|t| t.id != id);
         cx.notify();
@@ -113,60 +135,55 @@ fn trim(toasts: &mut Vec<Toast>, max: usize) {
     }
 }
 
+impl Toasts {
+    /// One toast card: icon, message, the optional action and a dismiss button.
+    fn render_toast(toast: &Toast, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
+        let id = toast.id;
+        let action = toast.action.clone().map(|(label, action)| {
+            Button::new(("toast-action", id as usize), label).style(ButtonStyle::Ghost).on_click(
+                cx.listener(move |this, _, window, cx| {
+                    this.dismiss(id, cx);
+                    action(window, cx);
+                }),
+            )
+        });
+        div()
+            .id(("toast", id as usize))
+            .occlude()
+            .w(px(TOAST_WIDTH))
+            .max_w_full()
+            .flex()
+            .flex_row()
+            .items_start()
+            .gap(px(10.))
+            .pl(px(12.))
+            .pr(px(4.))
+            .py(px(8.))
+            .rounded(px(metrics::RADIUS_LARGE))
+            .bg(p.menu)
+            .border_1()
+            .border_color(p.divider)
+            .shadow_lg()
+            .role(accesskit::Role::Alert)
+            .child(div().pt(px(4.)).child(two_tone(
+                icons2::INFO,
+                ICON_SIZE,
+                p.icon,
+                toast.level.color(p),
+            )))
+            .child(message(toast.message.clone(), p.text_strong).pt(px(4.)))
+            .children(action)
+            .child(
+                IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
+                    .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx))),
+            )
+    }
+}
+
 impl Render for Toasts {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
-        let toasts = self.toasts.iter().map(|toast| {
-            let id = toast.id;
-            div()
-                .id(("toast", id as usize))
-                .occlude()
-                .w(px(360.))
-                .max_w_full()
-                .flex()
-                .flex_row()
-                .items_start()
-                .gap(px(10.))
-                .pl(px(12.))
-                .pr(px(4.))
-                .py(px(8.))
-                .rounded(px(metrics::RADIUS_LARGE))
-                .bg(p.menu)
-                .border_1()
-                .border_color(p.divider)
-                .shadow_lg()
-                .role(accesskit::Role::Alert)
-                .child(div().pt(px(4.)).child(two_tone(
-                    icons2::INFO,
-                    18.,
-                    p.icon,
-                    toast.level.color(&p),
-                )))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .pt(px(4.))
-                        .text_size(px(14.))
-                        .line_height(px(20.))
-                        .text_color(p.text_strong)
-                        .child(toast.message.clone()),
-                )
-                .when_some(toast.action.clone(), |t, (label, action)| {
-                    t.child(
-                        Button::new(("toast-action", id as usize), label)
-                            .style(ButtonStyle::Ghost)
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                this.dismiss(id, cx);
-                                action(window, cx);
-                            })),
-                    )
-                })
-                .child(
-                    IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
-                        .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx))),
-                )
-        });
+        let toasts = self.toasts.iter().map(|toast| Self::render_toast(toast, &p, cx));
 
         div()
             .absolute()
@@ -190,11 +207,13 @@ pub struct Banner {
     on_dismiss: Option<Action>,
 }
 
+/// A banner showing `message` at `level`.
 pub fn banner(id: impl Into<ElementId>, level: Level, message: impl Into<SharedString>) -> Banner {
     Banner { id: id.into(), level, message: message.into(), action: None, on_dismiss: None }
 }
 
 impl Banner {
+    /// Adds a button labelled `label` that runs `f`.
     pub fn action(
         mut self,
         label: impl Into<SharedString>,
@@ -204,6 +223,7 @@ impl Banner {
         self
     }
 
+    /// Adds a dismiss button that runs `f`; the owner hides the banner.
     pub fn on_dismiss(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_dismiss = Some(Rc::new(f));
         self
@@ -214,22 +234,15 @@ impl RenderOnce for Banner {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let color = self.level.color(&p);
-        let actions: Vec<AnyElement> = [
-            self.action.map(|(label, f)| {
-                Button::new("banner-action", label)
-                    .style(ButtonStyle::Filled)
-                    .on_click(move |_, window, cx| f(window, cx))
-                    .into_any_element()
-            }),
-            self.on_dismiss.map(|f| {
-                IconButton::new("banner-dismiss", icons::CLOSE, "Dismiss")
-                    .on_click(move |_, window, cx| f(window, cx))
-                    .into_any_element()
-            }),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
+        let action = self.action.map(|(label, f)| {
+            Button::new("banner-action", label)
+                .style(ButtonStyle::Filled)
+                .on_click(move |_, window, cx| f(window, cx))
+        });
+        let dismiss = self.on_dismiss.map(|f| {
+            IconButton::new("banner-dismiss", icons::CLOSE, "Dismiss")
+                .on_click(move |_, window, cx| f(window, cx))
+        });
 
         div()
             .id(self.id)
@@ -251,20 +264,17 @@ impl RenderOnce for Banner {
                 Level::Error | Level::Warning => accesskit::Role::Alert,
                 _ => accesskit::Role::Status,
             })
-            .child(two_tone(icons2::INFO, 18., p.icon, color))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .text_size(px(14.))
-                    .line_height(px(20.))
-                    .text_color(p.text)
-                    // Long paths wrap anywhere rather than overflow.
-                    .overflow_hidden()
-                    .child(self.message),
-            )
-            .children(actions)
+            .child(two_tone(icons2::INFO, ICON_SIZE, p.icon, color))
+            // Long paths wrap anywhere rather than overflow.
+            .child(message(self.message, p.text).overflow_hidden())
+            .children(action)
+            .children(dismiss)
     }
+}
+
+/// The message text of a toast or banner, taking the space the buttons leave.
+fn message(text: SharedString, color: Hsla) -> Div {
+    div().flex_1().min_w_0().text_size(px(14.)).line_height(px(20.)).text_color(color).child(text)
 }
 
 #[cfg(test)]

@@ -11,16 +11,18 @@
 use std::rc::Rc;
 
 use gpui::{
-    App, ClickEvent, ElementId, FocusHandle, FontWeight, Hsla, MouseButton, SharedString, Window,
-    div, prelude::*, px,
+    App, ClickEvent, Div, ElementId, FocusHandle, FontWeight, Hsla, MouseButton, SharedString,
+    Stateful, Window, div, prelude::*, px,
 };
 
 use super::icon::icon;
 use super::{focus, metrics, tooltip};
 use crate::theme::{self, Palette, blend};
 
+/// Called when the button is clicked or activated from the keyboard.
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
+/// How a text button is colored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ButtonStyle {
     /// `button-default`: the well color, for secondary actions in panels.
@@ -34,6 +36,7 @@ pub enum ButtonStyle {
     Ghost,
 }
 
+/// A button style's colors in each state.
 struct Colors {
     bg: Hsla,
     hover: Hsla,
@@ -42,6 +45,7 @@ struct Colors {
 }
 
 impl ButtonStyle {
+    /// The colors for this style in `p`.
     fn colors(self, p: &Palette) -> Colors {
         match self {
             ButtonStyle::Subtle => {
@@ -69,6 +73,7 @@ impl ButtonStyle {
     }
 }
 
+/// A text button with an optional leading icon and tooltip.
 #[derive(IntoElement)]
 pub struct Button {
     id: ElementId,
@@ -83,6 +88,7 @@ pub struct Button {
 }
 
 impl Button {
+    /// A subtle, enabled button showing `label`.
     pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
         Self {
             id: id.into(),
@@ -104,30 +110,36 @@ impl Button {
         self
     }
 
+    /// Sets how the button is colored.
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
         self
     }
 
+    /// Makes this the screen's or dialog's default action.
     pub fn primary(self) -> Self {
         self.style(ButtonStyle::Primary)
     }
 
+    /// Shows `icon` before the label.
     pub fn icon(mut self, icon: &'static str) -> Self {
         self.icon = Some(icon);
         self
     }
 
+    /// Dims the button and ignores clicks, focus and its tooltip.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
+    /// Gives the button a fixed width instead of fitting its label.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
         self
     }
 
+    /// Shows a tooltip with `label` and, if given, a keyboard shortcut.
     pub fn tooltip(
         mut self,
         label: impl Into<SharedString>,
@@ -137,6 +149,7 @@ impl Button {
         self
     }
 
+    /// Called when the button is clicked, or pressed with Enter or Space.
     pub fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Rc::new(f));
         self
@@ -149,29 +162,13 @@ impl RenderOnce for Button {
         let colors = self.style.colors(&p);
         let (hover, pressed) = (colors.hover, colors.pressed);
         let enabled = !self.disabled;
+        let weight = if self.style == ButtonStyle::Primary {
+            FontWeight::SEMIBOLD
+        } else {
+            FontWeight::NORMAL
+        };
 
-        div()
-            .id(self.id)
-            .h(px(metrics::BUTTON_HEIGHT))
-            .px(px(16.))
-            .when_some(self.width, |b, w| b.w(px(w)))
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_center()
-            .gap(px(8.))
-            .rounded(px(metrics::RADIUS))
-            .bg(colors.bg)
-            .border_2()
-            .border_color(gpui::transparent_black())
-            .text_size(px(metrics::TEXT))
-            .font_weight(if self.style == ButtonStyle::Primary {
-                FontWeight::SEMIBOLD
-            } else {
-                FontWeight::NORMAL
-            })
-            .text_color(colors.fg)
-            .overflow_hidden()
+        face(self.id, self.width, &colors, weight)
             .aria_label(self.label.clone())
             .when(enabled, |b| {
                 let b = match &self.focus {
@@ -194,6 +191,37 @@ impl RenderOnce for Button {
     }
 }
 
+/// The layout and colors of a text button, before its states and handlers.
+fn face(id: ElementId, width: Option<f32>, colors: &Colors, weight: FontWeight) -> Stateful<Div> {
+    div()
+        .id(id)
+        .h(px(metrics::BUTTON_HEIGHT))
+        .px(px(16.))
+        .when_some(width, |b, w| b.w(px(w)))
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_center()
+        .gap(px(8.))
+        .rounded(px(metrics::RADIUS))
+        .bg(colors.bg)
+        .border_2()
+        .border_color(gpui::transparent_black())
+        .text_size(px(metrics::TEXT))
+        .font_weight(weight)
+        .text_color(colors.fg)
+        .overflow_hidden()
+}
+
+/// Where an icon button sits, which decides who sees its mouse-down.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Placement {
+    /// In ordinary content: mouse-down bubbles as usual.
+    Content,
+    /// In the title bar: mouse-down stops here, so it doesn't start a window drag.
+    TitleBar,
+}
+
 /// A square icon-only button with a tooltip that names it and its shortcut.
 #[derive(IntoElement)]
 pub struct IconButton {
@@ -205,12 +233,12 @@ pub struct IconButton {
     icon_size: f32,
     selected: bool,
     disabled: bool,
-    /// Stop mouse-down from reaching a window drag area underneath.
-    in_title_bar: bool,
+    placement: Placement,
     on_click: Option<ClickHandler>,
 }
 
 impl IconButton {
+    /// A 28px button showing `icon`, named `label` for its tooltip and screen readers.
     pub fn new(
         id: impl Into<ElementId>,
         icon: &'static str,
@@ -225,16 +253,18 @@ impl IconButton {
             icon_size: 18.,
             selected: false,
             disabled: false,
-            in_title_bar: false,
+            placement: Placement::Content,
             on_click: None,
         }
     }
 
+    /// Names the keyboard shortcut in the tooltip and the accessible label.
     pub fn shortcut(mut self, shortcut: impl Into<SharedString>) -> Self {
         self.shortcut = Some(shortcut.into());
         self
     }
 
+    /// Sets the button's side and its icon's size, in pixels.
     pub fn size(mut self, size: f32, icon_size: f32) -> Self {
         self.size = size;
         self.icon_size = icon_size;
@@ -247,16 +277,20 @@ impl IconButton {
         self
     }
 
+    /// Dims the button and ignores clicks, focus and its tooltip.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
+    /// Marks the button as sitting in the title bar: pressing it must not start a
+    /// window drag in the drag area underneath.
     pub fn in_title_bar(mut self) -> Self {
-        self.in_title_bar = true;
+        self.placement = Placement::TitleBar;
         self
     }
 
+    /// Called when the button is clicked, or pressed with Enter or Space.
     pub fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Rc::new(f));
         self
@@ -294,7 +328,7 @@ impl RenderOnce for IconButton {
                 focus::ring(b, &p)
             })
             .when(!enabled, |b| b.opacity(0.4))
-            .when(self.in_title_bar, |b| {
+            .when(self.placement == Placement::TitleBar, |b| {
                 b.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             })
             .when_some(self.on_click.filter(|_| enabled), |b, f| {

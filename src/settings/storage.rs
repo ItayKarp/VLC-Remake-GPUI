@@ -22,10 +22,12 @@ pub enum LoadIssue {
     Corrupt { error: String, moved_to: Option<PathBuf>, restored_from_backup: bool },
 }
 
+/// A settings file's contents and anything that went wrong reading it.
 #[derive(Debug)]
 pub struct Loaded {
     /// Empty if the file doesn't exist.
     pub doc: DocumentMut,
+    /// Set when the document didn't come from the file as-is.
     pub issue: Option<LoadIssue>,
 }
 

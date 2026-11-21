@@ -6,10 +6,12 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+/// Runs onboarding again even though it was completed (S0.2.5).
 pub const RESET_ONBOARDING: &str = "--reset-onboarding";
 /// Opens the component kit gallery (S0.4), for design checks.
 pub const COMPONENT_GALLERY: &str = "--component-gallery";
 
+/// What this launch was asked to do, parsed from the command line.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Launch {
     /// Show onboarding even though it was completed.
@@ -21,6 +23,7 @@ pub struct Launch {
 }
 
 impl Launch {
+    /// Parses this process's command line.
     pub fn from_env() -> Self {
         Self::parse(std::env::args_os().skip(1))
     }
@@ -51,6 +54,7 @@ impl Launch {
 /// Which window the app opens at startup.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Route {
+    /// First-run setup (or `--reset-onboarding`).
     Onboarding,
     /// The component gallery (`--component-gallery`).
     Gallery,
@@ -58,6 +62,8 @@ pub enum Route {
     Main(Vec<PathBuf>),
 }
 
+/// Decides which window opens first, from whether onboarding was completed and what
+/// the command line asked for.
 pub fn route(onboarding_complete: bool, launch: &Launch) -> Route {
     if launch.component_gallery {
         return Route::Gallery;

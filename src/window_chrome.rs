@@ -17,6 +17,7 @@ use gpui::{
 use crate::assets::icons;
 use crate::theme::Palette;
 
+/// The height of the title strip we draw in place of the OS title bar.
 pub const TITLE_BAR_HEIGHT: f32 = 32.;
 
 /// Width the macOS traffic lights take at the left of the bar.

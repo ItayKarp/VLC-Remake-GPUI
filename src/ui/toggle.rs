@@ -7,18 +7,23 @@
 
 use std::rc::Rc;
 
-use gpui::{App, ElementId, SharedString, Window, accesskit, div, prelude::*, px};
+use gpui::{App, Div, ElementId, SharedString, Window, accesskit, div, prelude::*, px};
 
 use super::icon::icon;
 use super::{focus, metrics};
 use crate::assets::icons;
-use crate::theme;
+use crate::theme::{self, Palette};
 
+/// Called with the control's new state.
 type ChangeHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
 
+/// The toggle's width, from the design.
 pub const TOGGLE_WIDTH: f32 = 68.;
+/// The toggle's height, from the design.
 pub const TOGGLE_HEIGHT: f32 = 32.;
 
+/// An ON/OFF switch. The owner keeps the state and changes it from
+/// [`Self::on_change`].
 #[derive(IntoElement)]
 pub struct Toggle {
     id: ElementId,
@@ -34,6 +39,7 @@ impl Toggle {
         Self { id: id.into(), on, label: label.into(), disabled: false, on_change: None }
     }
 
+    /// Dims the toggle and ignores clicks and focus.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -46,7 +52,8 @@ impl Toggle {
     }
 }
 
-fn half() -> gpui::Div {
+/// One of the toggle's two halves: the knob or the ON/OFF label.
+fn half() -> Div {
     div()
         .flex_1()
         .h_full()
@@ -110,19 +117,37 @@ pub struct Checkbox {
 }
 
 impl Checkbox {
+    /// An enabled checkbox showing `label` next to the box.
     pub fn new(id: impl Into<ElementId>, checked: bool, label: impl Into<SharedString>) -> Self {
         Self { id: id.into(), checked, label: label.into(), disabled: false, on_change: None }
     }
 
+    /// Dims the checkbox and ignores clicks and focus.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
+    /// Called with the new checked state.
     pub fn on_change(mut self, f: impl Fn(&bool, &mut Window, &mut App) + 'static) -> Self {
         self.on_change = Some(Rc::new(f));
         self
     }
+}
+
+/// The square box, with a check mark when `checked`.
+fn check_box(checked: bool, p: &Palette) -> Div {
+    div()
+        .size(px(20.))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(4.))
+        .bg(if checked { p.accent_tint } else { p.well })
+        .border_1()
+        .border_color(if checked { p.accent_fg } else { p.key_border })
+        .when(checked, |b| b.child(icon(icons::CHECK, 16., p.accent_on_tint)))
 }
 
 impl RenderOnce for Checkbox {
@@ -149,19 +174,7 @@ impl RenderOnce for Checkbox {
             } else {
                 accesskit::Toggled::False
             })
-            .child(
-                div()
-                    .size(px(20.))
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(px(4.))
-                    .bg(if checked { p.accent_tint } else { p.well })
-                    .border_1()
-                    .border_color(if checked { p.accent_fg } else { p.key_border })
-                    .when(checked, |b| b.child(icon(icons::CHECK, 16., p.accent_on_tint))),
-            )
+            .child(check_box(checked, &p))
             .child(
                 div()
                     .min_w_0()

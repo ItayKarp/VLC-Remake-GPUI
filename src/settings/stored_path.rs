@@ -7,14 +7,19 @@
 //! encoded, so a plain string never collides with the encoded form.
 
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
+/// Marks a value as an encoded path rather than plain text.
 const PREFIX: &str = "os-path:";
+/// Names the platform's native path encoding, so another OS family can reject it.
 #[cfg(windows)]
 const TAG: &str = "wide:";
+/// Names the platform's native path encoding, so another OS family can reject it.
 #[cfg(not(windows))]
 const TAG: &str = "bytes:";
 
+/// Encodes `path` for storage: as itself when it is plain Unicode, hex-encoded otherwise.
 pub fn encode(path: &Path) -> String {
     match path.to_str() {
         Some(text) if !text.starts_with(PREFIX) => text.to_owned(),
@@ -22,7 +27,8 @@ pub fn encode(path: &Path) -> String {
     }
 }
 
-/// `None` if the value is an encoded path that's malformed or from another OS family.
+/// Decodes a stored path. Returns `None` if the value is an encoded path that's
+/// malformed or from another OS family.
 pub fn decode(text: &str) -> Option<PathBuf> {
     let Some(rest) = text.strip_prefix(PREFIX) else {
         return Some(PathBuf::from(text));
@@ -34,7 +40,11 @@ pub fn decode(text: &str) -> Option<PathBuf> {
 #[cfg(windows)]
 fn hex_os(s: &std::ffi::OsStr) -> String {
     use std::os::windows::ffi::OsStrExt;
-    s.encode_wide().map(|unit| format!("{unit:04x}")).collect()
+    s.encode_wide().fold(String::new(), |mut out, unit| {
+        // Writing to a `String` can't fail.
+        let _ = write!(out, "{unit:04x}");
+        out
+    })
 }
 
 #[cfg(windows)]
@@ -53,7 +63,11 @@ fn unhex_os(hex: &str) -> Option<OsString> {
 #[cfg(not(windows))]
 fn hex_os(s: &std::ffi::OsStr) -> String {
     use std::os::unix::ffi::OsStrExt;
-    s.as_bytes().iter().map(|b| format!("{b:02x}")).collect()
+    s.as_bytes().iter().fold(String::new(), |mut out, b| {
+        // Writing to a `String` can't fail.
+        let _ = write!(out, "{b:02x}");
+        out
+    })
 }
 
 #[cfg(not(windows))]
@@ -75,12 +89,14 @@ fn unhex_os(hex: &str) -> Option<OsString> {
 pub mod list {
     use serde::{Deserialize, Deserializer, Serializer};
 
-    use super::{PathBuf, encode, decode};
+    use super::{PathBuf, decode, encode};
 
+    /// Writes the paths as a list of encoded strings.
     pub fn serialize<S: Serializer>(paths: &[PathBuf], serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(paths.iter().map(|path| encode(path)))
     }
 
+    /// Reads a list of encoded strings, dropping entries that can't be decoded.
     pub fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Vec<PathBuf>, D::Error> {
