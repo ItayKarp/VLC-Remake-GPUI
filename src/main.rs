@@ -4,6 +4,8 @@
 mod app;
 mod assets;
 mod diagnostics;
+#[allow(dead_code, reason = "the S1.2 engine; the player screen (S2) is its first caller")]
+mod engine;
 mod keymap;
 mod logging;
 mod main_window;
@@ -22,6 +24,8 @@ use crate::app::instance::{self, Role};
 use crate::app::request::Launch;
 
 fn main() {
+    // SAFETY: nothing else runs yet, so no thread can read the environment meanwhile.
+    unsafe { engine::prepare_environment() };
     diagnostics::init();
     let launch = Launch::from_env();
     let (inbox, receiver) = instance::inbox();

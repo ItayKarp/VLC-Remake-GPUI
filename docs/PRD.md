@@ -444,13 +444,13 @@ flowchart LR
 **Depends on:** S1.1  **Size:** L
 
 **Subtasks**
-- [ ] S1.2.1 `Player` GPUI entity that owns the backend. Commands: `open`, `play`, `pause`, `toggle`, `stop`, `seek(absolute | relative | fraction)`, `frame_step(±1)`, `set_rate`, `set_volume`, `set_mute`, `select_track`, `set_audio_delay`, `set_subtitle_delay`.
-- [ ] S1.2.2 States: `Idle → Opening → Buffering ⇄ Playing ⇄ Paused → Ended | Stopped | Error(kind)`. Document the allowed transitions and test every edge in the graph.
-- [ ] S1.2.3 Events: `StateChanged`, `PositionChanged` (throttled to about 15 Hz for the UI), `DurationChanged`, `SeekableChanged`, `PausableChanged`, `TracksChanged`, `Buffering(%)`, `VideoSizeChanged`, `ChaptersChanged`, `MetadataChanged`, `EndReached`, `Error`.
-- [ ] S1.2.4 Threading: backend callbacks run on backend threads. Send them through a channel to the GPUI foreground executor, and never call back into libVLC from inside a libVLC event callback (documented deadlock).
-- [ ] S1.2.5 Coalesce commands: rapid seeks (dragging the seek bar, holding an arrow key) keep only the latest target; frame stepping queues up to N steps.
-- [ ] S1.2.6 Shutdown: stop and release with a timeout (about 2 s), so a hung network stream never blocks quitting.
-- [ ] S1.2.7 A mock backend behind the same interface, so the UI and state machine can be tested without media files.
+- [x] S1.2.1 `Player` GPUI entity that owns the backend. Commands: `open`, `play`, `pause`, `toggle`, `stop`, `seek(absolute | relative | fraction)`, `frame_step(±1)`, `set_rate`, `set_volume`, `set_mute`, `select_track`, `set_audio_delay`, `set_subtitle_delay`. *(`src/engine/player.rs`. The backend is `engine::libvlc::LibVlcBackend`; `engine::default_backend` falls back to one that fails every open with `BackendUnavailable` when libVLC can't load. Video goes to libVLC's dummy output until S1.4. Not yet used by any screen.)*
+- [x] S1.2.2 States: `Idle → Opening → Buffering ⇄ Playing ⇄ Paused → Ended | Stopped | Error(kind)`. Document the allowed transitions and test every edge in the graph. *(`src/engine/state.rs` documents the graph; a test checks every pair of states against it.)*
+- [x] S1.2.3 Events: `StateChanged`, `PositionChanged` (throttled to about 15 Hz for the UI), `DurationChanged`, `SeekableChanged`, `PausableChanged`, `TracksChanged`, `Buffering(%)`, `VideoSizeChanged`, `ChaptersChanged`, `MetadataChanged`, `EndReached`, `Error`. *(`PlayerEvent`. Tracks, chapters and metadata events carry no payload; read them from the player.)*
+- [x] S1.2.4 Threading: backend callbacks run on backend threads. Send them through a channel to the GPUI foreground executor, and never call back into libVLC from inside a libVLC event callback (documented deadlock). *(The libVLC callback only forwards; a worker thread owns every libVLC handle and makes every call, so `stop` on a hung stream never blocks the UI. libVLC 3 has no seek-done event: a seek completes at the next time report, or after 300 ms.)*
+- [x] S1.2.5 Coalesce commands: rapid seeks (dragging the seek bar, holding an arrow key) keep only the latest target; frame stepping queues up to N steps. *(`src/engine/coalesce.rs`; N is 8.)*
+- [x] S1.2.6 Shutdown: stop and release with a timeout (about 2 s), so a hung network stream never blocks quitting. *(`src/engine/shutdown.rs`, run on app quit.)*
+- [x] S1.2.7 A mock backend behind the same interface, so the UI and state machine can be tested without media files. *(`src/engine/mock.rs`. The libVLC backend has smoke tests against the S1.1 media, ignored by default; run on macOS only so far.)*
 
 **Edge cases**
 - `open` while another open is in progress: cancel the first and ignore its late events (tag every event with an open generation id).
