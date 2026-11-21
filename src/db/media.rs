@@ -1,6 +1,10 @@
 //! The `media` table (S1.7.1): one row per media identity, with where it was last seen and what
 //! the player remembers about it. How a file finds its row is `history::resolve`'s job; this
 //! module only reads and writes rows.
+//!
+//! Since S4.1 a row is also the library's media: [`metadata`](super::metadata) writes its tags,
+//! and [`files`](super::files) point at it. Clearing the history forgets what was played, not
+//! what the library holds.
 
 use std::time::Duration;
 
@@ -99,8 +103,9 @@ pub fn find_identity(connection: &Connection, identity: &str) -> rusqlite::Resul
 pub fn insert(connection: &Connection, entry: &Entry) -> rusqlite::Result<MediaId> {
     let (size, modified_ms) = stamp_columns(entry.stamp);
     connection.execute(
-        "INSERT INTO media (identity, location, size, modified_ms) VALUES (?1, ?2, ?3, ?4)",
-        params![entry.identity, entry.location, size, modified_ms],
+        "INSERT INTO media (identity, location, size, modified_ms, added_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![entry.identity, entry.location, size, modified_ms, super::now_ms()],
     )?;
     Ok(MediaId(connection.last_insert_rowid()))
 }
@@ -136,10 +141,14 @@ pub fn saved(connection: &Connection, id: MediaId) -> rusqlite::Result<Saved> {
     )
 }
 
-/// Counts a play of row `id`, at `now_ms`.
+/// Counts a play of row `id`, at `now_ms`, and keeps it in `plays` for Home (S4.9).
 pub fn record_play(connection: &Connection, id: MediaId, now_ms: i64) -> rusqlite::Result<()> {
     connection.execute(
         "UPDATE media SET play_count = play_count + 1, last_played_ms = ?2 WHERE id = ?1",
+        params![id.0, now_ms],
+    )?;
+    connection.execute(
+        "INSERT INTO plays (media_id, played_ms) VALUES (?1, ?2)",
         params![id.0, now_ms],
     )?;
     Ok(())
@@ -176,9 +185,20 @@ pub fn set_watched(connection: &Connection, id: MediaId, watched: bool) -> rusql
     Ok(())
 }
 
-/// Forgets every media.
-pub fn clear(connection: &Connection) -> rusqlite::Result<usize> {
-    connection.execute("DELETE FROM media", [])
+/// Forgets what was played: positions, watched marks, plays and visits. Media the library
+/// holds (files point at it) or that is a favorite keeps its row, and with it its tags; the rest
+/// is deleted.
+pub fn clear(connection: &mut Connection) -> rusqlite::Result<()> {
+    let transaction = connection.transaction()?;
+    transaction.execute_batch(
+        "DELETE FROM plays;
+         DELETE FROM visits;
+         DELETE FROM media
+         WHERE id NOT IN (SELECT media_id FROM files WHERE media_id IS NOT NULL)
+             AND id NOT IN (SELECT media_id FROM favorites WHERE media_id IS NOT NULL);
+         UPDATE media SET position_ms = NULL, watched = 0, play_count = 0, last_played_ms = NULL;",
+    )?;
+    transaction.commit()
 }
 
 fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {

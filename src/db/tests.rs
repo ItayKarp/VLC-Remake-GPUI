@@ -1,4 +1,7 @@
-//! Opening, recovering and migrating the database, and the `media` table.
+//! Opening, recovering and migrating the database, and the `media` table. The library's tables
+//! are in [`library`].
+
+mod library;
 
 use std::fs;
 use std::path::PathBuf;
@@ -106,7 +109,8 @@ fn orphans_are_found_last_and_purged_when_old() {
 
     assert_eq!(media::purge_orphans(connection, 1_000).expect("purge"), 0);
     assert_eq!(media::purge_orphans(connection, 1_001).expect("purge"), 1);
-    assert_eq!(media::clear(connection).expect("clear"), 1);
+    media::clear(connection).expect("clear");
+    assert_eq!(media::find_identity(connection, "a").expect("query"), None);
 }
 
 #[test]
@@ -118,14 +122,38 @@ fn a_database_from_every_older_version_is_brought_up_to_date() {
             connection.execute_batch(sql).expect("an older schema");
         }
         connection.pragma_update(None, "user_version", version).expect("set version");
-        media::insert(&connection, &entry("a")).expect("an older row");
+        connection
+            .execute(
+                "INSERT INTO media (identity, location, play_count, last_played_ms)
+                 VALUES ('a', '/m/a', 2, 500)",
+                [],
+            )
+            .expect("an older row");
         drop(connection);
 
         let mut database = Database::open(&path);
         let migrated = migrations::version(database.connection()).map_err(|e| e.to_string());
         assert_eq!(migrated, Ok(CURRENT_VERSION), "from version {version}");
-        assert!(media::find_identity(database.connection(), "a").expect("query").is_some());
+        let id = media::find_identity(database.connection(), "a").expect("query").expect("kept");
+        assert_eq!(media::saved(database.connection(), id).expect("saved").play_count, 2);
+        if version < 3 {
+            assert_migrated_to_the_library(database.connection(), id);
+        }
         let playlist = Stored { title: "Mix".into(), ..Stored::default() };
         playlists::insert(database.connection(), None, &playlist, 1).expect("the new tables");
     }
+}
+
+/// What migration 3 makes of a row from before the library: added when last played, its plays
+/// kept for Listen Again, not probed yet.
+fn assert_migrated_to_the_library(connection: &rusqlite::Connection, id: media::MediaId) {
+    let (added, kind, plays): (i64, String, i64) = connection
+        .query_row(
+            "SELECT added_ms, kind, (SELECT COUNT(*) FROM plays WHERE media_id = id)
+             FROM media WHERE id = ?1",
+            [id.0],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("library columns");
+    assert_eq!((added, kind.as_str(), plays), (500, "unknown", 1));
 }

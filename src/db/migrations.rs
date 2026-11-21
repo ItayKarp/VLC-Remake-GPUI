@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
-pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS];
+pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS, LIBRARY];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "
@@ -50,6 +50,116 @@ const PLAYLISTS: &str = "
         -- A stored path or a URL, as `media.location`.
         location TEXT NOT NULL,
         PRIMARY KEY (playlist_id, position)
+    );
+";
+
+/// Version 3 (S4.1): the library around the history and the playlists.
+///
+/// - A folder is one row however many roots reach it (nested roots share their folders), and a
+///   file is one row per path. Files point at `media` by identity, so the same file reached
+///   through two roots or a symlink is one media row shown in both trees.
+/// - `key` columns hold a path's comparison key (`library::path_key`), which folds case and
+///   Unicode normalization the way the root's file system does; `path` and `name` keep the
+///   original, as `settings::stored_path` writes it, for opening.
+/// - Plays already counted in `media` become one `plays` row at their last play, so Listen Again
+///   isn't empty after the upgrade.
+const LIBRARY: &str = "
+    CREATE TABLE folders (
+        id INTEGER PRIMARY KEY,
+        -- NULL for a root's top folder, or once the folder above was removed with its root.
+        parent_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
+        path TEXT NOT NULL,
+        key TEXT NOT NULL UNIQUE
+    );
+    CREATE INDEX folders_parent ON folders (parent_id);
+    CREATE TABLE roots (
+        id INTEGER PRIMARY KEY,
+        folder_id INTEGER NOT NULL UNIQUE REFERENCES folders (id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('video', 'music', 'mixed')),
+        status TEXT NOT NULL DEFAULT 'ok'
+            CHECK (status IN ('ok', 'missing', 'permission_denied', 'slow')),
+        case_sensitive INTEGER NOT NULL,
+        added_ms INTEGER NOT NULL,
+        scanned_ms INTEGER
+    );
+    CREATE TABLE artwork (
+        id INTEGER PRIMARY KEY,
+        -- The image's key in the cache dir.
+        cache_key TEXT NOT NULL UNIQUE,
+        source TEXT NOT NULL CHECK (source IN ('embedded', 'folder', 'online'))
+    );
+    ALTER TABLE media ADD COLUMN kind TEXT NOT NULL DEFAULT 'unknown'
+        CHECK (kind IN ('unknown', 'video', 'audio'));
+    ALTER TABLE media ADD COLUMN title TEXT;
+    ALTER TABLE media ADD COLUMN artist TEXT;
+    ALTER TABLE media ADD COLUMN album TEXT;
+    ALTER TABLE media ADD COLUMN album_artist TEXT;
+    ALTER TABLE media ADD COLUMN track_number INTEGER;
+    ALTER TABLE media ADD COLUMN disc_number INTEGER;
+    ALTER TABLE media ADD COLUMN genre TEXT;
+    ALTER TABLE media ADD COLUMN year INTEGER;
+    ALTER TABLE media ADD COLUMN added_ms INTEGER NOT NULL DEFAULT 0;
+    -- What the codecs are, for display: `H.264 / AAC`.
+    ALTER TABLE media ADD COLUMN codecs TEXT;
+    ALTER TABLE media ADD COLUMN width INTEGER;
+    ALTER TABLE media ADD COLUMN height INTEGER;
+    -- Has artwork when set.
+    ALTER TABLE media ADD COLUMN artwork_id INTEGER REFERENCES artwork (id) ON DELETE SET NULL;
+    UPDATE media SET added_ms = COALESCE(last_played_ms, 0);
+    CREATE TABLE files (
+        id INTEGER PRIMARY KEY,
+        folder_id INTEGER NOT NULL REFERENCES folders (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        key TEXT NOT NULL,
+        -- NULL until the file is identified, or after its media row was purged.
+        media_id INTEGER REFERENCES media (id) ON DELETE SET NULL,
+        size INTEGER NOT NULL,
+        modified_ms INTEGER,
+        UNIQUE (folder_id, key)
+    );
+    CREATE INDEX files_media ON files (media_id);
+    CREATE TABLE thumbnails (
+        media_id INTEGER NOT NULL REFERENCES media (id) ON DELETE CASCADE,
+        size_class TEXT NOT NULL CHECK (size_class IN ('list', 'grid')),
+        -- 1, or 2 for HiDPI.
+        scale INTEGER NOT NULL,
+        cache_key TEXT NOT NULL,
+        created_ms INTEGER NOT NULL,
+        PRIMARY KEY (media_id, size_class, scale)
+    );
+    CREATE TABLE favorites (
+        id INTEGER PRIMARY KEY,
+        media_id INTEGER UNIQUE REFERENCES media (id) ON DELETE CASCADE,
+        playlist_id INTEGER UNIQUE REFERENCES playlists (id) ON DELETE CASCADE,
+        added_ms INTEGER NOT NULL,
+        CHECK ((media_id IS NULL) != (playlist_id IS NULL))
+    );
+    CREATE TABLE visits (
+        id INTEGER PRIMARY KEY,
+        folder_id INTEGER UNIQUE REFERENCES folders (id) ON DELETE CASCADE,
+        playlist_id INTEGER UNIQUE REFERENCES playlists (id) ON DELETE CASCADE,
+        count INTEGER NOT NULL,
+        last_visited_ms INTEGER NOT NULL,
+        CHECK ((folder_id IS NULL) != (playlist_id IS NULL))
+    );
+    CREATE TABLE plays (
+        id INTEGER PRIMARY KEY,
+        media_id INTEGER NOT NULL REFERENCES media (id) ON DELETE CASCADE,
+        played_ms INTEGER NOT NULL
+    );
+    CREATE INDEX plays_media ON plays (media_id, played_ms);
+    CREATE INDEX plays_time ON plays (played_ms);
+    INSERT INTO plays (media_id, played_ms)
+        SELECT id, last_played_ms FROM media WHERE play_count > 0 AND last_played_ms IS NOT NULL;
+    CREATE TABLE network_streams (
+        id INTEGER PRIMARY KEY,
+        url TEXT NOT NULL,
+        title TEXT,
+        -- `recent`, `podcasts`, `radio`…: which categories exist is decided with S4.11.3.
+        category TEXT NOT NULL,
+        added_ms INTEGER NOT NULL,
+        last_played_ms INTEGER,
+        UNIQUE (category, url)
     );
 ";
 

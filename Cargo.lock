@@ -15,6 +15,7 @@ dependencies = [
  "gpui_wgpu",
  "icns",
  "ico",
+ "icu_normalizer",
  "image",
  "interprocess",
  "libc",

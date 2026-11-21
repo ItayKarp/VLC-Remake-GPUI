@@ -10,6 +10,8 @@ mod diagnostics;
 mod engine;
 mod history;
 mod keymap;
+#[allow(dead_code, reason = "the library's model (S4.1); the indexer (S4.2) is its first caller")]
+mod library;
 mod logging;
 mod main_window;
 mod onboarding;

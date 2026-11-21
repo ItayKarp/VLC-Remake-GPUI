@@ -1,5 +1,7 @@
 //! The local SQLite database (S1.7.1): `library.db` in the data dir, holding the playback history
-//! ([`media`]), saved playlists ([`playlists`]) and, from Stage 4, the library.
+//! ([`media`]), saved playlists ([`playlists`]) and the library (S4.1): its media folders and
+//! their files ([`roots`], [`folders`], [`files`]), what is known about each media ([`metadata`]), and
+//! plays, visits and favorites ([`activity`]).
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -10,11 +12,22 @@
 //!
 //! Every call blocks on disk: use the database from a background thread only.
 
+#[allow(dead_code, reason = "the library's tables (S4.1); Home (S4.9) and the views use them")]
+pub mod activity;
+#[allow(dead_code, reason = "the library's tables (S4.1); the indexer (S4.2) fills them")]
+pub mod files;
+#[allow(dead_code, reason = "the library's tables (S4.1); the indexer (S4.2) fills them")]
+pub mod folders;
 pub mod media;
+#[allow(dead_code, reason = "the library's tables (S4.1); metadata extraction (S4.3) fills it")]
+pub mod metadata;
 mod migrations;
 pub mod playlists;
+#[allow(dead_code, reason = "the library's tables (S4.1); the indexer (S4.2) fills them")]
+pub mod roots;
 #[cfg(test)]
 mod tests;
+mod text_enum;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -90,6 +103,7 @@ fn open_file(path: &Path) -> Result<Connection, Unusable> {
     connection.pragma_update(None, "journal_mode", "WAL").map_err(|error| classify(&error))?;
     // With WAL, NORMAL survives an app crash; only a power cut can lose the last commit.
     connection.pragma_update(None, "synchronous", "NORMAL").map_err(|error| classify(&error))?;
+    enforce_foreign_keys(&connection)?;
     check_integrity(&connection)?;
     migrations::run(&mut connection)?;
     Ok(connection)
@@ -97,8 +111,16 @@ fn open_file(path: &Path) -> Result<Connection, Unusable> {
 
 fn open_in_memory() -> Result<Connection, Unusable> {
     let mut connection = Connection::open_in_memory().map_err(|error| classify(&error))?;
+    enforce_foreign_keys(&connection)?;
     migrations::run(&mut connection)?;
     Ok(connection)
+}
+
+/// Turns on what the library's `REFERENCES` clauses promise: deleting a folder takes its files
+/// with it, and deleting a media row its plays. SQLite leaves this off unless asked, per
+/// connection.
+fn enforce_foreign_keys(connection: &Connection) -> Result<(), Unusable> {
+    connection.pragma_update(None, "foreign_keys", true).map_err(|error| classify(&error))
 }
 
 /// `PRAGMA integrity_check` says `ok`, or lists what is wrong.

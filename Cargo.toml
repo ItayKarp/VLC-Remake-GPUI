@@ -43,6 +43,9 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 # needed. xxh3 hashes the head and tail of a file to recognize it after a move (S1.7.2).
 rusqlite = { version = "0.43", features = ["bundled"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+# Library path keys (S4.1): macOS file names are NFD, typed and dialog paths often NFC. Already
+# built for `url`, so it adds nothing to compile.
+icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 
 # Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
 # primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must
