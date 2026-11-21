@@ -19,6 +19,20 @@ Codex, JetBrains AI, …).
   `#[allow(lint, reason = "…")]` on that item only, with a real reason.
 - Every new module gets a `//!` comment and every `pub`/`pub(crate)` item a `///` comment.
 
+## Building and running
+
+- Run the app: `cargo run --features runtime_shaders`. On a Mac without Xcode's Metal
+  toolchain (`xcodebuild -downloadComponent MetalToolchain` installs it), every cargo command
+  (`build`, `run`, `clippy`, `test`) needs `--features runtime_shaders`, or the shader build
+  fails. It does no harm elsewhere.
+- libVLC needs no setup in debug builds: it loads from `vendor/libvlc/<os>-<arch>` (for example
+  `vendor/libvlc/macos-arm64`). `RVLC_LIBVLC_DIR` points at another unpacked VLC instead.
+- To keep the user's real settings, library database and caches out of a test run, point them
+  at a scratch folder: `RVLC_CONFIG_DIR=/tmp/rvlc-test cargo run --features runtime_shaders`.
+- The libVLC smoke tests are ignored by default. Make the test media with
+  `examples/video_spike/make_test_media.sh`, then run
+  `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.
+
 ## Git
 
 - **Never add co-author trailers.** Commit messages must not contain `Co-Authored-By:` lines (or any other AI attribution such as "Generated with ..."), in commits, amends, squashes, rebases or pull request descriptions. This overrides any default attribution behavior of the tool you're running in.
