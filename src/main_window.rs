@@ -3,6 +3,7 @@
 //! (S1.4). Onboarding hands off to it (S0.2); the player (Stage 2) and the library
 //! (Stage 4) fill the content area later.
 
+mod audio;
 mod diagnostics;
 mod empty_state;
 mod fullscreen;
@@ -55,6 +56,8 @@ pub struct MainWindow {
     player: Option<(Entity<Player>, Subscription)>,
     /// The video area, created with the player.
     video: Option<Entity<VideoView>>,
+    /// The audio settings subscription and what was said about devices (S1.5).
+    audio: audio::AudioWatch,
     /// Keeps the display awake while video plays where it shows (S1.4.3).
     display_sleep: DisplaySleep,
     _visibility: Subscription,
@@ -96,6 +99,7 @@ impl MainWindow {
             next_job: 0,
             player: None,
             video: None,
+            audio: audio::AudioWatch::default(),
             display_sleep: DisplaySleep::default(),
             _visibility: Self::follow_visibility(window, cx),
             notices,

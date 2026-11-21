@@ -45,8 +45,12 @@ impl Default for Rate {
     }
 }
 
-/// The loudest volume offered: 200%, as in VLC.
-pub const MAX_VOLUME: f32 = 2.0;
+/// The loudest volume the "Maximum volume" setting can allow: 300%.
+pub const MAX_VOLUME: f32 = 3.0;
+/// The "Maximum volume" setting's default: 200%, as in VLC.
+pub const DEFAULT_MAX_VOLUME: Volume = Volume(2.0);
+/// The lowest "Maximum volume" setting: 100%, the media's own level.
+pub const MIN_MAX_VOLUME: Volume = Volume::FULL;
 
 /// An output volume from silent (0.0) through 100% (1.0) to [`MAX_VOLUME`].
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -61,10 +65,42 @@ impl Volume {
         if value.is_nan() { Self(0.0) } else { Self(value.clamp(0.0, MAX_VOLUME)) }
     }
 
+    /// The volume `percent`%, clamped into range.
+    pub fn from_percent(percent: u32) -> Self {
+        Self::new(percent as f32 / 100.0)
+    }
+
     /// The level, where 1.0 is 100%.
     pub fn get(self) -> f32 {
         self.0
     }
+
+    /// The level in whole percent, rounded.
+    pub fn as_percent(self) -> u32 {
+        (self.0 * 100.0).round() as u32
+    }
+
+    /// The quieter of the two.
+    pub fn min(self, other: Self) -> Self {
+        if other.0 < self.0 { other } else { self }
+    }
+
+    /// This volume raised or lowered by `step`, staying in range.
+    pub fn stepped(self, change: VolumeChange, step: Self) -> Self {
+        match change {
+            VolumeChange::Up => Self::new(self.0 + step.0),
+            VolumeChange::Down => Self::new(self.0 - step.0),
+        }
+    }
+}
+
+/// Which way a volume step goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum VolumeChange {
+    /// Louder.
+    Up,
+    /// Quieter.
+    Down,
 }
 
 impl Default for Volume {
@@ -136,6 +172,23 @@ mod tests {
         assert_eq!(Volume::new(-1.0), Volume::new(0.0));
         assert_eq!(Volume::new(9.0), Volume::new(MAX_VOLUME));
         assert_eq!(Volume::new(f32::NAN), Volume::new(0.0));
+    }
+
+    #[test]
+    fn volumes_convert_and_step() {
+        assert_eq!(Volume::from_percent(150), Volume::new(1.5));
+        assert_eq!(Volume::new(1.234).as_percent(), 123);
+        assert_eq!(
+            Volume::from_percent(98)
+                .stepped(VolumeChange::Up, Volume::from_percent(5))
+                .as_percent(),
+            103
+        );
+        assert_eq!(
+            Volume::from_percent(3).stepped(VolumeChange::Down, Volume::from_percent(5)),
+            Volume::new(0.0)
+        );
+        assert_eq!(Volume::FULL.min(DEFAULT_MAX_VOLUME), Volume::FULL);
     }
 
     #[test]

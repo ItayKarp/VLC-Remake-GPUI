@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, EventSender};
 use super::media_info::{TrackId, TrackKind};
 use super::state::{ErrorKind, PlaybackState};
@@ -50,6 +51,10 @@ impl Backend for UnavailableBackend {
     fn set_subtitle_delay(&mut self, _: Offset) {}
 
     fn add_subtitle(&mut self, _: &Path) {}
+
+    fn set_audio_device(&mut self, _: &OutputDevice) {}
+
+    fn set_speaker_setup(&mut self, _: SpeakerSetup) {}
 
     fn shut_down(self: Box<Self>) {}
 }

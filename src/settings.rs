@@ -28,7 +28,9 @@ pub use paths::{Locations, default_media_folder, display_path};
     unused_imports,
     reason = "part of the settings API; some types are named only by tests and later stages"
 )]
-pub use schema::{LocalState, Preferences, Settings, WindowGeometry, WindowMode};
+pub use schema::{
+    AudioSettings, LocalState, Preferences, Settings, StartupVolume, WindowGeometry, WindowMode,
+};
 pub use store::Notice;
 use store::SettingsState;
 

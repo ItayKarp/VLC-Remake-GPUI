@@ -32,13 +32,15 @@ struct Stream {
 
 impl Worker {
     /// Reads `what` again and sends it to the player.
-    pub(super) fn refresh(&self, what: Refresh) {
+    pub(super) fn refresh(&mut self, what: Refresh) {
         match what {
             Refresh::Tracks => self.send_tracks(),
             Refresh::Chapters => self.send_chapters(),
             Refresh::Metadata => self.send_metadata(),
+            Refresh::AudioDevices => self.poll_devices(),
             Refresh::Everything => {
                 self.apply_delays();
+                self.apply_speaker_setup();
                 self.send_tracks();
                 self.send_chapters();
                 self.send_metadata();

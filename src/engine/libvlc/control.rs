@@ -54,6 +54,8 @@ impl Worker {
                     self.apply_delays();
                 }
                 Command::AddSubtitle(path) => self.add_subtitle(&path),
+                Command::SetAudioDevice(device) => self.set_audio_device(&device),
+                Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
             }
         }
     }

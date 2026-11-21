@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 
 use super::LibVlcBackend;
 use crate::app::media::Media;
+use crate::engine::audio::AudioConfig;
 use crate::engine::backend::{self, Backend, BackendEvent, EventReceiver, EventSender};
 use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
@@ -85,7 +86,7 @@ fn new_backend(events: EventSender) -> LibVlcBackend {
     // SAFETY: these tests are run one at a time (`--test-threads 1`, as the module comment
     // says), so no other thread reads the environment meanwhile.
     unsafe { super::runtime::prepare_environment() };
-    LibVlcBackend::new(events, None).expect("libVLC loads")
+    LibVlcBackend::new(events, None, AudioConfig::default()).expect("libVLC loads")
 }
 
 fn media(name: &str) -> PathBuf {
@@ -161,4 +162,29 @@ fn a_file_that_is_not_media_fails() {
     let expected = [ErrorKind::OpenFailed, ErrorKind::NoPlayableStreams, ErrorKind::Corrupt];
     assert!(expected.iter().any(|kind| failed == BackendEvent::State(PlaybackState::Error(*kind))));
     session.finish();
+}
+
+#[test]
+#[ignore = "needs libVLC"]
+fn the_device_list_arrives_without_media_even_with_passthrough() {
+    let (events, mut receiver) = backend::channel();
+    // SAFETY: run one at a time, as above.
+    unsafe { super::runtime::prepare_environment() };
+    let audio = AudioConfig { passthrough: true };
+    let backend = Box::new(LibVlcBackend::new(events, None, audio).expect("libVLC loads"));
+    let deadline = Instant::now() + PATIENCE;
+    let devices = loop {
+        assert!(Instant::now() < deadline, "no device list");
+        match receiver.try_recv() {
+            Ok(tagged) => {
+                if let BackendEvent::AudioDevices(devices) = tagged.event {
+                    break devices;
+                }
+            }
+            Err(_) => thread::sleep(Duration::from_millis(5)),
+        }
+    };
+    // The system default is a choice of its own, never listed as a device.
+    assert!(devices.iter().all(|device| !device.id.is_empty() && device.id != "0"));
+    assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
 }

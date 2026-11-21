@@ -523,21 +523,21 @@ flowchart LR
 **Depends on:** S1.2  **Size:** M  **Design refs:** `docs/ui/player/controls/volume/*`, `docs/icons/volume/*`
 
 **Subtasks**
-- [ ] S1.5.1 Volume from 0 to the **Maximum volume** setting (100–300%, default 200%, per Settings → Audio), mute toggle, volume step from settings.
-- [ ] S1.5.2 **Startup volume** as designed: "Remember last volume" or "Always starts at N%". Recommendation: even in "Remember last volume" mode, restore at most 100% on launch, so a 200% boost doesn't blast the next session's first video.
-- [ ] S1.5.3 Choose the output device, or "System default", which follows OS default changes live.
-- [ ] S1.5.4 Hot-plug: when the active device disappears (Bluetooth headphones off, USB DAC unplugged), switch to the system default. Optionally pause on headphone disconnect (a setting, on by default on laptops).
-- [ ] S1.5.5 Downmix multichannel (5.1/7.1) to stereo when the device is stereo ("Speaker setup: Automatic" in Settings → Audio); passthrough (AC3/DTS over HDMI or S/PDIF) is an advanced setting.
-- [ ] S1.5.6 "Pause when another app uses audio" (Settings → Playback): implement where the OS can report it (see the S5.7 edge cases).
+- [x] S1.5.1 Volume from 0 to the **Maximum volume** setting (100–300%, default 200%, per Settings → Audio), mute toggle, volume step from settings. *(`engine/player/audio.rs`: `set_volume` caps at `max_volume`, lowering the maximum brings a louder volume down at once, `step_volume`, `toggle_mute`, and `PlayerEvent::VolumeChanged`. Settings in `settings/schema/audio.rs` (`prefs.audio`), applied by `main_window/audio.rs`, which follows changes live. Up/Down step by `volume_step_percent` (default 5%) once something was opened. Changing the volume unmutes, as in VLC. libVLC takes up to 300%, checked on macOS.)*
+- [x] S1.5.2 **Startup volume** as designed: "Remember last volume" or "Always starts at N%". Recommendation: even in "Remember last volume" mode, restore at most 100% on launch, so a 200% boost doesn't blast the next session's first video. *(`prefs.audio.startup_volume` (`remember_last` or `fixed`, with `startup_volume_percent`); the last volume is kept in `local.toml` (`audio.last_volume_percent`) and restored at most 100% (D21); either is capped at the maximum.)*
+- [x] S1.5.3 Choose the output device, or "System default", which follows OS default changes live. *(`Player::set_audio_device(OutputDevice)`, `audio_devices()`; the choice is `local.audio.output_device` (empty: system default). On macOS libVLC's "System Sound Output Device" (id `0`) follows the OS default; it is never listed as a device. Windows and Linux pass the empty id, not tried yet. No picker until S5.8.)*
+- [x] S1.5.4 Hot-plug: when the active device disappears (Bluetooth headphones off, USB DAC unplugged), switch to the system default. Optionally pause on headphone disconnect (a setting, on by default on laptops). *(libVLC 3 has no hot-plug event, so the worker reads the device list every 2 s (`libvlc/audio.rs`). `engine/audio/hotplug.rs`: a missing chosen device plays through the default, and is used again when it comes back. `prefs.audio.pause_on_device_disconnect` is on by default everywhere, not only on laptops. Through the system default the backend can't tell which device the OS used, so any device disappearing while playing counts. A toast says which device went. Not tried by unplugging yet.)*
+- [x] S1.5.5 Downmix multichannel (5.1/7.1) to stereo when the device is stereo ("Speaker setup: Automatic" in Settings → Audio); passthrough (AC3/DTS over HDMI or S/PDIF) is an advanced setting. *(`SpeakerSetup::Automatic` leaves the layout to libVLC's output, which mixes for the device; `Stereo` forces it with `libvlc_audio_set_channel`, re-applied to each media. `prefs.audio.passthrough` starts libVLC with `--spdif` (plus `--mmdevice-passthrough=1` on Windows) and applies to the next player; libVLC refuses unknown options, so it retries without them. Not checked with a 5.1 file or a receiver.)*
+- [x] S1.5.6 "Pause when another app uses audio" (Settings → Playback): implement where the OS can report it (see the S5.7 edge cases). *(`prefs.player.pause_when_another_app_uses_audio`, on by default: libVLC's Corked event (PulseAudio cork requests, Windows communications ducking) pauses, and Uncorked resumes unless the user paused or played meanwhile. macOS reports nothing, so it never triggers there.)*
 
 **Edge cases**
-- No audio device at all (VMs, headless, or every device disabled): video plays silently with a "No audio device" indicator, never an error loop.
+- No audio device at all (VMs, headless, or every device disabled): video plays silently with a "No audio device" indicator, never an error loop. *(A toast once per absence; `Player::has_no_audio_device` for S2.5's slider.)*
 - Exclusive mode held by another app (Windows WASAPI exclusive): fall back to another device or play silently, with a notice.
 - Sample rate or channel layout changes mid-stream (TV recordings): no crash or pop, re-open the output.
 - Bluetooth latency of 150–300 ms causes visible lip-sync error: expose audio delay (S6) and, if the backend reports latency, compensate automatically.
 - Volume above 100% clips: show the boost range in a different color as the design does, and consider a limiter.
 - The OS mixer volume differs from the in-app volume: never change the OS volume.
-- Volume changes while muted: unmute (VLC behavior) or keep muted; pick one and match the volume popover design.
+- Volume changes while muted: unmute (VLC behavior) or keep muted; pick one and match the volume popover design. *(Unmutes.)*
 
 ---
 

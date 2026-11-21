@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
+use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::media_info::{TrackId, TrackKind, Tracks};
 use super::state::PlaybackState;
@@ -209,6 +210,14 @@ impl Backend for MockBackend {
 
     fn add_subtitle(&mut self, path: &Path) {
         self.record(Command::AddSubtitle(path.to_path_buf()));
+    }
+
+    fn set_audio_device(&mut self, device: &OutputDevice) {
+        self.record(Command::SetAudioDevice(device.clone()));
+    }
+
+    fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
+        self.record(Command::SetSpeakerSetup(setup));
     }
 
     fn shut_down(self: Box<Self>) {

@@ -1,6 +1,7 @@
 //! The [`Player`] GPUI entity (S1.2.1): owns a backend, runs the playback state machine, and
 //! turns backend events into [`PlayerEvent`]s for the UI.
 
+mod audio;
 mod commands;
 mod receive;
 
@@ -9,6 +10,8 @@ use std::time::Duration;
 use futures::StreamExt as _;
 use gpui::{AsyncApp, Context, EventEmitter, Subscription, Task, WeakEntity};
 
+use self::audio::AudioState;
+use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::media_info::{Chapter, Metadata, Tracks, VideoSize};
@@ -46,6 +49,13 @@ pub enum PlayerEvent {
     EndReached,
     /// Playback failed. Sent right after `StateChanged(Error(kind))`.
     Error(ErrorKind),
+    /// The volume or mute changed; see [`Player::volume`] and [`Player::is_muted`].
+    VolumeChanged,
+    /// The output devices changed; see [`Player::audio_devices`].
+    AudioDevicesChanged,
+    /// The device sound went to disappeared; sound moved to the system default (and playback
+    /// paused, if the policy says so).
+    AudioDeviceLost(AudioDevice),
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -88,6 +98,7 @@ pub struct Player {
     media: Option<Media>,
     controls: Controls,
     info: Info,
+    audio: AudioState,
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
@@ -113,6 +124,7 @@ impl Player {
             media: None,
             controls: Controls::default(),
             info: Info::default(),
+            audio: AudioState::default(),
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),

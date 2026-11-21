@@ -122,6 +122,14 @@ pub struct ChapterDescription {
     pub name: *mut c_char,
 }
 
+/// `libvlc_audio_output_device_t`: one node of a linked list of output devices.
+#[repr(C)]
+pub struct AudioOutputDevice {
+    pub next: *mut AudioOutputDevice,
+    pub device: *mut c_char,
+    pub description: *mut c_char,
+}
+
 type Player = *mut MediaPlayer;
 
 /// Declares [`Api`] with one function pointer per libVLC symbol, named exactly as in C.
@@ -197,6 +205,10 @@ libvlc_api! {
     libvlc_video_set_spu_delay: fn(Player, i64) -> c_int;
     libvlc_media_player_add_slave: fn(Player, c_int, *const c_char, bool) -> c_int;
     libvlc_track_description_list_release: fn(*mut TrackDescription);
+    libvlc_audio_output_device_enum: fn(Player) -> *mut AudioOutputDevice;
+    libvlc_audio_output_device_list_release: fn(*mut AudioOutputDevice);
+    libvlc_audio_output_device_set: fn(Player, *const c_char, *const c_char);
+    libvlc_audio_set_channel: fn(Player, c_int) -> c_int;
     libvlc_video_set_callbacks: fn(
         Player,
         LockCallback,

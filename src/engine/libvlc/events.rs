@@ -32,9 +32,12 @@ const SCRAMBLED_CHANGED: i32 = 0x113;
 const ES_ADDED: i32 = 0x114;
 const ES_DELETED: i32 = 0x115;
 const ES_SELECTED: i32 = 0x116;
+const CORKED: i32 = 0x117;
+const UNCORKED: i32 = 0x118;
+const AUDIO_DEVICE: i32 = 0x11C;
 
 /// The media player events the backend listens to.
-pub const PLAYER_EVENTS: [i32; 17] = [
+pub const PLAYER_EVENTS: [i32; 20] = [
     OPENING,
     BUFFERING,
     PLAYING,
@@ -52,6 +55,9 @@ pub const PLAYER_EVENTS: [i32; 17] = [
     ES_ADDED,
     ES_DELETED,
     ES_SELECTED,
+    CORKED,
+    UNCORKED,
+    AUDIO_DEVICE,
 ];
 
 /// A full buffer, in libVLC's `new_cache` percent.
@@ -121,6 +127,9 @@ impl Shared {
                 self.ask_worker(Message::Refresh(Refresh::Tracks));
             }
             MEDIA_META_CHANGED => self.ask_worker(Message::Refresh(Refresh::Metadata)),
+            CORKED => self.send(BackendEvent::Corked(true)),
+            UNCORKED => self.send(BackendEvent::Corked(false)),
+            AUDIO_DEVICE => self.ask_worker(Message::Refresh(Refresh::AudioDevices)),
             _ => {}
         }
     }

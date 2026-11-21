@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use futures::channel::mpsc;
 
+use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::media_info::{Chapter, Metadata, TrackId, TrackKind, Tracks, VideoSize};
 use super::state::PlaybackState;
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
@@ -44,6 +45,20 @@ pub enum BackendEvent {
     SeekCompleted,
     /// The last [`Backend::frame_step`] finished.
     FrameStepped,
+    /// The output devices plugged in now, without the system default; empty when there are
+    /// none. Sent when the list changes, and once at the start.
+    AudioDevices(Vec<AudioDevice>),
+    /// The OS asked for this app's audio to stop (`true`: another app, such as a call, needs
+    /// it) or allowed it again (`false`).
+    Corked(bool),
+}
+
+impl BackendEvent {
+    /// Whether the event is about the open media, so one from an earlier open is stale.
+    /// Device and audio-focus events are about the machine, and always apply.
+    pub fn is_about_media(&self) -> bool {
+        !matches!(self, Self::AudioDevices(_) | Self::Corked(_))
+    }
 }
 
 /// A backend event, labelled with the open it belongs to.
@@ -107,6 +122,10 @@ pub enum Command {
     SetSubtitleDelay(Offset),
     /// Add a subtitle file to the open media and show it.
     AddSubtitle(PathBuf),
+    /// Play through this device.
+    SetAudioDevice(OutputDevice),
+    /// Set up the speakers.
+    SetSpeakerSetup(SpeakerSetup),
 }
 
 /// A playback backend.
@@ -118,6 +137,8 @@ pub enum Command {
 /// - Every [`Self::seek`] is answered by exactly one [`BackendEvent::SeekCompleted`], and every
 ///   [`Self::frame_step`] by one [`BackendEvent::FrameStepped`], unless an open, stop, end or
 ///   error comes first.
+/// - The device list ([`BackendEvent::AudioDevices`]) is reported once soon after creation and
+///   again whenever it changes, whether or not media is open.
 /// - [`Self::shut_down`] may block; the player runs it with a timeout.
 pub trait Backend: Send {
     /// Starts opening `media` and playing it, abandoning whatever was open.
@@ -147,6 +168,10 @@ pub trait Backend: Send {
     /// Adds the subtitle file at `path` to the open media and shows it. Its track appears in a
     /// later [`BackendEvent::Tracks`].
     fn add_subtitle(&mut self, path: &Path);
+    /// Plays through `device` from now on, for this and later media.
+    fn set_audio_device(&mut self, device: &OutputDevice);
+    /// Mixes channels for `setup` from now on, for this and later media.
+    fn set_speaker_setup(&mut self, setup: SpeakerSetup);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

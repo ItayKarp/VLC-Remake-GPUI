@@ -10,9 +10,9 @@ use crate::engine::backend::{BackendEvent, Tagged};
 use crate::engine::state::PlaybackState;
 
 impl Player {
-    /// Handles one event from the backend. Events from an earlier open are dropped.
+    /// Handles one event from the backend. Events about an earlier open's media are dropped.
     pub(super) fn receive(&mut self, tagged: Tagged, cx: &mut Context<Self>) {
-        if tagged.generation != self.generation {
+        if tagged.generation != self.generation && tagged.event.is_about_media() {
             tracing::trace!("engine: dropped a stale {:?}", tagged.event);
             return;
         }
@@ -46,6 +46,8 @@ impl Player {
             }
             BackendEvent::SeekCompleted => self.send_next_seek(),
             BackendEvent::FrameStepped => self.send_next_step(),
+            BackendEvent::AudioDevices(devices) => self.devices_reported(devices, cx),
+            BackendEvent::Corked(corked) => self.corked(corked, cx),
         }
         cx.notify();
     }

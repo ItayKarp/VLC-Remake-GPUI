@@ -10,11 +10,13 @@ use std::sync::{Arc, PoisonError};
 use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
+use super::audio::DeviceWatch;
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
 use super::size_watch::{SIZE_POLL, SizeWatch};
 use super::vmem::Vmem;
 use crate::app::media::Media as Source;
+use crate::engine::audio::SpeakerSetup;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::engine::values::{Generation, Offset};
@@ -34,6 +36,8 @@ pub enum Refresh {
     Metadata,
     /// All of it, once playback started; also re-applies per-media settings.
     Everything,
+    /// The output device list (the output switched devices).
+    AudioDevices,
 }
 
 /// Work for the worker thread.
@@ -76,6 +80,10 @@ pub struct Worker {
     /// Where video goes; `None` decodes and discards it.
     pub(super) video: Option<Arc<Vmem>>,
     pub(super) size_watch: SizeWatch,
+    /// The forced speaker setup, re-applied to each media.
+    pub(super) speaker_setup: SpeakerSetup,
+    /// When the output device list is read next.
+    pub(super) devices: DeviceWatch,
 }
 
 impl Worker {
@@ -96,6 +104,8 @@ impl Worker {
             subtitle_delay: Offset::default(),
             video,
             size_watch: SizeWatch::default(),
+            speaker_setup: SpeakerSetup::Automatic,
+            devices: DeviceWatch::default(),
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -111,29 +121,37 @@ impl Worker {
                 Message::Failed => self.failed(),
                 Message::Shutdown => break,
             }
+            // A steady stream of messages must not starve the device list.
+            self.poll_devices_if_due();
         }
         self.release();
     }
 
     /// The next message. Meanwhile it settles a seek libVLC never confirmed after
-    /// [`SEEK_SETTLE`] without messages, and reads a still-unknown video size every
-    /// [`SIZE_POLL`]. `None` once every sender is gone.
-    fn next_message(&self, inbox: &Receiver<Message>) -> Option<Message> {
+    /// [`SEEK_SETTLE`] without messages, reads a still-unknown video size every [`SIZE_POLL`],
+    /// and reads the device list when due. `None` once every sender is gone.
+    fn next_message(&mut self, inbox: &Receiver<Message>) -> Option<Message> {
         let idle_since = Instant::now();
         loop {
-            let seeking = self.shared.seeking.load(Ordering::Relaxed);
-            let watching = self.size_watch.is_watching(Instant::now());
-            let wait = match (seeking, watching) {
-                (false, false) => return inbox.recv().ok(),
-                (_, true) => SIZE_POLL,
-                (true, false) => SEEK_SETTLE.saturating_sub(idle_since.elapsed()),
-            };
-            match inbox.recv_timeout(wait) {
+            match inbox.recv_timeout(self.idle_wait(idle_since)) {
                 Ok(message) => return Some(message),
                 Err(RecvTimeoutError::Disconnected) => return None,
                 Err(RecvTimeoutError::Timeout) => self.idle(idle_since),
             }
         }
+    }
+
+    /// How long to wait for a message before there is idle work to do.
+    fn idle_wait(&self, idle_since: Instant) -> Duration {
+        let now = Instant::now();
+        let mut wait = self.devices.until_poll(now);
+        if self.size_watch.is_watching(now) {
+            wait = wait.min(SIZE_POLL);
+        }
+        if self.shared.seeking.load(Ordering::Relaxed) {
+            wait = wait.min(SEEK_SETTLE.saturating_sub(idle_since.elapsed()));
+        }
+        wait
     }
 
     /// Replaces the media with `source` and starts playing it as open `generation`.
@@ -181,9 +199,10 @@ impl Worker {
         unsafe { create(self.handles.instance, text.as_ptr()) }
     }
 
-    /// Nothing arrived since `idle_since`: re-reads a still-unknown video size, and settles a
-    /// seek that waited [`SEEK_SETTLE`].
-    fn idle(&self, idle_since: Instant) {
+    /// Nothing arrived since `idle_since`: reads the device list when due, re-reads a
+    /// still-unknown video size, and settles a seek that waited [`SEEK_SETTLE`].
+    fn idle(&mut self, idle_since: Instant) {
+        self.poll_devices_if_due();
         if self.size_watch.is_watching(Instant::now()) {
             self.send_video_size();
         }

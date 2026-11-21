@@ -6,11 +6,13 @@
 //! - [`events`] is the libVLC event callback: it translates and forwards, and never calls libVLC.
 //! - [`failure`] names the cause of an error libVLC reports without one.
 //!
+//! - [`audio`] lists output devices and picks one (S1.5).
 //! - [`vmem`] hands decoded pictures to a [`VideoSink`] (S1.4.1), and [`prepare`] reads a file's
 //!   video geometry before it plays. Without a sink, libVLC's dummy output decodes and discards
 //!   pictures, so libVLC never opens a window of its own.
 
 mod api;
+mod audio;
 mod control;
 mod events;
 mod failure;
@@ -38,6 +40,7 @@ use self::events::Shared;
 use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
+use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
 use super::media_info::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
@@ -75,12 +78,16 @@ pub struct LibVlcBackend {
 }
 
 impl LibVlcBackend {
-    /// Loads libVLC (once per process), creates an instance and a media player, and starts the
-    /// worker thread that will report through `events` and send pictures to `video` (or discard
-    /// them, with `None`).
-    pub fn new(events: EventSender, video: Option<Arc<dyn VideoSink>>) -> Result<Self> {
+    /// Loads libVLC (once per process), creates an instance set up with `audio` and a media
+    /// player, and starts the worker thread that will report through `events` and send
+    /// pictures to `video` (or discard them, with `None`).
+    pub fn new(
+        events: EventSender,
+        video: Option<Arc<dyn VideoSink>>,
+        audio: AudioConfig,
+    ) -> Result<Self> {
         let vlc = library()?;
-        let handles = new_handles(&vlc, video.is_some())?;
+        let handles = new_handles(&vlc, video.is_some(), audio)?;
         let video = video.map(|sink| Arc::new(Vmem::new(sink)));
         if let Some(vmem) = &video {
             vmem::install(&vlc, handles.player, vmem);
@@ -160,6 +167,14 @@ impl Backend for LibVlcBackend {
         self.send(Command::AddSubtitle(path.to_path_buf()));
     }
 
+    fn set_audio_device(&mut self, device: &OutputDevice) {
+        self.send(Command::SetAudioDevice(device.clone()));
+    }
+
+    fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
+        self.send(Command::SetSpeakerSetup(setup));
+    }
+
     fn shut_down(mut self: Box<Self>) {
         let _ = self.worker.send(Message::Shutdown);
         if let Some(thread) = self.thread.take()
@@ -179,22 +194,22 @@ impl Drop for LibVlcBackend {
     }
 }
 
-/// A new libVLC instance with [`ARGUMENTS`] and a media player on it; `with_video` false adds
-/// [`NO_VIDEO_ARGUMENT`].
-fn new_handles(vlc: &LibVlc, with_video: bool) -> Result<Handles> {
-    let extra = (!with_video).then_some(NO_VIDEO_ARGUMENT);
-    let arguments: Vec<CString> = ARGUMENTS
-        .into_iter()
-        .chain(extra)
-        .map(|argument| CString::new(argument).expect("no NUL in constants"))
-        .collect();
-    let pointers: Vec<_> = arguments.iter().map(|argument| argument.as_ptr()).collect();
-    // SAFETY: `pointers` holds NUL-terminated strings that outlive the call.
-    let instance: *mut Instance =
-        unsafe { (vlc.api.libvlc_new)(pointers.len() as i32, pointers.as_ptr()) };
-    if instance.is_null() {
-        bail!("libvlc_new: {}", vlc.last_error());
-    }
+/// A new libVLC instance with [`ARGUMENTS`] and `audio`'s arguments, and a media player on it;
+/// `with_video` false adds [`NO_VIDEO_ARGUMENT`]. An audio argument this libVLC doesn't know
+/// fails the instance, so it is retried without them.
+fn new_handles(vlc: &LibVlc, with_video: bool, audio: AudioConfig) -> Result<Handles> {
+    let video = (!with_video).then_some(NO_VIDEO_ARGUMENT);
+    let base: Vec<&str> = ARGUMENTS.into_iter().chain(video).collect();
+    let audio_arguments = audio::arguments(audio);
+    let instance = if audio_arguments.is_empty() {
+        new_instance(vlc, &base)?
+    } else {
+        let full: Vec<&str> = base.iter().copied().chain(audio_arguments).collect();
+        new_instance(vlc, &full).or_else(|error| {
+            tracing::warn!("libvlc: audio options refused ({error:#}); starting without them");
+            new_instance(vlc, &base)
+        })?
+    };
     // SAFETY: the instance is live.
     let player = unsafe { (vlc.api.libvlc_media_player_new)(instance) };
     if player.is_null() {
@@ -204,4 +219,20 @@ fn new_handles(vlc: &LibVlc, with_video: bool) -> Result<Handles> {
         bail!("libvlc_media_player_new: {error}");
     }
     Ok(Handles { instance, player })
+}
+
+/// A new libVLC instance started with `arguments`.
+fn new_instance(vlc: &LibVlc, arguments: &[&str]) -> Result<*mut Instance> {
+    let arguments: Vec<CString> = arguments
+        .iter()
+        .map(|argument| CString::new(*argument).expect("no NUL in constants"))
+        .collect();
+    let pointers: Vec<_> = arguments.iter().map(|argument| argument.as_ptr()).collect();
+    // SAFETY: `pointers` holds NUL-terminated strings that outlive the call.
+    let instance: *mut Instance =
+        unsafe { (vlc.api.libvlc_new)(pointers.len() as i32, pointers.as_ptr()) };
+    if instance.is_null() {
+        bail!("libvlc_new: {}", vlc.last_error());
+    }
+    Ok(instance)
 }

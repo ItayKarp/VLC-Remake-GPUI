@@ -1,6 +1,8 @@
 //! Player tests against the mock backend: the state machine as the UI sees it, and the S1.2
 //! edge cases.
 
+mod audio;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;

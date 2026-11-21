@@ -11,8 +11,10 @@
 //!   [`ErrorKind::BackendUnavailable`](state::ErrorKind::BackendUnavailable) when libVLC is
 //!   missing.
 //! - [`mock`]: a backend without media, for tests and for building UI without libVLC.
+//! - [`audio`]: output devices, speaker setup and hot-plug routing (S1.5).
 //! - [`video`]: the sink interface decoded pictures are delivered through (S1.4).
 
+pub mod audio;
 pub mod backend;
 mod coalesce;
 pub mod libvlc;
@@ -31,19 +33,28 @@ pub mod video;
 
 use std::sync::Arc;
 
+use audio::AudioConfig;
 use backend::{Backend, EventSender};
 use video::VideoSink;
 
 pub use libvlc::runtime::prepare_environment;
 
-/// The backend to play with, sending pictures to `video`: libVLC, or, when it can't be loaded,
-/// one that fails every open with a clear error. Pass it to [`Player::new`](player::Player::new).
-pub fn default_backend(video: Arc<dyn VideoSink>) -> impl FnOnce(EventSender) -> Box<dyn Backend> {
-    move |events| new_backend(events, video)
+/// The backend to play with, sending pictures to `video` and set up with `audio`: libVLC, or,
+/// when it can't be loaded, one that fails every open with a clear error. Pass it to
+/// [`Player::new`](player::Player::new).
+pub fn default_backend(
+    video: Arc<dyn VideoSink>,
+    audio: AudioConfig,
+) -> impl FnOnce(EventSender) -> Box<dyn Backend> {
+    move |events| new_backend(events, video, audio)
 }
 
-fn new_backend(events: EventSender, video: Arc<dyn VideoSink>) -> Box<dyn Backend> {
-    match libvlc::LibVlcBackend::new(events.clone(), Some(video)) {
+fn new_backend(
+    events: EventSender,
+    video: Arc<dyn VideoSink>,
+    audio: AudioConfig,
+) -> Box<dyn Backend> {
+    match libvlc::LibVlcBackend::new(events.clone(), Some(video), audio) {
         Ok(backend) => Box::new(backend),
         Err(error) => {
             tracing::error!("engine: libVLC is unavailable: {error:#}");

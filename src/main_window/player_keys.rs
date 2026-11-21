@@ -1,14 +1,15 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
-//! arrow seeks at a steady rate. Fullscreen works (S1.4.2, `fullscreen.rs`); until
-//! the player exists (Stage 2) any other admitted command is only logged, and S2.10.3
-//! gives each one its effect.
+//! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`) and the volume
+//! keys (S1.5.1) work; until the player exists (Stage 2) any other admitted command is
+//! only logged, and S2.10.3 gives each one its effect.
 
 use std::time::Instant;
 
 use gpui::{Action, Context, Div, Window, prelude::*};
 
 use super::MainWindow;
+use crate::engine::values::VolumeChange;
 use crate::keymap::actions as act;
 use crate::keymap::commands;
 
@@ -65,11 +66,18 @@ impl MainWindow {
         .detach();
     }
 
-    fn run_player_command(&mut self, action: &dyn Action, _: &mut Window, _: &mut Context<Self>) {
+    fn run_player_command(&mut self, action: &dyn Action, _: &mut Window, cx: &mut Context<Self>) {
         let Some(command) = commands::find(action) else {
             return;
         };
-        if self.repeat.admit(command, Instant::now()) {
+        if !self.repeat.admit(command, Instant::now()) {
+            return;
+        }
+        if action.partial_eq(&act::VolumeUp) {
+            self.step_volume(VolumeChange::Up, cx);
+        } else if action.partial_eq(&act::VolumeDown) {
+            self.step_volume(VolumeChange::Down, cx);
+        } else {
             tracing::debug!("{}: no player yet (Stage 2)", command.label);
         }
     }

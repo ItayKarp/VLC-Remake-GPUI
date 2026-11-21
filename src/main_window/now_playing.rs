@@ -4,7 +4,8 @@
 //!
 //! The player is created on the first open, so a window that opens nothing never loads
 //! libVLC. Its video shows in a [`VideoView`] that replaces the empty state while media is
-//! loaded, and the display stays awake while that video plays (S1.4).
+//! loaded, and the display stays awake while that video plays (S1.4). Its audio follows the
+//! settings (`audio.rs`, S1.5).
 
 use std::path::PathBuf;
 
@@ -85,11 +86,12 @@ impl MainWindow {
             return player.clone();
         }
         let output = Output::new();
-        let backend = engine::default_backend(output.sink());
+        let backend = engine::default_backend(output.sink(), Self::audio_config(cx));
         let player = cx.new(|cx| Player::new(backend, cx));
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
         self.video = Some(cx.new(|cx| VideoView::new(output, player.clone(), window, cx)));
         self.player = Some((player.clone(), events));
+        self.set_up_audio(&player, cx);
         player
     }
 
@@ -135,7 +137,7 @@ impl MainWindow {
                 cx.notify();
             }
             PlayerEvent::VideoSizeChanged(_) => self.update_display_sleep(window, cx),
-            _ => {}
+            _ => self.on_audio_event(event, cx),
         }
     }
 

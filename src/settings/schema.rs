@@ -9,6 +9,8 @@
 //! - Machine-specific data (paths, window geometry, device IDs) goes in [`LocalState`],
 //!   everything that should follow the user between machines in [`Preferences`].
 
+mod audio;
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -17,6 +19,8 @@ use super::lenient::lenient;
 use super::stored_path;
 use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
+
+pub use audio::{AudioSettings, LocalAudio, StartupVolume};
 
 /// Everything the app persists, as one in-memory value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -81,6 +85,9 @@ pub struct LocalState {
     /// like [`stored_path`] does. Read and written through `opening::recent`.
     #[serde(deserialize_with = "lenient")]
     pub recent_media: Vec<String>,
+    /// The output device and last volume (S1.5).
+    #[serde(deserialize_with = "lenient")]
+    pub audio: LocalAudio,
 }
 
 macro_rules! empty_sections {
@@ -93,16 +100,28 @@ macro_rules! empty_sections {
 }
 
 empty_sections! {
-    /// Player behavior (Stage 2).
-    PlayerSettings,
-    /// Audio preferences (Stage 1/7). The output device ID is local, not here.
-    AudioSettings,
     /// Video preferences (Stage 7).
     VideoSettings,
     /// Subtitle preferences (Stage 6).
     SubtitleSettings,
     /// Custom key bindings (S0.5).
     KeymapSettings,
+}
+
+/// Player behavior (Settings → Playback; most of it comes with Stage 2 and S5.7).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlayerSettings {
+    /// "Pause when another app uses audio" (S1.5.6): pause while the OS asks for this app's
+    /// audio to stop, and resume after.
+    #[serde(deserialize_with = "lenient")]
+    pub pause_when_another_app_uses_audio: bool,
+}
+
+impl Default for PlayerSettings {
+    fn default() -> Self {
+        Self { pause_when_another_app_uses_audio: true }
+    }
 }
 
 /// Library preferences (Stage 4, S5.9).

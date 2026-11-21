@@ -10,7 +10,7 @@ use crate::app::media::Media;
 use crate::engine::media_info::{TrackId, TrackKind};
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
-use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, StepDirection, Volume};
+use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, StepDirection};
 
 impl Player {
     /// Opens `media` and starts playing it, cancelling whatever was open. A local path that
@@ -18,6 +18,7 @@ impl Player {
     pub fn open(&mut self, media: Media, cx: &mut Context<Self>) {
         self.generation = self.generation.next();
         self.intent = Intent::Play;
+        self.audio.user_took_over();
         self.info = Info::default();
         self.position.reset();
         self.seeks.reset();
@@ -43,6 +44,7 @@ impl Player {
     /// Plays: resumes when paused, restarts the media when it ended or was stopped.
     pub fn play(&mut self, cx: &mut Context<Self>) {
         self.intent = Intent::Play;
+        self.audio.user_took_over();
         match self.state {
             PlaybackState::Paused => self.with_backend(|backend| backend.play()),
             PlaybackState::Ended | PlaybackState::Stopped => {
@@ -62,6 +64,7 @@ impl Player {
             return;
         }
         self.intent = Intent::Pause;
+        self.audio.user_took_over();
         if self.state == PlaybackState::Playing {
             self.with_backend(|backend| backend.pause());
         }
@@ -83,6 +86,7 @@ impl Player {
         }
         self.seeks.cancel();
         self.steps.reset();
+        self.audio.user_took_over();
         self.with_backend(|backend| backend.stop());
     }
 
@@ -118,20 +122,6 @@ impl Player {
     pub fn set_rate(&mut self, rate: Rate, cx: &mut Context<Self>) {
         self.controls.rate = rate;
         self.with_backend(|backend| backend.set_rate(rate));
-        cx.notify();
-    }
-
-    /// Sets the output volume.
-    pub fn set_volume(&mut self, volume: Volume, cx: &mut Context<Self>) {
-        self.controls.volume = volume;
-        self.with_backend(|backend| backend.set_volume(volume));
-        cx.notify();
-    }
-
-    /// Mutes or unmutes the output.
-    pub fn set_mute(&mut self, muted: bool, cx: &mut Context<Self>) {
-        self.controls.muted = muted;
-        self.with_backend(|backend| backend.set_mute(muted));
         cx.notify();
     }
 
