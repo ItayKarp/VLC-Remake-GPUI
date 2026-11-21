@@ -4,6 +4,7 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 use crate::libvlc::MediaStats;
+use crate::usage::{peak_rss_mb, process_cpu_time};
 
 /// Samples gathered while the window draws.
 pub struct Recorder {
@@ -167,40 +168,6 @@ impl fmt::Display for Summary {
             spread(self.input_to_paint),
         )
     }
-}
-
-/// User plus system CPU time of the whole process, libVLC's decoder threads included.
-#[cfg(unix)]
-fn process_cpu_time() -> Option<Duration> {
-    let usage = resource_usage()?;
-    let time = |t: libc::timeval| Duration::new(t.tv_sec as u64, t.tv_usec as u32 * 1000);
-    Some(time(usage.ru_utime) + time(usage.ru_stime))
-}
-
-#[cfg(unix)]
-fn peak_rss_mb() -> Option<f64> {
-    // macOS reports bytes, Linux kibibytes.
-    let unit = if cfg!(target_os = "macos") { 1.0 } else { 1024.0 };
-    Some(resource_usage()?.ru_maxrss as f64 * unit / (1024.0 * 1024.0))
-}
-
-#[cfg(unix)]
-fn resource_usage() -> Option<libc::rusage> {
-    let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
-    // SAFETY: `usage` is a writable rusage; getrusage fills it on success.
-    let status = unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) };
-    // SAFETY: getrusage succeeded, so the struct is initialized.
-    (status == 0).then(|| unsafe { usage.assume_init() })
-}
-
-#[cfg(not(unix))]
-fn process_cpu_time() -> Option<Duration> {
-    None
-}
-
-#[cfg(not(unix))]
-fn peak_rss_mb() -> Option<f64> {
-    None
 }
 
 #[cfg(test)]
