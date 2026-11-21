@@ -15,12 +15,16 @@ x11 = ["gpui/x11", "gpui_platform/x11"]
 runtime_shaders = ["gpui_platform/runtime_shaders"]
 
 [dependencies]
-# GPUI from Zed `main`, pinned to one commit (S0.8.2). Upstream breaks its API often, so bump
-# on purpose: change every `rev` below to the same new commit, run `cargo update -p gpui`, then
-# fix what broke. Keep the dev-dependency entries on the same commit.
-gpui = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", default-features = false, features = ["font-kit", "windows-manifest"] }
+# GPUI from our Zed fork (github.com/ItayKarp/zed), pinned to one commit (S0.8.2). The fork is
+# upstream commit 2f808b3c plus one patch, branch `gpui-surface-colour`: the Metal surface
+# shader honors each video buffer's YCbCr matrix and range (S1.1 found HD colors wrong
+# without it). Upstream breaks its API often, so bump on purpose: rebase that branch onto the
+# new upstream commit (drop the patch once upstream has an equivalent), change every `rev`
+# below to the result, run `cargo update -p gpui`, then fix what broke. Keep the
+# dev-dependency entries on the same commit.
+gpui = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3", default-features = false, features = ["font-kit", "windows-manifest"] }
 # `font-kit` is the macOS text system; without it GPUI's Mac backend draws no text.
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", features = ["font-kit"] }
+gpui_platform = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3", features = ["font-kit"] }
 anyhow = "1"
 dirs = "6"
 os_info = { version = "3", default-features = false }
@@ -67,9 +71,9 @@ winresource = "0.1"
 
 [dev-dependencies]
 # Headless window tests for the component kit (`ui::tests`).
-gpui = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", features = ["test-support"] }
+gpui = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3", features = ["test-support"] }
 # Screenshot tests (`screenshot_test`): the platform's text system and headless renderer.
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", features = ["test-support"] }
+gpui_platform = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3", features = ["test-support"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 # Only used by `cargo run --example gen_icons` to regenerate the app icons.
 resvg = "0.45"
@@ -77,6 +81,8 @@ ico = "0.4"
 icns = "0.3"
 # The S1.1 playback spike (`examples/video_spike`) uses libc for its pixel buffers.
 libc = "0.2"
+# Its CPU path converts YCbCr to BGRA itself, with the right matrix (SIMD on every target).
+yuvutils-rs = "0.8.3"
 
 # The S1.1 spike: run its unit tests with `cargo test` like the app's.
 [[example]]
@@ -86,10 +92,14 @@ test = true
 # Screenshot tests build the text system themselves: the platform that would own it must be
 # created on the main thread, and tests run on worker threads.
 [target.'cfg(target_os = "macos")'.dev-dependencies]
-gpui_apple = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", features = ["font-kit"] }
+gpui_apple = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3", features = ["font-kit"] }
+
+# The S1.1 spike's CPU time and peak memory on Windows.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-gpui_wgpu = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4" }
+gpui_wgpu = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3" }
 
 # macOS .app bundle (`cargo install cargo-bundle && cargo bundle --release`)
 [package.metadata.bundle]
@@ -130,3 +140,4 @@ todo = "warn"
 mod_module_files = "warn"
 redundant_clone = "warn"
 needless_collect = "warn"
+

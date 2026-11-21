@@ -1,5 +1,9 @@
 //! Presentation path (b), macOS: libVLC writes NV12 straight into IOSurface-backed
 //! `CVPixelBuffer`s, which GPUI's `surface()` element samples on the GPU without another copy.
+//!
+//! The buffers are video range ('420v'), which is what libVLC writes, and are tagged with
+//! their YCbCr matrix, so GPUI's surface shader (patched in our Zed fork) converts them with
+//! the right colors.
 
 use std::ffi::c_void;
 use std::ptr::{self, NonNull};
@@ -8,14 +12,17 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context as _, Result, ensure};
 use objc2_core_foundation::{CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFType};
 use objc2_core_video::{
-    CVPixelBuffer, CVPixelBufferGetBaseAddressOfPlane, CVPixelBufferGetBytesPerRowOfPlane,
-    CVPixelBufferGetHeightOfPlane, CVPixelBufferLockBaseAddress, CVPixelBufferLockFlags,
-    CVPixelBufferPool, CVPixelBufferUnlockBaseAddress, kCVPixelBufferHeightKey,
+    CVAttachmentMode, CVPixelBuffer, CVPixelBufferGetBaseAddressOfPlane,
+    CVPixelBufferGetBytesPerRowOfPlane, CVPixelBufferGetHeightOfPlane,
+    CVPixelBufferLockBaseAddress, CVPixelBufferLockFlags, CVPixelBufferPool,
+    CVPixelBufferUnlockBaseAddress, kCVImageBufferYCbCrMatrix_ITU_R_601_4,
+    kCVImageBufferYCbCrMatrix_ITU_R_709_2, kCVImageBufferYCbCrMatrixKey, kCVPixelBufferHeightKey,
     kCVPixelBufferIOSurfacePropertiesKey, kCVPixelBufferMetalCompatibilityKey,
     kCVPixelBufferPixelFormatTypeKey, kCVPixelBufferWidthKey,
-    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, kCVReturnSuccess,
+    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, kCVReturnSuccess,
 };
 
+use crate::colour::is_hd;
 use crate::sink::{Format, MAX_PLANES, Size, VideoSink, choose_size};
 use crate::slot::FrameSlot;
 
@@ -40,6 +47,8 @@ pub struct PixelBufferSink {
 struct State {
     pool: Option<CFRetained<CVPixelBufferPool>>,
     writing: Option<CFRetained<CVPixelBuffer>>,
+    /// Whether pictures are HD, and so BT.709 rather than BT.601.
+    hd: bool,
 }
 
 // SAFETY: the state is only touched under its mutex, from libVLC's video thread.
@@ -69,7 +78,9 @@ impl VideoSink for PixelBufferSink {
         format.chroma = *b"NV12";
         format.width = width;
         format.height = height;
-        self.state().pool = Some(pool);
+        let mut state = self.state();
+        state.pool = Some(pool);
+        state.hd = is_hd(width, height);
         true
     }
 
@@ -78,6 +89,7 @@ impl VideoSink for PixelBufferSink {
         let Some(buffer) = state.pool.as_ref().and_then(|pool| new_buffer(pool).ok()) else {
             return;
         };
+        tag_matrix(&buffer, state.hd);
         // SAFETY: the buffer is live; it is unlocked again in `unlock`.
         unsafe { CVPixelBufferLockBaseAddress(&buffer, CVPixelBufferLockFlags(0)) };
         for (plane, pointer) in planes.iter_mut().enumerate().take(NV12_PLANES) {
@@ -99,10 +111,26 @@ impl VideoSink for PixelBufferSink {
     }
 }
 
-/// A pool of IOSurface-backed, Metal-compatible full-range NV12 buffers, the only format
-/// GPUI's Metal renderer accepts for surfaces.
+/// Tags `buffer` with BT.709 when `hd`, else BT.601, for GPUI's surface shader.
+fn tag_matrix(buffer: &CVPixelBuffer, hd: bool) {
+    // SAFETY: the key and values are Core Video's constant strings; the buffer is live.
+    unsafe {
+        let matrix = if hd {
+            kCVImageBufferYCbCrMatrix_ITU_R_709_2
+        } else {
+            kCVImageBufferYCbCrMatrix_ITU_R_601_4
+        };
+        buffer.set_attachment(
+            kCVImageBufferYCbCrMatrixKey,
+            matrix.as_ref(),
+            CVAttachmentMode::ShouldPropagate,
+        );
+    }
+}
+
+/// A pool of IOSurface-backed, Metal-compatible video-range NV12 buffers.
 fn new_pool(width: u32, height: u32) -> Result<CFRetained<CVPixelBufferPool>> {
-    let format = CFNumber::new_i32(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange as i32);
+    let format = CFNumber::new_i32(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange as i32);
     let width = CFNumber::new_i32(width as i32);
     let height = CFNumber::new_i32(height as i32);
     let io_surface = CFDictionary::<CFString, CFType>::empty();
