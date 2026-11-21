@@ -135,6 +135,9 @@ pub const COMMANDS: &[Command] = &[
     cmd("About VLC", AppArea, keys(&["shift-f1"]), &act::About),
     cmd("Run Setup Again", AppArea, NONE, &act::RunSetupAgain),
     cmd("Copy Debug Info", AppArea, NONE, &act::CopyDebugInfo),
+    cmd("Mark as Watched", AppArea, NONE, &act::MarkWatched),
+    cmd("Mark as Unwatched", AppArea, NONE, &act::MarkUnwatched),
+    cmd("Clear History", AppArea, NONE, &act::ClearHistory),
     cmd(
         "Close Window",
         Global,

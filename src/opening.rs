@@ -18,7 +18,7 @@ pub mod recent;
 pub mod resolve;
 pub mod scan;
 #[cfg(test)]
-mod scratch;
+pub(crate) mod scratch;
 mod sniff;
 
 use std::io;

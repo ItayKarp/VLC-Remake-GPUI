@@ -39,6 +39,10 @@ tracing = "0.1"
 # BGRA video frames become GPUI `RenderImage`s, which hold `image` frames (S1.4.1).
 image = { version = "0.25", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "registry", "std", "tracing-log"] }
+# Playback history and, later, the library (S1.7, S4): SQLite built in, so no system library is
+# needed. xxh3 hashes the head and tail of a file to recognize it after a move (S1.7.2).
+rusqlite = { version = "0.43", features = ["bundled"] }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 # Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
 # primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must

@@ -565,21 +565,21 @@ flowchart LR
 **Depends on:** S1.2  **Size:** M
 
 **Subtasks**
-- [ ] S1.7.1 Local database (SQLite through `rusqlite`) in the data dir, with migrations. It holds the media table (identity, path, size, mtime, duration, last position, watched flag, play count, last played) and the later library tables (S4).
-- [ ] S1.7.2 Identity is a fast content hash (for example the first and last 64 KB plus the size) combined with the path, so a file that's moved or renamed keeps its history and two copies on different paths are recognized as the same media.
-- [ ] S1.7.3 Save the position every few seconds and on pause, stop, close, quit and crash-safe intervals.
-- [ ] S1.7.4 Resume policy setting: Always, Ask (show a "Resume from 12:34?" toast with a button), or Never. Mark media watched at ≥ 95% or within the last 60 s, whichever comes first, configurable.
-- [ ] S1.7.5 "Mark as watched/unwatched" and "Clear history" commands (the library context menus use them).
+- [x] S1.7.1 Local database (SQLite through `rusqlite`) in the data dir, with migrations. It holds the media table (identity, path, size, mtime, duration, last position, watched flag, play count, last played) and the later library tables (S4). *(`src/db.rs`: `library.db` next to `local.toml`, WAL, `synchronous=NORMAL`, 2 s busy timeout. `db/migrations.rs` numbers migrations with `PRAGMA user_version`, one transaction each; S4 appends its tables there. `db/media.rs` is the `media` table (`location` holds the path or URL). It is only used from the history thread (`history/worker.rs`), so the UI never waits on disk.)*
+- [x] S1.7.2 Identity is a fast content hash (for example the first and last 64 KB plus the size) combined with the path, so a file that's moved or renamed keeps its history and two copies on different paths are recognized as the same media. *(`history/identity.rs`: xxh3-128 of the size, first 64 KB and last 64 KB. `history/resolve.rs`: a path whose size and mtime still match skips hashing; otherwise the hash finds the row and moves it to the new path. A URL is its own identity.)*
+- [x] S1.7.3 Save the position every few seconds and on pause, stop, close, quit and crash-safe intervals. *(`main_window/history.rs`: every 5 s while playing, and on pause, stop, error and end. A `history::Session` saves its last position when dropped (window closed, next media), and quitting waits for the history thread to finish writing. Checked on macOS by killing the app with `kill -9` 14 s in: the position from 4 s earlier was kept.)*
+- [x] S1.7.4 Resume policy setting: Always, Ask (show a "Resume from 12:34?" toast with a button), or Never. Mark media watched at ≥ 95% or within the last 60 s, whichever comes first, configurable. *(`prefs.player.resume` (`always`, `ask` (default), `never`), `watched_percent` and `watched_remaining_seconds`; rows come with S5.7. Rules in `history/policy.rs`, shared with S4.1.2. Media under 2 minutes uses the percentage only, or a 50 s clip would be watched as it starts. Nothing is saved in the first 10 s of a playback, so opening media and closing it while the toast shows keeps the old point. Once watched, media starts from the beginning. Always and Ask (toast shown) checked on macOS; the toast's Resume button not clicked by hand yet.)*
+- [x] S1.7.5 "Mark as watched/unwatched" and "Clear history" commands (the library context menus use them). *(Actions `MarkWatched`, `MarkUnwatched` and `ClearHistory` (no default keys, not in a menu until the library), handled by the main window for the current media; `History::set_watched` and `History::clear` for the library. Marking stops recording the current playback so its position doesn't undo the mark. Clear History also clears Open Recent.)*
 
 **Edge cases**
-- Media shorter than 2 minutes: don't store resume positions, just count plays.
-- A resume position in the last 10 s, or past the new end of a file that was re-encoded or trimmed: start from the beginning.
-- The same file modified in place (size or mtime changed): treat it as new media and keep the old history orphaned for 30 days.
-- Live streams and network URLs without a duration: no resume, but keep them in history.
-- Hard links and the same file reachable through two mount points: the hash identity treats them as one.
-- The database is locked by another instance (shouldn't happen with S0.6), or corrupt: recover with `PRAGMA integrity_check`, back up and recreate it. Losing history is acceptable, crashing is not.
-- The database is on a slow or network home directory: use WAL mode and keep writes off the UI thread.
-- Privacy setting "Don't save history": no positions or recents are written, and switching it on offers to clear existing data.
+- Media shorter than 2 minutes: don't store resume positions, just count plays. *(Done.)*
+- A resume position in the last 10 s, or past the new end of a file that was re-encoded or trimmed: start from the beginning. *(Done, and also in the first 10 s.)*
+- The same file modified in place (size or mtime changed): treat it as new media and keep the old history orphaned for 30 days. *(Done: the hash decides, so a file whose mtime changed but whose head, tail and size didn't (`touch`, restored from backup) stays the same media. Orphans are purged when the history thread starts, and come back if the file returns to its old content.)*
+- Live streams and network URLs without a duration: no resume, but keep them in history. *(Done: plays are counted.)*
+- Hard links and the same file reachable through two mount points: the hash identity treats them as one. *(Done by the hash.)*
+- The database is locked by another instance (shouldn't happen with S0.6), or corrupt: recover with `PRAGMA integrity_check`, back up and recreate it. Losing history is acceptable, crashing is not. *(Done: a damaged file goes to `library.db.corrupt` and a new one starts. A locked or unreadable file, or one from a newer build, is left alone and history is kept in memory for that run.)*
+- The database is on a slow or network home directory: use WAL mode and keep writes off the UI thread. *(Done.)*
+- Privacy setting "Don't save history": no positions or recents are written, and switching it on offers to clear existing data. *(Done with `privacy.save_recently_played` off; switching it off shows a toast with Clear History. `privacy.remember_playback_position` (S5.5.1) off keeps plays and watched but no positions.)*
 
 ---
 

@@ -3,9 +3,11 @@
 
 mod app;
 mod assets;
+mod db;
 mod diagnostics;
 #[allow(dead_code, reason = "the S1.2 engine; the player screen (S2) is its first caller")]
 mod engine;
+mod history;
 mod keymap;
 mod logging;
 mod main_window;
@@ -42,6 +44,7 @@ fn main() {
     application.on_open_urls(move |urls| inbox.post_urls(&urls));
     application.run(move |cx: &mut App| {
         settings::init(cx);
+        history::init(cx);
         diagnostics::follow_settings(cx);
         theme::init(cx);
         ui::init(cx);

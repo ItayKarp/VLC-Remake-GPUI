@@ -131,6 +131,7 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.on_history_event(event, cx);
         match event {
             // Until the queue (Stage 3) has its policies, the list plays straight through.
             PlayerEvent::EndReached => {

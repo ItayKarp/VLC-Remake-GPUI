@@ -11,6 +11,8 @@ pub const PREFS_FILE_NAME: &str = "settings.toml";
 pub const LOCAL_FILE_NAME: &str = "local.toml";
 /// The folder for logs and crash reports, next to the machine-local state.
 pub const LOGS_DIR_NAME: &str = "logs";
+/// The SQLite database of playback history and the library (S1.7), next to the local state.
+pub const DATABASE_FILE_NAME: &str = "library.db";
 /// Overrides both settings directories (tests, portable mode, debugging).
 pub const CONFIG_DIR_ENV: &str = "RVLC_CONFIG_DIR";
 
@@ -33,6 +35,12 @@ impl Locations {
     pub fn logs(&self) -> PathBuf {
         let dir = self.local.parent().unwrap_or_else(|| Path::new(""));
         dir.join(LOGS_DIR_NAME)
+    }
+
+    /// The playback history and library database: `library.db` next to [`Self::local`].
+    pub fn database(&self) -> PathBuf {
+        let dir = self.local.parent().unwrap_or_else(|| Path::new(""));
+        dir.join(DATABASE_FILE_NAME)
     }
 
     /// Resolves from `RVLC_CONFIG_DIR` or the platform's known folders. `None` if

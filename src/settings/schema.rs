@@ -10,6 +10,7 @@
 //!   everything that should follow the user between machines in [`Preferences`].
 
 mod audio;
+mod playback;
 mod subtitles;
 
 use std::path::PathBuf;
@@ -22,6 +23,7 @@ use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
+pub use playback::{PlayerSettings, ResumePolicy};
 pub use subtitles::SubtitleSettings;
 
 /// Everything the app persists, as one in-memory value.
@@ -108,22 +110,6 @@ empty_sections! {
     KeymapSettings,
 }
 
-/// Player behavior (Settings → Playback; most of it comes with Stage 2 and S5.7).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct PlayerSettings {
-    /// "Pause when another app uses audio" (S1.5.6): pause while the OS asks for this app's
-    /// audio to stop, and resume after.
-    #[serde(deserialize_with = "lenient")]
-    pub pause_when_another_app_uses_audio: bool,
-}
-
-impl Default for PlayerSettings {
-    fn default() -> Self {
-        Self { pause_when_another_app_uses_audio: true }
-    }
-}
-
 /// Library preferences (Stage 4, S5.9).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -135,11 +121,15 @@ pub struct LibrarySettings {
 }
 
 /// Privacy preferences (Stage 5).
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent switches, each its own row in Settings → Privacy"
+)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PrivacySettings {
     /// "Save recently played items" (S5.5.1). Also governs the OS recent documents
-    /// list (S0.6.5).
+    /// list (S0.6.5) and the playback history (S1.7): off, nothing is written to either.
     #[serde(deserialize_with = "lenient")]
     pub save_recently_played: bool,
     /// Hides media file names in the log file, keeping only their extensions
@@ -149,6 +139,10 @@ pub struct PrivacySettings {
     /// How many items Open Recent keeps (S1.3.5); `0` keeps none.
     #[serde(deserialize_with = "lenient")]
     pub recent_media_count: u32,
+    /// "Remember the playback position" (S5.5.1): save where media was left, so it can resume
+    /// (S1.7). Plays are still counted while history is saved.
+    #[serde(deserialize_with = "lenient")]
+    pub remember_playback_position: bool,
 }
 
 /// How many items Open Recent keeps by default.
@@ -160,6 +154,7 @@ impl Default for PrivacySettings {
             save_recently_played: true,
             redact_file_names_in_logs: false,
             recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
+            remember_playback_position: true,
         }
     }
 }

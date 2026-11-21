@@ -7,6 +7,7 @@ mod audio;
 mod diagnostics;
 mod empty_state;
 mod fullscreen;
+mod history;
 mod main_menu;
 mod notice;
 mod now_playing;
@@ -61,6 +62,8 @@ pub struct MainWindow {
     audio: audio::AudioWatch,
     /// The track settings subscription and the last track toast (S1.6).
     tracks: tracks::TrackWatch,
+    /// The playback being recorded and the resume offer (S1.7).
+    history: history::HistoryWatch,
     /// Keeps the display awake while video plays where it shows (S1.4.3).
     display_sleep: DisplaySleep,
     _visibility: Subscription,
@@ -104,6 +107,7 @@ impl MainWindow {
             video: None,
             audio: audio::AudioWatch::default(),
             tracks: tracks::TrackWatch::default(),
+            history: history::HistoryWatch::default(),
             display_sleep: DisplaySleep::default(),
             _visibility: Self::follow_visibility(window, cx),
             notices,
@@ -114,6 +118,7 @@ impl MainWindow {
             repeat: RepeatGate::default(),
             toasts: cx.new(|_| Toasts::new()),
         };
+        this.set_up_history(cx);
         this.open(request, window, cx);
         this.show_pending_crash(cx);
         this
@@ -173,7 +178,7 @@ impl Render for MainWindow {
         // Fullscreen is the video alone: no title bar (S2.8 brings auto-hiding controls).
         let fullscreen = window.is_fullscreen();
 
-        Self::player_keys(focus::tab_navigation(div()), cx)
+        Self::history_actions(Self::player_keys(focus::tab_navigation(div()), cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))

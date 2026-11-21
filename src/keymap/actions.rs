@@ -38,6 +38,12 @@ actions!(
         CopyDebugInfo,
         /// Search the library.
         Search,
+        /// Mark the current media watched: it plays from the start next time.
+        MarkWatched,
+        /// Mark the current media unwatched, forgetting where it was left.
+        MarkUnwatched,
+        /// Forget the playback history: positions, plays and the recent list.
+        ClearHistory,
     ]
 );
 
