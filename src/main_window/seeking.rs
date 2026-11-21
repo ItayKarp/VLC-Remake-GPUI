@@ -51,7 +51,8 @@ impl MainWindow {
         self.seek_player(SeekTarget::Absolute(target), cx);
     }
 
-    fn seek_player(&self, target: SeekTarget, cx: &mut Context<Self>) {
+    /// Seeks the loaded player, if there is one.
+    pub(super) fn seek_player(&self, target: SeekTarget, cx: &mut Context<Self>) {
         if let Some(player) = self.loaded_player(cx) {
             player.update(cx, |player, cx| player.seek(target, cx));
         }

@@ -1,7 +1,11 @@
 //! The bar's time readouts: `hh:mm:ss` as designed (`00:02:10`), `hhh:mm:ss` past 99 hours
-//! (S2.4.4), and `--:--:--` while the length is unknown.
+//! (S2.4.4), the time left as `-00:23:30` (S2.4.3), and `--:--:--` while the length is unknown.
+//! Digits are always ASCII and drawn tabular, so the bar doesn't jitter as they change.
 
+use std::sync::Arc;
 use std::time::Duration;
+
+use gpui::FontFeatures;
 
 /// What a readout shows for a time that isn't known (a live stream's length).
 pub const UNKNOWN: &str = "--:--:--";
@@ -13,9 +17,16 @@ pub fn format(time: Duration) -> String {
     format!("{hours:02}:{minutes:02}:{seconds:02}")
 }
 
-/// `time` as `hh:mm:ss`, or [`UNKNOWN`].
-pub fn format_or_unknown(time: Option<Duration>) -> String {
-    time.map_or_else(|| UNKNOWN.to_owned(), format)
+/// The time left after `position`, as `-hh:mm:ss`. Whole seconds are taken from both, so the
+/// current time and the time left always add up to the length.
+pub fn format_remaining(position: Duration, duration: Duration) -> String {
+    let left = duration.as_secs().saturating_sub(position.as_secs());
+    format!("-{}", format(Duration::from_secs(left)))
+}
+
+/// Font features that give every digit the same width (`tnum`).
+pub fn tabular_digits() -> FontFeatures {
+    FontFeatures(Arc::new(vec![("tnum".into(), 1)]))
 }
 
 #[cfg(test)]
@@ -35,7 +46,9 @@ mod tests {
     }
 
     #[test]
-    fn unknown_lengths_show_dashes() {
-        assert_eq!(format_or_unknown(None), UNKNOWN);
+    fn remaining_time_counts_down_to_zero() {
+        let length = Duration::from_secs(25 * 60 + 40);
+        assert_eq!(format_remaining(Duration::from_millis(130_900), length), "-00:23:30");
+        assert_eq!(format_remaining(length + Duration::from_secs(5), length), "-00:00:00");
     }
 }

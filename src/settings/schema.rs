@@ -26,7 +26,7 @@ use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
 pub use controls::{ControlsSettings, SkipLength};
-pub use interface::InterfaceSettings;
+pub use interface::{DurationReadout, InterfaceSettings};
 pub use playback::{PlayerSettings, ResumePolicy};
 pub use subtitles::SubtitleSettings;
 

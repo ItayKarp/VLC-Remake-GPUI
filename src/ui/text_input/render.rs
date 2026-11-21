@@ -7,7 +7,7 @@ use gpui::{
 
 use super::element::TextElement;
 use super::keys::CONTEXT;
-use super::{TextInput, Validation};
+use super::{Look, TextInput, Validation};
 use crate::theme::{self, Palette};
 use crate::ui::{focus, metrics};
 
@@ -17,6 +17,9 @@ const DISABLED_OPACITY: f32 = 0.4;
 impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = theme::palette(window, cx);
+        if self.look == Look::Bare {
+            return self.bare(&palette, cx);
+        }
         let error = match &self.validation {
             Validation::Error(message) => Some(message.clone()),
             Validation::None => None,
@@ -34,9 +37,20 @@ impl Render for TextInput {
 }
 
 impl TextInput {
-    /// The framed field, red-bordered when `invalid`.
-    fn field(&self, palette: &Palette, invalid: bool, cx: &mut Context<Self>) -> Stateful<Div> {
-        let enabled = !self.disabled;
+    /// The text alone, red when invalid ([`Look::Bare`]).
+    fn bare(&self, palette: &Palette, cx: &mut Context<Self>) -> Div {
+        let invalid = matches!(self.validation, Validation::Error(_));
+        let field = self
+            .base()
+            .w_full()
+            .when(invalid, |field| field.text_color(palette.danger))
+            .when(!self.disabled, |field| Self::interactive(field, cx))
+            .child(TextElement { input: cx.entity() });
+        div().w_full().child(field)
+    }
+
+    /// The focusable, labelled element both looks build on.
+    fn base(&self) -> Stateful<Div> {
         div()
             .id("text-input")
             .key_context(focus::context(&[CONTEXT, focus::CONTROL, focus::TYPING]))
@@ -45,6 +59,12 @@ impl TextInput {
             .aria_label(self.label.clone())
             .aria_value(SharedString::from(self.state.text().to_owned()))
             .aria_placeholder(self.placeholder.clone())
+    }
+
+    /// The framed field, red-bordered when `invalid`.
+    fn field(&self, palette: &Palette, invalid: bool, cx: &mut Context<Self>) -> Stateful<Div> {
+        let enabled = !self.disabled;
+        self.base()
             .h(px(32.))
             .w_full()
             .flex()

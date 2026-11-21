@@ -1,17 +1,16 @@
 //! Each control bar item drawn, and its entry in the overflow menu once it gives way.
 //!
-//! The seek bar is its own module (`seek_bar.rs`, S2.3). The readouts and the volume level show
-//! the player's state but can't be used yet: S2.4 (editing the time) and S2.5 (the wedge
-//! slider) make them interactive. The Settings and List buttons are disabled until their panels exist (S2.7,
-//! Stage 3): the light theme's faded gear means exactly that.
+//! The seek bar (`seek_bar.rs`, S2.3) and the time readouts (`readouts.rs`, S2.4) are their own
+//! modules. The volume level shows the player's state but can't be used yet: S2.5 (the wedge
+//! slider) makes it interactive. The Settings and List buttons are disabled until their panels
+//! exist (S2.7, Stage 3): the light theme's faded gear means exactly that.
 
 use gpui::{
     Action, AnyElement, App, ClickEvent, Context, Div, Entity, SharedString, div, prelude::*, px,
     relative,
 };
 
-use super::clock;
-use super::layout::{BUTTON, Item, LEVEL_GAP, LEVEL_WIDTH, TIME_WIDTH};
+use super::layout::{BUTTON, Item, LEVEL_GAP, LEVEL_WIDTH};
 use super::play_button::{Face, PlayButton};
 use crate::assets::icons;
 use crate::engine::player::Player;
@@ -25,8 +24,6 @@ use crate::ui::menu::MenuItem;
 
 /// The icons' size inside the bar's buttons.
 const ICON: f32 = 20.;
-/// The readouts' text size.
-const TEXT_SIZE: f32 = 13.;
 /// The volume level's height.
 const LEVEL_HEIGHT: f32 = 10.;
 
@@ -50,17 +47,10 @@ impl MainWindow {
         if let Some(button) = self.button_item(item, cx) {
             return Self::render_button(item, button, cx);
         }
-        let player = self.loaded_player(cx);
         match item {
             Item::PlayPause => self.render_play_button(cx),
-            Item::CurrentTime => {
-                let position = player.map(|player| player.read(cx).position());
-                readout(p, clock::format(position.unwrap_or_default()))
-            }
-            Item::Duration => {
-                let duration = player.and_then(|player| player.read(cx).duration());
-                readout(p, clock::format_or_unknown(duration))
-            }
+            Item::CurrentTime => self.render_current_time(p, cx),
+            Item::Duration => self.render_duration(p, cx),
             Item::SeekBar => self.render_seek_bar(p, cx),
             _ => self.render_volume(p, cx),
         }
@@ -159,19 +149,6 @@ impl MainWindow {
 
 fn mute_label(player: &Entity<Player>, cx: &App) -> &'static str {
     if player.read(cx).is_muted() { "Unmute" } else { "Mute" }
-}
-
-fn readout(p: &Palette, text: String) -> AnyElement {
-    div()
-        .flex_none()
-        .min_w(px(TIME_WIDTH))
-        .flex()
-        .justify_center()
-        .text_size(px(TEXT_SIZE))
-        .text_color(p.text_muted)
-        .whitespace_nowrap()
-        .child(text)
-        .into_any_element()
 }
 
 fn volume_level(p: &Palette, level: f32) -> Div {

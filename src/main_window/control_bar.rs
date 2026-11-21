@@ -11,6 +11,8 @@ mod fit;
 mod items;
 mod layout;
 mod play_button;
+mod readouts;
+mod time_entry;
 
 use gpui::{
     AnyElement, ClickEvent, Context, DismissEvent, Div, Entity, Subscription, Window, div,
@@ -39,6 +41,8 @@ pub struct ControlBar {
     /// The overflow menu, while it's open.
     overflow: Option<(Entity<ContextMenu>, Subscription)>,
     overflow_button: BoundsTracker,
+    /// The current time while it's being edited (S2.4.1).
+    time_edit: Option<readouts::TimeEdit>,
 }
 
 impl Default for ControlBar {
@@ -47,6 +51,7 @@ impl Default for ControlBar {
             layout: layout::default_layout(),
             overflow: None,
             overflow_button: BoundsTracker::new(),
+            time_edit: None,
         }
     }
 }

@@ -664,18 +664,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.2  **Size:** S  **Design refs:** `current_time/*`, `duration/*`
 
 **Subtasks**
-- [ ] S2.4.1 Current time: hover shows a dark pill; click turns it into an editable field (bright digits, fixed colons, orange caret). Enter jumps, Escape or blur cancels.
-- [ ] S2.4.2 Accepted input: `hh:mm:ss`, `mm:ss`, plain seconds, `1h2m3s`, `+30`/`-30` (relative), and a percentage (`50%`). Show invalid input with an error tint and don't jump.
-- [ ] S2.4.3 Duration: click toggles between total and remaining (`-00:23:30`); the choice persists globally. Remaining time counts down live.
-- [ ] S2.4.4 Format: always `hh:mm:ss` as designed (`00:02:10`), growing to `hhh:mm:ss` beyond 99 h. Use tabular (monospaced) digits so the bar doesn't jitter.
+- [x] S2.4.1 Current time: hover shows a dark pill; click turns it into an editable field (bright digits, fixed colons, orange caret). Enter jumps, Escape or blur cancels. *(`control_bar/readouts.rs`, with the kit's `TextInput` in its new `Look::Bare`. The field opens with the time selected, so typing replaces it; the colons are typed, not a mask, because S2.4.2 accepts forms without them. Media that can't seek gets no pill and no field. Not checked on screen yet.)*
+- [x] S2.4.2 Accepted input: `hh:mm:ss`, `mm:ss`, plain seconds, `1h2m3s`, `+30`/`-30` (relative), and a percentage (`50%`). Show invalid input with an error tint and don't jump. *(`control_bar/time_entry.rs`. `+`/`-` take any of the other forms (`-1:00`, `+2m`); seconds may have a fraction. Invalid text turns red on a red-tinted pill until the next edit.)*
+- [x] S2.4.3 Duration: click toggles between total and remaining (`-00:23:30`); the choice persists globally. Remaining time counts down live. *(`prefs.interface.duration_readout`, `total` or `remaining`. Whole seconds of both readouts add up to the length.)*
+- [x] S2.4.4 Format: always `hh:mm:ss` as designed (`00:02:10`), growing to `hhh:mm:ss` beyond 99 h. Use tabular (monospaced) digits so the bar doesn't jitter. *(`clock.rs`; the `tnum` font feature, and the readouts are a fixed 72 px wide.)*
 
 **Edge cases**
-- Typing a time past the duration: clamp to the end (or reject; decide) and never seek past the end.
-- Typing a negative time: clamp to 0.
-- While editing, playback keeps advancing: freeze the field's text (don't overwrite what the user is typing).
-- Remaining time when the duration is unknown: show `--:--:--`, and the toggle is disabled.
-- At playback rates other than 1×, remaining time can show wall-clock remaining or media remaining (decide; VLC shows media time).
-- Locales with non-Latin digits: keep ASCII digits for time codes.
+- Typing a time past the duration: clamp to the end (or reject; decide) and never seek past the end. *(Decided: clamp; the player already clamps seeks to the length. Percentages over 100 % are the end too.)*
+- Typing a negative time: clamp to 0. *(Done: `-` is a jump back, which stops at the start.)*
+- While editing, playback keeps advancing: freeze the field's text (don't overwrite what the user is typing). *(Done; `+`/`-` jump from where playback is on Enter.)*
+- Remaining time when the duration is unknown: show `--:--:--`, and the toggle is disabled. *(Done.)*
+- At playback rates other than 1×, remaining time can show wall-clock remaining or media remaining (decide; VLC shows media time). *(Decided: media time.)*
+- Locales with non-Latin digits: keep ASCII digits for time codes. *(Done: shown and accepted digits are ASCII only.)*
 
 ---
 

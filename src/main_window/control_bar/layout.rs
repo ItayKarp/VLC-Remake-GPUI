@@ -69,8 +69,8 @@ pub const BUTTON: f32 = 28.;
 pub const PILL_WIDTH: f32 = 54.;
 /// The Play/Pause pill's height.
 pub const PILL_HEIGHT: f32 = 26.;
-/// The time readouts' width: `00:00:00` at the bar's text size.
-pub const TIME_WIDTH: f32 = 62.;
+/// The time readouts' width: `-00:00:00` at the bar's text size, inside the hover pill.
+pub const TIME_WIDTH: f32 = 72.;
 /// The narrowest the seek bar gets before it gives way.
 pub const SEEK_MIN: f32 = 120.;
 /// The volume level's width, after the speaker.
