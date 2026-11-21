@@ -134,9 +134,10 @@ fn labels_come_from_the_keymap(cx: &mut TestAppContext) {
         assert_eq!(keymap::shortcut(&act::OpenFile, cx).as_deref(), Some(open));
         // The primary key, not the `<` alias, is the one shown.
         assert_eq!(keymap::shortcut(&act::PreviousItem, cx).as_deref(), Some("P"));
+        let shift = if cfg!(target_os = "macos") { "⇧" } else { "SHIFT" };
         assert_eq!(
             keymap::key_caps(&act::Snapshot, cx),
-            vec![KeyCap::Text("SHIFT".into()), KeyCap::Text("S".into())]
+            vec![KeyCap::Text(shift.into()), KeyCap::Text("S".into())]
         );
         assert_eq!(keymap::shortcut(&act::CustomizePlayer, cx), None);
     });

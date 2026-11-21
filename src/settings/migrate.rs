@@ -50,11 +50,7 @@ pub fn migrate(docs: &mut Documents) -> Outcome {
     }
     let version = schema_version(&docs.prefs);
     if version > CURRENT_VERSION {
-        tracing::warn!(
-            "settings: schema version {version} is newer than this build ({CURRENT_VERSION}); \
-             unknown settings will be kept but ignored"
-        );
-        return Outcome::Newer { version };
+        return newer(version);
     }
     // A negative version can only come from a hand edit; treat it as the oldest.
     let from = version.max(0);
@@ -63,12 +59,25 @@ pub fn migrate(docs: &mut Documents) -> Outcome {
     }
     set_schema_version(&mut docs.prefs, CURRENT_VERSION);
     set_schema_version(&mut docs.local, CURRENT_VERSION);
-    if from == CURRENT_VERSION {
-        Outcome::UpToDate
-    } else {
-        tracing::info!("settings: migrated from schema version {from} to {CURRENT_VERSION}");
-        Outcome::Migrated { from }
-    }
+    if from == CURRENT_VERSION { Outcome::UpToDate } else { migrated(from) }
+}
+
+// The logging lives in helpers: with `tracing`'s `log` feature (on in Linux builds) two
+// macros push `migrate` past the complexity limit.
+
+/// Reports files written by a newer build, which are loaded without downgrading.
+fn newer(version: i64) -> Outcome {
+    tracing::warn!(
+        "settings: schema version {version} is newer than this build ({CURRENT_VERSION}); \
+         unknown settings will be kept but ignored"
+    );
+    Outcome::Newer { version }
+}
+
+/// Reports a finished migration from version `from`.
+fn migrated(from: i64) -> Outcome {
+    tracing::info!("settings: migrated from schema version {from} to {CURRENT_VERSION}");
+    Outcome::Migrated { from }
 }
 
 /// The first onboarding build wrote everything into `settings.toml`:

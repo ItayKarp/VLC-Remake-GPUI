@@ -34,14 +34,22 @@ pub fn install(logs: Option<PathBuf>) {
         let report = report(info, &Backtrace::force_capture());
         tracing::error!("crash: {}", message(info));
         if let Some(dir) = &logs {
-            match save(dir, &report, timestamp()) {
-                Ok(path) => tracing::error!("crash: report saved to {}", logging::path(&path)),
-                Err(err) => tracing::error!("crash: couldn't save the report: {err}"),
-            }
+            save_report(dir, &report);
         }
         print_default(info);
         std::process::exit(CRASH_EXIT_CODE);
     }));
+}
+
+/// Writes `report` into `dir` and logs where it went. Separate from the hook, with one
+/// macro for both outcomes, because `tracing`'s `log` feature (on in Linux builds)
+/// makes each macro add enough branches to push the hook past the complexity limit.
+fn save_report(dir: &Path, report: &str) {
+    let outcome = match save(dir, report, timestamp()) {
+        Ok(path) => format!("report saved to {}", logging::path(&path)),
+        Err(err) => format!("couldn't save the report: {err}"),
+    };
+    tracing::error!("crash: {outcome}");
 }
 
 /// The report the last run left behind, if it hasn't been shown yet. Taking it

@@ -109,6 +109,7 @@ pub(super) fn os_to_bytes(text: &OsStr) -> Vec<u8> {
 
 /// The inverse of [`os_to_bytes`].
 #[cfg(unix)]
+#[allow(clippy::unnecessary_wraps, reason = "same signature as the Windows one, which can fail")]
 pub(super) fn os_from_bytes(bytes: &[u8]) -> Option<OsString> {
     use std::os::unix::ffi::OsStringExt;
     Some(OsString::from_vec(bytes.to_vec()))

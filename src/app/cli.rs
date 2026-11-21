@@ -90,8 +90,6 @@ pub fn route(onboarding_complete: bool, launch: &Launch) -> Route {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use super::*;
 
     fn parse(args: &[&str]) -> Launch {
@@ -144,7 +142,7 @@ mod tests {
         use std::os::windows::ffi::OsStringExt;
         let odd = OsString::from_wide(&[0xD800, 'a' as u16]);
         let launch = Launch::parse([odd.clone()]);
-        let expected = std::path::absolute(PathBuf::from(odd)).expect("absolute path");
+        let expected = std::path::absolute(std::path::PathBuf::from(odd)).expect("absolute path");
         assert_eq!(launch.open.items, [Media::File(expected)]);
     }
 

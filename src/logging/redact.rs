@@ -62,12 +62,11 @@ impl<W: Write> HomeRedactor<W> {
         // that are useful; only redact a real home folder.
         let patterns = home
             .filter(|home| home.components().count() > 1 && home.parent().is_some())
-            .map(|home| {
+            .map_or_else(Vec::new, |home| {
                 let native = home.display().to_string();
                 let slashed = native.replace('\\', "/");
                 if slashed == native { vec![native] } else { vec![native, slashed] }
-            })
-            .unwrap_or_default();
+            });
         Self { inner, patterns }
     }
 
@@ -112,6 +111,8 @@ mod tests {
         assert!(written.starts_with("opened ~"), "{written}");
     }
 
+    // A Windows home: on Unix `C:\Users\pat` is one file name, not a folder.
+    #[cfg(windows)]
     #[test]
     fn forward_slash_spellings_are_redacted_too() {
         let writer = HomeRedactor::with_home(io::sink(), Some(PathBuf::from(r"C:\Users\pat")));
