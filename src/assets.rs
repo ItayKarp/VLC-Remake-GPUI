@@ -37,6 +37,11 @@ static ASSETS: &[(&str, &[u8])] = embed![
     "arrow-up.svg",
     "arrow-down.svg",
     "theme-system.svg",
+    "more.svg",
+    "sidebar.svg",
+    "folder.svg",
+    "file.svg",
+    "restore.svg",
 ];
 
 pub struct Assets;
@@ -79,4 +84,11 @@ pub mod icons {
     pub const ARROW_UP: &str = "icons/arrow-up.svg";
     pub const ARROW_DOWN: &str = "icons/arrow-down.svg";
     pub const THEME_SYSTEM: &str = "icons/theme-system.svg";
+    pub const MORE: &str = "icons/more.svg";
+    /// The sidebar toggle arrives with the library (Stage 4).
+    #[allow(dead_code)]
+    pub const SIDEBAR: &str = "icons/sidebar.svg";
+    pub const FOLDER: &str = "icons/folder.svg";
+    pub const FILE: &str = "icons/file.svg";
+    pub const RESTORE: &str = "icons/restore.svg";
 }

@@ -21,6 +21,7 @@ fn main() {
     application.on_reopen(app::reopen);
     application.run(move |cx: &mut App| {
         settings::init(cx);
+        theme::init(cx);
         app::init(cx);
         app::open_initial_window(&launch, cx);
     });

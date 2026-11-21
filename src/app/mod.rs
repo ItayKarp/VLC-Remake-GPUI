@@ -32,8 +32,13 @@ actions!(
         CloseWindow,
         /// Run onboarding again (Help menu).
         RunSetupAgain,
+        /// Choose media files to open (Ctrl+O / Cmd+O in the main window).
+        OpenFile,
     ]
 );
+
+/// Key context of the main window, for its bindings.
+pub const MAIN_WINDOW_CONTEXT: &str = "MainWindow";
 
 const APP_ID: &str = "org.redesignedvlc.app";
 
@@ -59,6 +64,17 @@ pub fn init(cx: &mut App) {
         let display = preferred_display(cx);
         cx.defer(move |cx| run_setup_again(display, cx));
     });
+
+    let open_file = if cfg!(target_os = "macos") {
+        "cmd-o"
+    } else {
+        "ctrl-o"
+    };
+    cx.bind_keys([KeyBinding::new(
+        open_file,
+        OpenFile,
+        Some(MAIN_WINDOW_CONTEXT),
+    )]);
 
     if cfg!(target_os = "macos") {
         cx.bind_keys([
@@ -117,7 +133,7 @@ pub fn open_onboarding(
             is_resizable: shrunk,
             window_min_size: Some(size(px(min.0), px(min.1))),
             display_id: display,
-            ..window_options()
+            ..window_options(crate::window_chrome::TITLE_BAR_HEIGHT)
         },
         |window, cx| cx.new(|cx| Onboarding::new(window, cx)),
     )?;
@@ -158,7 +174,7 @@ pub fn open_main_window(
             is_resizable: true,
             window_min_size: Some(size(px(min_w), px(min_h))),
             display_id: display,
-            ..window_options()
+            ..window_options(crate::main_window::TITLE_BAR_HEIGHT)
         },
         |window, cx| cx.new(|cx| MainWindow::new(files, window, cx)),
     )?;
@@ -215,14 +231,16 @@ pub fn run_setup_again(display: Option<DisplayId>, cx: &mut App) {
     }
 }
 
-fn window_options() -> WindowOptions {
+/// Options shared by every window. `title_bar_height` centers the macOS traffic
+/// lights (about 12px tall) in our title bar.
+fn window_options(title_bar_height: f32) -> WindowOptions {
     WindowOptions {
         titlebar: Some(TitlebarOptions {
             title: Some(SharedString::from("VLC")),
             // We draw our own title strip so the windows match the design on both
             // Windows and macOS.
             appears_transparent: true,
-            traffic_light_position: Some(point(px(12.), px(12.))),
+            traffic_light_position: Some(point(px(12.), px((title_bar_height - 8.) / 2.))),
         }),
         app_id: Some(APP_ID.into()),
         ..Default::default()

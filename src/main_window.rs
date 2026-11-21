@@ -1,46 +1,131 @@
-//! The main window: a minimal placeholder that onboarding hands off to (S0.2).
-//! S0.3.4 replaces it with the real shell (player title bar, empty state, drop
-//! target), and Stage 4 with the library.
+//! The main window shell (S0.3.4): the player-style title bar and an empty state
+//! that opens or accepts dropped files. Onboarding hands off to it (S0.2); the
+//! player (Stage 2) and the library (Stage 4) fill the content area later.
 
 use std::path::PathBuf;
 
 use gpui::{
-    ClickEvent, Context, FontWeight, Hsla, SharedString, Window, div, prelude::*, px, rgb, svg,
+    AnyElement, ClickEvent, Context, ExternalPaths, FocusHandle, FontWeight, KeyDownEvent,
+    MouseButton, PathPromptOptions, SharedString, Window, div, prelude::*, px, svg,
 };
 
-use crate::app;
+use crate::app::{self, MAIN_WINDOW_CONTEXT, OpenFile};
 use crate::assets::icons;
 use crate::settings::{self, Notice};
-use crate::theme::Palette;
-use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
+use crate::theme::{self, Palette};
+use crate::window_chrome::{self, Caption, TRAFFIC_LIGHTS_WIDTH};
+
+/// The player title bar's height in the designs (`player/screens/*`).
+pub const TITLE_BAR_HEIGHT: f32 = 40.;
+
+const APP_TITLE: &str = "VLC Media Player";
+
+/// Title bar buttons on the left: 28px square, 4px apart.
+const BAR_BUTTON: f32 = 28.;
+const BAR_PAD: f32 = 8.;
 
 pub struct MainWindow {
-    /// Files the app was launched with. Played once the engine exists (Stage 1).
+    /// Files the app was launched with, opened or dropped. Played once the engine
+    /// exists (Stage 1).
     files: Vec<PathBuf>,
     /// Settings notices (corrupt file recovered, changes not saved, …).
     notices: Vec<SharedString>,
+    focus_handle: FocusHandle,
+    open_button: FocusHandle,
+    /// The `…` menu is showing.
+    menu_open: bool,
 }
 
 impl MainWindow {
     pub fn new(files: Vec<PathBuf>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // Theme and accent follow the settings, and "System" follows the OS.
-        cx.observe_global::<settings::SettingsStore>(|_, cx| cx.notify())
-            .detach();
-        cx.observe_window_appearance(window, |_, _, cx| cx.notify())
+        theme::observe(window, cx);
+        // Swap the Maximize/Restore icon when the window is maximized or restored.
+        cx.observe_window_bounds(window, |_, _, cx| cx.notify())
             .detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
+
+        let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
+        open_button.focus(window, cx);
 
         let notices = settings::take_notices(cx)
             .into_iter()
             .map(|notice| notice_text(&notice).into())
             .collect();
-        Self { files, notices }
+        let this = Self {
+            files: Vec::new(),
+            notices,
+            focus_handle: cx.focus_handle(),
+            open_button,
+            menu_open: false,
+        };
+        let mut this = this;
+        this.add_files(files, window);
+        this
     }
 
-    fn palette(&self, window: &Window, cx: &Context<Self>) -> Palette {
-        let prefs = &settings::get(cx).prefs;
-        Palette::new(prefs.theme.is_dark(window.appearance()), prefs.accent)
+    fn add_files(&mut self, files: impl IntoIterator<Item = PathBuf>, window: &mut Window) {
+        self.files.extend(files);
+        window.set_window_title(&self.title());
     }
+
+    fn title(&self) -> String {
+        match self.files.last() {
+            Some(file) => file_name(file),
+            None => APP_TITLE.to_owned(),
+        }
+    }
+
+    fn open_file(&mut self, _: &OpenFile, window: &mut Window, cx: &mut Context<Self>) {
+        self.menu_open = false;
+        let paths = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: true,
+            prompt: Some("Open".into()),
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            if let Ok(Ok(Some(paths))) = paths.await {
+                this.update_in(cx, |this, window, cx| {
+                    this.add_files(paths, window);
+                    cx.notify();
+                })
+                .ok();
+            }
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn on_drop(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
+        self.add_files(paths.paths().iter().cloned(), window);
+        cx.notify();
+    }
+
+    fn toggle_menu(&mut self, cx: &mut Context<Self>) {
+        self.menu_open = !self.menu_open;
+        cx.notify();
+    }
+
+    fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let keystroke = &event.keystroke;
+        match keystroke.key.as_str() {
+            "escape" if self.menu_open => {
+                self.menu_open = false;
+                cx.notify();
+            }
+            "tab" if keystroke.modifiers.shift => window.focus_prev(cx),
+            "tab" => window.focus_next(cx),
+            _ => return,
+        }
+        cx.stop_propagation();
+    }
+}
+
+fn file_name(file: &std::path::Path) -> String {
+    file.file_name()
+        .unwrap_or(file.as_os_str())
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn notice_text(notice: &Notice) -> String {
@@ -69,80 +154,323 @@ fn notice_text(notice: &Notice) -> String {
 
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let p = self.palette(window, cx);
-        let warning: Hsla = rgb(0xE5A50A).into();
-
-        let opened = self.files.iter().map(|file| {
-            let name = file
-                .file_name()
-                .unwrap_or(file.as_os_str())
-                .to_string_lossy()
-                .into_owned();
-            div()
-                .text_size(px(14.))
-                .text_color(p.text_muted)
-                .child(SharedString::from(format!("Opened {name}")))
-        });
+        let p = theme::palette(window, cx);
 
         div()
             .id("main-window")
+            .key_context(MAIN_WINDOW_CONTEXT)
+            .track_focus(&self.focus_handle)
+            .on_action(cx.listener(Self::open_file))
+            .on_key_down(cx.listener(Self::on_key_down))
             .relative()
             .size_full()
             .bg(p.background)
             .text_color(p.text)
             .child(
                 div()
+                    .id("content")
                     .absolute()
                     .top(px(TITLE_BAR_HEIGHT))
                     .left_0()
                     .right_0()
                     .bottom_0()
+                    .overflow_y_scroll()
+                    .on_drop(cx.listener(Self::on_drop))
+                    .child(self.render_empty_state(&p, cx)),
+            )
+            .child(self.render_title_bar(&p, window, cx))
+            .when(self.menu_open, |root| root.child(self.render_menu(&p, cx)))
+    }
+}
+
+impl MainWindow {
+    fn render_title_bar(&self, p: &Palette, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        let left_inset = if cfg!(target_os = "macos") {
+            TRAFFIC_LIGHTS_WIDTH
+        } else {
+            BAR_PAD
+        };
+        let folder = settings::get(cx)
+            .local
+            .media_folders
+            .first()
+            .map(|folder| SharedString::from(file_name(folder)));
+
+        let left = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(4.))
+            .pl(px(left_inset))
+            .child(
+                div()
+                    .size(px(BAR_BUTTON))
                     .flex()
-                    .flex_col()
                     .items_center()
                     .justify_center()
-                    .gap(px(16.))
-                    .children(self.notices.iter().map(|notice| {
-                        div()
-                            .max_w(px(640.))
-                            .px(px(14.))
-                            .py(px(8.))
-                            .rounded(px(4.))
-                            .border_1()
-                            .border_color(warning)
-                            .text_size(px(14.))
-                            .child(notice.clone())
-                    }))
-                    .child(svg().path(icons::LOGO).size(px(96.)).text_color(p.accent))
                     .child(
-                        div()
-                            .text_size(px(28.))
-                            .font_weight(FontWeight::LIGHT)
-                            .text_color(p.text_strong)
-                            .child("VLC Media Player"),
-                    )
-                    .children(opened)
-                    .child(
-                        div()
-                            .id("run-setup-again")
-                            .mt(px(16.))
-                            .px(px(16.))
-                            .h(px(32.))
-                            .flex()
-                            .items_center()
-                            .rounded(px(4.))
-                            .bg(p.button)
-                            .hover(|style| style.bg(p.button_hover))
-                            .cursor_pointer()
-                            .text_size(px(15.))
-                            .text_color(p.text_muted)
-                            .child("Run setup again")
-                            .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
-                                let display = window.display(cx).map(|d| d.id());
-                                cx.defer(move |cx| app::run_setup_again(display, cx));
-                            })),
+                        svg()
+                            .path(icons::LOGO_SMALL)
+                            .size(px(18.))
+                            .text_color(p.accent_fg),
                     ),
             )
-            .child(window_chrome::title_bar(&p))
+            .child(
+                bar_button("menu", icons::MORE, self.menu_open, p)
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_menu(cx))),
+            )
+            .when_some(folder, |left, folder| {
+                left.child(div().mx(px(6.)).w(px(1.)).h(px(16.)).bg(p.divider))
+                    .child(
+                        // The folder the library opens on (Stage 4).
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap(px(6.))
+                            .px(px(4.))
+                            .child(svg().path(icons::FOLDER).size(px(18.)).text_color(p.icon))
+                            .child(div().text_size(px(13.)).text_color(p.text).child(folder)),
+                    )
+            });
+
+        let caption = window_chrome::caption_buttons(
+            &[
+                Caption::Minimize,
+                Caption::Maximize,
+                Caption::Fullscreen,
+                Caption::Close,
+            ],
+            window.is_maximized(),
+            p,
+        );
+
+        window_chrome::drag_bar("title-bar", TITLE_BAR_HEIGHT)
+            .bg(p.title_bar)
+            .justify_between()
+            .child(left)
+            .child(div().flex().flex_row().h_full().children(caption))
+            .child(
+                // Centered on the window, not between the side groups.
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .w_full()
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(
+                        div()
+                            .max_w(px(480.))
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
+                            .text_size(px(13.))
+                            .text_color(p.text_strong)
+                            .child(SharedString::from(self.title())),
+                    ),
+            )
+            .into_any_element()
     }
+
+    fn render_menu(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
+        let left = if cfg!(target_os = "macos") {
+            TRAFFIC_LIGHTS_WIDTH
+        } else {
+            BAR_PAD
+        } + BAR_BUTTON
+            + 4.;
+        let item = |id: &'static str, label: &'static str, hint: Option<&'static str>| {
+            div()
+                .id(id)
+                .h(px(32.))
+                .px(px(12.))
+                .mx(px(4.))
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .gap(px(24.))
+                .rounded(px(4.))
+                .cursor_pointer()
+                .hover(|style| style.bg(p.hover))
+                .text_size(px(14.))
+                .text_color(p.text)
+                .child(label)
+                .when_some(hint, |item, hint| {
+                    item.child(div().text_color(p.text_muted).child(hint))
+                })
+        };
+        let open_hint = if cfg!(target_os = "macos") {
+            "⌘O"
+        } else {
+            "Ctrl+O"
+        };
+
+        div()
+            .id("main-menu")
+            .absolute()
+            .top(px(TITLE_BAR_HEIGHT - 4.))
+            .left(px(left))
+            .min_w(px(220.))
+            .py(px(4.))
+            .rounded(px(8.))
+            .bg(p.menu)
+            .border_1()
+            .border_color(p.divider)
+            .shadow_lg()
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                this.menu_open = false;
+                cx.notify();
+            }))
+            .child(
+                item("menu-open-file", "Open file…", Some(open_hint)).on_click(cx.listener(
+                    |this, _: &ClickEvent, window, cx| this.open_file(&OpenFile, window, cx),
+                )),
+            )
+            .child(
+                item("menu-run-setup", "Run setup again", None).on_click(cx.listener(
+                    |this, _: &ClickEvent, window, cx| {
+                        this.menu_open = false;
+                        let display = window.display(cx).map(|d| d.id());
+                        cx.defer(move |cx| app::run_setup_again(display, cx));
+                    },
+                )),
+            )
+            .into_any_element()
+    }
+
+    fn render_empty_state(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
+        let warning = p.warning;
+        let hover = p.hover;
+        let accent_fg = p.accent_fg;
+        let open_hint = if cfg!(target_os = "macos") {
+            "⌘O"
+        } else {
+            "Ctrl+O"
+        };
+
+        let drop_zone = div()
+            .id("drop-zone")
+            .w(px(520.))
+            .max_w_full()
+            .py(px(48.))
+            .px(px(32.))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(12.))
+            .rounded(px(12.))
+            .border_2()
+            .border_dashed()
+            .border_color(p.key_border)
+            .drag_over::<ExternalPaths>(move |style, _, _, _| {
+                style.border_color(accent_fg).bg(hover)
+            })
+            .child(svg().path(icons::FILE).size(px(48.)).text_color(p.icon))
+            .child(
+                div()
+                    .text_size(px(20.))
+                    .text_color(p.text_strong)
+                    .child("Drop files here to play"),
+            )
+            .child(
+                div()
+                    .text_size(px(14.))
+                    .text_color(p.text_muted)
+                    .child("or"),
+            )
+            .child(
+                div()
+                    .id("open-file")
+                    .track_focus(&self.open_button)
+                    .h(px(36.))
+                    .px(px(20.))
+                    .flex()
+                    .items_center()
+                    .rounded(px(4.))
+                    .bg(p.accent)
+                    .text_color(p.on_accent)
+                    .text_size(px(15.))
+                    .font_weight(FontWeight::MEDIUM)
+                    .cursor_pointer()
+                    .border_2()
+                    .border_color(gpui::transparent_black())
+                    .hover(|style| style.opacity(0.9))
+                    .focus_visible(|style| style.border_color(p.focus_ring))
+                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                        this.open_file(&OpenFile, window, cx)
+                    }))
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            this.open_file(&OpenFile, window, cx);
+                            cx.stop_propagation();
+                        }
+                    }))
+                    .child("Open file…"),
+            )
+            .child(
+                div()
+                    .text_size(px(12.))
+                    .text_color(p.text_muted)
+                    .child(open_hint),
+            );
+
+        let opened = self.files.iter().map(|file| {
+            div()
+                .text_size(px(14.))
+                .text_color(p.text_muted)
+                .child(SharedString::from(format!("Opened {}", file_name(file))))
+        });
+
+        div()
+            .min_h_full()
+            .p(px(24.))
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .gap(px(16.))
+            .children(self.notices.iter().map(|notice| {
+                div()
+                    .max_w(px(640.))
+                    .px(px(14.))
+                    .py(px(8.))
+                    .rounded(px(4.))
+                    .border_1()
+                    .border_color(warning)
+                    .text_size(px(14.))
+                    .child(notice.clone())
+            }))
+            .child(drop_zone)
+            .children(opened)
+            .into_any_element()
+    }
+}
+
+/// A 28px icon button in the title bar.
+fn bar_button(
+    id: &'static str,
+    icon: &'static str,
+    active: bool,
+    p: &Palette,
+) -> gpui::Stateful<gpui::Div> {
+    let hover = p.button_hover;
+    div()
+        .id(id)
+        .size(px(BAR_BUTTON))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(4.))
+        .occlude()
+        .cursor_pointer()
+        .when(active, |this| this.bg(hover))
+        .hover(move |style| style.bg(hover))
+        // Don't let the drag bar start a window move from here.
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .child(svg().path(icon).size(px(18.)).text_color(p.icon))
 }

@@ -11,14 +11,14 @@
 use std::path::PathBuf;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
+    AnyElement, App, ClickEvent, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
     PathPromptOptions, SharedString, Window, div, prelude::*, px, relative, svg,
 };
 
 use crate::app;
 use crate::assets::icons;
 use crate::settings::{self, Settings};
-use crate::theme::{Accent, Palette, ThemeMode, blend};
+use crate::theme::{self, Accent, Palette, Theme, ThemeMode, blend};
 use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
 
 /// Window size: the design's 1088×760 content area plus our title strip.
@@ -59,9 +59,9 @@ impl Onboarding {
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window, cx);
 
-        // Re-render when the OS switches light/dark, for the "System" theme.
-        cx.observe_window_appearance(window, |_, _, cx| cx.notify())
-            .detach();
+        // Re-render when the OS switches light/dark (for the "System" theme) or
+        // turns high contrast on or off.
+        theme::observe(window, cx);
 
         // Start from whatever is saved, so running setup again keeps earlier choices.
         let saved = settings::get(cx);
@@ -110,8 +110,10 @@ impl Onboarding {
         }
     }
 
-    fn palette(&self, window: &Window) -> Palette {
-        Palette::new(self.theme.is_dark(window.appearance()), self.accent)
+    /// The live preview of the choices on screen, not the saved theme.
+    fn palette(&self, window: &Window, cx: &App) -> Palette {
+        cx.global::<Theme>()
+            .palette_for(self.theme, self.accent, window.appearance())
     }
 
     fn go_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -237,7 +239,7 @@ impl Onboarding {
 
 impl Render for Onboarding {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let palette = self.palette(window);
+        let palette = self.palette(window, cx);
 
         let content = match self.step {
             Step::Welcome => self.render_welcome(&palette, cx),

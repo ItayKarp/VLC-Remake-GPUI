@@ -278,12 +278,12 @@ flowchart LR
 **Depends on:** S0.1, S0.2  **Size:** M  **Design refs:** `docs/ui/player/screens/light/player_light.png`, `docs/ui/library/sidebar/*`, onboarding step 2
 
 **Subtasks**
-- [ ] S0.3.1 Move `ThemeMode`, `Accent` and `Palette` into a `Theme` global. `Palette::new` stays the single source of colors. Every window observes the theme global and its own window appearance.
-- [ ] S0.3.2 Add the palette tokens the library, player and settings designs need (sidebar background, selected item, card hover, divider, overlay scrim, tooltip, danger, success, focus ring). Sample them from the designs in both light and dark.
-- [ ] S0.3.3 Contrast: `on_accent` is fixed at `#111111`, which falls below WCAG AA (4.5:1) on Blue `#185DD3` (3.19:1) and Purple `#8E42FF` (3.93:1). White passes on both (5.92:1 and 4.80:1). Compute `on_accent` per accent as dark or white text, whichever contrasts more, and add a unit test that checks every accent in both themes.
-- [ ] S0.3.4 Main window shell: the custom title bar (reuse `window_chrome.rs`, extended to the player title bar layout in S2.1: logo, `…` menu, sidebar toggle, folder chip, title, Minimize/Maximize/Fullscreen/Close), and a content area that shows an empty state with **Open file…** and "drop files here". This is the target S0.2 hands off to until the Library lands in Stage 4.
-- [ ] S0.3.5 The main window can be resized, with a minimum size taken from the narrowest design (likely around 800×500), and supports maximize and double-click on the title bar to maximize.
-- [ ] S0.3.6 Respect the OS "reduce motion" setting for animations, and keep layouts working under Windows High Contrast / forced colors.
+- [x] S0.3.1 Move `ThemeMode`, `Accent` and `Palette` into a `Theme` global. `Palette::new` stays the single source of colors. Every window observes the theme global and its own window appearance. *(`src/theme/`: views call `theme::observe` and `theme::palette`. The global mirrors settings, which still own and persist the values; onboarding previews its unsaved choices through `Theme::palette_for`.)*
+- [x] S0.3.2 Add the palette tokens the library, player and settings designs need (sidebar background, selected item, card hover, divider, overlay scrim, tooltip, danger, success, focus ring). Sample them from the designs in both light and dark. *(Sampled where a design exists, mostly dark. The light values without a design, and tooltip, danger and success in both themes, are derived and marked in `palette.rs`. See C.2 for the light player design.)*
+- [x] S0.3.3 Contrast: `on_accent` is fixed at `#111111`, which falls below WCAG AA (4.5:1) on Blue `#185DD3` (3.19:1) and Purple `#8E42FF` (3.93:1). White passes on both (5.92:1 and 4.80:1). Compute `on_accent` per accent as dark or white text, whichever contrasts more, and add a unit test that checks every accent in both themes.
+- [x] S0.3.4 Main window shell: the custom title bar (reuse `window_chrome.rs`, extended to the player title bar layout in S2.1: logo, `…` menu, sidebar toggle, folder chip, title, Minimize/Maximize/Fullscreen/Close), and a content area that shows an empty state with **Open file…** and "drop files here". This is the target S0.2 hands off to until the Library lands in Stage 4. *(The sidebar toggle is left out until the library exists (Stage 4). For now the `…` menu holds Open file and Run setup again, and the folder chip shows the first media folder. Opened and dropped files are listed until the engine plays them.)*
+- [x] S0.3.5 The main window can be resized, with a minimum size taken from the narrowest design (likely around 800×500), and supports maximize and double-click on the title bar to maximize.
+- [x] S0.3.6 Respect the OS "reduce motion" setting for animations, and keep layouts working under Windows High Contrast / forced colors. *(GPUI doesn't read either setting, so `theme/system.rs` reads them: on Windows from `SystemParametersInfo`, on macOS and Linux from `defaults` and `gsettings`. They are re-read when a window is activated or the OS appearance changes. The result feeds `cx.set_reduce_motion`, and under Windows High Contrast every token maps to a system color. macOS and Linux don't expose high-contrast colors.)*
 
 **Edge cases**
 - On Linux desktops that don't report appearance, "System" falls back to dark and the Settings screen says so.
@@ -2211,6 +2211,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | Theme order | Light/Dark/System (onboarding) versus Dark/Light/System (Settings) | D6 |
 | Shortcuts | onboarding versus menus versus dialog | D3 |
 | Duplicates | `interface_02`, `subtitles_02`, `video_02`, `add_subtitles_…_04`, `controls-variant10` are byte-identical to their siblings | the scrolled or alternate states are missing |
+| Light theme | `player/screens/light` has a gray title bar and rail (#ABABAA) and a #C2C2C1 panel; onboarding's light preview uses #E6E6E6 and #F3F3F3 | confirm which light palette the player uses; S0.3.2 took the player design's values for `sidebar` and `panel` only |
 
 ---
 
