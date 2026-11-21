@@ -3,6 +3,7 @@
 # target/spike-results/results.txt. Build first:
 #   cargo build --release --example video_spike   (add --features runtime_shaders without Xcode's Metal toolchain)
 # Usage: measure.sh [throughput|edges|all]   (default all)
+# Set LIBVLC to an unpacked VLC folder to use it instead of the default (needed off macOS).
 set -uo pipefail
 
 bin=target/release/examples/video_spike
@@ -10,6 +11,8 @@ media=target/spike-media
 out=target/spike-results
 mkdir -p "$out"
 paths=(cpu)
+libvlc=()
+if [[ -n "${LIBVLC:-}" ]]; then libvlc=(--libvlc "$LIBVLC"); fi
 if [[ "$(uname)" == Darwin ]]; then paths+=(surface); fi
 
 run() { # run SECONDS FILE EXTRA_ARGS...
@@ -17,7 +20,7 @@ run() { # run SECONDS FILE EXTRA_ARGS...
   shift 2
   for path in "${paths[@]}"; do
     local log="$out/$(basename "$file")-$path${1:+-sw}.log"
-    "$bin" --seconds "$seconds" --path "$path" "$@" "$media/$file" >"$log" 2>&1
+    "$bin" ${libvlc[@]+"${libvlc[@]}"} --seconds "$seconds" --path "$path" "$@" "$media/$file" >"$log" 2>&1
     grep -h "^RESULT" "$log" | sed "s/\$/ args=[$*]/" | tee -a "$out/results.txt"
   done
 }

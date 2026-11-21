@@ -30,6 +30,7 @@ dependencies = [
  "tracing-subscriber",
  "unicode-segmentation",
  "url",
+ "windows-sys",
  "winresource",
  "yuvutils-rs",
 ]

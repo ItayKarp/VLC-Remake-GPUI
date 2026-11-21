@@ -70,6 +70,10 @@ gpui_apple = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70
 objc2-core-foundation = { version = "=0.3.2", features = ["CFDictionary", "CFNumber", "CFString"] }
 objc2-core-video = { version = "=0.3.2", features = ["CVBase", "CVBuffer", "CVImageBuffer", "CVPixelBuffer", "CVPixelBufferPool", "CVReturn"] }
 
+# The S1.1 spike's CPU time and peak memory on Windows.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
+
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui_wgpu = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3" }
 

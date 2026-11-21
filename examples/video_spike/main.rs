@@ -23,6 +23,7 @@ mod sink;
 mod slot;
 mod stats;
 mod track;
+mod usage;
 mod view;
 
 use std::sync::Arc;
