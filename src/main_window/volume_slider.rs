@@ -54,6 +54,11 @@ impl VolumeSlider {
             bubble: Flash::default(),
         }
     }
+
+    /// Whether the wedge is being dragged.
+    pub(super) fn is_dragging(&self) -> bool {
+        self.dragging
+    }
 }
 
 /// The volume as the bubble and screen readers say it ("100 %", as designed).
@@ -68,14 +73,14 @@ impl MainWindow {
     }
 
     /// Shows the new volume: in the bubble over the wedge, or on the video while the control
-    /// bar is hidden (fullscreen, until S2.8 hides it at other times too).
+    /// bar is hidden (S2.8).
     pub(super) fn show_volume(&mut self, window: &Window, cx: &mut Context<Self>) {
         let Some(player) = self.loaded_player(cx) else { return };
-        if window.is_fullscreen() {
+        if self.chrome(window, cx).controls {
+            self.flash(|this| &mut this.volume_slider.bubble, BUBBLE_SHOWN_FOR, cx);
+        } else {
             let text = format!("Volume {}", percent_text(player.read(cx).volume()));
             self.show_osd(text, cx);
-        } else {
-            self.flash(|this| &mut this.volume_slider.bubble, BUBBLE_SHOWN_FOR, cx);
         }
     }
 

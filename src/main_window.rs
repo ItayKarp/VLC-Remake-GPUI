@@ -1,15 +1,17 @@
 //! The main window shell (S0.3.4): the player-style title bar, the control bar (S2.2), and an
 //! empty state that opens or accepts dropped files, replaced by the video while media plays
-//! (S1.4). Onboarding hands off to it (S0.2); the player (Stage 2) and the library
+//! (S1.4). The bars hide by themselves, in Hide UI mode and in fullscreen (S2.8). Onboarding hands off to it (S0.2); the player (Stage 2) and the library
 //! (Stage 4) fill the content area later.
 
 mod audio;
+mod auto_hide;
 mod bar_panel;
 mod control_bar;
 mod diagnostics;
 mod empty_state;
 mod flash;
 mod fullscreen;
+mod hide_ui;
 mod history;
 mod main_menu;
 mod notice;
@@ -35,6 +37,7 @@ use gpui::{
     Window, div, prelude::*, px,
 };
 
+use self::auto_hide::rules::Layout;
 use crate::app;
 use crate::app::media::Media;
 use crate::app::request::OpenRequest;
@@ -102,6 +105,8 @@ pub struct MainWindow {
     settings_panel: settings_panel::SettingsPanel,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
+    /// When the bars hide, Hide UI mode and the video's right-click menu (S2.8).
+    auto_hide: auto_hide::AutoHide,
 }
 
 impl MainWindow {
@@ -109,10 +114,7 @@ impl MainWindow {
     /// notices.
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         theme::observe(window, cx);
-        // The title bar follows Settings → Interface.
-        cx.observe_global::<settings::SettingsStore>(|_, cx| cx.notify()).detach();
-        // Swap the Maximize/Restore icon when the window is maximized or restored.
-        cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
+        Self::redraw_on_changes(window, cx);
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
         Self::release_keys_on_blur(window, cx);
         Self::close_popovers_on_deactivate(window, cx);
@@ -147,11 +149,20 @@ impl MainWindow {
             track_popover: track_popover::TrackPopover::new(cx),
             settings_panel: settings_panel::SettingsPanel::new(window, cx),
             os_title: String::new(),
+            auto_hide: auto_hide::AutoHide::default(),
         };
         this.set_up_history(cx);
         this.open(request, window, cx);
         this.show_pending_crash(cx);
         this
+    }
+
+    /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when
+    /// the window is maximized, restored or goes fullscreen (the Maximize/Restore icon, the
+    /// layout).
+    fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
+        cx.observe_global::<settings::SettingsStore>(|_, cx| cx.notify()).detach();
+        cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
     }
 
     /// The settings notices waiting to be shown, as text.
@@ -192,18 +203,26 @@ impl MainWindow {
         }
     }
 
-    /// Between the title bar and the control bar (the whole window in fullscreen): the video
-    /// while media is loaded, else the empty state.
-    fn render_content(&self, p: &theme::Palette, fullscreen: bool, cx: &mut Context<Self>) -> Div {
-        let (top, bottom) =
-            if fullscreen { (0., 0.) } else { (TITLE_BAR_HEIGHT, control_bar::CONTROL_BAR_HEIGHT) };
+    /// Between the title bar and the control bar (the whole window when the bars float or
+    /// hide, S2.8): the video while media is loaded, else the empty state.
+    fn render_content(
+        &self,
+        p: &theme::Palette,
+        layout: Layout,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let (top, bottom) = match layout {
+            Layout::Docked => (TITLE_BAR_HEIGHT, control_bar::CONTROL_BAR_HEIGHT),
+            Layout::Floating | Layout::Fullscreen => (0., 0.),
+        };
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
             Some(video) => area
                 .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
                     this.scroll_on_video(event, window, cx);
                 }))
-                .child(viewport::framed(video, p, fullscreen))
+                .child(self.video_area(viewport::framed(video, p, layout), window, cx))
                 .children(self.render_osd(p)),
             None => area.child(
                 div()
@@ -221,9 +240,7 @@ impl Render for MainWindow {
         self.sync_os_title(window, cx);
         self.release_previews(window);
         let p = theme::palette(window, cx);
-        // Fullscreen is the video alone: no title or control bar (S2.8 brings auto-hiding
-        // controls).
-        let fullscreen = window.is_fullscreen();
+        let chrome = self.sync_chrome(window, cx);
 
         Self::history_actions(Self::player_keys(focus::tab_navigation(div()), cx), cx)
             .id("main-window")
@@ -249,15 +266,17 @@ impl Render for MainWindow {
             .size_full()
             .bg(p.background)
             .text_color(p.text)
-            .child(self.render_content(&p, fullscreen, cx))
-            .children((!fullscreen).then(|| self.render_title_bar(&p, window, cx)))
-            .children((!fullscreen).then(|| self.render_control_bar(&p, window, cx)))
+            .child(self.render_content(&p, chrome.layout, window, cx))
+            .children(chrome.title_bar.then(|| self.render_title_bar(&p, window, cx)))
+            .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
-            .children((!fullscreen).then(|| self.render_seek_card(&p, window, cx)).flatten())
+            .children(chrome.controls.then(|| self.render_seek_card(&p, window, cx)).flatten())
+            .child(Self::pointer_watcher(cx))
             .child(self.toasts.clone())
             .children(self.render_menu())
             .children(self.render_overflow_menu())
+            .children(self.render_video_menu())
             .child(drop_target::highlight(&p))
     }
 }

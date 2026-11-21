@@ -163,8 +163,8 @@ impl MainWindow {
         self.close_settings_panel(window, cx);
     }
 
-    /// The panel over the video's bottom right, while open. It closes once its media is gone or
-    /// the window goes fullscreen, which hides the bar it belongs to (until S2.8).
+    /// The panel over the video's bottom right, while open. It closes once its media is gone, or
+    /// with the bar it belongs to (S2.8; it keeps the bar up while open).
     pub(super) fn render_settings_panel(
         &mut self,
         p: &Palette,
@@ -172,7 +172,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Option<Stateful<Div>> {
         let tab = self.settings_panel.open?;
-        if window.is_fullscreen() || !self.has_active_media(cx) {
+        if !self.has_active_media(cx) {
             self.close_settings_panel(window, cx);
             return None;
         }

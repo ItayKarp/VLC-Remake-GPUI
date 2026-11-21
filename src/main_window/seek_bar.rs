@@ -55,6 +55,11 @@ impl SeekBar {
         }
     }
 
+    /// Whether the handle is being dragged.
+    pub(super) fn is_scrubbing(&self) -> bool {
+        self.scrub.is_some()
+    }
+
     /// The track's span in the last frame.
     fn span(&self) -> Option<Span> {
         let bounds = self.track.bounds()?;

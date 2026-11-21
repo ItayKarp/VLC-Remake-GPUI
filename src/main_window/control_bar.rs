@@ -61,6 +61,11 @@ impl ControlBar {
     pub(super) fn close_overflow(&mut self) {
         self.overflow = None;
     }
+
+    /// Whether the overflow menu is open.
+    pub(super) fn is_overflow_open(&self) -> bool {
+        self.overflow.is_some()
+    }
 }
 
 impl MainWindow {

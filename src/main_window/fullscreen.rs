@@ -1,6 +1,7 @@
 //! Fullscreen (S1.4.2): F toggles it (a double-click on the video does too, in
 //! [`VideoView`](crate::video::VideoView)), and Escape leaves it before Escape means anything
-//! else.
+//! else. Escape leaves Hide UI mode (S2.8.2) first, so fullscreen with Hide UI always has a
+//! keyboard way back: one Escape brings the controls, the next leaves fullscreen.
 //!
 //! The OS does the switch and keeps the windowed bounds: macOS uses native fullscreen (its own
 //! Space, so Mission Control and Cmd+Tab behave as for any app), Windows and Linux a borderless
@@ -26,15 +27,21 @@ impl MainWindow {
         .on_action(cx.listener(Self::exit_fullscreen))
     }
 
-    /// Escape: leaves fullscreen, or, when windowed, lets the key mean what it means elsewhere
-    /// (closing a menu or a dialog). Keymap actions run before key listeners, so in fullscreen
-    /// Escape always leaves fullscreen first.
+    /// Escape: leaves Hide UI mode, else fullscreen, or, when windowed, lets the key mean what
+    /// it means elsewhere (closing a menu or a dialog). Keymap actions run before key listeners,
+    /// so in fullscreen Escape always leaves fullscreen first.
     fn exit_fullscreen(
         &mut self,
         action: &ExitFullscreen,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.auto_hide.hide_ui {
+            if self.admit(action) {
+                self.set_hide_ui(false, cx);
+            }
+            return;
+        }
         if !window.is_fullscreen() {
             cx.propagate();
             return;

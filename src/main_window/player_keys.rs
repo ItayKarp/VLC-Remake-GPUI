@@ -2,8 +2,8 @@
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
 //! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N),
-//! seeking (S2.3.4: the arrows with their modifiers, Home and End) and the speed (S2.7.3: `[`,
-//! `]` and `=`) work; any other
+//! seeking (S2.3.4: the arrows with their modifiers, Home and End), the speed (S2.7.3: `[`,
+//! `]` and `=`), and showing or hiding the interface (S2.8: I and Ctrl+\) work; any other
 //! admitted command is only logged until S2.10.3 gives it its effect.
 
 use std::time::Instant;
@@ -146,4 +146,6 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::Faster, |this, window, cx| this.change_speed(SpeedChange::Faster, window, cx)),
     (&act::Slower, |this, window, cx| this.change_speed(SpeedChange::Slower, window, cx)),
     (&act::NormalSpeed, |this, window, cx| this.change_speed(SpeedChange::Normal, window, cx)),
+    (&act::ShowControls, MainWindow::summon_controls),
+    (&act::HideInterface, MainWindow::toggle_hide_ui),
 ];

@@ -690,7 +690,7 @@ Design facts the stories rely on (`docs/ui/player/**`):
 - [x] S2.5.4 Clicking the speaker toggles mute. The speaker icon changes with the level (none, low, medium, high, from `docs/icons/media_controls/volume/*`); the muted look isn't designed, so design it. *(None at 0%, low below 34%, medium below 67%, high above. Muted: the speaker struck through (`volume-muted.svg`) and the fill at a third of its opacity, so the level unmuting restores stays visible.)*
 - [x] S2.5.5 Scroll wheel over the slider or the video (Settings → Controls mouse mapping), and Up/Down keys, in "Volume step" increments. *(`prefs.controls.wheel`, `volume` or `nothing`, for the video; the wedge always takes the wheel. A wheel notch is one step; trackpad scrolling adds up 40 px per step, at most one step per event. With focus the wedge also takes Left/Right, Home (0%) and End (100%, not the boost).)*
 - [x] S2.5.6 Snap or detent at 100% while dragging (a soft magnet of about ±3%), so users don't drift into the boost range by accident. *(Drags set whole percents and hold at 100% from 97% to 103%.)*
-- [x] S2.5.7 An OSD toast on the video when the volume changes by keyboard or scroll while the bar is hidden. *(`main_window/osd.rs`: "Volume 80 %" at the video's top right for 1.5 s. The bar is hidden only in fullscreen until S2.8.)*
+- [x] S2.5.7 An OSD toast on the video when the volume changes by keyboard or scroll while the bar is hidden. *(`main_window/osd.rs`: "Volume 80 %" at the video's top right for 1.5 s, whenever the control bar is hidden (S2.8).)*
 
 **Edge cases**
 - Maximum volume lowered below the current level (S5.8): clamp immediately.
@@ -719,7 +719,7 @@ Design facts the stories rely on (`docs/ui/player/**`):
 - The selected output device disappears while the popover is open: move the check to the system default and show a note. *(Done: "The chosen device isn't connected. Sound plays through the system default.")*
 - 50+ tracks: the list scrolls inside the popover with a maximum height that fits the window. *(Done.)*
 - A small window height: the popover never extends above the title bar; it becomes scrollable instead. *(Done.)*
-- Fullscreen with auto-hide: an open popover keeps the controls visible until it closes. *(Not done: the popover closes in fullscreen until S2.8 brings the bar there.)*
+- Fullscreen with auto-hide: an open popover keeps the controls visible until it closes. *(Done in S2.8.)*
 
 ---
 
@@ -746,18 +746,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.1, S1.4  **Size:** M  **Design refs:** `hide_ui/player_hide_ui.png`, Settings → Interface "Playback Controls"
 
 **Subtasks**
-- [ ] S2.8.1 Auto-hide after the "Hide after" delay (Settings → Interface, default 3 s, see S5.4) following the "Auto-hide the controls" mode (In fullscreen only, Always, Never). Mouse movement over the window shows the controls; the cursor hides along with them.
-- [ ] S2.8.2 **Hide UI** (Ctrl+\ and right-click → Hide UI): only the rounded video viewport with its 10 px margin remains (as designed). Exit with the same shortcut, Escape, or the right-click menu.
-- [ ] S2.8.3 The controls stay visible while: paused (configurable), the pointer is over the bar or a popover, a popover or menu is open, the seek bar is being dragged, or keyboard focus is in the bar.
-- [ ] S2.8.4 Fullscreen hides the title bar and keeps the control bar (subject to auto-hide). "Show controls in fullscreen" off means they never show in fullscreen, except on Escape or with the "Show interface controls in fullscreen" key (I).
+- [x] S2.8.1 Auto-hide after the "Hide after" delay (Settings → Interface, default 3 s, see S5.4) following the "Auto-hide the controls" mode (In fullscreen only, Always, Never). Mouse movement over the window shows the controls; the cursor hides along with them. *(`main_window/auto_hide.rs`, rules in `auto_hide/rules.rs`; `prefs.interface.auto_hide_controls` and `hide_controls_after_ms`, rows with S5.4. Decided: "Hide after" is clamped to 0.5–10 s, so 0 isn't allowed. Only video hides anything; the empty state keeps its bars. "Always" in a window floats both bars over the video, inset all round as in Hide UI, so showing them never resizes the video. One timer task on the monotonic clock. The cursor hides through the OS (`cursor.rs`: macOS and Windows; Linux keeps it, as GPUI can't hide it there) and only while the pointer is over the active window.)*
+- [x] S2.8.2 **Hide UI** (Ctrl+\ and right-click → Hide UI): only the rounded video viewport with its 10 px margin remains (as designed). Exit with the same shortcut, Escape, or the right-click menu. *(`main_window/hide_ui.rs`. The right-click menu on the video holds only Hide UI / Show UI until S2.9.2. The macOS traffic lights hide with the title bar. Escape leaves Hide UI before fullscreen.)*
+- [x] S2.8.3 The controls stay visible while: paused (configurable), the pointer is over the bar or a popover, a popover or menu is open, the seek bar is being dragged, or keyboard focus is in the bar. *(Also while stopped or opening, and while the volume wedge is dragged. `prefs.interface.keep_controls_while_paused` (on by default) is the "configurable"; its row comes with S5.4. Keyboard focus counts while the last input was a key, so Tab brings the bars back; a mouse move ends it. When a hold ends the delay starts over; a button clicked before the bars hide hands the keyboard back to the player.)*
+- [x] S2.8.4 Fullscreen hides the title bar and keeps the control bar (subject to auto-hide). "Show controls in fullscreen" off means they never show in fullscreen, except on Escape or with the "Show interface controls in fullscreen" key (I). *(`prefs.interface.show_controls_in_fullscreen`, row with S5.4. The control bar floats over the edge-to-edge video. Escape leaves fullscreen, which brings them back; I shows them until the pointer next rests, and also wakes auto-hidden controls in a window. The track popover and settings panel now work in fullscreen. Held keys are forgotten when fullscreen switches, as macOS drops the key-up of the key that switched it, which made the next Escape or F do nothing. Checked on macOS: fullscreen shows the bar for the delay then hides it, a mouse move and I bring it back, Cmd+\ and Escape enter and leave Hide UI. The right-click menu, drag-to-move and the held-bar cases were not driven on screen.)*
 
 **Edge cases**
-- The mouse rests over the hidden control bar area: it doesn't flicker (hysteresis on show and hide).
-- A second monitor: moving the mouse on another screen doesn't wake the controls.
-- Hide UI mode while a modal or the Settings window is open: the modals still show.
-- In Hide UI mode the window has no title bar to drag, so dragging the video moves the window (Windows and Linux) and the OS still allows resizing at the edges.
-- Fullscreen plus Hide UI plus a keyboard-only user: there must always be a keyboard way back (Escape).
-- A trackpad tap-to-click on the video when single click = Play/Pause: don't also wake the controls in a way that eats the click.
+- The mouse rests over the hidden control bar area: it doesn't flicker (hysteresis on show and hide). *(Moves under 4 px don't count, and the pointer over a bar holds it up.)*
+- A second monitor: moving the mouse on another screen doesn't wake the controls. *(Moves outside the window are ignored, and the cursor is only hidden while over the window.)*
+- Hide UI mode while a modal or the Settings window is open: the modals still show. *(Only the bars and what hangs off them hide; toasts and modals stay.)*
+- In Hide UI mode the window has no title bar to drag, so dragging the video moves the window (Windows and Linux) and the OS still allows resizing at the edges. *(Done on macOS and Linux; GPUI can't start a window move on Windows, so there it doesn't drag yet.)*
+- Fullscreen plus Hide UI plus a keyboard-only user: there must always be a keyboard way back (Escape). *(Escape leaves Hide UI, then fullscreen.)*
+- A trackpad tap-to-click on the video when single click = Play/Pause: don't also wake the controls in a way that eats the click. *(Only moves wake them, never a press, and they show at the edges, not over the video's middle.)*
 
 ---
 

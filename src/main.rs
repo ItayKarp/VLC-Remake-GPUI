@@ -3,6 +3,7 @@
 
 mod app;
 mod assets;
+mod cursor;
 mod db;
 mod diagnostics;
 #[allow(dead_code, reason = "the S1.2 engine; the player screen (S2) is its first caller")]

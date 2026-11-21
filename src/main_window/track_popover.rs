@@ -58,6 +58,11 @@ impl TrackPopover {
         }
     }
 
+    /// Whether the popover is open.
+    pub(super) fn is_open(&self) -> bool {
+        self.open.is_some()
+    }
+
     /// Whether the popover shows the tab of `kind`.
     pub(super) fn shows(&self, kind: TrackKind) -> bool {
         self.open == Some(kind)
@@ -119,8 +124,8 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// The popover over the video's bottom right, while open. It closes once its media is gone
-    /// or the window goes fullscreen, which hides the bar it belongs to (until S2.8).
+    /// The popover over the video's bottom right, while open. It closes once its media is gone,
+    /// or with the bar it belongs to (S2.8; it keeps the bar up while open).
     pub(super) fn render_track_popover(
         &mut self,
         p: &Palette,
@@ -128,7 +133,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Option<Stateful<Div>> {
         let open = self.track_popover.open?;
-        if window.is_fullscreen() || !self.has_active_media(cx) {
+        if !self.has_active_media(cx) {
             self.close_track_popover(window, cx);
             return None;
         }

@@ -1,5 +1,6 @@
 //! The video viewport (S2.1.4): the video inset from the window's edges in a rounded rectangle,
-//! letterboxed inside it. Fullscreen shows the video edge to edge.
+//! letterboxed inside it. Under the title bar the inset leaves the top edge; with the bars
+//! floating or hidden (S2.8) it goes all round. Fullscreen shows the video edge to edge.
 //!
 //! Video frames are painted as images or (macOS) surfaces, which GPUI's rounded content masks
 //! don't clip, so the corners are rounded by painting the frame's colour over them.
@@ -9,6 +10,7 @@ use gpui::{
     px,
 };
 
+use super::auto_hide::rules::Layout;
 use crate::theme::Palette;
 use crate::video::VideoView;
 
@@ -19,14 +21,17 @@ const RADIUS: f32 = 6.;
 /// How far a quarter circle's Bézier control points sit along its tangents, per unit radius.
 const QUARTER_CIRCLE: f32 = 0.552_284_8;
 
-/// `video` in its rounded viewport, framed in the title bar's colour; edge to edge when
-/// `fullscreen`.
-pub fn framed(video: Entity<VideoView>, p: &Palette, fullscreen: bool) -> Div {
-    if fullscreen {
-        return div().size_full().child(video);
-    }
+/// `video` in its rounded viewport for `layout`, framed in the title bar's colour; edge to edge
+/// in fullscreen.
+pub fn framed(video: Entity<VideoView>, p: &Palette, layout: Layout) -> Div {
     let frame = p.title_bar;
-    div().size_full().px(px(INSET)).pb(px(INSET)).bg(frame).child(
+    let area = div().size_full().bg(frame);
+    let area = match layout {
+        Layout::Fullscreen => return div().size_full().child(video),
+        Layout::Docked => area.px(px(INSET)).pb(px(INSET)),
+        Layout::Floating => area.p(px(INSET)),
+    };
+    area.child(
         div().relative().size_full().rounded(px(RADIUS)).bg(p.video).child(video).child(
             canvas(|_, _, _| {}, move |bounds, (), window, _| round_corners(bounds, frame, window))
                 .absolute()
