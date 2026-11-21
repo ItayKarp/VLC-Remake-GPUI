@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 use gpui::{App, Context, Div, Subscription, prelude::*};
 
 use super::MainWindow;
+use crate::app::media::Media;
 use crate::db::media::Saved;
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::PlaybackState;
@@ -40,6 +41,8 @@ pub(super) struct HistoryWatch {
     settings: Option<Subscription>,
     /// Ends the session when the app quits.
     quit: Option<Subscription>,
+    /// What a restored session opened at its saved position (S3.4): its open offers no resume.
+    restored: Option<Media>,
 }
 
 impl MainWindow {
@@ -83,9 +86,15 @@ impl MainWindow {
         }
     }
 
+    /// `media` opens where a restored session left it, so its open offers no resume.
+    pub(super) fn skip_resume_offer(&mut self, media: Media) {
+        self.history.restored = Some(media);
+    }
+
     /// Ends the last session and begins one for what the player opens, then offers to resume.
     fn begin_history(&mut self, cx: &mut Context<Self>) {
         self.end_history(cx);
+        let restored = self.history.restored.take();
         if !history_on(cx) {
             return;
         }
@@ -93,9 +102,13 @@ impl MainWindow {
             return;
         };
         let Some(media) = player.read(cx).media().cloned() else { return };
+        let offer = restored.as_ref() != Some(&media);
         let (session, saved) = history.begin(media);
         let id = session.id();
         self.history.session = Some(session);
+        if !offer {
+            return;
+        }
         cx.spawn(async move |this, cx| {
             if let Ok(Some(saved)) = saved.await {
                 this.update(cx, |this, cx| this.offer_resume(id, saved, cx)).ok();

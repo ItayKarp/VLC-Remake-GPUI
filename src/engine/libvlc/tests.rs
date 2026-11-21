@@ -18,7 +18,7 @@ use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::engine::tracks::{Track, TrackId, TrackKind, Tracks};
-use crate::engine::values::{BackendSeek, Generation, StepDirection};
+use crate::engine::values::{BackendSeek, Generation, Start, StepDirection};
 
 /// How long any one expected event may take.
 const PATIENCE: Duration = Duration::from_secs(10);
@@ -43,7 +43,7 @@ impl Session {
 
     fn open_again(&mut self, name: &str) {
         self.generation = self.generation.next();
-        self.backend.open(&Media::File(media(name)), self.generation);
+        self.backend.open(&Media::File(media(name)), Start::default(), self.generation);
     }
 
     /// Waits for the first event matching `wanted` and returns it; panics after [`PATIENCE`].
@@ -172,7 +172,7 @@ fn a_file_that_is_not_media_fails() {
     let mut session =
         Session { backend, receiver, generation: Generation::default(), seen: vec![] };
     session.generation = session.generation.next();
-    session.backend.open(&Media::File(garbage), session.generation);
+    session.backend.open(&Media::File(garbage), Start::default(), session.generation);
     let failed =
         session.wait_for(|event| matches!(event, BackendEvent::State(PlaybackState::Error(_))));
     let expected = [ErrorKind::OpenFailed, ErrorKind::NoPlayableStreams, ErrorKind::Corrupt];
@@ -282,4 +282,24 @@ fn subtitles_switch_playing_video_to_software_decoding_unseen() {
 #[ignore = "needs libVLC and the S1.1 test media"]
 fn subtitles_switch_paused_video_to_software_decoding_unseen() {
     show_subtitles_while(true);
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn media_can_open_paused_at_a_position() {
+    let (events, receiver) = backend::channel();
+    let backend = Box::new(new_backend(events));
+    let generation = Generation::default().next();
+    let mut session = Session { backend, receiver, generation, seen: Vec::new() };
+    let start = Start { at: Duration::from_secs(30), paused: true };
+    session.backend.open(&Media::File(media("1080p60-h264.mp4")), start, generation);
+    session.wait_for_state(PlaybackState::Paused);
+    let held = session.collect_for(Duration::from_secs(1));
+    assert!(!held.contains(&BackendEvent::State(PlaybackState::Playing)), "{held:#?}");
+    session.backend.play();
+    session.wait_for_state(PlaybackState::Playing);
+    let position = session.wait_for(|event| matches!(event, BackendEvent::Position(_)));
+    let BackendEvent::Position(position) = position else { unreachable!() };
+    assert!(position >= Duration::from_secs(29), "{position:?}");
+    session.finish();
 }

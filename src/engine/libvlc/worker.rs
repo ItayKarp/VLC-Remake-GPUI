@@ -22,7 +22,7 @@ use crate::app::media::Media as Source;
 use crate::engine::audio::SpeakerSetup;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::state::{ErrorKind, PlaybackState};
-use crate::engine::values::{Generation, Offset};
+use crate::engine::values::{Generation, Offset, Start};
 
 /// How long a seek may wait for libVLC to report the new time before it counts as done anyway
 /// (libVLC 3 has no "seek finished" event, and a paused or broken input may never report).
@@ -176,11 +176,15 @@ impl Worker {
         wait
     }
 
-    /// Replaces the media with `source` and starts playing it as open `generation`.
-    pub(super) fn open(&mut self, source: Source, generation: Generation) {
+    /// Replaces the media with `source` and starts playing it (or holds it paused) from where
+    /// `start` says, as open `generation`.
+    pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
+        if !media.is_null() {
+            self.add_start_options(media, start);
+        }
         // `set_media` stops the previous media first; its events still carry the old
         // generation, because the new one is published only afterwards.
         self.replace_media(media);

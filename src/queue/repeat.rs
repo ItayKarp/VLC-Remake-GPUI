@@ -1,7 +1,11 @@
 //! Repeat (S3.3.1): what happens at an item's natural end and at the queue's ends.
 
-/// The repeat mode. The queue button cycles Off → All → One.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+/// The repeat mode. The queue button cycles Off → All → One. The session file (S3.4) keeps it
+/// as `off`, `all` or `one`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Repeat {
     /// The queue plays through once and stops at its end.
     #[default]

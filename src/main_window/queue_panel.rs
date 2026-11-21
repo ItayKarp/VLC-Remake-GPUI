@@ -5,7 +5,8 @@
 //! dragging, played with a double-click or Enter and removed with Delete or "−", and files dropped
 //! on it are inserted where they land ([`editing`]). Bookmarks and Chapters come with their
 //! stories (S8.3, S8.2) and say so until then. The header has Repeat and Shuffle (S3.3). The
-//! miniplayer's queue (S4.10.4) will reuse the rows.
+//! miniplayer's queue (S4.10.4) will reuse the rows. Restored items that are missing or offline
+//! are greyed (S3.4).
 //!
 //! Unlike the track popover and the settings panel, it stays open while the video is used
 //! (clicking it, dragging files over it); the List button, Q and Escape close it. It shares their
@@ -18,6 +19,8 @@ mod selection;
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashSet;
+
 use futures::StreamExt;
 use gpui::{
     AsyncApp, Context, Div, FocusHandle, KeyDownEvent, Stateful, Subscription, Task,
@@ -27,6 +30,7 @@ use gpui::{
 use self::selection::Selection;
 use super::MainWindow;
 use super::bar_panel;
+use crate::app::media::Media;
 use crate::assets::icons;
 use crate::engine::lengths::{self, LengthAnswer, LengthProbe, LengthReceiver};
 use crate::queue::Lengths;
@@ -93,6 +97,8 @@ pub(super) struct QueuePanel {
     /// The sort menu, while open, and its button.
     sort_menu: Option<(gpui::Entity<ContextMenu>, Subscription)>,
     sort_button: BoundsTracker,
+    /// Restored media that wasn't there at launch (S3.4), greyed until it plays.
+    pub(super) missing: HashSet<Media>,
 }
 
 impl QueuePanel {
@@ -108,6 +114,7 @@ impl QueuePanel {
             drop_slot: None,
             sort_menu: None,
             sort_button: BoundsTracker::new(),
+            missing: HashSet::new(),
         }
     }
 

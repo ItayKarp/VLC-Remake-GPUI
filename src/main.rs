@@ -18,6 +18,7 @@ mod power;
 mod queue;
 #[cfg(test)]
 mod screenshot_test;
+mod session;
 mod settings;
 mod theme;
 mod ui;
@@ -47,6 +48,7 @@ fn main() {
     application.run(move |cx: &mut App| {
         settings::init(cx);
         history::init(cx);
+        session::init(cx);
         diagnostics::follow_settings(cx);
         theme::init(cx);
         ui::init(cx);

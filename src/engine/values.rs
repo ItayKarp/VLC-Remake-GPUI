@@ -152,6 +152,16 @@ pub enum BackendSeek {
     Fraction(f32),
 }
 
+/// Where an open starts: at the beginning and playing, unless restoring the last session (S3.4)
+/// asks for the saved position, paused.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Start {
+    /// The position playback starts from.
+    pub at: Duration,
+    /// Whether the media opens paused there instead of playing.
+    pub paused: bool,
+}
+
 /// Which way a frame step goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum StepDirection {

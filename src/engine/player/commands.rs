@@ -10,14 +10,20 @@ use crate::app::media::Media;
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::{SubtitleFile, TrackKind};
-use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, StepDirection};
+use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, Start, StepDirection};
 
 impl Player {
     /// Opens `media` and starts playing it, cancelling whatever was open. A local path that
     /// can't be media (missing, empty, a folder or device) fails at once with an error state.
     pub fn open(&mut self, media: Media, cx: &mut Context<Self>) {
+        self.open_at(media, Start::default(), cx);
+    }
+
+    /// [`Self::open`], starting where `start` says: from a position, and paused there rather
+    /// than playing (restoring the last session, S3.4).
+    pub fn open_at(&mut self, media: Media, start: Start, cx: &mut Context<Self>) {
         self.generation = self.generation.next();
-        self.intent = Intent::Play;
+        self.intent = if start.paused { Intent::Pause } else { Intent::Play };
         self.audio.user_took_over();
         self.info = Info::default();
         self.track_choices.forget_media();
@@ -38,7 +44,7 @@ impl Player {
             return;
         }
         if let (Some(backend), Some(media)) = (self.backend.as_deref_mut(), &self.media) {
-            backend.open(media, self.generation);
+            backend.open(media, start, self.generation);
         }
     }
 

@@ -18,11 +18,14 @@ use crate::engine::state::PlaybackState;
 use crate::engine::values::SeekTarget;
 
 impl MainWindow {
-    /// Plays or pauses what's loaded. With nothing to play it asks for files: an empty list has
+    /// Plays or pauses what's loaded. With nothing loaded it plays the queue's current item (a
+    /// restored session may leave one waiting, S3.4), else asks for files: an empty list has
     /// nothing else Play could mean.
     pub(super) fn play_pause(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(player) = self.loaded_player(cx) else {
-            if self.jobs.is_empty() {
+            if let Some(index) = self.queue.current_index() {
+                self.play(index, window, cx);
+            } else if self.jobs.is_empty() {
                 Self::prompt_for_files(window, cx);
             }
             return;

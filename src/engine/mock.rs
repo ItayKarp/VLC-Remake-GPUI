@@ -15,7 +15,7 @@ use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
-use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
+use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
 
 /// The media the mock pretends to play.
@@ -123,8 +123,10 @@ impl MockBackend {
         }
     }
 
-    fn opened(&self) -> Vec<BackendEvent> {
-        vec![
+    fn opened(&self, start: Start) -> Vec<BackendEvent> {
+        let started = if start.paused { PlaybackState::Paused } else { PlaybackState::Playing };
+        let position = (!start.at.is_zero()).then_some(BackendEvent::Position(start.at));
+        let opening = [
             BackendEvent::State(PlaybackState::Opening),
             BackendEvent::Duration(self.media.duration),
             BackendEvent::Seekable(self.media.seekable),
@@ -132,8 +134,8 @@ impl MockBackend {
             BackendEvent::Tracks(self.media.tracks.clone()),
             BackendEvent::State(PlaybackState::Buffering),
             BackendEvent::Buffering(100.0),
-            BackendEvent::State(PlaybackState::Playing),
-        ]
+        ];
+        opening.into_iter().chain(position).chain([BackendEvent::State(started)]).collect()
     }
 
     fn seeked(&self, to: BackendSeek) -> Vec<BackendEvent> {
@@ -151,10 +153,10 @@ impl MockBackend {
 }
 
 impl Backend for MockBackend {
-    fn open(&mut self, media: &Media, generation: Generation) {
+    fn open(&mut self, media: &Media, start: Start, generation: Generation) {
         lock(&self.shared).generation = generation;
-        self.record(Command::Open { media: media.clone(), generation });
-        self.respond(self.opened());
+        self.record(Command::Open { media: media.clone(), start, generation });
+        self.respond(self.opened(start));
     }
 
     fn play(&mut self) {

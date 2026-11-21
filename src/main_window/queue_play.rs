@@ -13,6 +13,7 @@ use super::MainWindow;
 use super::opening::Target;
 use crate::app::media::Media;
 use crate::app::request::Placement;
+use crate::engine::values::Start;
 use crate::keymap::actions::Quit;
 use crate::opening::Resolved;
 use crate::queue::{AfterError, MAX_CONSECUTIVE_FAILURES};
@@ -52,11 +53,23 @@ impl MainWindow {
 
     /// Plays item `index` of the queue.
     pub(super) fn play(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.play_from(index, Start::default(), window, cx);
+    }
+
+    /// Opens item `index` of the queue where `start` says: playing from its start, or paused
+    /// at a restored session's position (S3.4).
+    pub(super) fn play_from(
+        &mut self,
+        index: usize,
+        start: Start,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(media) = self.queue.set_current(index).cloned() else {
             return;
         };
         let player = self.player(window, cx);
-        player.update(cx, |player, cx| player.open(media, cx));
+        player.update(cx, |player, cx| player.open_at(media, start, cx));
         // The video replaces the empty state and its focused Open button; with nothing focused
         // the player's keys would reach nothing.
         if self.open_button.is_focused(window) || window.focused(cx).is_none() {
@@ -82,9 +95,11 @@ impl MainWindow {
     }
 
     /// The current item couldn't play: skips to the next one, unless too many failed in a row.
-    /// The last item's error stays on screen instead.
+    /// The last item's error stays on screen instead, and so does that of an item loaded paused
+    /// (a restored session, S3.4): skipping would start playing what nobody asked to play.
     pub(super) fn skip_failed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(next) = self.queue.next() else { return };
+        let wanted_to_play = self.loaded_player(cx).is_some_and(|p| p.read(cx).wants_to_play());
+        let Some(next) = self.queue.next().filter(|_| wanted_to_play) else { return };
         let name = self.playing_name(cx);
         let toast = match self.skips.failed() {
             AfterError::Skip => {

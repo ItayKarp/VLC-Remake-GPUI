@@ -100,6 +100,7 @@ impl MainWindow {
                 if *state == PlaybackState::Playing {
                     self.skips.played();
                 }
+                self.found_playing(*state, cx);
                 self.reset_seek_bar(*state);
                 self.update_display_sleep(window, cx);
                 cx.notify();

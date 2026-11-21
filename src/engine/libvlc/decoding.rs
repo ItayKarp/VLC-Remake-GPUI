@@ -20,6 +20,7 @@ use std::time::{Duration, Instant};
 use super::api::Media;
 use super::worker::Worker;
 use crate::engine::tracks::{TrackId, TrackKind, Tracks};
+use crate::engine::values::Start;
 
 /// Media options that decode in software. `any` keeps the other decoders (subtitles) usable.
 pub(super) const SOFTWARE_DECODING: [&str; 2] = [":codec=avcodec,any", ":avcodec-hw=none"];
@@ -131,6 +132,18 @@ impl Worker {
             let Ok(option) = CString::new(*option) else { continue };
             // SAFETY: the media is live and the option is NUL-terminated.
             unsafe { (self.vlc.api.libvlc_media_add_option)(media, option.as_ptr()) };
+        }
+    }
+
+    /// Starts new media where and how `start` says: libVLC's own `start-time` and
+    /// `start-paused`, so a restored session (S3.4) neither plays a moment of sound nor shows
+    /// the first frames before the saved position.
+    pub(super) fn add_start_options(&self, media: *mut Media, start: Start) {
+        if !start.at.is_zero() {
+            self.add_option(media, &[&format!(":start-time={:.3}", start.at.as_secs_f64())]);
+        }
+        if start.paused {
+            self.add_option(media, &[":start-paused"]);
         }
     }
 

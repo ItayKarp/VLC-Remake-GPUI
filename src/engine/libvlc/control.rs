@@ -29,7 +29,7 @@ impl Worker {
         // call matches its libVLC 3 signature.
         unsafe {
             match command {
-                Command::Open { media, generation } => self.open(media, generation),
+                Command::Open { media, start, generation } => self.open(media, start, generation),
                 Command::Play => _ = (api.libvlc_media_player_play)(player),
                 Command::Pause => (api.libvlc_media_player_set_pause)(player, 1),
                 Command::Stop => {

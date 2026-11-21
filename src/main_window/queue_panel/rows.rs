@@ -4,7 +4,8 @@
 //! The current entry's name is in the accent with an accent bar at its left edge (the design
 //! has no highlight). Selected rows are filled. Rows drag to reorder (the selected ones together
 //! when the dragged row is selected), and files dragged from the OS drop between rows; a line
-//! shows the gap they'd land in. A drag dropped outside the rows is cancelled.
+//! shows the gap they'd land in. A drag dropped outside the rows is cancelled. Restored media that
+//! wasn't there at launch is greyed (S3.4).
 
 use std::collections::HashSet;
 use std::ops::Range;
@@ -15,6 +16,7 @@ use gpui::{
 };
 
 use super::MainWindow;
+use crate::app::media::Media;
 use crate::assets::icons;
 use crate::main_window::control_bar::clock::tabular_digits;
 use crate::queue::{EntryId, Length, row_duration};
@@ -165,7 +167,7 @@ impl MainWindow {
             .when(selected, |row| row.bg(p.selected))
             .when(!selected, |row| row.hover(|style| style.bg(p.hover)))
             .child(icon(icons::DRAG_HANDLE, HANDLE, p.icon))
-            .child(row_name(name.clone(), current, p))
+            .child(row_name(name.clone(), self.row_look(&entry.media, current), p))
             .child(row_length(duration, p));
         self.mark_row(row, index, current, p)
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
@@ -175,6 +177,17 @@ impl MainWindow {
                 let label = dragged.label.clone();
                 cx.new(|_| DragPreview { label })
             })
+    }
+
+    /// How the name of a row playing `media` looks.
+    fn row_look(&self, media: &Media, current: bool) -> Look {
+        if current {
+            Look::Current
+        } else if self.queue_panel.missing.contains(media) {
+            Look::Missing
+        } else {
+            Look::Normal
+        }
     }
 
     /// Adds the current entry's bar and the drop line to the row at `index`.
@@ -208,9 +221,23 @@ impl MainWindow {
     }
 }
 
-/// A row's name, in the accent for the current entry.
-fn row_name(name: String, current: bool, p: &Palette) -> gpui::Div {
-    let color = if current { p.accent_fg } else { p.text };
+/// How a row's name looks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Look {
+    Normal,
+    /// The current entry: in the accent.
+    Current,
+    /// Restored media that wasn't there (S3.4): greyed.
+    Missing,
+}
+
+/// A row's name, in the accent for the current entry and greyed for missing media.
+fn row_name(name: String, look: Look, p: &Palette) -> gpui::Div {
+    let color = match look {
+        Look::Normal => p.text,
+        Look::Current => p.accent_fg,
+        Look::Missing => p.text_muted,
+    };
     div().flex_1().min_w_0().truncate().text_color(color).child(name)
 }
 

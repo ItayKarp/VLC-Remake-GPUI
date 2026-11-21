@@ -47,7 +47,7 @@ use self::worker::{Handles, Message, Worker};
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
 use super::tracks::{TrackId, TrackKind};
-use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
+use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use super::video::VideoSink;
 use crate::app::media::Media;
 
@@ -133,8 +133,8 @@ impl LibVlcBackend {
 }
 
 impl Backend for LibVlcBackend {
-    fn open(&mut self, media: &Media, generation: Generation) {
-        self.send(Command::Open { media: media.clone(), generation });
+    fn open(&mut self, media: &Media, start: Start, generation: Generation) {
+        self.send(Command::Open { media: media.clone(), start, generation });
     }
 
     fn play(&mut self) {

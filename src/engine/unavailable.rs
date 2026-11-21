@@ -7,7 +7,7 @@ use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, EventSender};
 use super::state::{ErrorKind, PlaybackState};
 use super::tracks::{TrackId, TrackKind};
-use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
+use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
 
 /// A backend that can't play anything.
@@ -23,7 +23,7 @@ impl UnavailableBackend {
 }
 
 impl Backend for UnavailableBackend {
-    fn open(&mut self, _: &Media, generation: Generation) {
+    fn open(&mut self, _: &Media, _: Start, generation: Generation) {
         let error = PlaybackState::Error(ErrorKind::BackendUnavailable);
         self.events.send(generation, BackendEvent::State(error));
     }

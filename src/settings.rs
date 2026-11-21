@@ -19,6 +19,8 @@ pub mod stored_path;
 #[cfg(test)]
 mod tests;
 
+use std::io;
+use std::path::Path;
 use std::time::Duration;
 
 use gpui::{App, AppContext, BorrowAppContext, Global, Task};
@@ -140,6 +142,13 @@ pub fn save(cx: &mut App) -> Task<Result<(), String>> {
         });
         result
     })
+}
+
+/// Atomically replaces `path` with `contents` the way settings files are saved: a crash leaves
+/// the old file or the new one, never part of each. For other state kept beside the settings,
+/// such as the last session (S3.4).
+pub fn write_atomically(path: &Path, contents: &str) -> io::Result<()> {
+    storage::save(path, contents)
 }
 
 /// Notices for the user (corrupt file recovered, settings not saved, …), each

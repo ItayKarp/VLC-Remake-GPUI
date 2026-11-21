@@ -869,7 +869,7 @@ Design facts the stories rely on (`docs/ui/player/**`):
 - [x] S3.3.1 Repeat: Off → All → One (a cycling button with three visible states; the ON states aren't designed). *(`queue/repeat.rs`. The queue header's button shows All and One as on, One with a drawn 1 inside the arrows (`repeat-one.svg`); its tooltip and an OSD message name the mode. Repeat All wraps Next and Previous; Repeat One replays at an item's natural end. Also a command (no default key) and Playlist ▸ Repeat ▸ in the video menu.)*
 - [x] S3.3.2 Shuffle: a random permutation without repeats until every item has played, then a fresh permutation (avoid playing the same item twice across the boundary). Previous under shuffle follows the history. *(`queue/shuffle.rs`, kept by entry id so moving and sorting rows don't disturb it. Previous goes back through what played and Next then returns. Without Repeat All, the queue stops once every item has played. Opening media plays what was opened; the rest is shuffled. The queue's history moved here from S3.1.)*
 - [x] S3.3.3 Stop after each item (Settings → Playback), and "When playback finishes" (Stop, Close the player, Quit, …). *(`prefs.player.stop_after_each_item` and `prefs.player.when_finished` (`stop` or `quit`), in Playlist ▸ until Settings → Playback (S5.7). After a stop, Play goes on to the next item. Decided: "Close the player" joins with the library (Stage 4), the place it would close to; sleep and shut down aren't offered.)*
-- [x] S3.3.4 The queue buttons and Settings → Playback write the **same** state. *(Repeat and Shuffle live in `Queue`; the header buttons, the commands and the video menu all change them through `main_window/play_order.rs`, which Settings → Playback (S5.7) uses too. They persist with the session (S3.4).)*
+- [x] S3.3.4 The queue buttons and Settings → Playback write the **same** state. *(Repeat and Shuffle live in `Queue`; the header buttons, the commands and the video menu all change them through `main_window/play_order.rs`, which Settings → Playback (S5.7) uses too. They persist with the session (S3.4, since shipped).)*
 
 **Edge cases**
 - Shuffle switched on mid-queue: the current item stays current and the rest is shuffled. *(Done.)*
@@ -885,13 +885,13 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1, S1.7  **Size:** S
 
 **Subtasks**
-- [ ] S3.4.1 Persist the queue, the current item and its position, repeat and shuffle state on change (debounced) and on quit.
-- [ ] S3.4.2 On launch, restore the queue paused at the saved position (don't autoplay); it's controlled by a setting.
+- [x] S3.4.1 Persist the queue, the current item and its position, repeat and shuffle state on change (debounced) and on quit. *(`src/session.rs`: `session.toml` next to `local.toml`, written atomically like the settings on a `session` thread that keeps only the newest snapshot; quitting waits for it. `main_window/session.rs` watches the window: a change is written after 1 s, the playing position every 15 s, and starting to play an item at once (`session/cadence.rs`). Not saved, and forgotten, while "Save recently played items" is off.)*
+- [x] S3.4.2 On launch, restore the queue paused at the saved position (don't autoplay); it's controlled by a setting. *(`prefs.player.restore_session` ("Continue where you left off", default on; its row comes with S5.7). The engine gained `Player::open_at` with libVLC's `start-time` and `start-paused`, so nothing plays or sounds before the position; no resume toast for it. Files opened at launch replace the session; `--enqueue` adds to it. Play with nothing loaded plays the current item. Rules in `session/restore.rs`.)*
 
 **Edge cases**
-- Restored items that are offline or missing are kept but greyed.
-- A crash loop caused by a restored item (the file crashes the decoder): if the last session ended in a crash while playing item X, don't auto-load X, and show "VLC closed unexpectedly while playing X".
-- A restored URL has expired: the error appears only when the user plays it.
+- Restored items that are offline or missing are kept but greyed. *(Done: checked in the background at launch; one that plays later stops being greyed. A missing current item waits for Play instead of showing an error.)*
+- A crash loop caused by a restored item (the file crashes the decoder): if the last session ended in a crash while playing item X, don't auto-load X, and show "VLC closed unexpectedly while playing X". *(Done: the snapshot says whether an item was playing, written the moment it starts and cleared by pause, stop and quit; a launch that finds it set leaves X current but unloaded, with that toast. A `kill -9` while playing counts too. With multiple instances allowed, the last to save wins.)*
+- A restored URL has expired: the error appears only when the user plays it. *(Done: URLs are never loaded on restore.)*
 
 ---
 

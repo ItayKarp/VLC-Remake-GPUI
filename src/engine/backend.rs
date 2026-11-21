@@ -15,7 +15,7 @@ use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
-use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
+use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
 
 /// Something the backend observed about the media it is playing.
@@ -97,8 +97,8 @@ pub fn channel() -> (EventSender, EventReceiver) {
 /// its worker thread.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Command {
-    /// Open `media` for the open with `generation`.
-    Open { media: Media, generation: Generation },
+    /// Open `media` for the open with `generation`, starting as `start` says.
+    Open { media: Media, start: Start, generation: Generation },
     /// Play.
     Play,
     /// Pause.
@@ -144,8 +144,9 @@ pub enum Command {
 ///   again whenever it changes, whether or not media is open.
 /// - [`Self::shut_down`] may block; the player runs it with a timeout.
 pub trait Backend: Send {
-    /// Starts opening `media` and playing it, abandoning whatever was open.
-    fn open(&mut self, media: &Media, generation: Generation);
+    /// Starts opening `media` and playing it (or holding it paused) from where `start` says,
+    /// abandoning whatever was open.
+    fn open(&mut self, media: &Media, start: Start, generation: Generation);
     /// Resumes or starts playback.
     fn play(&mut self);
     /// Pauses playback.

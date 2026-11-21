@@ -1,7 +1,8 @@
 //! Player behavior (Settings → Playback; most of it comes with Stage 2 and S5.7): pausing for
 //! other apps' audio (S1.5.6), resuming and marking media watched (S1.7.4), and the speed each
 //! launch starts at (S2.7.4), queueing a file's folder with it (S3.1.3), and stopping after
-//! each item and what to do when the queue finishes (S3.3.3). Repeat and Shuffle aren't here:
+//! each item and what to do when the queue finishes (S3.3.3), and bringing the last session
+//! back at launch (S3.4.2). Repeat and Shuffle aren't here:
 //! they belong to the queue, and Settings → Playback edits the queue's own state (S3.3.4).
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +17,10 @@ pub const DEFAULT_WATCHED_REMAINING_SECONDS: u32 = 60;
 pub const DEFAULT_SPEED: f32 = 1.0;
 
 /// Player behavior.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent switches, each its own row in Settings → Playback"
+)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PlayerSettings {
@@ -47,6 +52,10 @@ pub struct PlayerSettings {
     /// "When playback finishes": what happens when the queue's last item ends.
     #[serde(deserialize_with = "lenient")]
     pub when_finished: WhenFinished,
+    /// "Continue where you left off" (S3.4.2): each launch brings back the last session's
+    /// queue, paused at the saved position. Its row comes with S5.7.
+    #[serde(deserialize_with = "lenient")]
+    pub restore_session: bool,
 }
 
 impl Default for PlayerSettings {
@@ -60,6 +69,7 @@ impl Default for PlayerSettings {
             queue_siblings: QueueSiblings::default(),
             stop_after_each_item: false,
             when_finished: WhenFinished::default(),
+            restore_session: true,
         }
     }
 }

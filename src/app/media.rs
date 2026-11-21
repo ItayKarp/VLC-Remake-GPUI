@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 
 use url::Url;
 
+use crate::settings::stored_path;
+
 /// One item to open.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Media {
@@ -52,6 +54,24 @@ impl Media {
             Media::File(path) => Some(path),
             Media::Url(_) => None,
         }
+    }
+
+    /// The text settings and the session file keep this as (S1.3.5, S3.4): a URL as written,
+    /// a path in [`stored_path`]'s lossless form. A stored path never looks like a URL: it is
+    /// absolute, and an encoded one starts with `os-path:`, which has no `//`.
+    pub fn to_stored(&self) -> String {
+        match self {
+            Media::File(path) => stored_path::encode(path),
+            Media::Url(url) => url.clone(),
+        }
+    }
+
+    /// The inverse of [`Self::to_stored`]; `None` for text that is neither.
+    pub fn from_stored(text: &str) -> Option<Self> {
+        if has_url_scheme(text) {
+            return Some(Media::Url(text.to_owned()));
+        }
+        stored_path::decode(text).map(Media::File)
     }
 
     /// A short name for the window title and lists: the file name, or the URL.
@@ -185,6 +205,16 @@ mod tests {
     fn os_strings_round_trip() {
         let text = OsString::from("Ünïcode ✓ \"quoted\"");
         assert_eq!(os_from_bytes(&os_to_bytes(&text)), Some(text));
+    }
+
+    #[test]
+    fn stored_paths_and_urls_round_trip() {
+        let file = Media::File(std::env::temp_dir().join("café #1.mkv"));
+        for media in [file, Media::Url("rtsp://cam/1".into())] {
+            assert_eq!(Media::from_stored(&media.to_stored()), Some(media));
+        }
+        let plain = Media::from_stored("/abs/path.mkv");
+        assert_eq!(plain, Some(Media::File(PathBuf::from("/abs/path.mkv"))));
     }
 
     #[test]

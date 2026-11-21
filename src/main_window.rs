@@ -3,7 +3,7 @@
 //! (S1.4). The bars hide by themselves, in Hide UI mode and in fullscreen (S2.8). The `…` menu
 //! and the video's right-click menu hold the commands, and About VLC opens over it (S2.9). Clicks
 //! and scrolling on the video, on-screen messages and the Keyboard Shortcuts dialog are S2.10.
-//! The List button opens the queue (S3.2).
+//! The List button opens the queue (S3.2), and the queue outlives the app (S3.4).
 //! Onboarding hands off to it (S0.2); the library (Stage 4) fills the content area later.
 
 mod about;
@@ -29,6 +29,7 @@ mod queue_panel;
 mod queue_play;
 mod seek_bar;
 mod seeking;
+mod session;
 mod settings_panel;
 mod shortcuts_dialog;
 mod speed;
@@ -90,6 +91,8 @@ pub struct MainWindow {
     tracks: tracks::TrackWatch,
     /// The playback being recorded and the resume offer (S1.7).
     history: history::HistoryWatch,
+    /// Saving the session for the next launch (S3.4).
+    session: session::SessionWatch,
     /// Keeps the display awake while video plays where it shows (S1.4.3).
     display_sleep: DisplaySleep,
     _visibility: Subscription,
@@ -148,6 +151,7 @@ impl MainWindow {
             audio: audio::AudioWatch::default(),
             tracks: tracks::TrackWatch::default(),
             history: history::HistoryWatch::default(),
+            session: session::SessionWatch::default(),
             display_sleep: DisplaySleep::default(),
             _visibility: Self::follow_visibility(window, cx),
             notices: Self::take_notices(cx),
@@ -170,10 +174,18 @@ impl MainWindow {
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
         };
-        this.set_up_history(cx);
-        this.open(request, window, cx);
-        this.show_pending_crash(cx);
+        this.start(request, window, cx);
         this
+    }
+
+    /// Starts recording history and the session, brings the last session back, and opens
+    /// `request`.
+    fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_up_history(cx);
+        self.set_up_session(cx);
+        self.restore_session(&request, window, cx);
+        self.open(request, window, cx);
+        self.show_pending_crash(cx);
     }
 
     /// Follows the window: the theme, redraws, its geometry, focus and the GPU it renders with.

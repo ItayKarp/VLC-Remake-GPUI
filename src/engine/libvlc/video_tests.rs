@@ -18,7 +18,7 @@ use crate::engine::audio::AudioConfig;
 use crate::engine::backend::{self, Backend, BackendEvent};
 use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
-use crate::engine::values::Generation;
+use crate::engine::values::{Generation, Start};
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
 
 /// How long the first pictures may take.
@@ -69,7 +69,7 @@ fn shown_size(name: &str) -> (u32, u32) {
         LibVlcBackend::new(events, Some(sink.clone()), AudioConfig::default()).expect("libVLC"),
     );
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/spike-media").join(name);
-    backend.open(&Media::File(path), Generation::default().next());
+    backend.open(&Media::File(path), Start::default(), Generation::default().next());
     let deadline = Instant::now() + PATIENCE;
     while sink.displayed.load(Ordering::Relaxed) < PICTURES {
         assert!(Instant::now() < deadline, "{name}: no pictures");
@@ -111,7 +111,8 @@ fn a_dvd_reveals_its_wide_shape_soon_after_playback_starts() {
     let mut backend =
         Box::new(LibVlcBackend::new(events, Some(sink), AudioConfig::default()).expect("libVLC"));
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/spike-media");
-    backend.open(&Media::File(path.join("dvd-anamorphic.mpg")), Generation::default().next());
+    let media = Media::File(path.join("dvd-anamorphic.mpg"));
+    backend.open(&media, Start::default(), Generation::default().next());
     let wide = BackendEvent::VideoSize(Some(VideoSize { width: 853, height: 480 }));
     let deadline = Instant::now() + PATIENCE;
     while receiver.try_recv().map(|tagged| tagged.event) != Ok(wide.clone()) {

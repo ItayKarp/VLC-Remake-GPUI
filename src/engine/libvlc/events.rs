@@ -113,10 +113,7 @@ impl Shared {
             OPENING => self.state(PlaybackState::Opening),
             BUFFERING => self.buffering(unsafe { event.data.float }),
             PLAYING => self.playing(),
-            PAUSED => {
-                self.paused.store(true, Ordering::Relaxed);
-                self.state(PlaybackState::Paused);
-            }
+            PAUSED => self.paused(),
             STOPPED => self.state(PlaybackState::Stopped),
             END_REACHED => self.ask_worker(Message::Ended),
             ENCOUNTERED_ERROR => self.ask_worker(Message::Failed),
@@ -156,6 +153,17 @@ impl Shared {
         self.state(PlaybackState::Playing);
         // Reopened media needs its tracks restored and per-media settings applied again.
         if first || switched {
+            self.ask_worker(Message::Refresh(Refresh::Everything));
+        }
+    }
+
+    /// Paused, which media opened with `start-paused` (S3.4) is before it ever plays: that
+    /// counts as started too, so its tracks and per-media settings are read.
+    fn paused(&self) {
+        self.paused.store(true, Ordering::Relaxed);
+        let first = !self.started.swap(true, Ordering::Relaxed);
+        self.state(PlaybackState::Paused);
+        if first {
             self.ask_worker(Message::Refresh(Refresh::Everything));
         }
     }
