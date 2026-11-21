@@ -240,14 +240,14 @@ impl MainWindow {
         }
     }
 
-    fn pointer_over_bars(&self, window: &Window) -> bool {
+    pub(super) fn pointer_over_bars(&self, window: &Window) -> bool {
         let Some(pointer) = self.auto_hide.pointer else { return false };
         let title = (!window.is_fullscreen()).then_some(TITLE_BAR_HEIGHT);
         let height = f32::from(window.viewport_size().height);
         rules::over_bars(f32::from(pointer.y), height, CONTROL_BAR_HEIGHT, title)
     }
 
-    fn has_open_overlay(&self) -> bool {
+    pub(super) fn has_open_overlay(&self) -> bool {
         self.menu.is_some()
             || self.auto_hide.video_menu.is_some()
             || self.control_bar.is_overflow_open()

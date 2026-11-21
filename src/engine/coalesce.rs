@@ -110,6 +110,11 @@ impl FrameSteps {
         next
     }
 
+    /// Whether a step is running.
+    pub fn is_busy(&self) -> bool {
+        self.in_flight
+    }
+
     /// Drops every queued step.
     pub fn reset(&mut self) {
         *self = Self::default();

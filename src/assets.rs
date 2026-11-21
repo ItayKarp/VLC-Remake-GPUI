@@ -118,6 +118,8 @@ icons! {
     /// draws it.
     HIDE_UI => "hide-ui.svg",
     QUIT => "quit.svg",
+    // The Keyboard Shortcuts dialog (S2.10.4).
+    SEARCH => "search.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

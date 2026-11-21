@@ -1,7 +1,7 @@
 //! The main window's side of tracks (S1.6): it gives the player the preferred languages from
 //! the settings and follows changes to them, and cycles audio (B) and subtitles (V), saying
-//! which track plays now. Until the player's on-screen display exists (Stage 2) that is a toast,
-//! replacing the previous one so a held key doesn't stack them.
+//! which track plays now over the video (S2.10.2); a newer message replaces the last, so a held
+//! key doesn't stack them.
 
 use gpui::{Context, Entity, Subscription};
 
@@ -11,15 +11,12 @@ use crate::engine::player::Player;
 use crate::engine::tracks::auto::{SubtitleMode, TrackPreferences};
 use crate::engine::tracks::{Cycled, TrackKind, Tracks};
 use crate::settings::{self, Settings, SettingsStore};
-use crate::ui::toast::{Level, Toast};
 
 /// What the window keeps about tracks.
 #[derive(Default)]
 pub(super) struct TrackWatch {
     /// Re-applies the language settings to the player when they change.
     settings: Option<Subscription>,
-    /// The toast that names the track cycled to last, while it may still show.
-    toast: Option<u64>,
 }
 
 impl MainWindow {
@@ -35,7 +32,7 @@ impl MainWindow {
         }));
     }
 
-    /// Selects the next track of `kind` and names it in a toast.
+    /// Selects the next track of `kind` and names it over the video.
     pub(super) fn cycle_track(&mut self, kind: TrackKind, cx: &mut Context<Self>) {
         let Some((player, _)) = &self.player else { return };
         let message = player.update(cx, |player, cx| {
@@ -43,14 +40,7 @@ impl MainWindow {
             announcement(kind, cycled, player.tracks())
         });
         tracing::debug!("tracks: {message}");
-        let previous = self.tracks.toast.take();
-        let id = self.toasts.update(cx, |toasts, cx| {
-            if let Some(previous) = previous {
-                toasts.dismiss(previous, cx);
-            }
-            toasts.push(Toast::new(Level::Info, message), cx)
-        });
-        self.tracks.toast = Some(id);
+        self.show_osd(message, cx);
     }
 }
 
@@ -64,7 +54,7 @@ fn preferences(settings: &Settings) -> TrackPreferences {
     }
 }
 
-/// What the toast says after cycling `kind`: "Audio: English — AC3 5.1", "Subtitles: Off".
+/// What the message says after cycling `kind`: "Audio: English — AC3 5.1", "Subtitles: Off".
 fn announcement(kind: TrackKind, cycled: Cycled, tracks: &Tracks) -> String {
     let what = match kind {
         TrackKind::Audio => "Audio",

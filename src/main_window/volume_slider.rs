@@ -21,9 +21,10 @@ use gpui::{
     ScrollEvent, Window,
 };
 
-use self::scale::{Scale, WheelSteps};
+use self::scale::Scale;
 use super::MainWindow;
 use super::flash::Flash;
+use super::wheel::{Axis, Turn, WheelSteps};
 use crate::engine::player::Player;
 use crate::engine::values::{Volume, VolumeChange};
 use crate::keymap::actions as act;
@@ -50,7 +51,7 @@ impl VolumeSlider {
             track: BoundsTracker::new(),
             focus: cx.focus_handle().tab_stop(true),
             dragging: false,
-            wheel: WheelSteps::default(),
+            wheel: WheelSteps::new(Axis::Vertical),
             bubble: Flash::default(),
         }
     }
@@ -84,8 +85,9 @@ impl MainWindow {
         }
     }
 
-    /// Scrolling over the video changes the volume, unless Settings → Controls says otherwise.
-    pub(super) fn scroll_on_video(
+    /// Scrolling up and down over the video changes the volume, unless Settings → Controls says
+    /// otherwise.
+    pub(super) fn scroll_volume_on_video(
         &mut self,
         event: &ScrollEvent,
         window: &mut Window,
@@ -96,11 +98,14 @@ impl MainWindow {
         }
     }
 
-    /// Steps the volume as the wheel turns.
+    /// Steps the volume as the wheel turns: up is louder.
     fn scroll_volume(&mut self, event: &ScrollEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(change) = self.volume_slider.wheel.take(event.delta, event.touch_phase) {
-            self.step_volume(change, window, cx);
-        }
+        let change = match self.volume_slider.wheel.take(event.delta, event.touch_phase) {
+            Some(Turn::Positive) => VolumeChange::Up,
+            Some(Turn::Negative) => VolumeChange::Down,
+            None => return,
+        };
+        self.step_volume(change, window, cx);
     }
 
     /// Starts a drag where the wedge was pressed: the volume jumps there.

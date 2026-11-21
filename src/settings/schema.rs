@@ -25,7 +25,10 @@ use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
-pub use controls::{ControlsSettings, SkipLength, WheelAction};
+pub use controls::{
+    ClickAction, ControlsSettings, DoubleClickAction, HorizontalWheelAction, SkipLength,
+    WheelAction,
+};
 pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
 pub use playback::{PlayerSettings, ResumePolicy};
 pub use subtitles::SubtitleSettings;

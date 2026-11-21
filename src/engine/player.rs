@@ -59,6 +59,8 @@ pub enum PlayerEvent {
     /// The device sound went to disappeared; sound moved to the system default (and playback
     /// paused, if the policy says so).
     AudioDeviceLost(AudioDevice),
+    /// A frame step finished; see [`Player::is_stepping`] for whether more are on the way.
+    FrameStepped,
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -160,6 +162,11 @@ impl Player {
     /// The media opened last, if any.
     pub fn media(&self) -> Option<&Media> {
         self.media.as_ref()
+    }
+
+    /// Whether a frame step is still running or waiting to run.
+    pub fn is_stepping(&self) -> bool {
+        self.steps.is_busy()
     }
 
     /// The position the UI should show.

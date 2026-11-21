@@ -28,11 +28,13 @@ impl MainWindow {
     }
 
     /// The video inside the content area: in Hide UI, out of fullscreen, dragging it moves the
-    /// window. A right-click opens its menu.
+    /// window. A right-click opens its menu; clicks play, pause and go fullscreen (S2.10.1).
     pub(super) fn video_area(&self, video: Div, window: &Window, cx: &mut Context<Self>) -> Div {
         let area = div()
             .id("video-area")
             .size_full()
+            .capture_any_mouse_down(cx.listener(Self::arm_video_click))
+            .on_click(cx.listener(Self::on_video_click))
             .on_mouse_down(MouseButton::Right, cx.listener(Self::on_video_right_click))
             .child(self.auto_hide.video_area.element())
             .child(video);

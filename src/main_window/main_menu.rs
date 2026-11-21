@@ -14,9 +14,11 @@ use crate::opening::recent;
 use crate::ui::menu::MenuItem;
 
 impl MainWindow {
-    /// Adds the handlers for About VLC and the macOS menu bar's player commands.
+    /// Adds the handlers for Keyboard Shortcuts, About VLC and the macOS menu bar's player
+    /// commands.
     pub(super) fn menu_actions(root: Div, cx: &mut Context<Self>) -> Div {
-        root.on_action(cx.listener(|this, _: &About, window, cx| this.show_about(window, cx)))
+        Self::shortcuts_dialog_action(root, cx)
+            .on_action(cx.listener(|this, _: &About, window, cx| this.show_about(window, cx)))
             .on_action(cx.listener(Self::run_from_menu_bar))
     }
 

@@ -45,7 +45,7 @@ impl Player {
                 cx.emit(PlayerEvent::MetadataChanged);
             }
             BackendEvent::SeekCompleted => self.send_next_seek(),
-            BackendEvent::FrameStepped => self.send_next_step(),
+            BackendEvent::FrameStepped => self.step_done(cx),
             BackendEvent::AudioDevices(devices) => self.devices_reported(devices, cx),
             BackendEvent::Corked(corked) => self.corked(corked, cx),
         }
@@ -116,10 +116,12 @@ impl Player {
         }
     }
 
-    fn send_next_step(&mut self) {
+    /// A frame step finished: sends the next one, if any.
+    fn step_done(&mut self, cx: &mut Context<Self>) {
         if let Some(direction) = self.steps.completed() {
             self.with_backend(|backend| backend.frame_step(direction));
         }
+        cx.emit(PlayerEvent::FrameStepped);
     }
 
     fn cancel_queues(&mut self) {

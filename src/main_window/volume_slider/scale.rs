@@ -1,10 +1,10 @@
 //! The volume slider's arithmetic, kept apart from drawing so it can be tested: the non-linear
 //! mapping between volumes and track positions (S2.5.2), the magnet at 100% (S2.5.6), the
-//! position-locked colours (S2.5.1), and turning wheel deltas into steps (S2.5.5).
+//! position-locked colours (S2.5.1).
 
-use gpui::{Hsla, Rgba, ScrollDelta, TouchPhase, rgb};
+use gpui::{Hsla, Rgba, rgb};
 
-use crate::engine::values::{Volume, VolumeChange};
+use crate::engine::values::Volume;
 
 /// The share of the track 0–100% takes when the maximum is 200%, measured from the designs.
 const FULL_SHARE_AT_200: f32 = 0.71;
@@ -21,9 +21,6 @@ const AMBER: u32 = 0x9A7513;
 const RED: u32 = 0xC93129;
 /// The gradient's colours and the levels they sit at: in between, colours blend.
 const STOPS: [(f32, u32); 3] = [(0., GREEN), (1., AMBER), (2., RED)];
-
-/// Pixels of trackpad scrolling per volume step.
-const PIXELS_PER_STEP: f32 = 40.;
 
 /// The track's scale for one "Maximum volume": 0–100% is a linear part, and every 100% of
 /// boost after it a shorter linear part, so 0–100% takes 71% of a 200% track, all of a 100%
@@ -119,45 +116,8 @@ fn mix(from: Rgba, to: Rgba, amount: f32) -> Rgba {
     Rgba { r: mix(from.r, to.r), g: mix(from.g, to.g), b: mix(from.b, to.b), a: 1. }
 }
 
-/// Turns wheel and trackpad scrolling into volume steps (S2.5.5). Trackpad deltas add up until
-/// they make a step, and each event makes one step at most, so an inertial flick ramps the
-/// volume instead of jumping from 0 to the maximum.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct WheelSteps {
-    /// Scrolling not yet used, in steps; positive is louder.
-    pending: f32,
-}
-
-impl WheelSteps {
-    /// The step `delta` makes, if any. Scrolling up is louder.
-    pub fn take(&mut self, delta: ScrollDelta, phase: TouchPhase) -> Option<VolumeChange> {
-        if phase == TouchPhase::Started {
-            self.pending = 0.;
-        }
-        let steps = match delta {
-            ScrollDelta::Lines(lines) if lines.y == 0. => 0.,
-            // A wheel notch is a step, however many lines the system scrolls for it.
-            ScrollDelta::Lines(lines) => lines.y.signum(),
-            ScrollDelta::Pixels(pixels) => f32::from(pixels.y) / PIXELS_PER_STEP,
-        };
-        if steps.signum() != self.pending.signum() {
-            // Turning back starts afresh.
-            self.pending = 0.;
-        }
-        self.pending = (self.pending + steps).clamp(-1., 1.);
-        if self.pending.abs() < 1. {
-            return None;
-        }
-        let change = if self.pending > 0. { VolumeChange::Up } else { VolumeChange::Down };
-        self.pending = 0.;
-        Some(change)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use gpui::{point, px};
-
     use super::*;
 
     fn close(a: f32, b: f32) -> bool {
@@ -221,25 +181,5 @@ mod tests {
         assert!(close(boosted[0].to, 0.71));
         assert_eq!(boosted[1].start, rgb(AMBER).into());
         assert_eq!(scale.segments(Volume::new(0.)).len(), 0);
-    }
-
-    #[test]
-    fn wheel_notches_step_once_each() {
-        let mut wheel = WheelSteps::default();
-        let notch = |y| ScrollDelta::Lines(point(0., y));
-        assert_eq!(wheel.take(notch(3.), TouchPhase::Moved), Some(VolumeChange::Up));
-        assert_eq!(wheel.take(notch(-1.), TouchPhase::Moved), Some(VolumeChange::Down));
-        assert_eq!(wheel.take(notch(0.), TouchPhase::Moved), None);
-    }
-
-    #[test]
-    fn trackpad_scrolling_adds_up_and_never_jumps() {
-        let mut wheel = WheelSteps::default();
-        let pixels = |y| ScrollDelta::Pixels(point(px(0.), px(y)));
-        assert_eq!(wheel.take(pixels(15.), TouchPhase::Started), None);
-        assert_eq!(wheel.take(pixels(30.), TouchPhase::Moved), Some(VolumeChange::Up));
-        assert_eq!(wheel.take(pixels(400.), TouchPhase::Moved), Some(VolumeChange::Up));
-        assert_eq!(wheel.take(pixels(-30.), TouchPhase::Moved), None, "turning back starts over");
-        assert_eq!(wheel.take(pixels(-30.), TouchPhase::Moved), Some(VolumeChange::Down));
     }
 }

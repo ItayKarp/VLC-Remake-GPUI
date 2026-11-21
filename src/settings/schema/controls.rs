@@ -1,5 +1,6 @@
 //! Controls preferences (Settings → Controls; its rows come with S5.6): how far the seek keys
-//! jump (S2.3.4, S5.6.1) and what the scroll wheel does over the video (S2.5.5, S5.6.2).
+//! jump (S2.3.4, S5.6.1), and what clicks and the scroll wheel do over the video (S2.5.5,
+//! S2.10.1, S5.6.2).
 
 use std::time::Duration;
 
@@ -30,6 +31,48 @@ pub struct ControlsSettings {
     /// What the scroll wheel does over the video.
     #[serde(deserialize_with = "lenient")]
     pub wheel: WheelAction,
+    /// What scrolling sideways (a tilted wheel, a trackpad) does over the video.
+    #[serde(deserialize_with = "lenient")]
+    pub horizontal_wheel: HorizontalWheelAction,
+    /// What a single click on the video does.
+    #[serde(deserialize_with = "lenient")]
+    pub click: ClickAction,
+    /// What a double click on the video does.
+    #[serde(deserialize_with = "lenient")]
+    pub double_click: DoubleClickAction,
+}
+
+/// What a single click on the video does ("Mouse → Single click").
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClickAction {
+    /// Plays or pauses.
+    #[default]
+    PlayPause,
+    /// Nothing.
+    Nothing,
+}
+
+/// What a double click on the video does ("Mouse → Double click").
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DoubleClickAction {
+    /// Enters or leaves fullscreen.
+    #[default]
+    ToggleFullscreen,
+    /// Nothing.
+    Nothing,
+}
+
+/// What scrolling sideways does over the video ("Mouse → Horizontal scroll").
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HorizontalWheelAction {
+    /// Seeks by the very short skip per step, as in VLC.
+    #[default]
+    Seek,
+    /// Nothing.
+    Nothing,
 }
 
 /// What the scroll wheel does over the video ("Mouse → Scroll wheel").

@@ -29,6 +29,7 @@ pub mod commands;
 pub mod label;
 pub mod menus;
 pub mod repeat;
+pub mod sections;
 #[cfg(test)]
 mod tests;
 
@@ -135,6 +136,19 @@ pub fn predicate(area: Area, keystroke: &Keystroke) -> Option<String> {
 /// The primary shortcut of `action` as text ("Ctrl + O", "⌘O"), if it has one.
 pub fn shortcut(action: &dyn Action, cx: &App) -> Option<SharedString> {
     primary_keystroke(action, cx).map(|keystroke| label::text(&keystroke, is_mac(cx)).into())
+}
+
+/// Every shortcut of `action` as text, the primary one first; empty if it has none.
+pub fn shortcuts(action: &dyn Action, cx: &App) -> Vec<SharedString> {
+    let mac = is_mac(cx);
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    keymap
+        .bindings_for_action(action)
+        .rev()
+        .filter_map(|binding| binding.keystrokes().first())
+        .map(|keystroke| label::text(keystroke.inner(), mac).into())
+        .collect()
 }
 
 /// The primary shortcut of `action` as key caps; empty if it has none.

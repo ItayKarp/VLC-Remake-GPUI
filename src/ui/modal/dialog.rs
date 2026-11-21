@@ -1,5 +1,6 @@
-//! The standard dialog shown in a [`super::ModalLayer`]: a title, a scrolling body
-//! and a row of buttons, one of which Enter can trigger.
+//! The standard dialog shown in a [`super::ModalLayer`]: a title, an optional toolbar that
+//! stays put (a search field), a scrolling body and a row of buttons, one of which Enter can
+//! trigger.
 
 use std::rc::Rc;
 
@@ -56,6 +57,7 @@ impl DialogButton {
 /// A standard dialog: a title, a body and a row of buttons.
 pub struct Dialog {
     title: SharedString,
+    toolbar: Option<BuildBody>,
     body: BuildBody,
     buttons: Vec<DialogButton>,
     button_focus: Vec<FocusHandle>,
@@ -83,12 +85,28 @@ impl Dialog {
         let button_focus = buttons.iter().map(|_| cx.focus_handle().tab_stop(true)).collect();
         Self {
             title: title.into(),
+            toolbar: None,
             body: Box::new(body),
             buttons,
             button_focus,
             focus_handle: cx.focus_handle(),
             width: DIALOG_WIDTH,
         }
+    }
+
+    /// A dialog `width` wide when the window has room (440 px otherwise).
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Puts what `toolbar` builds between the title and the body, where it doesn't scroll.
+    pub fn with_toolbar(
+        mut self,
+        toolbar: impl Fn(&mut Window, &mut App) -> AnyElement + 'static,
+    ) -> Self {
+        self.toolbar = Some(Box::new(toolbar));
+        self
     }
 
     /// The buttons' focus handles, in order.
@@ -146,6 +164,7 @@ impl Render for Dialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let viewport = window.viewport_size();
+        let toolbar = self.toolbar.as_ref().map(|toolbar| toolbar(window, cx));
         let body = (self.body)(window, cx);
 
         div()
@@ -166,6 +185,7 @@ impl Render for Dialog {
             .shadow_lg()
             .text_color(p.text)
             .child(title(self.title.clone(), &p))
+            .children(toolbar.map(|toolbar| div().flex_none().px(px(PADDING)).child(toolbar)))
             .child(scrolling_body(body))
             .child(self.button_row(cx))
     }

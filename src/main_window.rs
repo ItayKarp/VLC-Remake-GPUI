@@ -1,7 +1,8 @@
 //! The main window shell (S0.3.4): the player-style title bar, the control bar (S2.2), and an
 //! empty state that opens or accepts dropped files, replaced by the video while media plays
 //! (S1.4). The bars hide by themselves, in Hide UI mode and in fullscreen (S2.8). The `…` menu
-//! and the video's right-click menu hold the commands, and About VLC opens over it (S2.9).
+//! and the video's right-click menu hold the commands, and About VLC opens over it (S2.9). Clicks
+//! and scrolling on the video, on-screen messages and the Keyboard Shortcuts dialog are S2.10.
 //! Onboarding hands off to it (S0.2); the library (Stage 4) fills the content area later.
 
 mod about;
@@ -12,6 +13,7 @@ mod control_bar;
 mod diagnostics;
 mod empty_state;
 mod flash;
+mod frame_step;
 mod fullscreen;
 mod hide_ui;
 mod history;
@@ -24,6 +26,7 @@ mod player_keys;
 mod seek_bar;
 mod seeking;
 mod settings_panel;
+mod shortcuts_dialog;
 mod speed;
 #[cfg(test)]
 mod tests;
@@ -32,8 +35,10 @@ mod track_popover;
 mod tracks;
 mod transport;
 mod video_menu;
+mod video_mouse;
 mod viewport;
 mod volume_slider;
+mod wheel;
 
 use gpui::{
     App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription,
@@ -101,8 +106,12 @@ pub struct MainWindow {
     seek_bar: seek_bar::SeekBar,
     /// The volume wedge's drag, wheel and value bubble (S2.5).
     volume_slider: volume_slider::VolumeSlider,
-    /// The message over the video (S2.5.7).
+    /// The message over the video (S2.5.7, S2.10.2).
     osd: osd::Osd,
+    /// Whether frame steps are taking a while (S2.10.3).
+    frame_step: frame_step::FrameStepWait,
+    /// Clicks and sideways scrolling on the video (S2.10.1).
+    video_mouse: video_mouse::VideoMouse,
     /// The Video | Audio | Subtitles popover (S2.6).
     track_popover: track_popover::TrackPopover,
     /// The gear's Playback | Video | Audio | Subtitles panel (S2.7).
@@ -146,6 +155,8 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            frame_step: frame_step::FrameStepWait::default(),
+            video_mouse: video_mouse::VideoMouse::default(),
             track_popover: track_popover::TrackPopover::new(cx),
             settings_panel: settings_panel::SettingsPanel::new(window, cx),
             os_title: String::new(),
@@ -234,7 +245,7 @@ impl MainWindow {
                     this.scroll_on_video(event, window, cx);
                 }))
                 .child(self.video_area(viewport::framed(video, p, layout), window, cx))
-                .children(self.render_osd(p)),
+                .children(self.render_osd(p, cx)),
             None => area.child(
                 div()
                     .id("content")
