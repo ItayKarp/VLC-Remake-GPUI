@@ -1,3 +1,6 @@
+//! The VLC desktop app: starts GPUI, initializes each service, and opens the first
+//! window.
+
 mod app;
 mod assets;
 mod logging;

@@ -26,15 +26,20 @@ pub use system::SystemPrefs;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
+    /// Always light.
     Light,
+    /// Always dark.
     #[default]
     Dark,
+    /// Follows the OS appearance.
     System,
 }
 
 impl ThemeMode {
+    /// Every mode, in the order onboarding shows them.
     pub const ALL: [ThemeMode; 3] = [ThemeMode::Light, ThemeMode::Dark, ThemeMode::System];
 
+    /// The name shown to the user.
     pub fn label(self) -> &'static str {
         match self {
             ThemeMode::Light => "Light",
@@ -43,6 +48,7 @@ impl ThemeMode {
         }
     }
 
+    /// A stable lowercase identifier, as written in the settings file.
     pub fn key(self) -> &'static str {
         match self {
             ThemeMode::Light => "light",
@@ -68,19 +74,29 @@ impl ThemeMode {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Accent {
+    /// VLC's orange, the default.
     #[default]
     Orange,
+    /// Red.
     Red,
+    /// Yellow.
     Yellow,
+    /// Green.
     Green,
+    /// Teal.
     Teal,
+    /// Blue.
     Blue,
+    /// Purple.
     Purple,
+    /// Pink.
     Pink,
+    /// Neutral gray.
     Gray,
 }
 
 impl Accent {
+    /// Every accent, in the order onboarding shows them.
     pub const ALL: [Accent; 9] = [
         Accent::Orange,
         Accent::Red,
@@ -93,6 +109,7 @@ impl Accent {
         Accent::Gray,
     ];
 
+    /// The accent's color, from the designs.
     pub fn color(self) -> Hsla {
         let hex = match self {
             Accent::Orange => 0xD37918,
@@ -108,6 +125,7 @@ impl Accent {
         rgb(hex).into()
     }
 
+    /// A stable lowercase identifier, as written in the settings file.
     pub fn key(self) -> &'static str {
         match self {
             Accent::Orange => "orange",

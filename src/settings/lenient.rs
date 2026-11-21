@@ -12,10 +12,11 @@ where
     T: DeserializeOwned + Default,
 {
     let value = toml::Value::deserialize(deserializer)?;
-    Ok(parse_or_default(value))
+    Ok(parse_or_default(&value))
 }
 
-pub fn parse_or_default<T: DeserializeOwned + Default>(value: toml::Value) -> T {
+/// Parses `value` as `T`, or logs a warning and returns `T::default()` when it doesn't fit.
+pub fn parse_or_default<T: DeserializeOwned + Default>(value: &toml::Value) -> T {
     match T::deserialize(value.clone()) {
         Ok(parsed) => parsed,
         Err(err) => {
@@ -29,6 +30,7 @@ pub fn parse_or_default<T: DeserializeOwned + Default>(value: toml::Value) -> T 
     }
 }
 
+/// The last path segment of `T`'s name, for readable log messages.
 fn short_type_name<T>() -> &'static str {
     let name = std::any::type_name::<T>();
     name.rsplit("::").next().unwrap_or(name)

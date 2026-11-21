@@ -5,15 +5,18 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, App, ElementId, SharedString, Window, div, prelude::*, px};
+use gpui::{AnyElement, App, Div, ElementId, SharedString, Stateful, Window, div, prelude::*, px};
 
 use super::icon::icon;
 use super::{focus, metrics};
 use crate::assets::icons;
-use crate::theme;
+use crate::theme::{self, Palette};
 
+/// Called with the section's new expanded state.
 type ToggleHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
 
+/// A titled section that shows its children only while expanded. The owner keeps the
+/// state and changes it from [`Self::on_toggle`].
 #[derive(IntoElement)]
 pub struct Collapsible {
     id: ElementId,
@@ -24,6 +27,7 @@ pub struct Collapsible {
 }
 
 impl Collapsible {
+    /// An empty section titled `title`, open when `expanded`.
     pub fn new(id: impl Into<ElementId>, title: impl Into<SharedString>, expanded: bool) -> Self {
         Self { id: id.into(), title: title.into(), expanded, content: Vec::new(), on_toggle: None }
     }
@@ -45,35 +49,7 @@ impl RenderOnce for Collapsible {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let expanded = self.expanded;
-        let hover = p.text;
-
-        let header = div()
-            .id("header")
-            .h(px(metrics::SECTION_HEIGHT))
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
-            .px(px(14.))
-            .rounded(px(metrics::RADIUS))
-            .border_2()
-            .border_color(gpui::transparent_black())
-            .text_size(px(metrics::TEXT))
-            .text_color(p.text_muted)
-            .tab_index(0)
-            .cursor_pointer()
-            .aria_expanded(expanded)
-            .aria_label(self.title.clone())
-            .hover(move |s| s.text_color(hover))
-            .when_some(self.on_toggle, |h, f| {
-                h.on_click(move |_, window, cx| f(&!expanded, window, cx))
-            })
-            .child(div().truncate().child(self.title))
-            .child(icon(
-                if expanded { icons::CHEVRON_UP } else { icons::CHEVRON_DOWN },
-                20.,
-                p.icon,
-            ));
+        let header = header(self.title, expanded, &p, self.on_toggle);
 
         div()
             .id(self.id)
@@ -94,4 +70,35 @@ impl RenderOnce for Collapsible {
                 )
             })
     }
+}
+
+/// The section's header button: the title and a chevron showing whether it's open.
+fn header(
+    title: SharedString,
+    expanded: bool,
+    p: &Palette,
+    on_toggle: Option<ToggleHandler>,
+) -> Stateful<Div> {
+    let hover = p.text;
+    div()
+        .id("header")
+        .h(px(metrics::SECTION_HEIGHT))
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .px(px(14.))
+        .rounded(px(metrics::RADIUS))
+        .border_2()
+        .border_color(gpui::transparent_black())
+        .text_size(px(metrics::TEXT))
+        .text_color(p.text_muted)
+        .tab_index(0)
+        .cursor_pointer()
+        .aria_expanded(expanded)
+        .aria_label(title.clone())
+        .hover(move |s| s.text_color(hover))
+        .when_some(on_toggle, |h, f| h.on_click(move |_, window, cx| f(&!expanded, window, cx)))
+        .child(div().truncate().child(title))
+        .child(icon(if expanded { icons::CHEVRON_UP } else { icons::CHEVRON_DOWN }, 20., p.icon))
 }

@@ -1,7 +1,7 @@
 //! Settings state without GPUI: loading, change tracking and preparing saves. The
-//! GPUI global in `mod.rs` wraps this so it can be unit-tested directly.
+//! GPUI global in `settings.rs` wraps this so it can be unit-tested directly.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use toml_edit::DocumentMut;
@@ -27,6 +27,7 @@ pub enum Notice {
     SaveFailed { error: String },
 }
 
+/// One settings file on disk and its editable, comment-preserving document.
 struct FileSlot {
     path: PathBuf,
     doc: DocumentMut,
@@ -35,6 +36,26 @@ struct FileSlot {
 }
 
 impl FileSlot {
+    /// Reads the file at `path`, recording anything the user should hear about in
+    /// `notices`.
+    fn load(path: PathBuf, notices: &mut Vec<Notice>) -> Self {
+        match storage::load(&path) {
+            Ok(loaded) => {
+                let writable = record_issue(&path, loaded.issue, notices);
+                FileSlot { path, doc: loaded.doc, writable }
+            }
+            Err(err) => {
+                log::warn!("settings: couldn't read {}: {err}", path.display());
+                notices.push(Notice::NotPersisted {
+                    reason: format!("Couldn't read {}: {err}", path.display()),
+                });
+                FileSlot { path, doc: DocumentMut::new(), writable: false }
+            }
+        }
+    }
+
+    /// Merges `typed` into the document and queues the result for writing, unless the
+    /// file must not be overwritten.
     fn render<T: serde::Serialize>(&mut self, typed: &T, writes: &mut Vec<(PathBuf, String)>) {
         match merge_typed(&mut self.doc, typed) {
             Ok(()) if self.writable => writes.push((self.path.clone(), self.doc.to_string())),
@@ -44,7 +65,10 @@ impl FileSlot {
     }
 }
 
+/// The loaded settings, the documents they came from, and the bookkeeping that decides
+/// when and what to save.
 pub struct SettingsState {
+    /// The current typed settings; change them through [`Self::update`].
     pub settings: Settings,
     /// `None`: no config directory, settings live in memory only.
     files: Option<[FileSlot; 2]>,
@@ -68,10 +92,12 @@ pub struct SaveJob {
 }
 
 impl SaveJob {
+    /// The save's generation, to pass back to [`SettingsState::finish_save`].
     pub fn generation(&self) -> u64 {
         self.generation
     }
 
+    /// Writes the files, unless a newer save has already been written.
     pub fn run(self) -> Result<(), String> {
         let mut written = self.written.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if *written > self.generation {
@@ -87,6 +113,8 @@ impl SaveJob {
 }
 
 impl SettingsState {
+    /// Loads and migrates both settings files, or starts from defaults in memory when
+    /// there is no config directory.
     pub fn load(locations: Option<Locations>) -> Self {
         let mut notices = Vec::new();
         let Some(locations) = locations else {
@@ -97,40 +125,8 @@ impl SettingsState {
             return Self::new(Settings::default(), None, false, notices);
         };
 
-        let mut load = |path: PathBuf| -> FileSlot {
-            let (doc, writable) = match storage::load(&path) {
-                Ok(loaded) => {
-                    let mut writable = true;
-                    match loaded.issue {
-                        Some(LoadIssue::RestoredFromBackup) => {
-                            notices.push(Notice::RestoredFromBackup { file: path.clone() });
-                        }
-                        Some(LoadIssue::Corrupt { moved_to, restored_from_backup, .. }) => {
-                            // If the corrupt file couldn't be moved aside, saving over it
-                            // would lose it.
-                            writable = moved_to.is_some();
-                            notices.push(Notice::Corrupt {
-                                file: path.clone(),
-                                moved_to,
-                                restored_from_backup,
-                            });
-                        }
-                        None => {}
-                    }
-                    (loaded.doc, writable)
-                }
-                Err(err) => {
-                    log::warn!("settings: couldn't read {}: {err}", path.display());
-                    notices.push(Notice::NotPersisted {
-                        reason: format!("Couldn't read {}: {err}", path.display()),
-                    });
-                    (DocumentMut::new(), false)
-                }
-            };
-            FileSlot { path, doc, writable }
-        };
-        let mut prefs = load(locations.prefs);
-        let mut local = load(locations.local);
+        let mut prefs = FileSlot::load(locations.prefs, &mut notices);
+        let mut local = FileSlot::load(locations.local, &mut notices);
 
         let mut docs = Documents {
             prefs: std::mem::take(&mut prefs.doc),
@@ -147,6 +143,7 @@ impl SettingsState {
         Self::new(settings, Some([prefs, local]), migrated, notices)
     }
 
+    /// Assembles a state with no saves prepared yet.
     fn new(
         settings: Settings,
         files: Option<[FileSlot; 2]>,
@@ -174,14 +171,18 @@ impl SettingsState {
         changed
     }
 
+    /// Whether there are changes that haven't been handed to a save yet.
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }
 
+    /// Whether changes reach the disk: there is a config directory and every file may
+    /// be overwritten.
     pub fn is_persistent(&self) -> bool {
         self.files.as_ref().is_some_and(|files| files.iter().all(|file| file.writable))
     }
 
+    /// Returns the notices collected so far and forgets them.
     pub fn take_notices(&mut self) -> Vec<Notice> {
         std::mem::take(&mut self.notices)
     }
@@ -202,6 +203,8 @@ impl SettingsState {
         Some(SaveJob { writes, generation: self.generation, written: self.written.clone() })
     }
 
+    /// Records how a save ended. A failure keeps the changes dirty so the next change
+    /// retries, and is reported once per session.
     pub fn finish_save(&mut self, generation: u64, result: Result<(), String>) {
         if result.is_ok() {
             self.confirmed = self.confirmed.max(generation);
@@ -218,6 +221,25 @@ impl SettingsState {
     }
 }
 
+/// Turns a load issue into a notice and returns whether the file may be overwritten.
+fn record_issue(path: &Path, issue: Option<LoadIssue>, notices: &mut Vec<Notice>) -> bool {
+    match issue {
+        Some(LoadIssue::RestoredFromBackup) => {
+            notices.push(Notice::RestoredFromBackup { file: path.to_owned() });
+            true
+        }
+        Some(LoadIssue::Corrupt { moved_to, restored_from_backup, .. }) => {
+            // If the corrupt file couldn't be moved aside, saving over it would lose it.
+            let writable = moved_to.is_some();
+            notices.push(Notice::Corrupt { file: path.to_owned(), moved_to, restored_from_backup });
+            writable
+        }
+        None => true,
+    }
+}
+
+/// Reads a typed value out of a document, falling back to the default when the
+/// document as a whole doesn't fit the schema.
 fn deserialize<T: serde::de::DeserializeOwned + Default>(doc: &DocumentMut) -> T {
     toml_edit::de::from_document(doc.clone()).unwrap_or_else(|err| {
         log::warn!("settings: couldn't read settings, using defaults: {err}");

@@ -12,8 +12,9 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Context, EventEmitter, FocusHandle, Focusable, KeyDownEvent, ScrollStrategy,
-    SharedString, UniformListScrollHandle, Window, accesskit, div, prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
+    ScrollStrategy, SharedString, Stateful, UniformListScrollHandle, Window, accesskit, div,
+    prelude::*, px, uniform_list,
 };
 
 use super::focus::{self, Axis, Layout};
@@ -24,17 +25,20 @@ use crate::theme;
 /// How the item at an index should look.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemState {
+    /// The item is the selected one.
     pub selected: bool,
     /// The list has keyboard focus (so the selection shows a focus ring).
     pub focused: bool,
 }
 
+/// Renders the item at an index in the given state.
 type RenderItem = Rc<dyn Fn(usize, ItemState, &mut Window, &mut App) -> AnyElement>;
 
+/// Whether the collection is a list or a grid.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Columns {
     /// A list: one item per row.
-    #[allow(dead_code)] // The library's list view (Stage 4).
+    #[allow(dead_code, reason = "the library's list view (Stage 4)")]
     One,
     /// A grid of items `width` wide, `gap` apart.
     Fit { width: f32, gap: f32 },
@@ -54,17 +58,21 @@ pub fn row_items(row: usize, columns: usize, len: usize) -> Range<usize> {
     start..(start + columns).min(len)
 }
 
+/// How many rows `len` items take, `columns` to a row.
 pub fn row_count(len: usize, columns: usize) -> usize {
     len.div_ceil(columns.max(1))
 }
 
+/// What a [`VirtualList`] tells its owner.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
+    /// The item at this index became the selection.
     Selected(usize),
-    /// Enter or double-click.
+    /// The item at this index was opened with Enter or a double-click.
     Activated(usize),
 }
 
+/// A virtualized, keyboard-navigable list or grid of `len` items, rendered on demand.
 pub struct VirtualList {
     len: usize,
     columns: Columns,
@@ -86,6 +94,12 @@ impl Focusable for VirtualList {
 }
 
 impl VirtualList {
+    /// A collection of `len` items in rows `row_height` tall, named `label` for screen
+    /// readers. `render_item` draws an item when its row scrolls into view.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the component gallery calls this signature, and it is outside this change"
+    )]
     pub fn new(
         label: impl Into<SharedString>,
         len: usize,
@@ -109,18 +123,21 @@ impl VirtualList {
         }
     }
 
-    #[allow(dead_code)] // Kit API for later stages.
+    /// Changes the item count, dropping a selection that no longer exists.
+    #[allow(dead_code, reason = "kit API for later stages")]
     pub fn set_len(&mut self, len: usize, cx: &mut Context<Self>) {
         self.len = len;
         self.selected = self.selected.filter(|&s| s < len);
         cx.notify();
     }
 
-    #[allow(dead_code)] // Kit API for later stages.
+    /// The selected item's index, if any.
+    #[allow(dead_code, reason = "kit API for later stages")]
     pub fn selected(&self) -> Option<usize> {
         self.selected
     }
 
+    /// How many items fit in a row at the viewport's last measured width.
     fn column_count(&self) -> usize {
         match self.columns {
             Columns::One => 1,
@@ -139,6 +156,8 @@ impl VirtualList {
             .max(1)
     }
 
+    /// Selects the item at `index` and scrolls it into view; out-of-range indices are
+    /// ignored.
     pub fn select(&mut self, index: usize, cx: &mut Context<Self>) {
         if index >= self.len {
             return;
@@ -171,6 +190,65 @@ impl VirtualList {
             }
         }
     }
+
+    /// One row: as many items as fit, side by side.
+    fn render_row(
+        &self,
+        row: usize,
+        layout: RowLayout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let items = row_items(row, layout.columns, layout.len)
+            .map(|index| self.render_cell(index, layout, window, cx));
+        div()
+            .id(("row", row))
+            .h(px(layout.row_height))
+            .flex()
+            .flex_row()
+            .gap(px(layout.gap))
+            .px(px(layout.gap))
+            .children(items)
+    }
+
+    /// The clickable cell holding the item at `index`.
+    fn render_cell(
+        &self,
+        index: usize,
+        layout: RowLayout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let state = ItemState { selected: self.selected == Some(index), focused: layout.focused };
+        let item = (self.render_item)(index, state, window, cx);
+        let item_width = layout.item_width;
+        div()
+            .id(index)
+            .when_some(item_width, |d, w| d.w(px(w)).flex_none())
+            .when(item_width.is_none(), |d| d.flex_1().min_w_0())
+            .h_full()
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                this.focus_handle.focus(window, cx);
+                this.select(index, cx);
+                if event.click_count() >= 2 {
+                    cx.emit(Event::Activated(index));
+                }
+            }))
+            .child(item)
+    }
+}
+
+/// What every row needs to know about this frame's layout.
+#[derive(Clone, Copy)]
+struct RowLayout {
+    columns: usize,
+    len: usize,
+    /// `None` for a list, whose items fill the row.
+    item_width: Option<f32>,
+    gap: f32,
+    row_height: f32,
+    /// Whether the list has keyboard focus.
+    focused: bool,
 }
 
 impl Render for VirtualList {
@@ -182,46 +260,20 @@ impl Render for VirtualList {
             Columns::One => (None, 0.),
             Columns::Fit { width, gap } => (Some(width), gap),
         };
-        let row_height = self.row_height;
-        let len = self.len;
-        let focused = self.focus_handle.is_focused(window);
+        let layout = RowLayout {
+            columns,
+            len: self.len,
+            item_width,
+            gap,
+            row_height: self.row_height,
+            focused: self.focus_handle.is_focused(window),
+        };
 
         let list = uniform_list(
             "virtual-list",
             rows,
             cx.processor(move |this, range: Range<usize>, window, cx| {
-                range
-                    .map(|row| {
-                        let items = row_items(row, columns, len).map(|index| {
-                            let state =
-                                ItemState { selected: this.selected == Some(index), focused };
-                            let item = (this.render_item)(index, state, window, cx);
-                            div()
-                                .id(index)
-                                .when_some(item_width, |d, w| d.w(px(w)).flex_none())
-                                .when(item_width.is_none(), |d| d.flex_1().min_w_0())
-                                .h_full()
-                                .on_click(cx.listener(
-                                    move |this, event: &gpui::ClickEvent, window, cx| {
-                                        this.focus_handle.focus(window, cx);
-                                        this.select(index, cx);
-                                        if event.click_count() >= 2 {
-                                            cx.emit(Event::Activated(index));
-                                        }
-                                    },
-                                ))
-                                .child(item)
-                        });
-                        div()
-                            .id(("row", row))
-                            .h(px(row_height))
-                            .flex()
-                            .flex_row()
-                            .gap(px(gap))
-                            .px(px(gap))
-                            .children(items)
-                    })
-                    .collect::<Vec<_>>()
+                range.map(|row| this.render_row(row, layout, window, cx)).collect::<Vec<_>>()
             }),
         )
         .track_scroll(&self.scroll)

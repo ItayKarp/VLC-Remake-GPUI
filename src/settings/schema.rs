@@ -30,22 +30,31 @@ pub struct Settings {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
+    /// Light, dark, or following the system.
     #[serde(deserialize_with = "lenient")]
     pub theme: ThemeMode,
+    /// The accent color.
     #[serde(deserialize_with = "lenient")]
     pub accent: Accent,
+    /// Player behavior.
     #[serde(deserialize_with = "lenient")]
     pub player: PlayerSettings,
+    /// Audio preferences.
     #[serde(deserialize_with = "lenient")]
     pub audio: AudioSettings,
+    /// Video preferences.
     #[serde(deserialize_with = "lenient")]
     pub video: VideoSettings,
+    /// Subtitle preferences.
     #[serde(deserialize_with = "lenient")]
     pub subtitles: SubtitleSettings,
+    /// Library preferences.
     #[serde(deserialize_with = "lenient")]
     pub library: LibrarySettings,
+    /// Privacy preferences.
     #[serde(deserialize_with = "lenient")]
     pub privacy: PrivacySettings,
+    /// Custom key bindings.
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
 }
@@ -61,6 +70,7 @@ pub struct LocalState {
     /// Onboarding writes one; the Library settings screen can manage several.
     #[serde(with = "stored_path::list")]
     pub media_folders: Vec<PathBuf>,
+    /// Where each window was last placed.
     #[serde(deserialize_with = "lenient")]
     pub window: WindowState,
 }
@@ -96,6 +106,7 @@ empty_sections! {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct WindowState {
+    /// The main window.
     #[serde(deserialize_with = "lenient")]
     pub main: WindowGeometry,
     /// The Settings window (Stage 5).
@@ -109,23 +120,32 @@ pub struct WindowState {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct WindowGeometry {
+    /// The left edge of the normal (restored) bounds, in logical pixels.
     #[serde(deserialize_with = "lenient")]
     pub x: f32,
+    /// The top edge of the normal bounds.
     #[serde(deserialize_with = "lenient")]
     pub y: f32,
+    /// The normal width; zero when nothing was saved.
     #[serde(deserialize_with = "lenient")]
     pub width: f32,
+    /// The normal height; zero when nothing was saved.
     #[serde(deserialize_with = "lenient")]
     pub height: f32,
+    /// Whether the window was maximized or fullscreen.
     #[serde(deserialize_with = "lenient")]
     pub mode: WindowMode,
 }
 
+/// How a window was shown when its geometry was saved.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum WindowMode {
+    /// A normal window at its saved bounds.
     #[default]
     Windowed,
+    /// Maximized; the saved bounds are where it restores to.
     Maximized,
+    /// Fullscreen; the saved bounds are where it restores to.
     Fullscreen,
 }

@@ -24,7 +24,10 @@ use std::time::Duration;
 use gpui::{App, AppContext, BorrowAppContext, Global, Task};
 
 pub use paths::{Locations, default_media_folder, display_path};
-#[allow(unused_imports)]
+#[allow(
+    unused_imports,
+    reason = "part of the settings API; some types are named only by tests and later stages"
+)]
 pub use schema::{LocalState, Preferences, Settings, WindowGeometry, WindowMode};
 pub use store::Notice;
 use store::SettingsState;
@@ -32,6 +35,7 @@ use store::SettingsState;
 /// How long to wait after the last change before writing to disk.
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(500);
 
+/// The settings GPUI global: the loaded state and the pending debounced save.
 pub struct SettingsStore {
     state: SettingsState,
     /// The pending debounced save. Replacing it cancels the previous one.
@@ -64,6 +68,7 @@ pub fn init_in_memory(cx: &mut App) {
     cx.set_global(SettingsStore { state: SettingsState::load(None), pending_save: None });
 }
 
+/// The current settings.
 pub fn get(cx: &App) -> &Settings {
     &cx.global::<SettingsStore>().state.settings
 }

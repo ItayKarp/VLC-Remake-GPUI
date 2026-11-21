@@ -42,13 +42,21 @@ pub fn ring<E: InteractiveElement + Styled>(element: E, p: &Palette) -> E {
 /// A movement inside a group, from an arrow key or Home/End.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Move {
+    /// The previous item (Left, or Up outside grids).
     Prev,
+    /// The next item (Right, or Down outside grids).
     Next,
+    /// The item one row up in a grid.
     Up,
+    /// The item one row down in a grid.
     Down,
+    /// The first item (Home).
     First,
+    /// The last item (End).
     Last,
+    /// A page back (PageUp).
     PageUp,
+    /// A page forward (PageDown).
     PageDown,
 }
 
@@ -57,8 +65,6 @@ impl Move {
     /// accept both arrow pairs (Left/Up go back), like native radio groups.
     pub fn from_key(key: &str, axis: Axis) -> Option<Move> {
         Some(match (key, axis) {
-            ("left", Axis::Grid) => Move::Prev,
-            ("right", Axis::Grid) => Move::Next,
             ("up", Axis::Grid) => Move::Up,
             ("down", Axis::Grid) => Move::Down,
             ("left" | "up", _) => Move::Prev,
@@ -72,9 +78,12 @@ impl Move {
     }
 }
 
+/// The direction a group's items are laid out in, which decides what the arrow keys do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Axis {
+    /// A row: Left/Right (and Up/Down) step through it.
     Horizontal,
+    /// A column: Up/Down (and Left/Right) step through it.
     Vertical,
     /// Rows of `columns` items: Left/Right step, Up/Down jump a row.
     Grid,
@@ -96,9 +105,6 @@ pub fn step(
     if len == 0 {
         return None;
     }
-    let Layout { columns, page, wrap } = layout;
-    let columns = columns.max(1);
-    let last = len - 1;
     let first_enabled = (0..len).find(|&i| enabled(i))?;
     let last_enabled = (0..len).rev().find(|&i| enabled(i))?;
 
@@ -112,28 +118,18 @@ pub fn step(
     };
 
     // A single jump, then walk on in the same direction past disabled items.
-    let (target, direction): (isize, isize) = match movement {
-        Move::First => return Some(first_enabled),
-        Move::Last => return Some(last_enabled),
-        Move::Prev => (current as isize - 1, -1),
-        Move::Next => (current as isize + 1, 1),
-        Move::Up => (current as isize - columns as isize, -(columns as isize)),
-        Move::Down => (current as isize + columns as isize, columns as isize),
-        Move::PageUp => (current as isize - page.max(1) as isize, -1),
-        Move::PageDown => (current as isize + page.max(1) as isize, 1),
-    };
+    let (mut index, direction) = jump(current, len, movement, layout);
     let paging = matches!(movement, Move::PageUp | Move::PageDown);
-
-    let mut index = target;
     for _ in 0..=len {
-        if index < 0 || index > last as isize {
-            if paging {
-                // Paging past an end lands on it.
-                return Some(if index < 0 { first_enabled } else { last_enabled });
-            }
-            if !wrap {
-                return Some(current);
-            }
+        let in_range = (0..len as isize).contains(&index);
+        if !in_range && paging {
+            // Paging past an end lands on it.
+            return Some(if index < 0 { first_enabled } else { last_enabled });
+        }
+        if !in_range && !layout.wrap {
+            return Some(current);
+        }
+        if !in_range {
             index = index.rem_euclid(len as isize);
         }
         if enabled(index as usize) {
@@ -144,11 +140,33 @@ pub fn step(
     Some(current)
 }
 
+/// The first index a movement from `current` tries, and the direction to walk on in
+/// when that item is disabled. Home and End walk inwards from their end, so they land
+/// on the first or last enabled item.
+fn jump(current: usize, len: usize, movement: Move, layout: Layout) -> (isize, isize) {
+    let current = current as isize;
+    let columns = layout.columns.max(1) as isize;
+    let page = layout.page.max(1) as isize;
+    match movement {
+        Move::First => (0, 1),
+        Move::Last => (len as isize - 1, -1),
+        Move::Prev => (current - 1, -1),
+        Move::Next => (current + 1, 1),
+        Move::Up => (current - columns, -columns),
+        Move::Down => (current + columns, columns),
+        Move::PageUp => (current - page, -1),
+        Move::PageDown => (current + page, 1),
+    }
+}
+
 /// How a group is laid out, for [`step`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Layout {
+    /// Items per row (1 for lists).
     pub columns: usize,
+    /// How many items PageUp/PageDown skip.
     pub page: usize,
+    /// Whether moves cycle past the ends instead of stopping there.
     pub wrap: bool,
 }
 
@@ -158,6 +176,7 @@ impl Layout {
     /// A one-dimensional group that stops at the ends (lists, dropdowns).
     pub const LIST: Layout = Layout { columns: 1, page: 10, wrap: false };
 
+    /// A grid of `columns` items per row, where a page is the rows that are visible.
     pub fn grid(columns: usize, visible_rows: usize) -> Layout {
         Layout { columns, page: columns * visible_rows.max(1), wrap: false }
     }

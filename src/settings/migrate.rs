@@ -9,31 +9,38 @@ use toml_edit::{DocumentMut, Item};
 
 use super::document::{schema_version, set_schema_version};
 
+/// The schema version this build writes.
 pub const CURRENT_VERSION: i64 = 1;
 
+/// The two settings documents, migrated together because migrations may move data
+/// between them.
 pub struct Documents {
+    /// `settings.toml`.
     pub prefs: DocumentMut,
+    /// `local.toml`.
     pub local: DocumentMut,
 }
 
+/// Upgrades the documents by one schema version.
 type Migration = fn(&mut Documents);
 
+/// Every migration, in order: index `N` upgrades version `N`.
 const MIGRATIONS: &[Migration] = &[migrate_v0_to_v1];
 
 const _: () = assert!(MIGRATIONS.len() as i64 == CURRENT_VERSION);
 
+/// What [`migrate`] did.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
+    /// Nothing to do: a fresh install or the current version.
     UpToDate,
-    Migrated {
-        from: i64,
-    },
+    /// Upgraded from version `from`; the files need saving.
+    Migrated { from: i64 },
     /// Written by a newer build. Loaded as-is, without downgrading the version.
-    Newer {
-        version: i64,
-    },
+    Newer { version: i64 },
 }
 
+/// Upgrades both documents to [`CURRENT_VERSION`].
 pub fn migrate(docs: &mut Documents) -> Outcome {
     if docs.prefs.is_empty() && docs.local.is_empty() {
         // Fresh install: nothing to migrate, and nothing worth writing yet.

@@ -3,7 +3,7 @@
 use gpui::{Hsla, Rgba};
 
 /// Minimum contrast for body text (WCAG AA, 1.4.3).
-#[cfg_attr(not(test), allow(dead_code))] // checked by the tests
+#[cfg_attr(not(test), allow(dead_code, reason = "checked by the tests"))]
 pub const TEXT_MIN: f32 = 4.5;
 /// Minimum contrast for UI components, strokes and icons (WCAG AA, 1.4.11).
 pub const UI_MIN: f32 = 3.0;
