@@ -1,6 +1,6 @@
 //! The local SQLite database (S1.7.1): `library.db` in the data dir, holding the playback history
 //! ([`media`]), saved playlists ([`playlists`]) and the library (S4.1): its media folders and
-//! their files ([`roots`], [`folders`], [`files`]), what is known about each media ([`metadata`]), and
+//! their files ([`roots`], [`folders`], [`files`]), what is known about each media ([`metadata`]) and its cover ([`artwork`]), and
 //! plays, visits and favorites ([`activity`]).
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
@@ -14,10 +14,10 @@
 
 #[allow(dead_code, reason = "the library's tables (S4.1); Home (S4.9) and the views use them")]
 pub mod activity;
+pub mod artwork;
 pub mod files;
 pub mod folders;
 pub mod media;
-#[allow(dead_code, reason = "the library's tables (S4.1); metadata extraction (S4.3) fills it")]
 pub mod metadata;
 mod migrations;
 pub mod playlists;

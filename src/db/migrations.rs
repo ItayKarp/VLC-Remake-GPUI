@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
-pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS, LIBRARY, INDEXING];
+pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "
@@ -178,6 +178,16 @@ const INDEXING: &str = "
         path TEXT NOT NULL,
         PRIMARY KEY (root_id, path)
     );
+";
+
+/// Version 5 (S4.3): when each media's tags were last read.
+///
+/// `media.probed_ms` is NULL until metadata extraction has read the media (or tried to: a file
+/// it can't parse is marked too, so it isn't read on every pass). Identifying a file again
+/// clears it, so Resync reads the tags again.
+const EXTRACTION: &str = "
+    ALTER TABLE media ADD COLUMN probed_ms INTEGER;
+    CREATE INDEX media_unprobed ON media (id) WHERE probed_ms IS NULL;
 ";
 
 /// The schema version this build writes.

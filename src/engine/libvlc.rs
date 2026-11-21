@@ -23,6 +23,7 @@ pub mod preview;
 mod query;
 pub mod runtime;
 mod size_watch;
+pub mod tags;
 #[cfg(test)]
 mod tests;
 mod track_list;

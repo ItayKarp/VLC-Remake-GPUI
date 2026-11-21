@@ -17,6 +17,7 @@
 //! - [`video`]: the sink interface decoded pictures are delivered through (S1.4).
 //! - [`preview`]: seek-bar preview pictures from a second, muted decoder (S2.3.3).
 //! - [`lengths`]: how long queued media is, read without playing it (S3.2.2).
+//! - [`tags`]: a file's tags, tracks and cover, read without playing it (S4.3.1).
 
 pub mod audio;
 pub mod backend;
@@ -32,6 +33,7 @@ mod preflight;
 pub mod preview;
 pub mod shutdown;
 pub mod state;
+pub mod tags;
 #[cfg(test)]
 mod tests;
 pub mod tracks;

@@ -90,6 +90,7 @@ pub const SECTIONS: &[Section] = &[
             &act::MarkWatched,
             &act::MarkUnwatched,
             &act::ClearHistory,
+            &act::ShowProperties,
             &act::NewPlaylist,
             &act::SaveQueueAsPlaylist,
             &act::ImportPlaylist,

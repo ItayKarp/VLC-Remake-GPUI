@@ -40,8 +40,9 @@ url = "2"
 # Reading XSPF and ASX playlists (S1.3.4).
 quick-xml = "0.41"
 tracing = "0.1"
-# BGRA video frames become GPUI `RenderImage`s, which hold `image` frames (S1.4.1).
-image = { version = "0.25", default-features = false }
+# BGRA video frames become GPUI `RenderImage`s, which hold `image` frames (S1.4.1). Library
+# covers (S4.3) are decoded from JPEG or PNG and cached, downscaled, as JPEG.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "registry", "std", "tracing-log"] }
 # Playback history and, later, the library (S1.7, S4): SQLite built in, so no system library is
 # needed. xxh3 hashes the head and tail of a file to recognize it after a move (S1.7.2).

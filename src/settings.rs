@@ -25,7 +25,7 @@ use std::time::Duration;
 
 use gpui::{App, AppContext, BorrowAppContext, Global, Task};
 
-pub use paths::{Locations, default_media_folder, display_path};
+pub use paths::{Locations, cache_dir, default_media_folder, display_path};
 #[allow(
     unused_imports,
     reason = "part of the settings API; some types are named only by tests and later stages"

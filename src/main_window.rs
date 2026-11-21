@@ -4,7 +4,8 @@
 //! and the video's right-click menu hold the commands, and About VLC opens over it (S2.9). Clicks
 //! and scrolling on the video, on-screen messages and the Keyboard Shortcuts dialog are S2.10.
 //! The List button opens the queue (S3.2), and the queue outlives the app (S3.4). Playlists are
-//! saved from the New Playlist dialog and the video menu (S3.5).
+//! saved from the New Playlist dialog and the video menu (S3.5). Properties & Metadata shows what
+//! the library read from the playing file (S4.3.5).
 //! Onboarding hands off to it (S0.2); the library (Stage 4) fills the content area later.
 
 mod about;
@@ -28,6 +29,7 @@ mod opening;
 mod osd;
 mod play_order;
 mod player_keys;
+mod properties;
 mod queue_panel;
 mod queue_play;
 mod saved_playlists;
@@ -302,7 +304,8 @@ impl Render for MainWindow {
         let chrome = self.sync_chrome(window, cx);
 
         let root = Self::player_keys(focus::tab_navigation(div()), cx);
-        Self::menu_actions(Self::playlist_actions(Self::history_actions(root, cx), cx), cx)
+        let root = Self::properties_actions(Self::history_actions(root, cx), cx);
+        Self::menu_actions(Self::playlist_actions(root, cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))

@@ -1,7 +1,8 @@
 //! The indexer (S4.2): keeps the library's media folders indexed on a thread of its own, through
 //! the history thread's database connection.
 //!
-//! - [`worker`]: the thread, which scans, follows the watcher and reconciles.
+//! - [`worker`]: the thread, which scans, follows the watcher, reconciles, and reads the
+//!   metadata of what it found ([`extract`](super::extract)).
 //! - [`scan`]: one scan of a folder, and identifying what it found.
 //! - [`targets`]: what to rescan for a change the watcher saw.
 //! - [`store`]: how the thread reaches the database.
@@ -17,6 +18,7 @@ use std::path::PathBuf;
 
 use super::progress::Progress;
 use crate::db::roots::{Root, RootKind, RootStatus};
+use crate::engine::tags::Lookup;
 
 pub use worker::spawn;
 
@@ -31,6 +33,8 @@ pub enum Command {
     Resync(PathBuf),
     /// The watcher saw these paths change.
     Changed(Vec<PathBuf>),
+    /// Read titles and covers from the internet too, or not (S4.3.4).
+    Lookup(Lookup),
 }
 
 /// A media folder the settings ask for.

@@ -1001,18 +1001,18 @@ Design facts the stories rely on:
 **Depends on:** S4.2, S1.1 (the backend can parse metadata)  **Size:** M
 
 **Subtasks**
-- [ ] S4.3.1 Read tags (title, artist, album, album artist, track and disc numbers, genre, year), embedded artwork, duration, and video resolution and codecs.
-- [ ] S4.3.2 Use folder artwork (`cover.jpg`, `folder.jpg`, `AlbumArt*.jpg`) for albums without embedded art.
-- [ ] S4.3.3 Parse TV episode names (`Show_S01E05`, `Show.1x05`, `Show - 105`) for nicer display titles. The raw file name stays visible where the design shows it.
-- [ ] S4.3.4 Online metadata and artwork **only** when Privacy → "Fetch titles and cover art from the internet" is on (S5.5). Off by default.
-- [ ] S4.3.5 **Properties & Metadata** (context menu): a read-only info view first; tag editing is a later story (not designed).
+- [x] S4.3.1 Read tags (title, artist, album, album artist, track and disc numbers, genre, year), embedded artwork, duration, and video resolution and codecs. *(`library/extract.rs`: after the indexer identifies files, it reads 16 media at a time between its commands, through `engine::tags::TagReader`; `engine/libvlc/tags.rs` parses with libVLC's own instance (local fetch, so libVLC saves embedded covers in its art cache) and `tags/values.rs` turns FourCCs into names (`H.264 / AAC`). A still-picture video track (a cover) doesn't make a song a video. Migration 5 adds `media.probed_ms`: a media is read once, a damaged one too, and identifying its file again (Resync, a move) reads it again. A length learned by playing is kept over the header's. Without libVLC nothing is marked read. Covers are cached by content hash, downscaled to 600 px JPEG, in the cache dir (`library/artwork_cache.rs`, `settings::cache_dir`).)*
+- [x] S4.3.2 Use folder artwork (`cover.jpg`, `folder.jpg`, `AlbumArt*.jpg`) for albums without embedded art. *(`library/folder_art.rs`: cover, folder, front, then the largest `AlbumArt*`, as JPEG or PNG in any case. Songs only; videos don't take a folder's picture. libVLC's own pick from the folder is ignored so every song in a folder gets the same cover.)*
+- [x] S4.3.3 Parse TV episode names (`Show_S01E05`, `Show.1x05`, `Show - 105`) for nicer display titles. The raw file name stays visible where the design shows it. *(`library/episode.rs`, shown as `Show S01E05 · Title`; `library/display.rs` picks the title tag, else the episode, else the file name. Only computed, never stored. Properties & Metadata uses it now; the views (S4.6) will. A 4-digit `Show - 1999` is a year, not an episode.)*
+- [x] S4.3.4 Online metadata and artwork **only** when Privacy → "Fetch titles and cover art from the internet" is on (S5.5). Off by default. *(`prefs.privacy.fetch_online_metadata` (default off) adds libVLC's network fetch for media read from then on; its row comes with S5.5. Media already read aren't looked up again when it's turned on, and a cover libVLC found online is recorded as embedded, since libVLC doesn't say which it was.)*
+- [x] S4.3.5 **Properties & Metadata** (context menu): a read-only info view first; tag editing is a later story (not designed). *(`main_window/properties.rs`, `library/properties.rs`: a dialog of the playing file's title, tags, kind, length, resolution, codecs, cover source, size and folder, leaving out what isn't known. Until the file menu (S4.8.1) exists it opens from the video menu and Cmd/Ctrl+I (`ShowProperties`).)*
 
 **Edge cases**
-- Tags in legacy encodings (ID3v1 Latin-1 versus Windows-1251/1255 or Shift-JIS): detect and convert, and offer a per-file override.
-- Multiple artists (`A; B`, `A feat. B`): split for the Artists view using a configurable separator.
-- Huge embedded artwork (a 20 MB PNG): decode on a background thread and downscale for the cache.
-- Missing tags: fall back to the file name, then "Unknown Artist" / "Unknown Album".
-- Duration missing in the container: probe it lazily and show `--:--` until it's known.
+- Tags in legacy encodings (ID3v1 Latin-1 versus Windows-1251/1255 or Shift-JIS): detect and convert, and offer a per-file override. *(Not done: tags are taken as libVLC decodes them.)*
+- Multiple artists (`A; B`, `A feat. B`): split for the Artists view using a configurable separator. *(`display::split_artists` takes the separators; the setting comes with the Artists view (S4.6.2). `&` and `/` aren't defaults: `Simon & Garfunkel`, `AC/DC`.)*
+- Huge embedded artwork (a 20 MB PNG): decode on a background thread and downscale for the cache. *(Done: on the indexer's thread, to 600 px; images over 64 MB aren't read.)*
+- Missing tags: fall back to the file name, then "Unknown Artist" / "Unknown Album". *(Done: `library/display.rs`; the album artist stands in for a missing artist.)*
+- Duration missing in the container: probe it lazily and show `--:--` until it's known. *(Partly: the length stays unknown until playing the media learns it; showing `--:--` is the views' job.)*
 
 ---
 

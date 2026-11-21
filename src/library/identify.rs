@@ -21,6 +21,7 @@ use rusqlite::Connection;
 use super::walk::MAX_WORKERS;
 use crate::db::files::{self, FileId, Unidentified};
 use crate::db::media::{self, Entry, FileStamp, MediaId};
+use crate::db::metadata;
 use crate::history::identity;
 use crate::opening::Cancel;
 use crate::settings::stored_path;
@@ -118,6 +119,8 @@ pub fn link(connection: &mut Connection, identified: &[Identified]) -> rusqlite:
     for file in identified {
         let media = media_for(&transaction, &file.path, file.stamp, &file.key)?;
         files::set_media(&transaction, file.id, media, file.stamp)?;
+        // A file identified again (Resync, a move) has its tags read again too.
+        metadata::reprobe(&transaction, media)?;
     }
     transaction.commit()
 }

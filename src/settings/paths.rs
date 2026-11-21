@@ -15,6 +15,8 @@ pub const LOGS_DIR_NAME: &str = "logs";
 pub const DATABASE_FILE_NAME: &str = "library.db";
 /// The last session's queue (S3.4), next to the local state.
 pub const SESSION_FILE_NAME: &str = "session.toml";
+/// The cache folder's name inside an overriding settings directory.
+pub const CACHE_DIR_NAME: &str = "cache";
 /// Overrides both settings directories (tests, portable mode, debugging).
 pub const CONFIG_DIR_ENV: &str = "RVLC_CONFIG_DIR";
 
@@ -73,6 +75,19 @@ impl Locations {
             .or_else(dirs::data_local_dir)
             .map_or_else(|| config.clone(), |dir| dir.join(APP_DIR_NAME));
         Some(Locations { prefs: config.join(PREFS_FILE_NAME), local: local.join(LOCAL_FILE_NAME) })
+    }
+}
+
+/// The folder for caches anyone may delete (library artwork, S4.3; thumbnails, S4.4): next to the
+/// settings when `RVLC_CONFIG_DIR` overrides them, otherwise in the platform's cache folder.
+/// `None` when neither is available: nothing is cached then.
+pub fn cache_dir() -> Option<PathBuf> {
+    match std::env::var_os(CONFIG_DIR_ENV).filter(|dir| !dir.is_empty()) {
+        Some(dir) => {
+            let dir = PathBuf::from(dir).join(CACHE_DIR_NAME);
+            Some(std::path::absolute(&dir).unwrap_or(dir))
+        }
+        None => Some(dirs::cache_dir()?.join(APP_DIR_NAME)),
     }
 }
 
