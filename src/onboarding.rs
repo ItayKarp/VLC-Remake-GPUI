@@ -3,6 +3,10 @@
 //! 1. Welcome + choose a media folder
 //! 2. Theme (light / dark / system) and accent color, with a live player preview
 //! 3. Basic keyboard shortcuts
+//!
+//! Finish saves, then hands off to the main window (S0.2.2). Until then the choices
+//! live only in this view, so closing early saves nothing and the next launch starts
+//! again at step 1 (S0.2.4).
 
 use std::path::PathBuf;
 
@@ -11,8 +15,9 @@ use gpui::{
     PathPromptOptions, SharedString, Window, div, prelude::*, px, relative, svg,
 };
 
+use crate::app;
 use crate::assets::icons;
-use crate::settings;
+use crate::settings::{self, Settings};
 use crate::theme::{Accent, Palette, ThemeMode, blend};
 use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
 
@@ -23,6 +28,15 @@ pub const WINDOW_HEIGHT: f32 = 760. + TITLE_BAR_HEIGHT;
 /// Space between the bottom-row buttons and the window edges.
 const EDGE_RIGHT: f32 = 62.;
 const EDGE_BOTTOM: f32 = 56.;
+
+/// Progress of the Finish button (S0.2.3).
+#[derive(Clone, PartialEq, Eq)]
+enum FinishState {
+    Idle,
+    Saving,
+    /// Saving failed: stay on step 3 and offer Retry / Continue without saving.
+    Failed(SharedString),
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Step {
@@ -36,6 +50,7 @@ pub struct Onboarding {
     media_folder: PathBuf,
     theme: ThemeMode,
     accent: Accent,
+    finish: FinishState,
     focus_handle: FocusHandle,
 }
 
@@ -60,6 +75,7 @@ impl Onboarding {
                 .unwrap_or_else(settings::default_media_folder),
             theme: saved.prefs.theme,
             accent: saved.prefs.accent,
+            finish: FinishState::Idle,
             focus_handle,
         };
         this.apply_dev_overrides();
@@ -108,6 +124,10 @@ impl Onboarding {
     }
 
     fn go_back(&mut self, cx: &mut Context<Self>) {
+        if self.finish == FinishState::Saving {
+            return;
+        }
+        self.finish = FinishState::Idle;
         self.step = match self.step {
             Step::Welcome | Step::Appearance => Step::Welcome,
             Step::Shortcuts => Step::Appearance,
@@ -115,19 +135,61 @@ impl Onboarding {
         cx.notify();
     }
 
+    fn apply_choices(&self, settings: &mut Settings, complete: bool) {
+        settings.prefs.theme = self.theme;
+        settings.prefs.accent = self.accent;
+        settings.local.media_folders = vec![self.media_folder.clone()];
+        settings.local.onboarding_complete = complete;
+    }
+
+    /// Saves, then hands off to the main window. Also used by Retry.
     fn finish(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        settings::update(cx, |s| {
-            s.prefs.theme = self.theme;
-            s.prefs.accent = self.accent;
-            s.local.media_folders = vec![self.media_folder.clone()];
-            s.local.onboarding_complete = true;
-        });
-        // TODO(S0.2.3): show Retry / Continue without saving instead of logging.
-        if let Err(err) = settings::flush(cx) {
-            log::error!("failed to save onboarding settings: {err}");
+        if self.finish == FinishState::Saving {
+            return;
         }
-        // TODO: open the library window here once it exists.
-        window.remove_window();
+        self.finish = FinishState::Saving;
+        cx.notify();
+
+        let before = settings::get(cx).clone();
+        settings::update(cx, |s| self.apply_choices(s, true));
+        let save = settings::save(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let result = save.await;
+            this.update_in(cx, |this, window, cx| match result {
+                Ok(()) => this.hand_off(window, cx),
+                Err(error) => {
+                    log::warn!("onboarding: couldn't save settings: {error}");
+                    // Undo, so quitting from here (which flushes settings) doesn't
+                    // record onboarding as done.
+                    settings::update(cx, |s| *s = before);
+                    this.finish = FinishState::Failed(error.into());
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// "Continue without saving": use the choices for this session only. Onboarding
+    /// stays incomplete, so it runs again next launch.
+    fn continue_without_saving(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        settings::update(cx, |s| self.apply_choices(s, false));
+        self.hand_off(window, cx);
+    }
+
+    /// Opens the main window, then closes onboarding. The other order would quit the
+    /// app, since closing the last window quits.
+    fn hand_off(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let display = window.display(cx).map(|d| d.id());
+        match app::open_main_window(display, Vec::new(), cx) {
+            Ok(_) => window.remove_window(),
+            Err(err) => {
+                log::error!("onboarding: couldn't open the main window: {err:#}");
+                self.finish = FinishState::Failed("Couldn't open the main window.".into());
+                cx.notify();
+            }
+        }
     }
 
     fn browse(&mut self, cx: &mut Context<Self>) {
@@ -163,7 +225,7 @@ impl Onboarding {
 
     fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         match event.keystroke.key.as_str() {
-            "enter" => self.go_next(window, cx),
+            "enter" if self.finish != FinishState::Saving => self.go_next(window, cx),
             "escape" | "backspace" if self.step != Step::Welcome => self.go_back(cx),
             "left" if self.step == Step::Appearance => self.cycle_accent(-1, cx),
             "right" if self.step == Step::Appearance => self.cycle_accent(1, cx),
@@ -192,13 +254,24 @@ impl Render for Onboarding {
             .bg(palette.background)
             .text_color(palette.text)
             .child(
+                // The layout is designed for a fixed size. On screens too small for it
+                // the window shrinks and the body scrolls (S0.2.7).
                 div()
+                    .id("onboarding-body")
                     .absolute()
                     .top(px(TITLE_BAR_HEIGHT))
                     .left_0()
                     .right_0()
                     .bottom_0()
-                    .child(content),
+                    .overflow_scroll()
+                    .child(
+                        div()
+                            .relative()
+                            .size_full()
+                            .min_w(px(WINDOW_WIDTH))
+                            .min_h(px(WINDOW_HEIGHT - TITLE_BAR_HEIGHT))
+                            .child(content),
+                    ),
             )
             .child(window_chrome::title_bar(&palette))
     }
@@ -754,8 +827,9 @@ impl Onboarding {
                     .child(column(LEFT_SHORTCUTS))
                     .child(column(RIGHT_SHORTCUTS)),
             )
-            .child(
-                bottom_bar()
+            .child(match self.save_error() {
+                Some(error) => self.render_save_error(error, p, cx).into_any_element(),
+                None => bottom_bar()
                     .left(px(62.))
                     .justify_between()
                     .child(
@@ -764,9 +838,108 @@ impl Onboarding {
                             .text_color(p.text_muted)
                             .child("Find the full list in the menu."),
                     )
-                    .child(self.nav_buttons(p, true, "Finish", cx)),
-            )
+                    .child(self.nav_buttons(
+                        p,
+                        true,
+                        if self.finish == FinishState::Saving {
+                            "Saving…"
+                        } else {
+                            "Finish"
+                        },
+                        cx,
+                    ))
+                    .into_any_element(),
+            })
             .into_any_element()
+    }
+
+    fn save_error(&self) -> Option<SharedString> {
+        match &self.finish {
+            FinishState::Failed(error) => Some(error.clone()),
+            _ => None,
+        }
+    }
+
+    /// Replaces the bottom row when saving failed (S0.2.3): the error where the hint
+    /// was, and Retry in place of Finish.
+    fn render_save_error(
+        &self,
+        error: SharedString,
+        p: &Palette,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let danger: Hsla = gpui::rgb(0xE5484D).into();
+        div()
+            .absolute()
+            .left(px(62.))
+            .right(px(EDGE_RIGHT))
+            .bottom(px(EDGE_BOTTOM))
+            .flex()
+            .flex_row()
+            .items_end()
+            .gap(px(24.))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.))
+                    .child(
+                        div()
+                            .text_size(px(16.))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(danger)
+                            .child("Your choices couldn't be saved."),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .line_height(px(18.))
+                            .text_color(p.text_muted)
+                            .line_clamp(2)
+                            .child(error),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap(px(8.))
+                    .child(
+                        button("back", "Back", p.button, p.button_hover, p.text_muted)
+                            .w(px(100.))
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.go_back(cx))),
+                    )
+                    .child(
+                        button(
+                            "continue-without-saving",
+                            "Continue without saving",
+                            p.button,
+                            p.button_hover,
+                            p.text_muted,
+                        )
+                        .px(px(16.))
+                        .on_click(cx.listener(
+                            |this, _: &ClickEvent, window, cx| {
+                                this.continue_without_saving(window, cx)
+                            },
+                        )),
+                    )
+                    .child(
+                        button(
+                            "retry",
+                            "Retry",
+                            p.accent,
+                            p.accent.opacity(0.85),
+                            p.on_accent,
+                        )
+                        .w(px(100.))
+                        .on_click(
+                            cx.listener(|this, _: &ClickEvent, window, cx| this.finish(window, cx)),
+                        ),
+                    ),
+            )
     }
 }
 

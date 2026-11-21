@@ -247,15 +247,15 @@ flowchart LR
 **Depends on:** S0.1  **Size:** M  **Design refs:** `docs/onboarding_scenes/*`
 
 **Subtasks**
-- [ ] S0.2.1 At startup, open onboarding if `onboarding_complete` is false, otherwise open the main window (S0.3 shell).
-- [ ] S0.2.2 Finish order: save, then **open the main window**, then close onboarding. If onboarding closes first, the app quits.
-- [ ] S0.2.3 If saving fails, stay on step 3 and show an inline error with **Retry** and **Continue without saving**. The second option opens the main window, keeps the choices in memory, and runs onboarding again next launch.
-- [ ] S0.2.4 Closing onboarding early (title-bar close, Alt+F4, Cmd+Q, Cmd+W) quits without saving, and the next launch starts again at step 1. Decide whether partial progress should persist; the recommendation is no.
-- [ ] S0.2.5 Add a `--reset-onboarding` CLI flag and a "Run setup again" entry (Help menu, and Settings → Interface in Stage 7).
-- [ ] S0.2.6 Launching with a file on first run (the user double-clicks a video before ever opening the app): play the file immediately with default theme and accent, skip onboarding this time, and show it on the next plain launch. This needs a decision.
-- [ ] S0.2.7 Small screens: the onboarding window is fixed at 1088×792 and can't be resized. A 1366×768 laptop at 125% scaling has about 1093×582 logical pixels of work area, so the window doesn't fit. Detect the display's visible bounds and either scale the layout down to a minimum (about 900×640) with a scrollable body, or let the window shrink.
-- [ ] S0.2.8 Open onboarding on the display that has the cursor or the foreground window, not always the primary display.
-- [ ] S0.2.9 Remember window geometry per window kind (main window, player if separate, settings) in local settings, and restore it.
+- [x] S0.2.1 At startup, open onboarding if `onboarding_complete` is false, otherwise open the main window (S0.3 shell). *(Until S0.3.4 lands, the main window is a placeholder in `src/main_window.rs`.)*
+- [x] S0.2.2 Finish order: save, then **open the main window**, then close onboarding. If onboarding closes first, the app quits.
+- [x] S0.2.3 If saving fails, stay on step 3 and show an inline error with **Retry** and **Continue without saving**. The second option opens the main window, keeps the choices in memory, and runs onboarding again next launch.
+- [x] S0.2.4 Closing onboarding early (title-bar close, Alt+F4, Cmd+Q, Cmd+W) quits without saving, and the next launch starts again at step 1. Decide whether partial progress should persist; the recommendation is no. *(Decided: no. Choices stay in the onboarding view until Finish. Cmd+Q/Cmd+W are bound on macOS.)*
+- [x] S0.2.5 Add a `--reset-onboarding` CLI flag and a "Run setup again" entry (Help menu, and Settings → Interface in Stage 7). *(macOS Help menu and a button in the placeholder main window; the Windows/Linux in-window menu entry comes with S0.5.4.)*
+- [ ] S0.2.6 Launching with a file on first run (the user double-clicks a video before ever opening the app): play the file immediately with default theme and accent, skip onboarding this time, and show it on the next plain launch. This needs a decision. *(Routing done per D4: the main window opens with the files and `onboarding_complete` stays false. Playing the file waits for the engine (Stage 1), and macOS Finder opens need `on_open_urls` (S0.6.3).)*
+- [x] S0.2.7 Small screens: the onboarding window is fixed at 1088×792 and can't be resized. A 1366×768 laptop at 125% scaling has about 1093×582 logical pixels of work area, so the window doesn't fit. Detect the display's visible bounds and either scale the layout down to a minimum (about 900×640) with a scrollable body, or let the window shrink. *(The window shrinks to the visible area and becomes resizable, and the body scrolls.)*
+- [ ] S0.2.8 Open onboarding on the display that has the cursor or the foreground window, not always the primary display. *(Done on Windows. "Run setup again" and the hand-off use the current window's display. macOS/Linux still use the primary display.)*
+- [x] S0.2.9 Remember window geometry per window kind (main window, player if separate, settings) in local settings, and restore it. *(Main window now; `window.settings` is reserved for Stage 5. A GPUI bug makes windows opened on a monitor with a different DPI 1.25× too large; `app::correct_dpi_drift` fixes windowed ones, while the restore size of maximized ones can still be off.)*
 
 **Acceptance criteria**
 - Fresh install → onboarding → Finish → main window opens in the chosen theme and accent; quit and relaunch → main window opens directly.
@@ -2141,7 +2141,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D1 | Playback backend | S1.1 → everything after it | libVLC (it covers every designed panel) |
 | D2 | Video presentation path per OS | S1.1, S1.4 | macOS: `CVPixelBuffer` → `surface()`; Windows and Linux: measure CPU upload versus GPU sharing in the spike |
 | D3 | Default keymap (the designs conflict; table below) | S0.5, S2.10, S5.6 | N/P for next/previous, Shift+R record, Shift+S snapshot; no Ctrl+C or Ctrl+F for menu items |
-| D4 | First launch was triggered by opening a file | S0.2.6 | Play the file now, run onboarding on the next plain launch |
+| D4 | First launch was triggered by opening a file | S0.2.6 | **Decided:** play the file now, run onboarding on the next plain launch |
 | D5 | Settings as a separate window or an in-app modal | S5.2.1 | Separate window |
 | D6 | Theme option order (Light/Dark/System versus Dark/Light/System) | S5.3.1 | One order everywhere (Light, Dark, System matches the code) |
 | D7 | Music source, given that onboarding only asks for one folder | S4.2.7 | Auto-add the OS Music folder if it exists |

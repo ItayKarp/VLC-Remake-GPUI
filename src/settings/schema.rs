@@ -89,6 +89,43 @@ empty_sections! {
     PrivacySettings,
     /// Custom key bindings (S0.5).
     KeymapSettings,
-    /// Window geometry per window kind (S0.2.9).
-    WindowState,
+}
+
+/// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens
+/// centered on the display with the cursor each time.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WindowState {
+    #[serde(deserialize_with = "lenient")]
+    pub main: WindowGeometry,
+    /// The Settings window (Stage 5).
+    #[serde(deserialize_with = "lenient")]
+    pub settings: WindowGeometry,
+}
+
+/// A window's normal (un-maximized) bounds in logical pixels, in GPUI's global
+/// coordinate space, and whether it was maximized or fullscreen. A zero size means
+/// "never saved".
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WindowGeometry {
+    #[serde(deserialize_with = "lenient")]
+    pub x: f32,
+    #[serde(deserialize_with = "lenient")]
+    pub y: f32,
+    #[serde(deserialize_with = "lenient")]
+    pub width: f32,
+    #[serde(deserialize_with = "lenient")]
+    pub height: f32,
+    #[serde(deserialize_with = "lenient")]
+    pub mode: WindowMode,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WindowMode {
+    #[default]
+    Windowed,
+    Maximized,
+    Fullscreen,
 }

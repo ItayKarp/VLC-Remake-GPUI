@@ -25,8 +25,7 @@ use gpui::{App, AppContext, BorrowAppContext, Global, Task};
 
 pub use paths::{Locations, default_media_folder, display_path};
 #[allow(unused_imports)]
-pub use schema::{LocalState, Preferences, Settings};
-#[allow(unused_imports)]
+pub use schema::{LocalState, Preferences, Settings, WindowGeometry, WindowMode};
 pub use store::Notice;
 use store::SettingsState;
 
@@ -91,15 +90,39 @@ pub fn flush(cx: &mut App) -> Result<(), String> {
     result
 }
 
+/// Writes pending changes now on a background thread and reports the result. Used
+/// where the caller must know whether the save worked (finishing onboarding, S0.2.3).
+/// Fails when settings can't be persisted at all (in-memory mode).
+pub fn save(cx: &mut App) -> Task<Result<(), String>> {
+    if !is_persistent(cx) {
+        return Task::ready(Err(
+            "Settings can't be saved on this system (the settings folder is unavailable).".into(),
+        ));
+    }
+    let job = cx.update_global::<SettingsStore, _>(|store, _| {
+        store.pending_save = None;
+        store.state.prepare_save()
+    });
+    let Some(job) = job else {
+        return Task::ready(Ok(()));
+    };
+    let generation = job.generation();
+    cx.spawn(async move |cx| {
+        let result = cx.background_spawn(async move { job.run() }).await;
+        cx.update_global::<SettingsStore, _>(|store, _| {
+            store.state.finish_save(generation, result.clone())
+        });
+        result
+    })
+}
+
 /// Notices for the user (corrupt file recovered, settings not saved, …), each
 /// returned once.
-#[allow(dead_code)] // Shown by the main window shell (S0.2/S0.3).
 pub fn take_notices(cx: &mut App) -> Vec<Notice> {
     cx.update_global::<SettingsStore, _>(|store, _| store.state.take_notices())
 }
 
 /// Whether changes are being written to disk.
-#[allow(dead_code)] // Drives the "changes won't be saved" banner (S0.3).
 pub fn is_persistent(cx: &App) -> bool {
     cx.global::<SettingsStore>().state.is_persistent()
 }
