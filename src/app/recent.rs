@@ -26,6 +26,10 @@ pub fn add(items: &[Media], cx: &mut App) {
 
 /// GPUI implements the list on macOS (and as a no-op on Linux).
 #[cfg(not(windows))]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "same signature as the Windows one, which moves the files to a thread"
+)]
 fn add_files(files: Vec<PathBuf>, cx: &mut App) {
     for file in &files {
         cx.add_recent_document(file);

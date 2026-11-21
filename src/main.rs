@@ -8,6 +8,8 @@ mod keymap;
 mod logging;
 mod main_window;
 mod onboarding;
+#[cfg(test)]
+mod screenshot_test;
 mod settings;
 mod theme;
 mod ui;

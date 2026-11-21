@@ -9,10 +9,13 @@
 //! again at step 1 (S0.2.4).
 
 mod appearance;
+mod dev_overrides;
 mod finish;
 mod layout;
 mod preview;
 mod save_error;
+#[cfg(test)]
+mod screenshots;
 mod shortcuts;
 mod welcome;
 
@@ -25,6 +28,7 @@ use crate::theme::{self, Accent, Palette, Theme, ThemeMode};
 use crate::ui::focus;
 use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
 
+use dev_overrides::DevOverrides;
 use finish::FinishState;
 
 /// Window width: the design's 1088-pixel content area.
@@ -52,7 +56,17 @@ pub struct Onboarding {
 
 impl Onboarding {
     /// Creates the view at step 1, starting from the saved choices, and focuses it.
+    /// Debug builds start in the state the `RVLC_*` variables ask for.
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        Self::with_overrides(DevOverrides::from_env(), window, cx)
+    }
+
+    /// Like [`Onboarding::new`], but starts in the state `overrides` gives.
+    fn with_overrides(
+        overrides: DevOverrides,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window, cx);
         crate::diagnostics::system::remember_gpu(window);
@@ -76,30 +90,8 @@ impl Onboarding {
             finish: FinishState::Idle,
             focus_handle,
         };
-        this.apply_dev_overrides();
+        overrides.apply(&mut this);
         this
-    }
-
-    /// Debug builds only: `RVLC_STEP=1..3`, `RVLC_THEME=light|dark|system` and
-    /// `RVLC_ACCENT=<name>` open onboarding in a given state, for design checks.
-    fn apply_dev_overrides(&mut self) {
-        if !cfg!(debug_assertions) {
-            return;
-        }
-        let var = |name| std::env::var(name).ok();
-        if let Some(step) = var("RVLC_STEP") {
-            self.step = match step.as_str() {
-                "2" => Step::Appearance,
-                "3" => Step::Shortcuts,
-                _ => Step::Welcome,
-            };
-        }
-        if let Some(theme) = var("RVLC_THEME") {
-            self.theme = ThemeMode::ALL.into_iter().find(|m| m.key() == theme).unwrap_or_default();
-        }
-        if let Some(accent) = var("RVLC_ACCENT") {
-            self.accent = Accent::ALL.into_iter().find(|a| a.key() == accent).unwrap_or_default();
-        }
     }
 
     /// The live preview of the choices on screen, not the saved theme.

@@ -112,6 +112,8 @@ mod tests {
         assert!(written.starts_with("opened ~"), "{written}");
     }
 
+    // A Windows home: on Unix `C:\Users\pat` is one file name, not a folder.
+    #[cfg(windows)]
     #[test]
     fn forward_slash_spellings_are_redacted_too() {
         let writer = HomeRedactor::with_home(io::sink(), Some(PathBuf::from(r"C:\Users\pat")));

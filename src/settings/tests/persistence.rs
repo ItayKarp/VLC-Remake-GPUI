@@ -104,13 +104,14 @@ fn no_config_dir_runs_in_memory() {
 #[test]
 fn failed_save_keeps_changes_and_reports_once() {
     let dir = TempDir::new();
-    // A directory where the settings file should be makes every write fail.
-    fs::create_dir(dir.path("settings.toml")).unwrap();
-    fs::write(dir.path("settings.toml").join("x"), "").unwrap();
+    // The settings folder is missing when loading (a fresh install), then a file
+    // takes its name, so every write fails. Reading through a file fails differently
+    // on Unix and Windows; a missing folder reads the same everywhere.
     let mut state = SettingsState::load(Some(Locations {
-        prefs: dir.path("settings.toml").join("x").join("settings.toml"),
+        prefs: dir.path("config").join("settings.toml"),
         local: dir.path("local.toml"),
     }));
+    fs::write(dir.path("config"), "").unwrap();
     for accent in [Accent::Red, Accent::Blue] {
         state.update(|s| s.prefs.accent = accent);
         let job = state.prepare_save().unwrap();
