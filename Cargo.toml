@@ -2,5 +2,27 @@
 name = "RedesignedVLC"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
+# Latest GPUI from Zed main (pinned to an exact commit by Cargo.lock; `cargo update -p gpui` to bump).
+gpui = { git = "https://github.com/zed-industries/zed", branch = "main" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", branch = "main" }
+anyhow = "1"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[dev-dependencies]
+# Only used by `cargo run --example gen_icons` to regenerate the app icons.
+resvg = "0.45"
+ico = "0.4"
+icns = "0.3"
+
+# macOS .app bundle (`cargo install cargo-bundle && cargo bundle --release`)
+[package.metadata.bundle]
+name = "VLC"
+identifier = "org.redesignedvlc.app"
+icon = ["assets/app-icon/icon-32.png", "assets/app-icon/icon-128.png", "assets/app-icon/icon-256.png", "assets/app-icon/icon-512.png", "assets/app-icon/icon-1024.png"]
+category = "public.app-category.video"
+short_description = "Redesigned VLC media player"
