@@ -175,6 +175,10 @@ impl Backend for LibVlcBackend {
         self.send(Command::SetAudioDevice(device.clone()));
     }
 
+    fn refresh_audio_devices(&mut self) {
+        self.send(Command::RefreshAudioDevices);
+    }
+
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
         self.send(Command::SetSpeakerSetup(setup));
     }

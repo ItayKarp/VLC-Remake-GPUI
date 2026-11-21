@@ -707,19 +707,19 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S1.6, S1.5, S0.4.6  **Size:** M  **Design refs:** `controls-video.png`, `controls-audio.png`, `controls-subtitles.png`
 
 **Subtasks**
-- [ ] S2.6.1 One popover with three tabs. The Audio button opens the Audio tab and the Subtitles button opens the Subtitles tab. **No bar button opens the Video tab in the design (nothing is highlighted in `controls-video.png`); decide on the entry point** (the recommendation: the tab is reachable from inside the popover and appears only when there are 2+ video tracks).
-- [ ] S2.6.2 **Embedded Tracks:** "None" plus each track, with a check on the selected one.
-- [ ] S2.6.3 Audio tab, **Output Device:** device list with a check, and a refresh icon to re-enumerate.
-- [ ] S2.6.4 Subtitles tab, **External Tracks:** loaded subtitle files with a pencil (edit: opens the Add Subtitles dialog, S6.4) and "+" (add from a file).
-- [ ] S2.6.5 The **Show Preferences** footer opens the matching tab of the settings panel (S2.7). **Write down the difference from "Open Advanced Settings"** (proposal: Show Preferences opens the in-player panel; Open Advanced Settings opens the Settings window category).
-- [ ] S2.6.6 Close on outside click, Escape, clicking the same button again, or opening another popover. Only one popover is open at a time.
+- [x] S2.6.1 One popover with three tabs. The Audio button opens the Audio tab and the Subtitles button opens the Subtitles tab. **No bar button opens the Video tab in the design (nothing is highlighted in `controls-video.png`); decide on the entry point** (the recommendation: the tab is reachable from inside the popover and appears only when there are 2+ video tracks). *(`main_window/track_popover.rs`. Decided as recommended (D22). 400×524 px, 20 px from the window's right edge and above the bar, shorter in a short window. The buttons show as on while their tab is open; from the overflow `…` menu the entries open the same popover. B and V still cycle tracks. Not checked on screen yet.)*
+- [x] S2.6.2 **Embedded Tracks:** "None" plus each track, with a check on the selected one. *(`track_popover/sections.rs`. Names are the S1.6 labels ("English — AC3 5.1"). Picking one counts as the user's pick, so auto-selection leaves that kind alone; the popover stays open. Subtitle files the user added are listed under External Tracks instead.)*
+- [x] S2.6.3 Audio tab, **Output Device:** device list with a check, and a refresh icon to re-enumerate. *("System default" first, then the devices; the check is on the device sound goes to. Picking one sets `local.audio.output_device`. Refresh asks the backend to list devices now (`Backend::refresh_audio_devices`) instead of at the next poll.)*
+- [x] S2.6.4 Subtitles tab, **External Tracks:** loaded subtitle files with a pencil (edit: opens the Add Subtitles dialog, S6.4) and "+" (add from a file). *(`Player::subtitle_files`: each file added to the media (a drop, "+") and the track it became; libVLC lists an added file after the media's own streams, so a file takes the last new subtitle track. "+" asks for files and adds the subtitle ones, naming the first that isn't. The pencil stays disabled until the Add Subtitles dialog exists (S6.4).)*
+- [x] S2.6.5 The **Show Preferences** footer opens the matching tab of the settings panel (S2.7). **Write down the difference from "Open Advanced Settings"** (proposal: Show Preferences opens the in-player panel; Open Advanced Settings opens the Settings window category). *(Decided as proposed: Show Preferences opens the in-player panel, which changes the playing media; Open Advanced Settings opens the Settings window's category, which holds the defaults. Show Preferences is disabled until S2.7 adds the panel.)*
+- [x] S2.6.6 Close on outside click, Escape, clicking the same button again, or opening another popover. Only one popover is open at a time. *(The other button switches tabs. Opening either `…` menu closes the popover and the other way round. It also closes when the window loses focus (so the "+" file dialog closes it), when the media stops, and in fullscreen, which hides the bar until S2.8.)*
 
 **Edge cases**
-- The track list changes while the popover is open (S1.6 late tracks): update in place and keep the scroll position.
-- The selected output device disappears while the popover is open: move the check to the system default and show a note.
-- 50+ tracks: the list scrolls inside the popover with a maximum height that fits the window.
-- A small window height: the popover never extends above the title bar; it becomes scrollable instead.
-- Fullscreen with auto-hide: an open popover keeps the controls visible until it closes.
+- The track list changes while the popover is open (S1.6 late tracks): update in place and keep the scroll position. *(Done: drawn from the player every frame; each tab scrolls on its own.)*
+- The selected output device disappears while the popover is open: move the check to the system default and show a note. *(Done: "The chosen device isn't connected. Sound plays through the system default.")*
+- 50+ tracks: the list scrolls inside the popover with a maximum height that fits the window. *(Done.)*
+- A small window height: the popover never extends above the title bar; it becomes scrollable instead. *(Done.)*
+- Fullscreen with auto-hide: an open popover keeps the controls visible until it closes. *(Not done: the popover closes in fullscreen until S2.8 brings the bar there.)*
 
 ---
 
@@ -2159,7 +2159,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D19 | Extensions and skins scope | S8.14, S5.4.4, S5.10.4 | Defer past 1.0; hide the rows |
 | D20 | Product name and logo (VideoLAN trademarks) | S9.9.1 — **before any public build** | Get permission, or rebrand |
 | D21 | Restoring volume above 100% at launch | S1.5.2 | Cap the restored value at 100% |
-| D22 | How the Video tab of the track popover is opened | S2.6.1 | Reachable inside the popover; shown only with 2+ video tracks |
+| D22 | How the Video tab of the track popover is opened | S2.6.1 | **Decided (S2.6):** reachable inside the popover; shown only with 2+ video tracks |
 | D23 | Effect sections have no title or enable toggle in the design | S7.1.3 | Add a title and toggle to each section header |
 
 ### D3 — shortcut conflicts found in the designs

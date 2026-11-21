@@ -56,6 +56,13 @@ impl Default for ControlBar {
     }
 }
 
+impl ControlBar {
+    /// Closes the overflow menu: another popover opens.
+    pub(super) fn close_overflow(&mut self) {
+        self.overflow = None;
+    }
+}
+
 impl MainWindow {
     /// The control bar along the bottom of the window.
     pub(super) fn render_control_bar(
@@ -112,6 +119,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
+        self.close_track_popover(window, cx);
         let entries: Vec<MenuItem> =
             overflow.iter().filter_map(|item| self.overflow_entry(*item, cx)).collect();
         let menu = ContextMenu::build(entries, window, cx);

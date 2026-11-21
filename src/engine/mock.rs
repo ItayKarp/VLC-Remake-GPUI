@@ -216,6 +216,10 @@ impl Backend for MockBackend {
         self.record(Command::SetAudioDevice(device.clone()));
     }
 
+    fn refresh_audio_devices(&mut self) {
+        self.record(Command::RefreshAudioDevices);
+    }
+
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
         self.record(Command::SetSpeakerSetup(setup));
     }

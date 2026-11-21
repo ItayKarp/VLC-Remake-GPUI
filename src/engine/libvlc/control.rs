@@ -58,6 +58,7 @@ impl Worker {
                 }
                 Command::AddSubtitle(path) => self.add_subtitle(&path),
                 Command::SetAudioDevice(device) => self.set_audio_device(&device),
+                Command::RefreshAudioDevices => self.poll_devices(),
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
             }
         }

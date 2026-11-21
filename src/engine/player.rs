@@ -20,7 +20,7 @@ use super::media_info::{Chapter, Metadata, VideoSize};
 use super::position::PositionTracker;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
-use super::tracks::Tracks;
+use super::tracks::{SubtitleFile, Tracks};
 use super::values::{Generation, Offset, Rate, Volume};
 use crate::app::media::Media;
 
@@ -87,6 +87,8 @@ struct Info {
     /// How full the input cache is, 0.0 to 100.0.
     buffer_fill: f32,
     tracks: Tracks,
+    /// The subtitle files the user added to this media.
+    subtitle_files: Vec<SubtitleFile>,
     video_size: Option<VideoSize>,
     chapters: Vec<Chapter>,
     metadata: Metadata,
@@ -213,6 +215,11 @@ impl Player {
     /// The media's tracks and the selected ones.
     pub fn tracks(&self) -> &Tracks {
         &self.info.tracks
+    }
+
+    /// The subtitle files added to the open media, in the order they were added.
+    pub fn subtitle_files(&self) -> &[SubtitleFile] {
+        &self.info.subtitle_files
     }
 
     /// The displayed video size, or `None` without video.

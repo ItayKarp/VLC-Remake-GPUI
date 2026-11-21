@@ -9,7 +9,7 @@ use super::{Info, Intent, Player, PlayerEvent};
 use crate::app::media::Media;
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
-use crate::engine::tracks::TrackKind;
+use crate::engine::tracks::{SubtitleFile, TrackKind};
 use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, StepDirection};
 
 impl Player {
@@ -149,6 +149,8 @@ impl Player {
         // The backend shows the added file: auto-selection must not turn it off.
         self.track_choices.user_picked(TrackKind::Subtitle);
         self.with_backend(|backend| backend.add_subtitle(path));
+        self.info.subtitle_files.push(SubtitleFile::new(path.to_path_buf()));
+        cx.emit(PlayerEvent::TracksChanged);
         cx.notify();
         true
     }

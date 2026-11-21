@@ -5,7 +5,7 @@ use gpui::Context;
 
 use super::{Player, PlayerEvent};
 use crate::engine::tracks::auto::{self, Pick, TrackPreferences};
-use crate::engine::tracks::{Cycled, TrackId, TrackKind, Tracks};
+use crate::engine::tracks::{Cycled, TrackId, TrackKind, Tracks, claim_added};
 
 /// The kinds auto-selection picks, audio first: forced subtitles follow the audio's language.
 const AUTO_KINDS: [TrackKind; 2] = [TrackKind::Audio, TrackKind::Subtitle];
@@ -69,7 +69,8 @@ impl Player {
     /// Takes the backend's track list, then picks tracks by the preferences. Runs on every
     /// change, so tracks that appear late (MPEG-TS, HLS) are picked too.
     pub(super) fn tracks_reported(&mut self, tracks: Tracks, cx: &mut Context<Self>) {
-        self.info.tracks = tracks;
+        let before = std::mem::replace(&mut self.info.tracks, tracks);
+        claim_added(&mut self.info.subtitle_files, &before, &self.info.tracks);
         for kind in AUTO_KINDS {
             match self.auto_pick(kind) {
                 Pick::Keep => {}

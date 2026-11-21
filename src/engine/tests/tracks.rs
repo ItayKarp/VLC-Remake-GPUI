@@ -122,4 +122,7 @@ fn an_added_subtitle_file_stays_shown(cx: &mut TestAppContext) {
     added.subtitle = Some(TrackId(7));
     rig.emit(cx, BackendEvent::Tracks(added));
     assert_eq!(rig.mock.take_commands(), []);
+    let files = rig.player.read_with(cx, |player, _| player.subtitle_files().to_vec());
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].track, Some(TrackId(7)));
 }

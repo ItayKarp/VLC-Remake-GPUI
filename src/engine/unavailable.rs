@@ -54,6 +54,8 @@ impl Backend for UnavailableBackend {
 
     fn set_audio_device(&mut self, _: &OutputDevice) {}
 
+    fn refresh_audio_devices(&mut self) {}
+
     fn set_speaker_setup(&mut self, _: SpeakerSetup) {}
 
     fn shut_down(self: Box<Self>) {}

@@ -132,6 +132,12 @@ impl Player {
         cx.notify();
     }
 
+    /// Lists the output devices again now (the track popover's refresh, S2.6.3); a changed list
+    /// arrives as [`PlayerEvent::AudioDevicesChanged`].
+    pub fn refresh_audio_devices(&mut self) {
+        self.with_backend(|backend| backend.refresh_audio_devices());
+    }
+
     /// Mixes channels for `setup`.
     pub fn set_speaker_setup(&mut self, setup: SpeakerSetup, cx: &mut Context<Self>) {
         if std::mem::replace(&mut self.audio.speaker_setup, setup) != setup {

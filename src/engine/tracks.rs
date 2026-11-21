@@ -11,6 +11,8 @@ pub mod auto;
 pub mod codec;
 mod label;
 
+use std::path::PathBuf;
+
 use super::language::Language;
 
 /// The kind of elementary stream a track carries.
@@ -156,6 +158,49 @@ impl Tracks {
     }
 }
 
+/// A subtitle file the user added to the open media (a drop, or "+" in the track popover).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SubtitleFile {
+    /// Where the file is.
+    pub path: PathBuf,
+    /// The subtitle track it became, once the backend lists it.
+    pub track: Option<TrackId>,
+}
+
+impl SubtitleFile {
+    /// A file just added, whose track isn't listed yet.
+    pub fn new(path: PathBuf) -> Self {
+        Self { path, track: None }
+    }
+
+    /// The file's name, as the track popover lists it.
+    pub fn name(&self) -> String {
+        self.path.file_name().map_or_else(
+            || self.path.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        )
+    }
+}
+
+/// Gives the files still waiting for their track the subtitle tracks that appeared between
+/// `before` and `after`. The backend lists an added file after the media's own streams, so a
+/// list that arrives with the media's tracks and the file's together gives the file the last
+/// new track: the files waiting longest take the last new tracks, in the order they were added.
+pub fn claim_added(files: &mut [SubtitleFile], before: &Tracks, after: &Tracks) {
+    let claimed: Vec<TrackId> = files.iter().filter_map(|file| file.track).collect();
+    let added: Vec<TrackId> = after
+        .of(TrackKind::Subtitle)
+        .map(|track| track.id)
+        .filter(|id| before.get(*id).is_none() && !claimed.contains(id))
+        .collect();
+    let waiting = files.iter().filter(|file| file.track.is_none()).count();
+    let taken = waiting.min(added.len());
+    let waiting = files.iter_mut().filter(|file| file.track.is_none());
+    for (file, id) in waiting.zip(&added[added.len() - taken..]) {
+        file.track = Some(*id);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,5 +250,22 @@ mod tests {
         all.all.extend(tracks(TrackKind::Subtitle, &[5, 6], None).all);
         assert_eq!(all.label(TrackId(6)).as_deref(), Some("Track 2"));
         assert_eq!(all.label(TrackId(7)), None);
+    }
+
+    #[test]
+    fn added_files_take_the_last_new_subtitle_tracks() {
+        let before = tracks(TrackKind::Subtitle, &[3], None);
+        let after = tracks(TrackKind::Subtitle, &[3, 4, 8, 9], None);
+        let mut files = vec![
+            SubtitleFile { track: Some(TrackId(4)), ..SubtitleFile::new("a.srt".into()) },
+            SubtitleFile::new("b.srt".into()),
+        ];
+        claim_added(&mut files, &before, &after);
+        assert_eq!(files[1].track, Some(TrackId(9)));
+        assert_eq!(files[1].name(), "b.srt");
+        // Nothing new: the waiting file keeps waiting.
+        let mut waiting = vec![SubtitleFile::new("c.srt".into())];
+        claim_added(&mut waiting, &after, &after);
+        assert_eq!(waiting[0].track, None);
     }
 }

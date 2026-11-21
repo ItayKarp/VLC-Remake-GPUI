@@ -74,6 +74,11 @@ icons! {
     SUBTITLES => "subtitles.svg",
     SETTINGS => "settings.svg",
     LIST => "list.svg",
+    // The track popover (S2.6).
+    VIDEO => "video.svg",
+    REFRESH => "refresh.svg",
+    EDIT => "edit.svg",
+    ADD => "add.svg",
     ARROW_LEFT => "arrow-left.svg",
     ARROW_RIGHT => "arrow-right.svg",
     ARROW_UP => "arrow-up.svg",

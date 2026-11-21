@@ -125,6 +125,8 @@ pub enum Command {
     AddSubtitle(PathBuf),
     /// Play through this device.
     SetAudioDevice(OutputDevice),
+    /// List the output devices again.
+    RefreshAudioDevices,
     /// Set up the speakers.
     SetSpeakerSetup(SpeakerSetup),
 }
@@ -171,6 +173,9 @@ pub trait Backend: Send {
     fn add_subtitle(&mut self, path: &Path);
     /// Plays through `device` from now on, for this and later media.
     fn set_audio_device(&mut self, device: &OutputDevice);
+    /// Lists the output devices again now, rather than at the next poll; a changed list is
+    /// reported as usual.
+    fn refresh_audio_devices(&mut self);
     /// Mixes channels for `setup` from now on, for this and later media.
     fn set_speaker_setup(&mut self, setup: SpeakerSetup);
     /// Stops playback and releases everything. May block on a hung source.

@@ -21,6 +21,7 @@ mod seeking;
 #[cfg(test)]
 mod tests;
 mod title_bar;
+mod track_popover;
 mod tracks;
 mod transport;
 mod viewport;
@@ -92,6 +93,8 @@ pub struct MainWindow {
     volume_slider: volume_slider::VolumeSlider,
     /// The message over the video (S2.5.7).
     osd: osd::Osd,
+    /// The Video | Audio | Subtitles popover (S2.6).
+    track_popover: track_popover::TrackPopover,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
 }
@@ -107,6 +110,7 @@ impl MainWindow {
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
         Self::release_keys_on_blur(window, cx);
+        Self::close_tracks_on_deactivate(window, cx);
         crate::diagnostics::system::remember_gpu(window);
 
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
@@ -135,6 +139,7 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            track_popover: track_popover::TrackPopover::new(cx),
             os_title: String::new(),
         };
         this.set_up_history(cx);
@@ -159,6 +164,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
+        self.close_track_popover(window, cx);
         let items = main_menu::items(&cx.entity().downgrade(), window, cx);
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
@@ -240,6 +246,7 @@ impl Render for MainWindow {
             .child(self.render_content(&p, fullscreen, cx))
             .children((!fullscreen).then(|| self.render_title_bar(&p, window, cx)))
             .children((!fullscreen).then(|| self.render_control_bar(&p, window, cx)))
+            .children(self.render_track_popover(&p, window, cx))
             .children((!fullscreen).then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(self.toasts.clone())
             .children(self.render_menu())
