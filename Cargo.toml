@@ -9,6 +9,11 @@ build = "build.rs"
 gpui = { git = "https://github.com/zed-industries/zed", branch = "main" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", branch = "main" }
 anyhow = "1"
+dirs = "6"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+toml_edit = { version = "0.25", features = ["serde"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"

@@ -12,7 +12,7 @@ use gpui::{
 };
 
 use crate::assets::icons;
-use crate::settings::{self, OnboardingResult};
+use crate::settings;
 use crate::theme::{Accent, Palette, ThemeMode, blend};
 use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
 
@@ -48,11 +48,18 @@ impl Onboarding {
         cx.observe_window_appearance(window, |_, _, cx| cx.notify())
             .detach();
 
+        // Start from whatever is saved, so running setup again keeps earlier choices.
+        let saved = settings::get(cx);
         let mut this = Self {
             step: Step::Welcome,
-            media_folder: settings::default_media_folder(),
-            theme: ThemeMode::default(),
-            accent: Accent::default(),
+            media_folder: saved
+                .local
+                .media_folders
+                .first()
+                .cloned()
+                .unwrap_or_else(settings::default_media_folder),
+            theme: saved.prefs.theme,
+            accent: saved.prefs.accent,
             focus_handle,
         };
         this.apply_dev_overrides();
@@ -108,14 +115,16 @@ impl Onboarding {
         cx.notify();
     }
 
-    fn finish(&mut self, window: &mut Window, _cx: &mut Context<Self>) {
-        let result = OnboardingResult {
-            media_folder: self.media_folder.clone(),
-            theme: self.theme,
-            accent: self.accent,
-        };
-        if let Err(err) = result.save() {
-            eprintln!("failed to save onboarding settings: {err}");
+    fn finish(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        settings::update(cx, |s| {
+            s.prefs.theme = self.theme;
+            s.prefs.accent = self.accent;
+            s.local.media_folders = vec![self.media_folder.clone()];
+            s.local.onboarding_complete = true;
+        });
+        // TODO(S0.2.3): show Retry / Continue without saving instead of logging.
+        if let Err(err) = settings::flush(cx) {
+            log::error!("failed to save onboarding settings: {err}");
         }
         // TODO: open the library window here once it exists.
         window.remove_window();
@@ -144,7 +153,10 @@ impl Onboarding {
 
     fn cycle_accent(&mut self, delta: isize, cx: &mut Context<Self>) {
         let len = Accent::ALL.len() as isize;
-        let index = Accent::ALL.iter().position(|a| *a == self.accent).unwrap_or(0) as isize;
+        let index = Accent::ALL
+            .iter()
+            .position(|a| *a == self.accent)
+            .unwrap_or(0) as isize;
         self.accent = Accent::ALL[(index + delta).rem_euclid(len) as usize];
         cx.notify();
     }
@@ -266,18 +278,18 @@ impl Onboarding {
                                     .text_color(p.text_strong)
                                     .overflow_hidden()
                                     .cursor_pointer()
-                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                        this.browse(cx)
-                                    }))
+                                    .on_click(
+                                        cx.listener(|this, _: &ClickEvent, _, cx| this.browse(cx)),
+                                    )
                                     .child(div().truncate().child(folder)),
                             )
                             .child(
                                 button("browse", "Browse", p.button, p.button_hover, p.text_muted)
                                     .w(px(114.))
                                     .font_weight(FontWeight::NORMAL)
-                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                        this.browse(cx)
-                                    })),
+                                    .on_click(
+                                        cx.listener(|this, _: &ClickEvent, _, cx| this.browse(cx)),
+                                    ),
                             ),
                     ),
             )
@@ -309,11 +321,15 @@ impl Onboarding {
                 )
             })
             .child(
-                button("next", next_label, p.accent, p.accent.opacity(0.85), p.on_accent)
-                    .w(px(100.))
-                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                        this.go_next(window, cx)
-                    })),
+                button(
+                    "next",
+                    next_label,
+                    p.accent,
+                    p.accent.opacity(0.85),
+                    p.on_accent,
+                )
+                .w(px(100.))
+                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.go_next(window, cx))),
             )
     }
 }
@@ -406,16 +422,22 @@ impl Onboarding {
                     .justify_between()
                     .px(px(8.))
                     .bg(p.title_bar)
-                    .child(svg().path(icons::LOGO_SMALL).size(px(14.)).text_color(p.accent))
                     .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap(px(8.))
-                            .children(
-                                [icons::MINIMIZE, icons::MAXIMIZE, icons::FULLSCREEN, icons::CLOSE]
-                                    .map(|icon| svg().path(icon).size(px(12.)).text_color(p.icon)),
-                            ),
+                        svg()
+                            .path(icons::LOGO_SMALL)
+                            .size(px(14.))
+                            .text_color(p.accent),
+                    )
+                    .child(
+                        div().flex().flex_row().gap(px(8.)).children(
+                            [
+                                icons::MINIMIZE,
+                                icons::MAXIMIZE,
+                                icons::FULLSCREEN,
+                                icons::CLOSE,
+                            ]
+                            .map(|icon| svg().path(icon).size(px(12.)).text_color(p.icon)),
+                        ),
                     ),
             )
             // Theme picker
@@ -461,7 +483,11 @@ impl Onboarding {
             .size(px(100.))
             .rounded(px(12.))
             .overflow_hidden()
-            .bg(if mode == ThemeMode::Light { light } else { dark })
+            .bg(if mode == ThemeMode::Light {
+                light
+            } else {
+                dark
+            })
             .when(mode == ThemeMode::System, |this| {
                 this.child(
                     svg()
@@ -490,7 +516,11 @@ impl Onboarding {
                     .p(px(8.))
                     .rounded(px(22.))
                     .border(px(3.))
-                    .border_color(if selected { p.accent } else { gpui::transparent_black() })
+                    .border_color(if selected {
+                        p.accent
+                    } else {
+                        gpui::transparent_black()
+                    })
                     .child(swatch),
             )
             .child(
@@ -528,7 +558,12 @@ impl Onboarding {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(svg().path(icons::PLAY).size(px(11.)).text_color(p.on_accent)),
+                    .child(
+                        svg()
+                            .path(icons::PLAY)
+                            .size(px(11.))
+                            .text_color(p.on_accent),
+                    ),
             )
             .child(icon(icons::NEXT))
             .child(time("00:02:10"))
@@ -560,7 +595,13 @@ impl Onboarding {
                     .h(px(9.))
                     .rounded(px(2.))
                     .bg(p.sunken)
-                    .child(div().w(relative(0.35)).h_full().rounded(px(2.)).bg(p.volume)),
+                    .child(
+                        div()
+                            .w(relative(0.35))
+                            .h_full()
+                            .rounded(px(2.))
+                            .bg(p.volume),
+                    ),
             )
             .child(icon(icons::AUDIO))
             .child(icon(icons::SUBTITLES))
@@ -592,16 +633,11 @@ impl Onboarding {
                         this.accent = accent;
                         cx.notify();
                     }))
-                    .child(
-                        div()
-                            .size(px(SWATCH_SIZE))
-                            .rounded_full()
-                            .bg(if selected {
-                                color
-                            } else {
-                                blend(color, p.background, 0.5)
-                            }),
-                    )
+                    .child(div().size(px(SWATCH_SIZE)).rounded_full().bg(if selected {
+                        color
+                    } else {
+                        blend(color, p.background, 0.5)
+                    }))
             }))
     }
 }
@@ -624,27 +660,63 @@ struct Shortcut {
 }
 
 const LEFT_SHORTCUTS: &[Shortcut] = &[
-    Shortcut { label: "Play / Pause", keys: &[&[Key::Text("Space")]] },
+    Shortcut {
+        label: "Play / Pause",
+        keys: &[&[Key::Text("Space")]],
+    },
     Shortcut {
         label: "Seek Backward / Forward",
-        keys: &[&[Key::Icon(icons::ARROW_LEFT)], &[Key::Icon(icons::ARROW_RIGHT)]],
+        keys: &[
+            &[Key::Icon(icons::ARROW_LEFT)],
+            &[Key::Icon(icons::ARROW_RIGHT)],
+        ],
     },
-    Shortcut { label: "Previous / Next Item", keys: &[&[Key::Text("<")], &[Key::Text(">")]] },
-    Shortcut { label: "Previous / Next Frame", keys: &[&[Key::Text(",")], &[Key::Text(".")]] },
-    Shortcut { label: "Cycle Subtitle Track", keys: &[&[Key::Text("V")]] },
-    Shortcut { label: "Cycle Audio Track", keys: &[&[Key::Text("B")]] },
+    Shortcut {
+        label: "Previous / Next Item",
+        keys: &[&[Key::Text("<")], &[Key::Text(">")]],
+    },
+    Shortcut {
+        label: "Previous / Next Frame",
+        keys: &[&[Key::Text(",")], &[Key::Text(".")]],
+    },
+    Shortcut {
+        label: "Cycle Subtitle Track",
+        keys: &[&[Key::Text("V")]],
+    },
+    Shortcut {
+        label: "Cycle Audio Track",
+        keys: &[&[Key::Text("B")]],
+    },
 ];
 
 const RIGHT_SHORTCUTS: &[Shortcut] = &[
-    Shortcut { label: "Toggle Fullscreen", keys: &[&[Key::Text("F")]] },
+    Shortcut {
+        label: "Toggle Fullscreen",
+        keys: &[&[Key::Text("F")]],
+    },
     Shortcut {
         label: "Increase / Decrease Volume",
-        keys: &[&[Key::Icon(icons::ARROW_UP)], &[Key::Icon(icons::ARROW_DOWN)]],
+        keys: &[
+            &[Key::Icon(icons::ARROW_UP)],
+            &[Key::Icon(icons::ARROW_DOWN)],
+        ],
     },
-    Shortcut { label: "Show / Hide Queue", keys: &[&[Key::Text("Q")]] },
-    Shortcut { label: "Show / Hide File Browser", keys: &[&[Key::Text("L")]] },
-    Shortcut { label: "Take a Snapshot", keys: &[&[Key::Text("SHIFT"), Key::Text("S")]] },
-    Shortcut { label: "Record", keys: &[&[Key::Text("SHIFT"), Key::Text("R")]] },
+    Shortcut {
+        label: "Show / Hide Queue",
+        keys: &[&[Key::Text("Q")]],
+    },
+    Shortcut {
+        label: "Show / Hide File Browser",
+        keys: &[&[Key::Text("L")]],
+    },
+    Shortcut {
+        label: "Take a Snapshot",
+        keys: &[&[Key::Text("SHIFT"), Key::Text("S")]],
+    },
+    Shortcut {
+        label: "Record",
+        keys: &[&[Key::Text("SHIFT"), Key::Text("R")]],
+    },
 ];
 
 impl Onboarding {
@@ -749,9 +821,5 @@ fn keycap(key: Key, p: &Palette) -> impl IntoElement {
     };
 
     // The lip under the key cap gives it the raised look from the design.
-    div()
-        .pb(px(5.))
-        .rounded(px(9.))
-        .bg(p.key_edge)
-        .child(face)
+    div().pb(px(5.)).rounded(px(9.)).bg(p.key_edge).child(face)
 }

@@ -36,8 +36,18 @@ pub fn title_bar(palette: &Palette) -> Stateful<Div> {
     if cfg!(target_os = "macos") {
         bar
     } else {
-        bar.child(caption_button("minimize", icons::MINIMIZE, WindowControlArea::Min, palette))
-            .child(caption_button("close", icons::CLOSE, WindowControlArea::Close, palette))
+        bar.child(caption_button(
+            "minimize",
+            icons::MINIMIZE,
+            WindowControlArea::Min,
+            palette,
+        ))
+        .child(caption_button(
+            "close",
+            icons::CLOSE,
+            WindowControlArea::Close,
+            palette,
+        ))
     }
 }
 

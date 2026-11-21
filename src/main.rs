@@ -1,4 +1,5 @@
 mod assets;
+mod logging;
 mod onboarding;
 mod settings;
 mod theme;
@@ -13,14 +14,14 @@ use gpui_platform::application;
 use crate::onboarding::Onboarding;
 
 fn main() {
+    logging::init();
     application()
         .with_assets(assets::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
-            let window_size = size(
-                px(onboarding::WINDOW_WIDTH),
-                px(onboarding::WINDOW_HEIGHT),
-            );
+            settings::init(cx);
+
+            let window_size = size(px(onboarding::WINDOW_WIDTH), px(onboarding::WINDOW_HEIGHT));
             let bounds = Bounds::centered(None, window_size, cx);
 
             cx.open_window(

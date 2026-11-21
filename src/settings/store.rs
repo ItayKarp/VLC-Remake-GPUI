@@ -1,0 +1,247 @@
+//! Settings state without GPUI: loading, change tracking and preparing saves. The
+//! GPUI global in `mod.rs` wraps this so it can be unit-tested directly.
+
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+use toml_edit::DocumentMut;
+
+use super::document::merge_typed;
+use super::migrate::{self, Documents, Outcome};
+use super::paths::Locations;
+use super::schema::{LocalState, Preferences, Settings};
+use super::storage::{self, LoadIssue};
+
+/// Something the UI should tell the user once (S0.2/S0.3 show these).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Notice {
+    /// A settings file didn't parse; it was kept as `moved_to`.
+    Corrupt {
+        file: PathBuf,
+        moved_to: Option<PathBuf>,
+        restored_from_backup: bool,
+    },
+    /// A settings file was empty and its backup was used.
+    RestoredFromBackup { file: PathBuf },
+    /// Changes won't be saved this session (no config directory, or a file that can't
+    /// be read or safely replaced). Show a banner.
+    NotPersisted { reason: String },
+    /// A save failed (read-only directory, disk full, …). Reported once per session;
+    /// the next change retries.
+    SaveFailed { error: String },
+}
+
+struct FileSlot {
+    path: PathBuf,
+    doc: DocumentMut,
+    /// False when overwriting the file could destroy data we couldn't read.
+    writable: bool,
+}
+
+impl FileSlot {
+    fn render<T: serde::Serialize>(&mut self, typed: &T, writes: &mut Vec<(PathBuf, String)>) {
+        match merge_typed(&mut self.doc, typed) {
+            Ok(()) if self.writable => writes.push((self.path.clone(), self.doc.to_string())),
+            Ok(()) => {}
+            Err(err) => log::error!(
+                "settings: couldn't serialize {}: {err}",
+                self.path.display()
+            ),
+        }
+    }
+}
+
+pub struct SettingsState {
+    pub settings: Settings,
+    /// `None`: no config directory, settings live in memory only.
+    files: Option<[FileSlot; 2]>,
+    dirty: bool,
+    /// Incremented by each prepared save.
+    generation: u64,
+    /// Newest generation known to be on disk.
+    confirmed: u64,
+    /// Generation of the newest save written, so an older save that finishes late
+    /// never overwrites a newer one.
+    written: Arc<Mutex<u64>>,
+    save_failure_reported: bool,
+    notices: Vec<Notice>,
+}
+
+/// A prepared save that can run on any thread.
+pub struct SaveJob {
+    writes: Vec<(PathBuf, String)>,
+    generation: u64,
+    written: Arc<Mutex<u64>>,
+}
+
+impl SaveJob {
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    pub fn run(self) -> Result<(), String> {
+        let mut written = self.written.lock().unwrap_or_else(|e| e.into_inner());
+        if *written > self.generation {
+            return Ok(());
+        }
+        for (path, contents) in &self.writes {
+            storage::save(path, contents)
+                .map_err(|err| format!("couldn't save {}: {err}", path.display()))?;
+        }
+        *written = self.generation;
+        Ok(())
+    }
+}
+
+impl SettingsState {
+    pub fn load(locations: Option<Locations>) -> Self {
+        let mut notices = Vec::new();
+        let Some(locations) = locations else {
+            log::warn!("settings: no config directory; changes won't be saved");
+            notices.push(Notice::NotPersisted {
+                reason: "No settings folder is available on this system.".into(),
+            });
+            return Self::new(Settings::default(), None, false, notices);
+        };
+
+        let mut load = |path: PathBuf| -> FileSlot {
+            let (doc, writable) = match storage::load(&path) {
+                Ok(loaded) => {
+                    let mut writable = true;
+                    match loaded.issue {
+                        Some(LoadIssue::RestoredFromBackup) => {
+                            notices.push(Notice::RestoredFromBackup { file: path.clone() });
+                        }
+                        Some(LoadIssue::Corrupt {
+                            moved_to,
+                            restored_from_backup,
+                            ..
+                        }) => {
+                            // If the corrupt file couldn't be moved aside, saving over it
+                            // would lose it.
+                            writable = moved_to.is_some();
+                            notices.push(Notice::Corrupt {
+                                file: path.clone(),
+                                moved_to,
+                                restored_from_backup,
+                            });
+                        }
+                        None => {}
+                    }
+                    (loaded.doc, writable)
+                }
+                Err(err) => {
+                    log::warn!("settings: couldn't read {}: {err}", path.display());
+                    notices.push(Notice::NotPersisted {
+                        reason: format!("Couldn't read {}: {err}", path.display()),
+                    });
+                    (DocumentMut::new(), false)
+                }
+            };
+            FileSlot {
+                path,
+                doc,
+                writable,
+            }
+        };
+        let mut prefs = load(locations.prefs);
+        let mut local = load(locations.local);
+
+        let mut docs = Documents {
+            prefs: std::mem::take(&mut prefs.doc),
+            local: std::mem::take(&mut local.doc),
+        };
+        let migrated = matches!(migrate::migrate(&mut docs), Outcome::Migrated { .. });
+        prefs.doc = docs.prefs;
+        local.doc = docs.local;
+
+        let settings = Settings {
+            prefs: deserialize::<Preferences>(&prefs.doc),
+            local: deserialize::<LocalState>(&local.doc),
+        };
+        Self::new(settings, Some([prefs, local]), migrated, notices)
+    }
+
+    fn new(
+        settings: Settings,
+        files: Option<[FileSlot; 2]>,
+        dirty: bool,
+        notices: Vec<Notice>,
+    ) -> Self {
+        SettingsState {
+            settings,
+            files,
+            dirty,
+            generation: 0,
+            confirmed: 0,
+            written: Arc::default(),
+            save_failure_reported: false,
+            notices,
+        }
+    }
+
+    /// Applies `f`; returns whether anything changed.
+    pub fn update(&mut self, f: impl FnOnce(&mut Settings)) -> bool {
+        let before = self.settings.clone();
+        f(&mut self.settings);
+        let changed = self.settings != before;
+        self.dirty |= changed;
+        changed
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub fn is_persistent(&self) -> bool {
+        self.files
+            .as_ref()
+            .is_some_and(|files| files.iter().all(|file| file.writable))
+    }
+
+    pub fn take_notices(&mut self) -> Vec<Notice> {
+        std::mem::take(&mut self.notices)
+    }
+
+    /// Renders the files to write, or `None` if everything is saved. A save that was
+    /// prepared but never confirmed (its task was cancelled) counts as unsaved.
+    pub fn prepare_save(&mut self) -> Option<SaveJob> {
+        if !self.dirty && self.confirmed == self.generation {
+            return None;
+        }
+        self.dirty = false;
+        let files = self.files.as_mut()?;
+        let [prefs, local] = files;
+        let mut writes = Vec::new();
+        prefs.render(&self.settings.prefs, &mut writes);
+        local.render(&self.settings.local, &mut writes);
+        self.generation += 1;
+        Some(SaveJob {
+            writes,
+            generation: self.generation,
+            written: self.written.clone(),
+        })
+    }
+
+    pub fn finish_save(&mut self, generation: u64, result: Result<(), String>) {
+        if result.is_ok() {
+            self.confirmed = self.confirmed.max(generation);
+        }
+        if let Err(error) = result {
+            log::warn!("settings: {error}");
+            // Keep the changes in memory and retry on the next change.
+            self.dirty = true;
+            if !self.save_failure_reported {
+                self.save_failure_reported = true;
+                self.notices.push(Notice::SaveFailed { error });
+            }
+        }
+    }
+}
+
+fn deserialize<T: serde::de::DeserializeOwned + Default>(doc: &DocumentMut) -> T {
+    toml_edit::de::from_document(doc.clone()).unwrap_or_else(|err| {
+        log::warn!("settings: couldn't read settings, using defaults: {err}");
+        T::default()
+    })
+}

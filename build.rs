@@ -7,7 +7,9 @@ fn main() {
     {
         let icon = std::path::Path::new("assets/app-icon/icon.ico");
         if !icon.exists() {
-            println!("cargo:warning=assets/app-icon/icon.ico missing; run `cargo run --example gen_icons`");
+            println!(
+                "cargo:warning=assets/app-icon/icon.ico missing; run `cargo run --example gen_icons`"
+            );
         } else if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
             let mut res = winresource::WindowsResource::new();
             res.set_icon("assets/app-icon/icon.ico")

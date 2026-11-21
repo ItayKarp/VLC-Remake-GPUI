@@ -1,9 +1,11 @@
 //! Colors for the redesigned UI, sampled from the design references in `docs/`.
 
 use gpui::{Hsla, Rgba, WindowAppearance, rgb};
+use serde::{Deserialize, Serialize};
 
 /// Theme mode the user picks during onboarding.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
     Light,
     #[default]
@@ -44,7 +46,8 @@ impl ThemeMode {
 }
 
 /// The accent colors offered on the "theme and color" onboarding step.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Accent {
     #[default]
     Orange,

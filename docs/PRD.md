@@ -212,16 +212,16 @@ flowchart LR
 **Depends on:** —  **Size:** M  **Design refs:** none (data layer)
 
 **Subtasks**
-- [ ] S0.1.1 Add `serde` and `toml` (or `toml_edit`, see S0.1.6). Define `Settings` with `schema_version`, `onboarding_complete`, `media_folders: Vec<PathBuf>` (onboarding writes one, the Library settings screen can manage several), `theme`, `accent`, and empty sections that later stages fill (`player`, `audio`, `video`, `subtitles`, `library`, `privacy`, `keymap`, `window`). Every field gets `#[serde(default)]`.
-- [ ] S0.1.2 Load settings once at startup into a GPUI `Global`, and expose `cx.update_global` helpers so views react to changes.
-- [ ] S0.1.3 Atomic save: write `settings.toml.tmp`, `fsync`, rename over `settings.toml`, keep the previous file as `settings.toml.bak`.
-- [ ] S0.1.4 Save on change with a short debounce (about 500 ms), and flush synchronously in `on_app_quit`.
-- [ ] S0.1.5 Read each field leniently: an unknown enum value (for example `accent = "magenta"` written by a newer build) falls back to that field's default and logs a warning. It never discards the whole file.
-- [ ] S0.1.6 Keep keys this build does not know about, so running an older build doesn't wipe a newer build's settings. Use `toml_edit` for this, which also keeps comments the user added by hand.
-- [ ] S0.1.7 Migrations: `schema_version` plus a list of `fn migrate_vN_to_vN+1`. The current onboarding file (no `schema_version`) is treated as v0.
-- [ ] S0.1.8 Split machine-specific data from user preferences. Theme, accent and keymap go in the roaming config dir. Media folder paths, window geometry and audio device IDs go in a **local** (non-roaming) file, because Windows Roaming AppData and synced home folders carry them to machines where the paths don't exist.
-- [ ] S0.1.9 Override the config location with `RVLC_CONFIG_DIR` (tests, portable mode, debugging).
-- [ ] S0.1.10 Unit tests: round-trip, corrupt file, unknown keys, unknown enum values, migration from v0, paths containing quotes, backslashes and unicode.
+- [x] S0.1.1 Add `serde` and `toml` (or `toml_edit`, see S0.1.6). Define `Settings` with `schema_version`, `onboarding_complete`, `media_folders: Vec<PathBuf>` (onboarding writes one, the Library settings screen can manage several), `theme`, `accent`, and empty sections that later stages fill (`player`, `audio`, `video`, `subtitles`, `library`, `privacy`, `keymap`, `window`). Every field gets `#[serde(default)]`.
+- [x] S0.1.2 Load settings once at startup into a GPUI `Global`, and expose `cx.update_global` helpers so views react to changes.
+- [x] S0.1.3 Atomic save: write `settings.toml.tmp`, `fsync`, rename over `settings.toml`, keep the previous file as `settings.toml.bak`.
+- [x] S0.1.4 Save on change with a short debounce (about 500 ms), and flush synchronously in `on_app_quit`.
+- [x] S0.1.5 Read each field leniently: an unknown enum value (for example `accent = "magenta"` written by a newer build) falls back to that field's default and logs a warning. It never discards the whole file.
+- [x] S0.1.6 Keep keys this build does not know about, so running an older build doesn't wipe a newer build's settings. Use `toml_edit` for this, which also keeps comments the user added by hand.
+- [x] S0.1.7 Migrations: `schema_version` plus a list of `fn migrate_vN_to_vN+1`. The current onboarding file (no `schema_version`) is treated as v0.
+- [x] S0.1.8 Split machine-specific data from user preferences. Theme, accent and keymap go in the roaming config dir. Media folder paths, window geometry and audio device IDs go in a **local** (non-roaming) file, because Windows Roaming AppData and synced home folders carry them to machines where the paths don't exist.
+- [x] S0.1.9 Override the config location with `RVLC_CONFIG_DIR` (tests, portable mode, debugging).
+- [x] S0.1.10 Unit tests: round-trip, corrupt file, unknown keys, unknown enum values, migration from v0, paths containing quotes, backslashes and unicode.
 
 **Acceptance criteria**
 - Kill the process (Task Manager / `kill -9`) during a save, 100 times in a loop: the settings file is never empty or half-written.
