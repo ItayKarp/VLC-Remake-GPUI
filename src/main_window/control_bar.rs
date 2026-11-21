@@ -6,7 +6,7 @@
 //! its command and shortcut (S2.2.4). Previous and Next are disabled where they would do
 //! nothing (the light theme mock's faded transport means that).
 
-mod clock;
+pub(super) mod clock;
 mod fit;
 mod items;
 mod layout;
@@ -18,6 +18,7 @@ use gpui::{
 };
 
 use self::fit::{ITEM_GAP, PADDING};
+pub(super) use self::layout::SEEK_MIN;
 use self::layout::{BUTTON, Item, Slot};
 use super::MainWindow;
 use crate::assets::icons;

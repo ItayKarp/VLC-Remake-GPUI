@@ -113,8 +113,17 @@ pub const COMMANDS: &[Command] = &[
     // P/N are layout-safe; `<`/`>` (taught by onboarding's design) stay as aliases.
     cmd("Previous item", Player, keys(&["p", "<"]), &act::PreviousItem),
     cmd("Next item", Player, keys(&["n", ">"]), &act::NextItem),
+    // The skip amounts (S2.3.4): Shift is finer, Alt (Option) and Ctrl (Cmd) coarser.
     held("Seek backward", keys(&["left"]), &act::SeekBackward),
     held("Seek forward", keys(&["right"]), &act::SeekForward),
+    held("Very short seek backward", keys(&["shift-left"]), &act::SeekBackwardVeryShort),
+    held("Very short seek forward", keys(&["shift-right"]), &act::SeekForwardVeryShort),
+    held("Medium seek backward", keys(&["alt-left"]), &act::SeekBackwardMedium),
+    held("Medium seek forward", keys(&["alt-right"]), &act::SeekForwardMedium),
+    held("Long seek backward", keys(&["secondary-left"]), &act::SeekBackwardLong),
+    held("Long seek forward", keys(&["secondary-right"]), &act::SeekForwardLong),
+    cmd("Go to the start", Player, keys(&["home"]), &act::SeekToStart),
+    cmd("Go to the end", Player, keys(&["end"]), &act::SeekToEnd),
     held("Previous frame", keys(&[","]), &act::PreviousFrame),
     held("Next frame", keys(&["."]), &act::NextFrame),
     cmd("Next program / Service ID", Player, keys(&["x"]), &act::NextProgram),

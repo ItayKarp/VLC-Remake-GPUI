@@ -14,6 +14,8 @@ mod notice;
 mod now_playing;
 mod opening;
 mod player_keys;
+mod seek_bar;
+mod seeking;
 #[cfg(test)]
 mod tests;
 mod title_bar;
@@ -81,6 +83,8 @@ pub struct MainWindow {
     toasts: Entity<Toasts>,
     /// The control bar's layout and overflow menu (S2.2).
     control_bar: control_bar::ControlBar,
+    /// The seek bar's drag, hover and previews (S2.3).
+    seek_bar: seek_bar::SeekBar,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
 }
@@ -125,6 +129,7 @@ impl MainWindow {
             repeat: RepeatGate::default(),
             toasts: cx.new(|_| Toasts::new()),
             control_bar: control_bar::ControlBar::default(),
+            seek_bar: seek_bar::SeekBar::new(cx),
             os_title: String::new(),
         };
         this.set_up_history(cx);
@@ -186,6 +191,7 @@ impl MainWindow {
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
+        self.release_previews(window);
         let p = theme::palette(window, cx);
         // Fullscreen is the video alone: no title or control bar (S2.8 brings auto-hiding
         // controls).
@@ -218,6 +224,7 @@ impl Render for MainWindow {
             .child(self.render_content(&p, fullscreen, cx))
             .children((!fullscreen).then(|| self.render_title_bar(&p, window, cx)))
             .children((!fullscreen).then(|| self.render_control_bar(&p, window, cx)))
+            .children((!fullscreen).then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(self.toasts.clone())
             .children(self.render_menu())
             .children(self.render_overflow_menu())

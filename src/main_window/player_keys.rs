@@ -1,18 +1,21 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
-//! keys (S1.5.1), track cycling (S1.6.2, B and V) and the transport (S2.2: Space, S, P, N)
-//! work; any other admitted command is only logged until S2.10.3 gives it its effect.
+//! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N)
+//! and seeking (S2.3.4: the arrows with their modifiers, Home and End) work; any other
+//! admitted command is only logged until S2.10.3 gives it its effect.
 
 use std::time::Instant;
 
 use gpui::{Action, Context, Div, Window, prelude::*};
 
 use super::MainWindow;
+use super::seeking::{Edge, Way};
 use crate::engine::tracks::TrackKind;
 use crate::engine::values::VolumeChange;
 use crate::keymap::actions as act;
 use crate::keymap::commands;
+use crate::settings::SkipLength;
 
 /// Registers a gated handler for each listed player action on `$element`.
 macro_rules! player_actions {
@@ -37,6 +40,14 @@ impl MainWindow {
                 Stop,
                 SeekBackward,
                 SeekForward,
+                SeekBackwardVeryShort,
+                SeekForwardVeryShort,
+                SeekBackwardMedium,
+                SeekForwardMedium,
+                SeekBackwardLong,
+                SeekForwardLong,
+                SeekToStart,
+                SeekToEnd,
                 PreviousItem,
                 NextItem,
                 PreviousFrame,
@@ -112,6 +123,16 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::Stop, MainWindow::stop),
     (&act::PreviousItem, MainWindow::previous),
     (&act::NextItem, MainWindow::next),
+    (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),
+    (&act::SeekForward, |this, _, cx| this.skip(Way::Forward, SkipLength::Short, cx)),
+    (&act::SeekBackwardVeryShort, |this, _, cx| this.skip(Way::Back, SkipLength::VeryShort, cx)),
+    (&act::SeekForwardVeryShort, |this, _, cx| this.skip(Way::Forward, SkipLength::VeryShort, cx)),
+    (&act::SeekBackwardMedium, |this, _, cx| this.skip(Way::Back, SkipLength::Medium, cx)),
+    (&act::SeekForwardMedium, |this, _, cx| this.skip(Way::Forward, SkipLength::Medium, cx)),
+    (&act::SeekBackwardLong, |this, _, cx| this.skip(Way::Back, SkipLength::Long, cx)),
+    (&act::SeekForwardLong, |this, _, cx| this.skip(Way::Forward, SkipLength::Long, cx)),
+    (&act::SeekToStart, |this, _, cx| this.seek_to(Edge::Start, cx)),
+    (&act::SeekToEnd, |this, _, cx| this.seek_to(Edge::End, cx)),
     (&act::VolumeUp, |this, _, cx| this.step_volume(VolumeChange::Up, cx)),
     (&act::VolumeDown, |this, _, cx| this.step_volume(VolumeChange::Down, cx)),
     (&act::CycleAudioTrack, |this, _, cx| this.cycle_track(TrackKind::Audio, cx)),

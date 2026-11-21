@@ -639,22 +639,22 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.2, S1.2, S4.4 (thumbnail extraction can start in S1)  **Size:** L  **Design refs:** `controls-default.png`, `seek_thumbnail/thumbnail.png`
 
 **Subtasks**
-- [ ] S2.3.1 Track, fill and handle. Click to jump, drag to scrub with live preview frames while dragging (throttled), and release to commit.
-- [ ] S2.3.2 Hover card: a 16:9 preview frame and the time under it (`00:02:10`), following the cursor and clamped inside the window.
-- [ ] S2.3.3 Preview frames come from a **second, muted decoder instance** or a pre-generated thumbnail strip (trickplay). Never seek the main player to build the preview.
-- [ ] S2.3.4 Keyboard: Left/Right seek by the "Short skip" amount (S5.6); modifiers select the very short, medium and long amounts; Home and End go to the start and end.
-- [ ] S2.3.5 A buffered-range indicator for network streams (not designed; propose a subtle lighter band).
-- [ ] S2.3.6 Accessible as a slider: it announces the current time and the duration.
+- [x] S2.3.1 Track, fill and handle. Click to jump, drag to scrub with live preview frames while dragging (throttled), and release to commit. *(`main_window/seek_bar.rs`: pressing moves the handle there, a drag moves the handle and the hover card only, and the player seeks once on release. Preview frames during a drag come from the preview decoder (S2.3.3), never the main player.)*
+- [x] S2.3.2 Hover card: a 16:9 preview frame and the time under it (`00:02:10`), following the cursor and clamped inside the window. *(`seek_bar/card.rs`: the picture is letterboxed by the player's video aspect; a grey frame shows until it arrives or when none can be made. Audio and network streams show a card with the time alone. Checked on macOS.)*
+- [x] S2.3.3 Preview frames come from a **second, muted decoder instance** or a pre-generated thumbnail strip (trickplay). Never seek the main player to build the preview. *(A second libVLC instance (`engine/libvlc/preview.rs`): no audio or subtitles, software decoding, BGRA at most 480×270, on its own thread, created off the UI thread on the first hover over local video. `engine/preview/flow.rs` runs one request at a time and keeps only the newest waiting one; a picture counts only after the decoder paused and then reported a new time, because a paused libVLC shows its last picture again. Times are rounded to 1/400 of the length.)*
+- [x] S2.3.4 Keyboard: Left/Right seek by the "Short skip" amount (S5.6); modifiers select the very short, medium and long amounts; Home and End go to the start and end. *(`main_window/seeking.rs`. Shift: very short (3 s); alone: short (10 s); Alt/Option: medium (60 s); Ctrl/Cmd: long (300 s). Amounts in `prefs.controls.skip` (`very_short`, `short`, `medium`, `long`, seconds); rows come with S5.6. Navigation keys with modifiers no longer fire while a control has focus, so Alt+Left still moves a text caret.)*
+- [x] S2.3.5 A buffered-range indicator for network streams (not designed; propose a subtle lighter band). *(A slightly lighter band ahead of the handle. libVLC 3 reports only how full its input cache is, not downloaded ranges, so the band covers that share of the 1 s network cache. Not checked against a real stream.)*
+- [x] S2.3.6 Accessible as a slider: it announces the current time and the duration. *(Role slider, "Seek", value in seconds and "00:02:10 of 00:25:40"; a tab stop with a focus ring. Not checked with VoiceOver.)*
 
 **Edge cases**
-- Unknown or zero duration: hide the handle and disable seeking, and show live-stream styling (a "LIVE" chip; not designed).
-- Non-seekable media (some HTTP streams): clicks do nothing and the cursor shows "not allowed".
+- Unknown or zero duration: hide the handle and disable seeking, and show live-stream styling (a "LIVE" chip; not designed). *(Done.)*
+- Non-seekable media (some HTTP streams): clicks do nothing and the cursor shows "not allowed". *(Done.)*
 - Seeking in a file without an index (AVI without an idx1 chunk, broken MKV cues): seeks are slow or inaccurate, so keep the UI responsive and show the position the engine actually reached.
 - The hover preview for audio-only media shows artwork or just the time. For DRM or corrupt regions, show a grey frame.
-- The preview decoder is slow (a 4K HEVC file on a weak CPU): show the time immediately and the frame when it's ready, and drop stale requests.
-- Very long media (10 h+): pixel resolution limits precision, so use fine-scrub (hold Shift while dragging for 1/10 speed).
-- Very short media (< 1 s): the whole bar maps to a few frames, with no division by zero.
-- Dragging the handle outside the window: keep the drag captured and clamp.
+- The preview decoder is slow (a 4K HEVC file on a weak CPU): show the time immediately and the frame when it's ready, and drop stale requests. *(Done; a picture taking over 3 s is given up.)*
+- Very long media (10 h+): pixel resolution limits precision, so use fine-scrub (hold Shift while dragging for 1/10 speed). *(Done.)*
+- Very short media (< 1 s): the whole bar maps to a few frames, with no division by zero. *(Done.)*
+- Dragging the handle outside the window: keep the drag captured and clamp. *(Done; checked on macOS.)*
 - A touch screen or pen on Windows: taps and drags work like mouse input. Hover isn't available, so show the preview while dragging.
 
 ---

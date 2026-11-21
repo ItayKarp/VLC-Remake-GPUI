@@ -9,8 +9,9 @@
 //! **Key contexts (S0.5.2).** Each binding gets a context predicate from its
 //! command's [`Area`] and its key ([`predicate`]):
 //! - shortcuts with Ctrl, Alt, Cmd or an F-key work anywhere in their area;
-//! - Space, Enter, Escape and the arrows don't fire while a kit control has focus
-//!   ([`focus::CONTROL`]): a button presses on Space, a slider moves on arrows;
+//! - Space, Enter, Escape, the arrows, Home and End (with or without modifiers) don't
+//!   fire while a kit control has focus ([`focus::CONTROL`]): a button presses on
+//!   Space, a slider moves on arrows, a text field moves its caret on Alt+Left;
 //! - letters and symbols don't fire while a control takes typed text
 //!   ([`focus::TYPING`]: text inputs, menus and dropdowns with type-ahead);
 //! - nothing but global shortcuts fires while a modal is open.
@@ -119,10 +120,12 @@ pub fn predicate(area: Area, keystroke: &Keystroke) -> Option<String> {
     let modifiers = &keystroke.modifiers;
     let chord = modifiers.control || modifiers.alt || modifiers.platform || modifiers.function;
     let function_key = keystroke.key.len() > 1 && keystroke.key.starts_with('f');
-    let guard = if chord || function_key {
-        String::new()
-    } else if NAVIGATION_KEYS.contains(&keystroke.key.as_str()) {
+    // A control uses its navigation keys with modifiers too (Alt+Left moves a text caret by a
+    // word), so those never take a chord's pass.
+    let guard = if NAVIGATION_KEYS.contains(&keystroke.key.as_str()) {
         format!(" && !{}", focus::CONTROL)
+    } else if chord || function_key {
+        String::new()
     } else {
         format!(" && !{}", focus::TYPING)
     };

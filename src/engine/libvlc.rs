@@ -18,6 +18,7 @@ mod decoding;
 mod events;
 mod failure;
 mod prepare;
+pub mod preview;
 mod query;
 pub mod runtime;
 mod size_watch;

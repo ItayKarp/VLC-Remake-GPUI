@@ -138,7 +138,8 @@ impl MainWindow {
                     self.play(next, window, cx);
                 }
             }
-            PlayerEvent::StateChanged(_) => {
+            PlayerEvent::StateChanged(state) => {
+                self.reset_seek_bar(*state);
                 self.update_display_sleep(window, cx);
                 cx.notify();
             }

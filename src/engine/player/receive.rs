@@ -18,7 +18,10 @@ impl Player {
         }
         match tagged.event {
             BackendEvent::State(next) => self.transition(next, cx),
-            BackendEvent::Buffering(percent) => cx.emit(PlayerEvent::Buffering(percent)),
+            BackendEvent::Buffering(percent) => {
+                self.info.buffer_fill = percent;
+                cx.emit(PlayerEvent::Buffering(percent));
+            }
             BackendEvent::Position(time) => self.position_reported(time, cx),
             BackendEvent::Duration(duration) => self.duration_reported(duration, cx),
             BackendEvent::Seekable(seekable) => self.seekable_reported(seekable, cx),

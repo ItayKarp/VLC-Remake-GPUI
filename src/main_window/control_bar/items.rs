@@ -1,8 +1,8 @@
 //! Each control bar item drawn, and its entry in the overflow menu once it gives way.
 //!
-//! The readouts, the seek bar and the volume level show the player's state but can't be used
-//! yet: S2.3 (seeking), S2.4 (editing the time) and S2.5 (the wedge slider) make them
-//! interactive. The Settings and List buttons are disabled until their panels exist (S2.7,
+//! The seek bar is its own module (`seek_bar.rs`, S2.3). The readouts and the volume level show
+//! the player's state but can't be used yet: S2.4 (editing the time) and S2.5 (the wedge
+//! slider) make them interactive. The Settings and List buttons are disabled until their panels exist (S2.7,
 //! Stage 3): the light theme's faded gear means exactly that.
 
 use gpui::{
@@ -19,7 +19,7 @@ use crate::keymap;
 use crate::keymap::actions as act;
 use crate::keymap::menus;
 use crate::main_window::MainWindow;
-use crate::theme::{Palette, blend};
+use crate::theme::Palette;
 use crate::ui::button::IconButton;
 use crate::ui::menu::MenuItem;
 
@@ -27,9 +27,6 @@ use crate::ui::menu::MenuItem;
 const ICON: f32 = 20.;
 /// The readouts' text size.
 const TEXT_SIZE: f32 = 13.;
-/// The seek bar's height, and its handle's width.
-const SEEK_HEIGHT: f32 = 26.;
-const HANDLE_WIDTH: f32 = 8.;
 /// The volume level's height.
 const LEVEL_HEIGHT: f32 = 10.;
 
@@ -64,7 +61,7 @@ impl MainWindow {
                 let duration = player.and_then(|player| player.read(cx).duration());
                 readout(p, clock::format_or_unknown(duration))
             }
-            Item::SeekBar => seek_bar(p, player.as_ref().map_or(0., |player| progress(player, cx))),
+            Item::SeekBar => self.render_seek_bar(p, cx),
             _ => self.render_volume(p, cx),
         }
     }
@@ -164,14 +161,6 @@ fn mute_label(player: &Entity<Player>, cx: &App) -> &'static str {
     if player.read(cx).is_muted() { "Unmute" } else { "Mute" }
 }
 
-/// How far through the media the player is, 0 to 1; 0 while the length is unknown.
-fn progress(player: &Entity<Player>, cx: &App) -> f32 {
-    let player = player.read(cx);
-    player.duration().filter(|duration| !duration.is_zero()).map_or(0., |duration| {
-        (player.position().as_secs_f32() / duration.as_secs_f32()).clamp(0., 1.)
-    })
-}
-
 fn readout(p: &Palette, text: String) -> AnyElement {
     div()
         .flex_none()
@@ -182,27 +171,6 @@ fn readout(p: &Palette, text: String) -> AnyElement {
         .text_color(p.text_muted)
         .whitespace_nowrap()
         .child(text)
-        .into_any_element()
-}
-
-/// The seek bar (`controls-default.png`): a dark track, the played part in a dark accent, and
-/// the accent handle at the position.
-fn seek_bar(p: &Palette, progress: f32) -> AnyElement {
-    let track = p.sunken;
-    div()
-        .flex_1()
-        .min_w(px(super::layout::SEEK_MIN))
-        .h(px(SEEK_HEIGHT))
-        .rounded(px(4.))
-        .bg(track)
-        .border_1()
-        .border_color(p.divider)
-        .overflow_hidden()
-        .flex()
-        .flex_row()
-        .items_center()
-        .child(div().w(relative(progress)).h_full().bg(blend(p.accent, track, 0.23)))
-        .child(div().w(px(HANDLE_WIDTH)).h_full().rounded(px(2.)).bg(p.accent))
         .into_any_element()
 }
 

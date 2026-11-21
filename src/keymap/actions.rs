@@ -54,10 +54,26 @@ actions!(
         PlayPause,
         /// Stop playback.
         Stop,
-        /// Seek backward a few seconds.
+        /// Seek backward by the short skip (10 s).
         SeekBackward,
-        /// Seek forward a few seconds.
+        /// Seek forward by the short skip (10 s).
         SeekForward,
+        /// Seek backward by the very short skip (3 s).
+        SeekBackwardVeryShort,
+        /// Seek forward by the very short skip (3 s).
+        SeekForwardVeryShort,
+        /// Seek backward by the medium skip (1 min).
+        SeekBackwardMedium,
+        /// Seek forward by the medium skip (1 min).
+        SeekForwardMedium,
+        /// Seek backward by the long skip (5 min).
+        SeekBackwardLong,
+        /// Seek forward by the long skip (5 min).
+        SeekForwardLong,
+        /// Go to the start of the media.
+        SeekToStart,
+        /// Go to the end of the media.
+        SeekToEnd,
         /// Go to the previous item in the queue.
         PreviousItem,
         /// Go to the next item in the queue.

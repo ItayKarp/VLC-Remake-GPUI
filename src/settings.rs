@@ -29,8 +29,8 @@ pub use paths::{Locations, default_media_folder, display_path};
     reason = "part of the settings API; some types are named only by tests and later stages"
 )]
 pub use schema::{
-    AudioSettings, LocalState, PlayerSettings, Preferences, ResumePolicy, Settings, StartupVolume,
-    WindowGeometry, WindowMode,
+    AudioSettings, ControlsSettings, LocalState, PlayerSettings, Preferences, ResumePolicy,
+    Settings, SkipLength, StartupVolume, WindowGeometry, WindowMode,
 };
 pub use store::Notice;
 use store::SettingsState;

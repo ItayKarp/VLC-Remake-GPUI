@@ -15,6 +15,7 @@
 //!   them by the preferred [`language`]s (S1.6).
 //! - [`audio`]: output devices, speaker setup and hot-plug routing (S1.5).
 //! - [`video`]: the sink interface decoded pictures are delivered through (S1.4).
+//! - [`preview`]: seek-bar preview pictures from a second, muted decoder (S2.3.3).
 
 pub mod audio;
 pub mod backend;
@@ -26,6 +27,7 @@ pub mod mock;
 pub mod player;
 mod position;
 mod preflight;
+pub mod preview;
 pub mod shutdown;
 pub mod state;
 #[cfg(test)]

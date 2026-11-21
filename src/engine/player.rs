@@ -84,6 +84,8 @@ struct Controls {
 #[derive(Clone, Debug, Default)]
 struct Info {
     pausable: Option<bool>,
+    /// How full the input cache is, 0.0 to 100.0.
+    buffer_fill: f32,
     tracks: Tracks,
     video_size: Option<VideoSize>,
     chapters: Vec<Chapter>,
@@ -176,6 +178,11 @@ impl Player {
     /// Whether pausing works; `None` until the backend says.
     pub fn is_pausable(&self) -> Option<bool> {
         self.info.pausable
+    }
+
+    /// How full the input cache is, 0.0 to 100.0, as the backend last said; 0 until it does.
+    pub fn buffer_fill(&self) -> f32 {
+        self.info.buffer_fill
     }
 
     /// The playback speed.
