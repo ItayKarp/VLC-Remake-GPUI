@@ -133,11 +133,14 @@ fitted against three conversions; the number is the worst patch's error in 8-bit
 | (a) CPU, VideoToolbox decode | 32 | **2** | 20 |
 | (a) CPU, software decode | 32 | **2** | 20 |
 | (b) surface | 26 | 20 | **2** |
+| (b) surface, **after the GPUI fix** | **2** | 32 | 26 |
 
-- **Path (b)** shows black at 16–18 instead of 0, and 100% white at 235 instead of 255.
-  Saturated colours are off by up to 26 levels (75% green shows (40, 241, 23) instead of
-  (14, 223, 5)). This confirms GPUI's surface shader reads video-range BT.709 as full-range
-  BT.601.
+- **Path (b)** showed black at 16–18 instead of 0, and 100% white at 235 instead of 255.
+  Saturated colours were off by up to 26 levels (75% green showed (40, 241, 23) instead of
+  (14, 223, 5)). GPUI's surface shader read video-range BT.709 as full-range BT.601.
+  **Fixed** in our Zed fork (see limit 4). After the fix, HD bars are within 2 levels of
+  BT.709, and SD bars (`bars-601-sd.mp4`, 720×480) are within 2 levels of BT.601 (30 off
+  if read as BT.709).
 - **Path (a)** has the range right (black 0, white 255, greys exact), but libVLC 3's
   conversion to BGRA uses **BT.601 for HD video**, ignoring the BT.709 tag. Saturated colours
   are off by up to 32 levels; neutral tones are exact.
@@ -196,13 +199,16 @@ samples (S9.8.1).
    GPUI's `img` and `surface` cannot rotate either. Until a GPU path exists: when the track
    says 90° or 270°, open with software decoding (`--codec=avcodec --avcodec-hw=none`),
    which costs CPU (41–52% at 1080p30 here). → S1.4.1. libVLC 4 or path (d) removes this.
-4. **Colour is wrong for HD video on both paths** (measured above). Path (b): GPUI's surface
-   shader hard-codes full-range BT.601, so black is lifted to about 7% grey, white is capped
-   at 92%, and saturated colours are off by up to 26 levels. The fix is to pass matrix and
-   range into the shader (`kCVImageBufferYCbCrMatrixKey` on the buffer), a small GPUI patch
-   worth upstreaming. Path (a): libVLC 3 converts HD to BGRA with BT.601, so saturated colours
-   are off by up to 32 levels. The fix is to ask for NV12 and convert ourselves, or to accept
-   it as fallback-only quality. → S1.4.
+4. **Colour.** Path (b) is **fixed**. GPUI hard-coded a full-range BT.601 surface shader
+   and accepted only '420f' buffers. Our fork (`github.com/ItayKarp/zed`, branch
+   `gpui-surface-colour`, one commit on upstream 2f808b3c) accepts '420v' too and converts
+   with each buffer's `kCVImageBufferYCbCrMatrixKey` (BT.601, BT.709 or BT.2020). All GPUI
+   dependencies point at that commit. The spike now writes '420v' buffers tagged BT.709 for
+   pictures larger than 1024×576 and BT.601 otherwise, because libVLC 3 does not report a
+   track's matrix; S1.4 should read the real tag where the container has one. Offer the patch
+   upstream so the fork can go. Path (a) is still wrong for HD: libVLC 3 converts to BGRA with
+   BT.601, so saturated colours are off by up to 32 levels. The fix is to ask for NV12 and
+   convert ourselves, or to accept it as fallback-only quality. → S1.4.
 5. **HDR:** through `vmem`, libVLC converts 10-bit PQ or HLG to 8-bit NV12 or BGRA **without
    tone-mapping**, so HDR looks washed out on SDR displays. Real HDR needs a GPU path
    (libVLC 4 with libplacebo, or our own tone-mapping shader in a path (d) primitive).

@@ -75,6 +75,10 @@ make single-frame.png -f lavfi -i "$(card 1920x1080 1 1)" -frames:v 1
 make bars-709.mp4 -f lavfi -i "smptehdbars=size=1920x1080:rate=30:duration=10" \
   -c:v libx264 -preset veryfast -pix_fmt yuv420p -color_range tv -colorspace bt709 \
   -color_primaries bt709 -color_trc bt709
+# SD bars (BT.601), so both matrices are checked.
+make bars-601-sd.mp4 -f lavfi -i "smptebars=size=720x480:rate=30000/1001:duration=10" \
+  -c:v libx264 -preset veryfast -pix_fmt yuv420p -color_range tv -colorspace smpte170m \
+  -color_primaries smpte170m -color_trc smpte170m
 # A 1-pixel red frame on grey at an odd size: green or missing edge lines show.
 make edges-1919x1079.mkv -f lavfi -i "color=c=gray:size=1919x1079:rate=30:duration=10" \
   -vf "drawbox=x=0:y=0:w=iw:h=ih:color=red:t=1" -c:v ffv1 -pix_fmt yuv420p
