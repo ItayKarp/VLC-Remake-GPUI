@@ -123,27 +123,39 @@ pub fn acquire(launch: &Launch, inbox: &Inbox) -> Role {
     acquire_at(&paths, launch, inbox)
 }
 
+// Each outcome logs in its own function: with `tracing`'s `log` feature (on in Linux
+// builds) every macro adds enough branches to push one function past the complexity limit.
 fn acquire_at(paths: &InstancePaths, launch: &Launch, inbox: &Inbox) -> Role {
     match paths.try_lock() {
-        Ok(Some(lock)) => match server::listen(paths, lock, inbox) {
-            Ok(server) => Role::Primary(server),
-            Err(err) => {
-                tracing::warn!("instance: couldn't listen for other launches: {err}");
-                Role::Standalone
-            }
-        },
-        Ok(None) => match client::forward(paths, launch) {
-            Ok(()) => Role::Forwarded,
-            Err(err) => {
-                tracing::warn!("instance: the running instance didn't take the launch: {err}");
-                Role::NotResponding
-            }
-        },
+        Ok(Some(lock)) => serve(paths, lock, inbox),
+        Ok(None) => forward(paths, launch),
         Err(err) => {
             tracing::warn!("instance: couldn't use {}: {err}", paths.lock_file.display());
             Role::Standalone
         }
     }
+}
+
+/// Becomes the instance, listening for later launches.
+fn serve(paths: &InstancePaths, lock: std::fs::File, inbox: &Inbox) -> Role {
+    server::listen(paths, lock, inbox).map_or_else(
+        |err| {
+            tracing::warn!("instance: couldn't listen for other launches: {err}");
+            Role::Standalone
+        },
+        Role::Primary,
+    )
+}
+
+/// Hands this launch to the running instance.
+fn forward(paths: &InstancePaths, launch: &Launch) -> Role {
+    client::forward(paths, launch).map_or_else(
+        |err| {
+            tracing::warn!("instance: the running instance didn't take the launch: {err}");
+            Role::NotResponding
+        },
+        |()| Role::Forwarded,
+    )
 }
 
 #[cfg(test)]
