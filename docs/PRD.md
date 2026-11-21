@@ -476,23 +476,23 @@ flowchart LR
 **Depends on:** S1.2, S0.4  **Size:** M  **Design refs:** main menu (`docs/ui/player/menus/main_menu/menu.png`)
 
 **Subtasks**
-- [ ] S1.3.1 Open File(s) (Ctrl/Cmd+O) and Open Folder, through `cx.prompt_for_paths`.
-- [ ] S1.3.2 Drag and drop onto any window (`on_drop` with `ExternalPaths`), with a drop-target highlight while dragging.
-- [ ] S1.3.3 Paste a path or URL (Ctrl/Cmd+V) in the player or library to open it.
-- [ ] S1.3.4 Playlist files (`.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue`, `.asx`) expand into the queue (S3) instead of being played as media.
-- [ ] S1.3.5 A recent media list (Media → Recent), with a configurable count, "Clear recent", and the privacy toggle (Stage 7).
-- [ ] S1.3.6 Probe by content, not extension: files with no or wrong extensions still open, and extensions are matched case-insensitively (`.MKV`).
+- [x] S1.3.1 Open File(s) (Ctrl/Cmd+O) and Open Folder, through `cx.prompt_for_paths`. *(`main_window/opening.rs`. Every way of opening ends in `MainWindow::open`, which resolves the items off the UI thread (`opening::resolve`) and shows "Opening …" with Cancel meanwhile. Folders are scanned 8 levels deep, up to 10,000 files, in natural order, skipping hidden and system files and following a symlinked folder once (`opening/scan.rs`). Until Stage 2 and 3, the main window plays the opened list straight through with the S1.2 `Player`, and a status line says what is playing or why it couldn't.)*
+- [x] S1.3.2 Drag and drop onto any window (`on_drop` with `ExternalPaths`), with a drop-target highlight while dragging. *(The window root takes the drop, so it works over menus, toasts and in fullscreen; `ui::drop_target` draws an accent frame over the whole window. Drops onto onboarding are queued and open after the hand-off (D4), with no message yet. Not tried by hand yet.)*
+- [x] S1.3.3 Paste a path or URL (Ctrl/Cmd+V) in the player or library to open it. *(`OpenFromClipboard`, bound in the main window; a text input's own paste wins inside it. Copied files, and text with one absolute path, `~/` path or URL per line (`opening/paste.rs`). Not in the macOS menu bar, where Cmd+V would take paste from text fields.)*
+- [x] S1.3.4 Playlist files (`.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue`, `.asx`) expand into the queue (S3) instead of being played as media. *(`opening/playlist/`: nested local playlists expand up to 8 deep, cycles once; a local HLS `.m3u8` plays as a stream; network playlists are left to libVLC. UTF-8, UTF-16 and Latin-1 files, and Windows paths read on macOS/Linux. A CUE sheet opens each audio file, not each track: items have no start and end time until Stage 3. Expands into the main window's list until the queue exists.)*
+- [x] S1.3.5 A recent media list (Media → Recent), with a configurable count, "Clear recent", and the privacy toggle (Stage 7). *(`opening/recent.rs`: what the user opened (a file, folder, playlist or URL) in `local.toml`'s `recent_media`, newest first, at most `privacy.recent_media_count` (default 10). Shown in the `…` menu's Open Recent with Clear Recent; nothing is kept or shown while `privacy.save_recently_played` is off. Its settings rows come with S5.5. Not in the macOS menu bar yet: GPUI menu items need a data-carrying action for that.)*
+- [x] S1.3.6 Probe by content, not extension: files with no or wrong extensions still open, and extensions are matched case-insensitively (`.MKV`). *(`opening/kind.rs`, `opening/sniff.rs`: a known media, playlist or subtitle extension is trusted, so large folders aren't read file by file; any other file is identified by its first 4 KB (containers, MPEG audio and transport streams, playlists, SRT/VTT/ASS). Picked files nothing recognizes still go to libVLC when nothing else was picked, since it probes far more formats.)*
 
 **Edge cases**
-- Dropping video and subtitle files together (`movie.mkv` + `movie.srt`): open the video and attach the subtitle. Dropping only a subtitle file while something is playing adds a subtitle track (S5). Dropping only a subtitle with nothing playing shows "Open a video first".
+- Dropping video and subtitle files together (`movie.mkv` + `movie.srt`): open the video and attach the subtitle. Dropping only a subtitle file while something is playing adds a subtitle track (S5). Dropping only a subtitle with nothing playing shows "Open a video first". *(Done: `Player::add_subtitle`, libVLC `add_slave`.)*
 - Dropping a folder with thousands of files, or nested folders: scan asynchronously, cancellably, with a depth limit, and skip hidden and system files by default.
-- Dropping non-media files (exe, pdf, txt) mixed with media: ignore them and show "3 files skipped".
+- Dropping non-media files (exe, pdf, txt) mixed with media: ignore them and show "3 files skipped". *(Done.)*
 - Dropping onto the onboarding window: ignore or queue (see the S0.2.6 decision).
 - Dropping during fullscreen, while a modal is open, or onto a popover: define which element is the drop target.
 - Dragging a URL or link from a browser: GPUI's `ExternalPaths` carries file paths only, so handle text or URL drag payloads if the platform layer supports them, and fall back to paste.
-- Shortcuts (`.lnk`), aliases and symlinks resolve to their targets, and broken ones show an error.
+- Shortcuts (`.lnk`), aliases and symlinks resolve to their targets, and broken ones show an error. *(Open: symlinks resolve and broken ones fail with "doesn't exist"; `.lnk` files and macOS aliases aren't resolved yet, as in S0.6.)*
 - A file on a slow or sleeping network drive: the dialog returns but opening takes seconds, so show "Opening…" right away and let the user cancel.
-- macOS sandbox or iCloud "Optimize Storage" placeholders (files not downloaded yet), and OneDrive Files On-Demand on Windows: opening triggers a download, so show progress or "Downloading from iCloud".
+- macOS sandbox or iCloud "Optimize Storage" placeholders (files not downloaded yet), and OneDrive Files On-Demand on Windows: opening triggers a download, so show progress or "Downloading from iCloud". *(Open: such files show the generic "Opening …" with Cancel, no download progress.)*
 - Mount points that need permission on macOS (Downloads, Desktop and Documents ask for TCC consent the first time): handle a denial gracefully.
 
 ---

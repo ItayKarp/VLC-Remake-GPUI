@@ -6,6 +6,7 @@
 //! thread. That is what keeps commands out of libVLC's event callbacks, where calling back into
 //! libVLC deadlocks.
 
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use futures::channel::mpsc;
@@ -104,6 +105,8 @@ pub enum Command {
     SetAudioDelay(Offset),
     /// Set the subtitle delay.
     SetSubtitleDelay(Offset),
+    /// Add a subtitle file to the open media and show it.
+    AddSubtitle(PathBuf),
 }
 
 /// A playback backend.
@@ -141,6 +144,9 @@ pub trait Backend: Send {
     fn set_audio_delay(&mut self, delay: Offset);
     /// Delays subtitles against video (negative shows them earlier).
     fn set_subtitle_delay(&mut self, delay: Offset);
+    /// Adds the subtitle file at `path` to the open media and shows it. Its track appears in a
+    /// later [`BackendEvent::Tracks`].
+    fn add_subtitle(&mut self, path: &Path);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

@@ -22,6 +22,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-video",
  "os_info",
+ "quick-xml",
  "resvg 0.45.1",
  "serde",
  "toml 1.2.2+spec-1.1.0",

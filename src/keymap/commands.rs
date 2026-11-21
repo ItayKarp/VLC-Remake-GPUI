@@ -94,6 +94,8 @@ const fn keys(keys: &'static [&'static str]) -> Keys {
 pub const COMMANDS: &[Command] = &[
     cmd("Open File(s)", AppArea, keys(&["secondary-o"]), &act::OpenFile),
     cmd("Open Folder", AppArea, keys(&["secondary-shift-o"]), &act::OpenFolder),
+    // A text input's own paste binding is deeper in the key context, so it wins there.
+    cmd("Open from Clipboard", AppArea, keys(&["secondary-v"]), &act::OpenFromClipboard),
     cmd("Open Network Stream", AppArea, keys(&["secondary-n"]), &act::OpenNetworkStream),
     cmd("Open Disc", AppArea, keys(&["secondary-d"]), &act::OpenDisc),
     cmd("Open Capture Device", AppArea, keys(&["secondary-shift-c"]), &act::OpenCaptureDevice),

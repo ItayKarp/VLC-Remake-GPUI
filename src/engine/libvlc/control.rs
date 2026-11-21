@@ -1,6 +1,7 @@
 //! Carries out the player's commands with libVLC calls, on the worker thread.
 
-use std::ffi::c_int;
+use std::ffi::{CString, c_int};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -16,6 +17,8 @@ const FALLBACK_FPS: f32 = 25.0;
 const NO_TRACK: c_int = -1;
 /// libVLC's volume for 100%.
 const FULL_VOLUME: f32 = 100.0;
+/// `libvlc_media_slave_type_subtitle`.
+const SLAVE_SUBTITLE: c_int = 0;
 
 impl Worker {
     /// Runs one command.
@@ -50,6 +53,7 @@ impl Worker {
                     self.subtitle_delay = delay;
                     self.apply_delays();
                 }
+                Command::AddSubtitle(path) => self.add_subtitle(&path),
             }
         }
     }
@@ -115,6 +119,32 @@ impl Worker {
         // SAFETY: the player is live.
         if unsafe { select(self.handles.player, id) } != 0 {
             tracing::warn!("libvlc: couldn't select {kind:?} track {id}");
+        }
+        self.refresh(Refresh::Tracks);
+    }
+}
+
+impl Worker {
+    /// Adds a subtitle file as a slave of the open media and selects it. libVLC takes a URI.
+    fn add_subtitle(&mut self, path: &Path) {
+        let uri =
+            url::Url::from_file_path(path).ok().and_then(|uri| CString::new(uri.as_str()).ok());
+        let Some(uri) = uri else {
+            tracing::warn!("libvlc: can't make a subtitle URI from {}", crate::logging::path(path));
+            return;
+        };
+        let api = &self.vlc.api;
+        // SAFETY: the player is live and `uri` is NUL-terminated for the call.
+        let added = unsafe {
+            (api.libvlc_media_player_add_slave)(
+                self.handles.player,
+                SLAVE_SUBTITLE,
+                uri.as_ptr(),
+                true,
+            )
+        };
+        if added != 0 {
+            tracing::warn!("libvlc: couldn't add the subtitle: {}", self.vlc.last_error());
         }
         self.refresh(Refresh::Tracks);
     }

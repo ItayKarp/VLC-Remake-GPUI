@@ -6,6 +6,7 @@
 //! and seeking to the end ends playback. A [`MockHandle`] lets a test read the commands and
 //! inject any event, including late events from an old open.
 
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
@@ -204,6 +205,10 @@ impl Backend for MockBackend {
 
     fn set_subtitle_delay(&mut self, delay: Offset) {
         self.record(Command::SetSubtitleDelay(delay));
+    }
+
+    fn add_subtitle(&mut self, path: &Path) {
+        self.record(Command::AddSubtitle(path.to_path_buf()));
     }
 
     fn shut_down(self: Box<Self>) {

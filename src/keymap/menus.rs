@@ -18,7 +18,12 @@ pub enum MainMenuEntry {
         /// The icon path.
         icon: &'static str,
     },
-    /// A submenu whose contents aren't designed yet (Open Recent, Profile).
+    /// Open Recent (S1.3.5): the recent media list and Clear Recent.
+    Recent {
+        /// The icon path.
+        icon: &'static str,
+    },
+    /// A submenu whose contents aren't designed yet (Profile).
     Submenu {
         /// The text shown.
         label: &'static str,
@@ -40,7 +45,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenDisc, icons::DISC),
     command(&act::OpenCaptureDevice, icons::CAPTURE_DEVICE),
     command(&act::Convert, icons::CONVERT),
-    MainMenuEntry::Submenu { label: "Open Recent", icon: icons::RECENT },
+    MainMenuEntry::Recent { icon: icons::RECENT },
     MainMenuEntry::Submenu { label: "Profile", icon: icons::PROFILE },
     command(&act::ShowKeyboardShortcuts, icons::HOTKEYS),
     command(&act::CustomizePlayer, icons::PAINT),

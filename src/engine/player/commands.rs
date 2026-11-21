@@ -1,5 +1,6 @@
 //! The commands the UI gives the [`Player`].
 
+use std::path::Path;
 use std::time::Instant;
 
 use gpui::Context;
@@ -152,6 +153,17 @@ impl Player {
         self.controls.subtitle_delay = delay;
         self.with_backend(|backend| backend.set_subtitle_delay(delay));
         cx.notify();
+    }
+
+    /// Adds the subtitle file at `path` to the open media and shows it (a dropped `.srt`).
+    /// Returns `false`, and does nothing, when no media is open to add it to.
+    pub fn add_subtitle(&mut self, path: &Path, cx: &mut Context<Self>) -> bool {
+        if !self.state.is_active() {
+            return false;
+        }
+        self.with_backend(|backend| backend.add_subtitle(path));
+        cx.notify();
+        true
     }
 
     /// The seek the backend should do for `target`, given what is known about the media.

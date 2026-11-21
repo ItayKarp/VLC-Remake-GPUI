@@ -33,6 +33,8 @@ futures = "0.3"
 # The engine loads libVLC at run time (S1.2, ADR 0001), so builds don't need it installed.
 libloading = "0.8"
 url = "2"
+# Reading XSPF and ASX playlists (S1.3.4).
+quick-xml = "0.41"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "registry", "std", "tracing-log"] }
 

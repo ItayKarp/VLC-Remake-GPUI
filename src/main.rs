@@ -10,6 +10,7 @@ mod keymap;
 mod logging;
 mod main_window;
 mod onboarding;
+mod opening;
 #[cfg(test)]
 mod screenshot_test;
 mod settings;

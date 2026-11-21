@@ -16,6 +16,8 @@ actions!(
         OpenFile,
         /// Choose a folder to open.
         OpenFolder,
+        /// Open the file paths or URLs on the clipboard.
+        OpenFromClipboard,
         /// Open a network stream by URL.
         OpenNetworkStream,
         /// Open a DVD, Blu-ray or audio CD.

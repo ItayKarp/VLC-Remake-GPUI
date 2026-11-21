@@ -92,8 +92,9 @@ fn open(request: OpenRequest, cx: &mut App) {
     cx.activate(true);
 }
 
-/// Keeps `request` until onboarding hands off to the main window.
-fn queue(request: OpenRequest, cx: &mut App) {
+/// Keeps `request` until onboarding hands off to the main window: launches and files
+/// dropped onto onboarding (S1.3.2) wait there.
+pub fn queue(request: OpenRequest, cx: &mut App) {
     if request.is_empty() {
         return;
     }

@@ -20,6 +20,7 @@ mod tests;
 mod worker;
 
 use std::ffi::CString;
+use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::thread::{self, JoinHandle};
@@ -142,6 +143,10 @@ impl Backend for LibVlcBackend {
 
     fn set_subtitle_delay(&mut self, delay: Offset) {
         self.send(Command::SetSubtitleDelay(delay));
+    }
+
+    fn add_subtitle(&mut self, path: &Path) {
+        self.send(Command::AddSubtitle(path.to_path_buf()));
     }
 
     fn shut_down(mut self: Box<Self>) {

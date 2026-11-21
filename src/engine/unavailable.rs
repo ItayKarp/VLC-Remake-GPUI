@@ -1,6 +1,8 @@
 //! The backend used when libVLC can't be loaded: every open fails with
 //! [`ErrorKind::BackendUnavailable`], so the app still starts and can say why nothing plays.
 
+use std::path::Path;
+
 use super::backend::{Backend, BackendEvent, EventSender};
 use super::media_info::{TrackId, TrackKind};
 use super::state::{ErrorKind, PlaybackState};
@@ -46,6 +48,8 @@ impl Backend for UnavailableBackend {
     fn set_audio_delay(&mut self, _: Offset) {}
 
     fn set_subtitle_delay(&mut self, _: Offset) {}
+
+    fn add_subtitle(&mut self, _: &Path) {}
 
     fn shut_down(self: Box<Self>) {}
 }

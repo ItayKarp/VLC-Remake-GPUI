@@ -67,7 +67,7 @@ impl Media {
 
 /// Whether `text` starts with `scheme://`. A scheme is at least two characters, so
 /// `C://video.mkv`-style drive paths are never mistaken for URLs.
-fn has_url_scheme(text: &str) -> bool {
+pub(crate) fn has_url_scheme(text: &str) -> bool {
     let Some((scheme, _)) = text.split_once("://") else {
         return false;
     };

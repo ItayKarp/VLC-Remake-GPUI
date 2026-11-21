@@ -174,6 +174,7 @@ libvlc_api! {
     libvlc_video_set_spu: fn(Player, c_int) -> c_int;
     libvlc_video_get_spu_description: fn(Player) -> *mut TrackDescription;
     libvlc_video_set_spu_delay: fn(Player, i64) -> c_int;
+    libvlc_media_player_add_slave: fn(Player, c_int, *const c_char, bool) -> c_int;
     libvlc_track_description_list_release: fn(*mut TrackDescription);
 }
 

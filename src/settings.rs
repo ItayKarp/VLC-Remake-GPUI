@@ -15,7 +15,7 @@ mod paths;
 mod schema;
 mod storage;
 mod store;
-mod stored_path;
+pub mod stored_path;
 #[cfg(test)]
 mod tests;
 

@@ -6,26 +6,29 @@ mod diagnostics;
 mod empty_state;
 mod main_menu;
 mod notice;
+mod now_playing;
+mod opening;
 mod player_keys;
 mod title_bar;
 
 use gpui::{
-    Context, DismissEvent, Entity, ExternalPaths, FocusHandle, PathPromptOptions, SharedString,
-    Subscription, Window, div, prelude::*, px,
+    Context, DismissEvent, Entity, FocusHandle, SharedString, Subscription, Window, div,
+    prelude::*, px,
 };
 
 use crate::app;
 use crate::app::media::Media;
-use crate::app::request::{OpenRequest, Placement};
-use crate::keymap::actions::{CopyDebugInfo, OpenFile};
+use crate::app::request::OpenRequest;
+use crate::engine::player::Player;
+use crate::keymap::actions::{CopyDebugInfo, OpenFile, OpenFolder, OpenFromClipboard};
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
 use crate::settings;
 use crate::theme;
 use crate::ui::focus;
-use crate::ui::menu::ContextMenu;
 use crate::ui::popover::BoundsTracker;
 use crate::ui::toast::{Toast, Toasts};
+use crate::ui::{drop_target, menu::ContextMenu};
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -34,9 +37,16 @@ const APP_TITLE: &str = "VLC Media Player";
 
 /// The main window's view: what's been opened, settings notices, and the `…` menu.
 pub struct MainWindow {
-    /// Files and URLs the app was launched with, opened or dropped. Played once the
-    /// engine exists (Stage 1); the queue (Stage 3) takes over from this list.
+    /// What was opened, in play order; the queue (Stage 3) takes over from this list.
     files: Vec<Media>,
+    /// The index in `files` of what the player has.
+    current: Option<usize>,
+    /// Opens still resolving (scanning folders, expanding playlists).
+    jobs: Vec<opening::Job>,
+    /// The id the next job gets.
+    next_job: u64,
+    /// The engine, once something was opened, and its event subscription.
+    player: Option<(Entity<Player>, Subscription)>,
     /// Settings notices (corrupt file recovered, changes not saved, …).
     notices: Vec<SharedString>,
     focus_handle: FocusHandle,
@@ -70,6 +80,10 @@ impl MainWindow {
             .collect();
         let mut this = Self {
             files: Vec::new(),
+            current: None,
+            jobs: Vec::new(),
+            next_job: 0,
+            player: None,
             notices,
             focus_handle: cx.focus_handle(),
             open_button,
@@ -88,55 +102,12 @@ impl MainWindow {
         self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
     }
 
-    /// Opens what a launch asked for (S0.6.2): replaces or extends the list, and
-    /// switches to fullscreen if asked.
-    pub fn open(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
-        if request.placement == Placement::Replace && !request.items.is_empty() {
-            self.files.clear();
-        }
-        self.add_files(request.items, window, cx);
-        if request.fullscreen && !window.is_fullscreen() {
-            window.toggle_fullscreen();
-        }
-    }
-
-    fn add_files(&mut self, files: Vec<Media>, window: &mut Window, cx: &mut Context<Self>) {
-        app::recent::add(&files, cx);
-        self.files.extend(files);
-        window.set_window_title(&self.title());
-        cx.notify();
-    }
-
+    /// The title bar's text: what's playing, or the app's name.
     fn title(&self) -> String {
-        match self.files.last() {
+        match self.current.and_then(|index| self.files.get(index)) {
             Some(file) => file.display_name(),
             None => APP_TITLE.to_owned(),
         }
-    }
-
-    /// Asks for files to open, and adds them once the user picks some.
-    fn prompt_for_files(window: &mut Window, cx: &mut Context<Self>) {
-        let paths = cx.prompt_for_paths(PathPromptOptions {
-            files: true,
-            directories: false,
-            multiple: true,
-            prompt: Some("Open".into()),
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            let Ok(Ok(Some(paths))) = paths.await else {
-                return;
-            };
-            this.update_in(cx, |this, window, cx| {
-                this.add_files(paths.into_iter().map(Media::from).collect(), window, cx);
-            })
-            .ok();
-        })
-        .detach();
-        cx.notify();
-    }
-
-    fn on_drop(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
-        self.add_files(paths.paths().iter().cloned().map(Media::from).collect(), window, cx);
     }
 
     fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -144,7 +115,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
-        let items = main_menu::items(window, cx);
+        let items = main_menu::items(&cx.entity().downgrade(), window, cx);
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
             this.menu = None;
@@ -167,6 +138,15 @@ impl Render for MainWindow {
             .on_action(cx.listener(|_, _: &OpenFile, window, cx| {
                 Self::prompt_for_files(window, cx);
             }))
+            .on_action(cx.listener(|_, _: &OpenFolder, window, cx| {
+                Self::prompt_for_folder(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &OpenFromClipboard, window, cx| {
+                this.paste(window, cx);
+            }))
+            // Drops land anywhere in the window, over menus and toasts too (S1.3.2).
+            .group(drop_target::GROUP)
+            .on_drop(cx.listener(Self::on_drop))
             .on_action(cx.listener(|this, _: &CopyDebugInfo, window, cx| {
                 this.copy_debug_info(window, cx);
             }))
@@ -183,11 +163,11 @@ impl Render for MainWindow {
                     .right_0()
                     .bottom_0()
                     .overflow_y_scroll()
-                    .on_drop(cx.listener(Self::on_drop))
                     .child(self.render_empty_state(&p, cx)),
             )
             .child(self.render_title_bar(&p, window, cx))
             .child(self.toasts.clone())
             .children(self.render_menu())
+            .child(drop_target::highlight(&p))
     }
 }

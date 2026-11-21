@@ -77,6 +77,10 @@ pub struct LocalState {
     /// Where each window was last placed.
     #[serde(deserialize_with = "lenient")]
     pub window: WindowState,
+    /// Media opened recently, newest first (S1.3.5): URLs as written, local paths encoded
+    /// like [`stored_path`] does. Read and written through `opening::recent`.
+    #[serde(deserialize_with = "lenient")]
+    pub recent_media: Vec<String>,
 }
 
 macro_rules! empty_sections {
@@ -123,11 +127,21 @@ pub struct PrivacySettings {
     /// (S0.7.1). The home directory is always replaced by `~`.
     #[serde(deserialize_with = "lenient")]
     pub redact_file_names_in_logs: bool,
+    /// How many items Open Recent keeps (S1.3.5); `0` keeps none.
+    #[serde(deserialize_with = "lenient")]
+    pub recent_media_count: u32,
 }
+
+/// How many items Open Recent keeps by default.
+pub const DEFAULT_RECENT_MEDIA_COUNT: u32 = 10;
 
 impl Default for PrivacySettings {
     fn default() -> Self {
-        PrivacySettings { save_recently_played: true, redact_file_names_in_logs: false }
+        PrivacySettings {
+            save_recently_played: true,
+            redact_file_names_in_logs: false,
+            recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
+        }
     }
 }
 
