@@ -56,10 +56,12 @@ const ARGUMENTS: [&str; 1] = ["--no-video-title-show"];
 /// Added without a video sink: decode and discard video.
 const NO_VIDEO_ARGUMENT: &str = "--vout=vdummy";
 
+/// The libVLC library once something asked for it, or why it couldn't be loaded.
+static LIBRARY: OnceLock<Result<Arc<LibVlc>, String>> = OnceLock::new();
+
 /// The libVLC library, loaded once per process. A failure is kept as text so every caller
 /// gets the same answer without retrying.
 fn library() -> Result<Arc<LibVlc>> {
-    static LIBRARY: OnceLock<Result<Arc<LibVlc>, String>> = OnceLock::new();
     LIBRARY
         .get_or_init(|| {
             let runtime = Runtime::located();
@@ -72,6 +74,17 @@ fn library() -> Result<Arc<LibVlc>> {
         })
         .clone()
         .map_err(|error| anyhow!(error))
+}
+
+/// The libVLC version string (`3.0.23 Vetinari`), loading the library if nothing has yet, or
+/// `None` when it can't be loaded.
+pub fn version() -> Option<String> {
+    library().ok().map(|vlc| vlc.version())
+}
+
+/// The libVLC version string if the library is already loaded; never loads it (crash reports).
+pub fn loaded_version() -> Option<String> {
+    LIBRARY.get()?.as_ref().ok().map(|vlc| vlc.version())
 }
 
 /// A [`Backend`] playing through libVLC 3.

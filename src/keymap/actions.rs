@@ -1,7 +1,18 @@
 //! One GPUI action per user command (S0.5.1). What each one does, its label and its
 //! default keys live in [`super::commands`].
 
-use gpui::actions;
+use gpui::{Action, actions};
+
+/// A command chosen from the macOS menu bar that has a plain-key shortcut (Space, S, F, …).
+/// The bar can't list those commands directly: GPUI would give the item the key as its key
+/// equivalent, and macOS fires key equivalents even while a text field has focus. This action
+/// has no keys, so the item has none.
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = player, no_json, no_register)]
+pub struct FromMenuBar {
+    /// The command's label in [`super::commands::COMMANDS`].
+    pub command: &'static str,
+}
 
 actions!(
     vlc,
@@ -116,5 +127,7 @@ actions!(
         Snapshot,
         /// Start or stop recording.
         Record,
+        /// Open the video's right-click menu from the keyboard, at the video.
+        ShowContextMenu,
     ]
 );

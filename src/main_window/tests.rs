@@ -5,6 +5,7 @@ use gpui::{TestAppContext, VisualTestContext};
 use super::MainWindow;
 use crate::app::request::OpenRequest;
 use crate::keymap;
+use crate::ui::menu::MenuItem;
 
 fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
     cx.update(|cx| {
@@ -18,6 +19,10 @@ fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
     main.update_in(cx, |main, window, cx| main.focus_handle.focus(window, cx));
     cx.run_until_parked();
     cx
+}
+
+fn main_view(cx: &mut VisualTestContext) -> gpui::Entity<MainWindow> {
+    cx.update(|window, _| window.root::<MainWindow>().flatten().expect("the main window's view"))
 }
 
 fn is_fullscreen(cx: &mut VisualTestContext) -> bool {
@@ -59,4 +64,36 @@ fn a_held_escape_leaves_fullscreen_once(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("escape escape escape");
     cx.run_until_parked();
     assert!(!is_fullscreen(cx));
+}
+
+#[gpui::test]
+fn the_main_menu_leaves_out_commands_that_havent_shipped(cx: &mut TestAppContext) {
+    let cx = open(cx);
+    let main = main_view(cx);
+    let labels: Vec<String> = main.update_in(cx, |_, window, cx| {
+        let items = super::main_menu::items(&cx.entity().downgrade(), window, cx);
+        items
+            .iter()
+            .filter_map(|item| match item {
+                MenuItem::Action { label, .. } | MenuItem::Submenu { label, .. } => {
+                    Some(label.to_string())
+                }
+                _ => None,
+            })
+            .collect()
+    });
+    for shown in ["Open File(s)", "Open Folder", "Open Recent", "About VLC"] {
+        assert!(labels.iter().any(|label| label == shown), "{shown} missing: {labels:?}");
+    }
+    for hidden in ["Convert", "Open Disc", "Open Capture Device", "Customize Player", "Settings"] {
+        assert!(!labels.iter().any(|label| label == hidden), "{hidden} shown: {labels:?}");
+    }
+}
+
+#[gpui::test]
+fn shift_f1_opens_about(cx: &mut TestAppContext) {
+    let cx = open(cx);
+    tap(cx, "shift-f1");
+    let main = main_view(cx);
+    assert!(main.read_with(cx, |main, cx| main.modals.read(cx).is_open()));
 }

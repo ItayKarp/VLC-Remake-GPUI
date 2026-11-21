@@ -1,7 +1,7 @@
 //! Context menus (S0.4.7): `library/menus/*` and the title bar's `…` menu.
 //!
 //! Items: actions with an optional icon and shortcut hint, check items, radio
-//! groups, submenus, separators and disabled items. Up/Down/Home/End move the
+//! groups, submenus, separators and disabled items, which say why on hover. Up/Down/Home/End move the
 //! highlight (skipping separators and disabled items, wrapping), Enter/Space
 //! activate, Right opens a submenu and Left/Escape close it, and typing a letter
 //! jumps to the next item starting with it. The menu closes on activation,

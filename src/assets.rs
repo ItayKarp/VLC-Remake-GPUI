@@ -107,9 +107,17 @@ icons! {
     CAPTURE_DEVICE => "capture-device.svg",
     CONVERT => "convert.svg",
     RECENT => "recent.svg",
+    #[allow(dead_code, reason = "the main menu's Profile submenu arrives with profiles (S8.8)")]
     PROFILE => "profile.svg",
     HOTKEYS => "hotkeys.svg",
     PAINT => "paint.svg",
+    // The video's right-click menu (S2.9.2).
+    STOP => "stop.svg",
+    PLAYBACK => "playback.svg",
+    /// Hide UI (not in the icon set): the video's frame struck through, as the menu design
+    /// draws it.
+    HIDE_UI => "hide-ui.svg",
+    QUIT => "quit.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

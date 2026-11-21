@@ -19,6 +19,8 @@ pub enum MenuItem {
         shortcut: Option<SharedString>,
         /// Greyed out and skipped by the keyboard.
         disabled: bool,
+        /// Why it is disabled, shown on hover.
+        reason: Option<SharedString>,
         /// Runs after the menu closes.
         on_select: Activate,
     },
@@ -31,6 +33,8 @@ pub enum MenuItem {
         checked: bool,
         /// Greyed out and skipped by the keyboard.
         disabled: bool,
+        /// Why it is disabled, shown on hover.
+        reason: Option<SharedString>,
         /// Runs after the menu closes.
         on_select: Activate,
     },
@@ -42,6 +46,8 @@ pub enum MenuItem {
         icon: Option<&'static str>,
         /// The nested menu's items; an empty submenu is disabled.
         items: Vec<MenuItem>,
+        /// Why it is disabled (empty), shown on hover.
+        reason: Option<SharedString>,
     },
     /// A thin line between groups.
     Separator,
@@ -58,6 +64,7 @@ impl MenuItem {
             icon: None,
             shortcut: None,
             disabled: false,
+            reason: None,
             on_select: Rc::new(on_select),
         }
     }
@@ -72,6 +79,7 @@ impl MenuItem {
             label: label.into(),
             checked,
             disabled: false,
+            reason: None,
             on_select: Rc::new(on_select),
         }
     }
@@ -86,13 +94,14 @@ impl MenuItem {
             label: label.into(),
             checked: selected,
             disabled: false,
+            reason: None,
             on_select: Rc::new(on_select),
         }
     }
 
     /// An item that opens `items` in a nested menu.
     pub fn submenu(label: impl Into<SharedString>, items: Vec<MenuItem>) -> Self {
-        MenuItem::Submenu { label: label.into(), icon: None, items }
+        MenuItem::Submenu { label: label.into(), icon: None, items, reason: None }
     }
 
     /// Adds an icon to an action or submenu; other items ignore it.
@@ -106,10 +115,46 @@ impl MenuItem {
 
     /// Adds a shortcut hint to an action; other items ignore it.
     pub fn shortcut(mut self, hint: impl Into<SharedString>) -> Self {
-        if let MenuItem::Action { shortcut, .. } = &mut self {
-            *shortcut = Some(hint.into());
+        self.set_shortcut(Some(hint.into()));
+        self
+    }
+
+    /// Adds a shortcut hint to an action when there is one (a command may have no keys).
+    pub fn maybe_shortcut(mut self, hint: Option<SharedString>) -> Self {
+        self.set_shortcut(hint);
+        self
+    }
+
+    fn set_shortcut(&mut self, hint: Option<SharedString>) {
+        if let MenuItem::Action { shortcut, .. } = self {
+            *shortcut = hint;
+        }
+    }
+
+    /// Says why the item is disabled, on hover ("No media playing"). It shows only while the
+    /// item is disabled, or for a submenu, while it is empty.
+    pub fn why_disabled(mut self, why: impl Into<SharedString>) -> Self {
+        match &mut self {
+            MenuItem::Action { reason, .. }
+            | MenuItem::Check { reason, .. }
+            | MenuItem::Submenu { reason, .. } => *reason = Some(why.into()),
+            MenuItem::Separator => {}
         }
         self
+    }
+
+    /// What hovering the item says: why it is disabled, while it is.
+    pub(super) fn disabled_reason(&self) -> Option<&SharedString> {
+        match self {
+            MenuItem::Action { reason, .. }
+            | MenuItem::Check { reason, .. }
+            | MenuItem::Submenu { reason, .. }
+                if !self.selectable() =>
+            {
+                reason.as_ref()
+            }
+            _ => None,
+        }
     }
 
     /// Disables an action or check item; other items ignore it.
@@ -145,5 +190,33 @@ impl MenuItem {
     /// Whether the item opens a nested menu.
     pub(super) fn is_submenu(&self) -> bool {
         matches!(self, MenuItem::Submenu { .. })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MenuItem;
+
+    fn reason(item: &MenuItem) -> Option<&str> {
+        item.disabled_reason().map(AsRef::as_ref)
+    }
+
+    #[test]
+    fn the_reason_shows_only_while_disabled() {
+        let enabled = MenuItem::action("Stop", |_, _| {}).why_disabled("No media playing");
+        assert_eq!(reason(&enabled), None);
+        let disabled = enabled.disabled(true);
+        assert_eq!(reason(&disabled), Some("No media playing"));
+        let check = MenuItem::check("Mute", false, |_, _| {}).disabled(true).why_disabled("No");
+        assert_eq!(reason(&check), Some("No"));
+    }
+
+    #[test]
+    fn an_empty_submenu_says_why() {
+        let empty = MenuItem::submenu("Open Recent", Vec::new()).why_disabled("Nothing recent");
+        assert_eq!(reason(&empty), Some("Nothing recent"));
+        let full = MenuItem::submenu("Open Recent", vec![MenuItem::action("a.mkv", |_, _| {})])
+            .why_disabled("Nothing recent");
+        assert_eq!(reason(&full), None);
     }
 }

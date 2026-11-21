@@ -102,7 +102,11 @@ impl MainWindow {
     }
 
     /// Turns the current time into a field holding it, selected.
-    fn start_time_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(in crate::main_window) fn start_time_edit(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let position = self.loaded_player(cx).map(|player| player.read(cx).position());
         let text = clock::format(position.unwrap_or_default());
         let input = cx.new(|cx| {

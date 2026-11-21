@@ -3,8 +3,9 @@
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
 //! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N),
 //! seeking (S2.3.4: the arrows with their modifiers, Home and End), the speed (S2.7.3: `[`,
-//! `]` and `=`), and showing or hiding the interface (S2.8: I and Ctrl+\) work; any other
-//! admitted command is only logged until S2.10.3 gives it its effect.
+//! `]` and `=`), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
+//! (S2.9: Shift+F10 and the context-menu key) work; any other admitted command is only logged
+//! until S2.10.3 gives it its effect.
 
 use std::time::Instant;
 
@@ -69,6 +70,7 @@ impl MainWindow {
                 ToggleFileBrowser,
                 Snapshot,
                 Record,
+                ShowContextMenu,
             ]
         )
     }
@@ -148,4 +150,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::NormalSpeed, |this, window, cx| this.change_speed(SpeedChange::Normal, window, cx)),
     (&act::ShowControls, MainWindow::summon_controls),
     (&act::HideInterface, MainWindow::toggle_hide_ui),
+    (&act::ShowContextMenu, MainWindow::show_context_menu),
+    // Its key has a handler of its own (`fullscreen.rs`); this one serves the menus.
+    (&act::ToggleFullscreen, |_, window, _| window.toggle_fullscreen()),
 ];

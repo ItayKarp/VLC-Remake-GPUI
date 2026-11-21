@@ -44,6 +44,7 @@ use backend::{Backend, EventSender};
 use video::VideoSink;
 
 pub use libvlc::runtime::prepare_environment;
+pub use libvlc::{loaded_version as loaded_libvlc_version, version as libvlc_version};
 
 /// The backend to play with, sending pictures to `video` and set up with `audio`: libVLC, or,
 /// when it can't be loaded, one that fails every open with a clear error. Pass it to

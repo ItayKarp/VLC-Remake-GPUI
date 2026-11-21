@@ -199,7 +199,10 @@ impl MainWindow {
     }
 
     /// Asks for subtitle files to add to the playing media.
-    fn prompt_for_subtitles(window: &mut Window, cx: &mut Context<Self>) {
+    pub(in crate::main_window) fn prompt_for_subtitles(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,

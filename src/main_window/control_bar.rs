@@ -66,6 +66,11 @@ impl ControlBar {
     pub(super) fn is_overflow_open(&self) -> bool {
         self.overflow.is_some()
     }
+
+    /// Whether the current time is being typed (S2.4.1), which keeps the bar up.
+    pub(super) fn is_editing_time(&self) -> bool {
+        self.time_edit.is_some()
+    }
 }
 
 impl MainWindow {

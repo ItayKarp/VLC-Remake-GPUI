@@ -1,8 +1,10 @@
 //! The main window shell (S0.3.4): the player-style title bar, the control bar (S2.2), and an
 //! empty state that opens or accepts dropped files, replaced by the video while media plays
-//! (S1.4). The bars hide by themselves, in Hide UI mode and in fullscreen (S2.8). Onboarding hands off to it (S0.2); the player (Stage 2) and the library
-//! (Stage 4) fill the content area later.
+//! (S1.4). The bars hide by themselves, in Hide UI mode and in fullscreen (S2.8). The `…` menu
+//! and the video's right-click menu hold the commands, and About VLC opens over it (S2.9).
+//! Onboarding hands off to it (S0.2); the library (Stage 4) fills the content area later.
 
+mod about;
 mod audio;
 mod auto_hide;
 mod bar_panel;
@@ -29,6 +31,7 @@ mod title_bar;
 mod track_popover;
 mod tracks;
 mod transport;
+mod video_menu;
 mod viewport;
 mod volume_slider;
 
@@ -49,6 +52,7 @@ use crate::power::DisplaySleep;
 use crate::settings;
 use crate::theme;
 use crate::ui::focus;
+use crate::ui::modal::ModalLayer;
 use crate::ui::popover::BoundsTracker;
 use crate::ui::toast::{Toast, Toasts};
 use crate::ui::{drop_target, menu::ContextMenu};
@@ -107,19 +111,15 @@ pub struct MainWindow {
     os_title: String,
     /// When the bars hide, Hide UI mode and the video's right-click menu (S2.8).
     auto_hide: auto_hide::AutoHide,
+    /// Dialogs over the window (About VLC, S2.9.6).
+    modals: Entity<ModalLayer>,
 }
 
 impl MainWindow {
     /// Builds the window's view, opening `request` and showing any pending settings
     /// notices.
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        theme::observe(window, cx);
-        Self::redraw_on_changes(window, cx);
-        app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
-        Self::release_keys_on_blur(window, cx);
-        Self::close_popovers_on_deactivate(window, cx);
-        crate::diagnostics::system::remember_gpu(window);
-
+        Self::follow_window(window, cx);
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
         open_button.focus(window, cx);
 
@@ -150,11 +150,22 @@ impl MainWindow {
             settings_panel: settings_panel::SettingsPanel::new(window, cx),
             os_title: String::new(),
             auto_hide: auto_hide::AutoHide::default(),
+            modals: cx.new(|_| ModalLayer::new()),
         };
         this.set_up_history(cx);
         this.open(request, window, cx);
         this.show_pending_crash(cx);
         this
+    }
+
+    /// Follows the window: the theme, redraws, its geometry, focus and the GPU it renders with.
+    fn follow_window(window: &mut Window, cx: &mut Context<Self>) {
+        theme::observe(window, cx);
+        Self::redraw_on_changes(window, cx);
+        app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
+        Self::release_keys_on_blur(window, cx);
+        Self::close_popovers_on_deactivate(window, cx);
+        crate::diagnostics::system::remember_gpu(window);
     }
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when
@@ -242,7 +253,8 @@ impl Render for MainWindow {
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
 
-        Self::history_actions(Self::player_keys(focus::tab_navigation(div()), cx), cx)
+        let root = Self::player_keys(focus::tab_navigation(div()), cx);
+        Self::menu_actions(Self::history_actions(root, cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))
@@ -277,6 +289,7 @@ impl Render for MainWindow {
             .children(self.render_menu())
             .children(self.render_overflow_menu())
             .children(self.render_video_menu())
+            .child(self.modals.clone())
             .child(drop_target::highlight(&p))
     }
 }

@@ -137,6 +137,8 @@ pub const COMMANDS: &[Command] = &[
     cmd("Cycle subtitle track", Player, keys(&["v"]), &act::CycleSubtitleTrack),
     cmd("Take a snapshot", Player, keys(&["shift-s"]), &act::Snapshot),
     cmd("Record", Player, keys(&["shift-r"]), &act::Record),
+    // The context-menu key ("menu") exists on Windows and Linux keyboards.
+    cmd("Show context menu", Player, keys(&["shift-f10", "menu"]), &act::ShowContextMenu),
     cmd("Keyboard Shortcuts", AppArea, NONE, &act::ShowKeyboardShortcuts),
     cmd("Customize Player", AppArea, NONE, &act::CustomizePlayer),
     cmd(
@@ -164,4 +166,9 @@ pub const COMMANDS: &[Command] = &[
 /// The command that dispatches `action`, if it is one of ours.
 pub fn find(action: &dyn Action) -> Option<&'static Command> {
     COMMANDS.iter().find(|command| command.action.partial_eq(action))
+}
+
+/// The command labelled `label`.
+pub fn by_label(label: &str) -> Option<&'static Command> {
+    COMMANDS.iter().find(|command| command.label == label)
 }

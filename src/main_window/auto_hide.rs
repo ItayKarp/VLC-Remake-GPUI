@@ -22,11 +22,12 @@ use gpui::{
 
 use self::rules::{Chrome, IdleTimer, PointerAnchor, Prefs, Situation, Tick};
 use super::control_bar::CONTROL_BAR_HEIGHT;
-use super::hide_ui::VideoMenu;
+use super::video_menu::VideoMenu;
 use super::{MainWindow, TITLE_BAR_HEIGHT};
 use crate::cursor;
 use crate::engine::state::PlaybackState;
 use crate::settings;
+use crate::ui::popover::BoundsTracker;
 
 /// The auto-hide state of the main window.
 #[derive(Default)]
@@ -39,6 +40,8 @@ pub struct AutoHide {
     pub(super) hide_ui: bool,
     /// The video's right-click menu, while it's open.
     pub(super) video_menu: Option<VideoMenu>,
+    /// The video's bounds, where the menu opens from the keyboard (S2.9).
+    pub(super) video_area: BoundsTracker,
     /// The I key asked for the controls; they show until the pointer next rests.
     summoned: bool,
     seen: Seen,
@@ -250,6 +253,7 @@ impl MainWindow {
             || self.control_bar.is_overflow_open()
             || self.track_popover.is_open()
             || self.settings_panel.is_open()
+            || self.control_bar.is_editing_time()
     }
 
     /// Keyboard focus is on one of the window's controls (Tab reached it), not the player.
