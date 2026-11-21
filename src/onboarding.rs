@@ -12,13 +12,15 @@ use std::path::PathBuf;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent,
-    PathPromptOptions, SharedString, Window, div, prelude::*, px, relative, svg,
+    PathPromptOptions, SharedString, Window, accesskit, div, prelude::*, px, relative, svg,
 };
 
 use crate::app;
 use crate::assets::icons;
 use crate::settings::{self, Settings};
 use crate::theme::{self, Accent, Palette, Theme, ThemeMode, blend};
+use crate::ui::button::{Button, ButtonStyle};
+use crate::ui::focus::{self, Axis, Layout};
 use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
 
 /// Window size: the design's 1088×760 content area plus our title strip.
@@ -225,7 +227,12 @@ impl Onboarding {
         cx.notify();
     }
 
+    /// Window-wide keys. They act only when no control has focus, so Enter on a
+    /// focused button clicks that button, and arrows in a group move inside it.
     fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.focus_handle.is_focused(window) {
+            return;
+        }
         match event.keystroke.key.as_str() {
             "enter" if self.finish != FinishState::Saving => self.go_next(window, cx),
             "escape" | "backspace" if self.step != Step::Welcome => self.go_back(cx),
@@ -247,7 +254,7 @@ impl Render for Onboarding {
             Step::Shortcuts => self.render_shortcuts(&palette, cx),
         };
 
-        div()
+        focus::tab_navigation(div())
             .id("onboarding")
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(Self::on_key_down))
@@ -359,9 +366,9 @@ impl Onboarding {
                                     .child(div().truncate().child(folder)),
                             )
                             .child(
-                                button("browse", "Browse", p.button, p.button_hover, p.text_muted)
-                                    .w(px(114.))
-                                    .font_weight(FontWeight::NORMAL)
+                                Button::new("browse", "Browse")
+                                    .style(ButtonStyle::Filled)
+                                    .width(114.)
                                     .on_click(
                                         cx.listener(|this, _: &ClickEvent, _, cx| this.browse(cx)),
                                     ),
@@ -371,7 +378,7 @@ impl Onboarding {
             .child(
                 bottom_bar()
                     .justify_end()
-                    .child(self.nav_buttons(p, false, "Next", cx)),
+                    .child(self.nav_buttons(false, "Next", cx)),
             )
             .into_any_element()
     }
@@ -379,7 +386,6 @@ impl Onboarding {
     /// Back / Next (or Finish) buttons in the bottom-right corner.
     fn nav_buttons(
         &self,
-        p: &Palette,
         show_back: bool,
         next_label: &'static str,
         cx: &mut Context<Self>,
@@ -390,46 +396,46 @@ impl Onboarding {
             .gap(px(8.))
             .when(show_back, |this| {
                 this.child(
-                    button("back", "Back", p.button, p.button_hover, p.text_muted)
-                        .w(px(100.))
+                    Button::new("back", "Back")
+                        .style(ButtonStyle::Filled)
+                        .width(100.)
                         .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.go_back(cx))),
                 )
             })
             .child(
-                button(
-                    "next",
-                    next_label,
-                    p.accent,
-                    p.accent.opacity(0.85),
-                    p.on_accent,
-                )
-                .w(px(100.))
-                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.go_next(window, cx))),
+                Button::new("next", next_label)
+                    .primary()
+                    .width(100.)
+                    .disabled(self.finish == FinishState::Saving)
+                    .on_click(
+                        cx.listener(|this, _: &ClickEvent, window, cx| this.go_next(window, cx)),
+                    ),
             )
     }
 }
 
-fn button(
-    id: &'static str,
-    label: &'static str,
-    bg: Hsla,
-    hover_bg: Hsla,
-    fg: Hsla,
-) -> gpui::Stateful<gpui::Div> {
-    div()
+/// A row of choices that is a single tab stop with a focus ring; arrow keys move
+/// the choice (theme tiles, accent swatches).
+fn radio_group(id: &'static str, label: &'static str, p: &Palette) -> gpui::Stateful<gpui::Div> {
+    let group = div()
         .id(id)
-        .h(px(32.))
         .flex()
+        .flex_row()
         .items_center()
-        .justify_center()
-        .rounded(px(4.))
-        .bg(bg)
-        .hover(move |style| style.bg(hover_bg))
-        .cursor_pointer()
-        .text_size(px(16.))
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_color(fg)
-        .child(label)
+        .p(px(4.))
+        .rounded(px(12.))
+        .border_2()
+        .border_color(gpui::transparent_black())
+        .tab_index(0)
+        .role(accesskit::Role::RadioGroup)
+        .aria_label(label);
+    focus::ring(group, p)
+}
+
+/// The choice an arrow key moves to in a radio group of `len`, wrapping.
+fn radio_step(event: &KeyDownEvent, current: Option<usize>, len: usize) -> Option<usize> {
+    let movement = focus::group_key(event, Axis::Horizontal)?;
+    focus::step(current, len, movement, Layout::WRAPPING, |_| true)
 }
 
 /// Row pinned to the bottom of the content area, aligned with the nav buttons.
@@ -471,10 +477,10 @@ impl Onboarding {
             )
             .child(
                 bottom_bar()
-                    .left(px(43.))
+                    .left(px(43. - 6.))
                     .justify_between()
                     .child(self.render_swatches(p, cx))
-                    .child(self.nav_buttons(p, true, "Next", cx)),
+                    .child(self.nav_buttons(true, "Next", cx)),
             )
             .into_any_element()
     }
@@ -532,11 +538,19 @@ impl Onboarding {
                             .child("Select your preferred theme and color."),
                     )
                     .child(
-                        div()
-                            .mt(px(66.))
-                            .flex()
-                            .flex_row()
+                        // One tab stop; the arrow keys pick a theme (S0.4.14).
+                        radio_group("theme-tiles", "Theme", p)
+                            .mt(px(66. - 6.))
                             .gap(px(34.))
+                            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                                let current = ThemeMode::ALL.iter().position(|m| *m == this.theme);
+                                if let Some(next) = radio_step(event, current, ThemeMode::ALL.len())
+                                {
+                                    this.theme = ThemeMode::ALL[next];
+                                    cx.stop_propagation();
+                                    cx.notify();
+                                }
+                            }))
                             .children(ThemeMode::ALL.map(|mode| self.theme_tile(mode, p, cx))),
                     ),
             )
@@ -685,10 +699,15 @@ impl Onboarding {
     }
 
     fn render_swatches(&self, p: &Palette, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
+        radio_group("accent-swatches", "Accent color", p)
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                let current = Accent::ALL.iter().position(|a| *a == this.accent);
+                if let Some(next) = radio_step(event, current, Accent::ALL.len()) {
+                    this.accent = Accent::ALL[next];
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+            }))
             .gap(px(80. - SWATCH_SIZE - 2. * (SWATCH_GAP + SWATCH_RING)))
             .children(Accent::ALL.map(|accent| {
                 let selected = self.accent == accent;
@@ -841,7 +860,6 @@ impl Onboarding {
                             .child("Find the full list in the menu."),
                     )
                     .child(self.nav_buttons(
-                        p,
                         true,
                         if self.finish == FinishState::Saving {
                             "Saving…"
@@ -909,37 +927,25 @@ impl Onboarding {
                     .flex_row()
                     .gap(px(8.))
                     .child(
-                        button("back", "Back", p.button, p.button_hover, p.text_muted)
-                            .w(px(100.))
+                        Button::new("back", "Back")
+                            .style(ButtonStyle::Filled)
+                            .width(100.)
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.go_back(cx))),
                     )
                     .child(
-                        button(
-                            "continue-without-saving",
-                            "Continue without saving",
-                            p.button,
-                            p.button_hover,
-                            p.text_muted,
-                        )
-                        .px(px(16.))
-                        .on_click(cx.listener(
-                            |this, _: &ClickEvent, window, cx| {
+                        Button::new("continue-without-saving", "Continue without saving")
+                            .style(ButtonStyle::Filled)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                 this.continue_without_saving(window, cx)
-                            },
-                        )),
+                            })),
                     )
                     .child(
-                        button(
-                            "retry",
-                            "Retry",
-                            p.accent,
-                            p.accent.opacity(0.85),
-                            p.on_accent,
-                        )
-                        .w(px(100.))
-                        .on_click(
-                            cx.listener(|this, _: &ClickEvent, window, cx| this.finish(window, cx)),
-                        ),
+                        Button::new("retry", "Retry")
+                            .primary()
+                            .width(100.)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.finish(window, cx)
+                            })),
                     ),
             )
     }

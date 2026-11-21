@@ -299,30 +299,30 @@ flowchart LR
 **Depends on:** S0.3  **Size:** L  **Design refs:** `docs/ui/shared/components/*`, `docs/ui/settings/components/*`, `docs/ui/library/menus/*`, `docs/icons/*`
 
 **Subtasks**
-- [ ] S0.4.1 Button: default and variant2 states (default, hover, pressed, focused, disabled). Move the onboarding `button()` helper into the kit.
-- [ ] S0.4.2 Icon button with a tooltip (shows the shortcut, for example "Play (Space)").
-- [ ] S0.4.3 Dropdown/select: closed and open states, keyboard navigation, scrolls when there are many items, type-to-select.
-- [ ] S0.4.4 Toggle: the designed square-knob pill with "ON"/"OFF" text (`shared/components/toggle-*`; ON is orange on brown), plus a checkbox.
-- [ ] S0.4.4a Option rows (default, hover, selected with an orange ✓) used by dropdowns and menus; segmented "values" controls with 2 and 3 options (Relative | Pixels, Dark | Light | System); and the stacked choice with an inline field ("Remember last volume" / "Always starts at: 200%").
-- [ ] S0.4.4b Tabs with icon + label and an orange underline (the in-player panels).
-- [ ] S0.4.4c Translucent surfaces: popovers, panels, menus and tooltips are about 95% opaque in the designs. Decide whether that means real backdrop blur (Windows Mica/Acrylic, macOS vibrancy via `set_background_appearance`) or flat colors.
-- [ ] S0.4.5 Slider: horizontal and vertical (EQ bands), with a centered-zero variant (balance, EQ gain), drag, click to jump, arrow keys (Shift for bigger steps), double-click to reset to default, value tooltip while dragging, and an optional editable numeric field.
-- [ ] S0.4.6 Popover anchored to a trigger button that flips when it would leave the window. Used by the control bar popovers.
-- [ ] S0.4.7 Context menu: separators, submenus, checkmarks and radio groups, disabled items, shortcut hints, keyboard navigation, closes on outside click, Escape or window blur. Evaluate `WindowKind::AnchoredPopup` for native menus that can extend past the window edge.
-- [ ] S0.4.8 Modal dialog: focus trap, Escape closes, Enter triggers the default button, scrim, sized to fit within the window.
-- [ ] S0.4.9 Text input: caret, selection, clipboard, IME composition, undo, placeholder, validation states. Single-line first; multi-line only if a design needs it.
-- [ ] S0.4.10 Collapsible section (the collapsed and expanded panel headers used in the audio and video panels).
-- [ ] S0.4.11 Virtualized list and grid (`uniform_list` or a custom grid) for libraries with 10k+ items.
-- [ ] S0.4.12 Toast/notification area and inline error banner.
-- [ ] S0.4.13 Icon pipeline: copy the icons each stage needs from `docs/icons/**` into `assets/icons/` with short names, register them in `assets.rs`, and add a test that every `icons::*` constant resolves. GPUI's `svg()` paints a single-color mask, so the `two_tone=yes` icons need either two layered SVGs (base and accent) or rasterizing. Pick one approach and document it.
-- [ ] S0.4.14 Keyboard focus model: visible focus ring, Tab/Shift+Tab order, and arrow-key navigation inside groups (theme tiles, swatches, menus, grids).
+- [x] S0.4.1 Button: default and variant2 states (default, hover, pressed, focused, disabled). Move the onboarding `button()` helper into the kit. *(`ui::Button`: `button-default` is the `Subtle` style, `button-variant2` the `Filled` style, plus `Primary` (accent) and `Ghost`. Onboarding uses it; its `button()` helper is gone. See C.2.)*
+- [x] S0.4.2 Icon button with a tooltip (shows the shortcut, for example "Play (Space)"). *(`ui::IconButton` and `ui::tooltip`: the tooltip shows the label and the shortcut, and the accessible name reads "Play (Space)".)*
+- [x] S0.4.3 Dropdown/select: closed and open states, keyboard navigation, scrolls when there are many items, type-to-select. *(`ui::Dropdown`: opens below, or above when there is no room; Up/Down/Home/End/PageUp/PageDown, Enter/Space, Escape, Tab; type-to-select with repeated letters cycling; scrolls past 8 rows.)*
+- [x] S0.4.4 Toggle: the designed square-knob pill with "ON"/"OFF" text (`shared/components/toggle-*`; ON is orange on brown), plus a checkbox. *(`ui::Toggle`, `ui::Checkbox`.)*
+- [x] S0.4.4a Option rows (default, hover, selected with an orange ✓) used by dropdowns and menus; segmented "values" controls with 2 and 3 options (Relative | Pixels, Dark | Light | System); and the stacked choice with an inline field ("Remember last volume" / "Always starts at: 200%"). *(`ui::OptionRow`, `ui::Segmented`, `ui::StackedChoice`. The values controls are radio groups: one tab stop, arrows move the choice.)*
+- [x] S0.4.4b Tabs with icon + label and an orange underline (the in-player panels). *(`ui::Tabs`; Left/Right switch tabs.)*
+- [x] S0.4.4c Translucent surfaces: popovers, panels, menus and tooltips are about 95% opaque in the designs. Decide whether that means real backdrop blur (Windows Mica/Acrylic, macOS vibrancy via `set_background_appearance`) or flat colors. *(Decided: flat colors, no OS blur. GPUI can only blur the whole window background, and Mica/vibrancy behind a video would show the desktop, not the video. Panels keep the designs' 95%; menus, dropdowns and popovers are opaque because text underneath showed through. See C.2.)*
+- [x] S0.4.5 Slider: horizontal and vertical (EQ bands), with a centered-zero variant (balance, EQ gain), drag, click to jump, arrow keys (Shift for bigger steps), double-click to reset to default, value tooltip while dragging, and an optional editable numeric field. *(`ui::Slider` with `SliderModel` (clamps, snaps, ignores NaN/infinity) and a `Throttle` for held keys; Home/End/PageUp/PageDown too. The numeric field accepts units and a decimal comma.)*
+- [x] S0.4.6 Popover anchored to a trigger button that flips when it would leave the window. Used by the control bar popovers. *(`ui::popover`: attached to the trigger's bounds from the previous frame, so it follows the trigger when the window resizes or changes monitor; flips, shifts inside the window, and scrolls when it still doesn't fit.)*
+- [x] S0.4.7 Context menu: separators, submenus, checkmarks and radio groups, disabled items, shortcut hints, keyboard navigation, closes on outside click, Escape or window blur. Evaluate `WindowKind::AnchoredPopup` for native menus that can extend past the window edge. *(`ui::ContextMenu`; Left/Escape close only a submenu; type-ahead. `WindowKind::AnchoredPopup` was evaluated and not used: it's a separate OS window that takes focus from the main one and isn't positioned on Wayland. Revisit if a menu must be larger than the window.)*
+- [x] S0.4.8 Modal dialog: focus trap, Escape closes, Enter triggers the default button, scrim, sized to fit within the window. *(`ui::ModalLayer` and `ui::modal::Dialog`: nested dialogs, Escape closes the top one, focus returns to where it was.)*
+- [x] S0.4.9 Text input: caret, selection, clipboard, IME composition, undo, placeholder, validation states. Single-line first; multi-line only if a design needs it. *(`ui::TextInput` with the editing rules in `EditState`: grapheme and word movement, undo/redo that groups typing, max length, error state. IME goes through GPUI's platform input handler; it hasn't been tried with a real IME yet.)*
+- [x] S0.4.10 Collapsible section (the collapsed and expanded panel headers used in the audio and video panels). *(`ui::Collapsible`.)*
+- [x] S0.4.11 Virtualized list and grid (`uniform_list` or a custom grid) for libraries with 10k+ items. *(`ui::list::VirtualList`: a list or a grid of fixed-width items on `uniform_list`, with keyboard selection by row and column.)*
+- [x] S0.4.12 Toast/notification area and inline error banner. *(`ui::Toasts` (info and success dismiss themselves; errors stay) and `ui::banner`. The main window shows settings notices as banners.)*
+- [x] S0.4.13 Icon pipeline: copy the icons each stage needs from `docs/icons/**` into `assets/icons/` with short names, register them in `assets.rs`, and add a test that every `icons::*` constant resolves. GPUI's `svg()` paints a single-color mask, so the `two_tone=yes` icons need either two layered SVGs (base and accent) or rasterizing. Pick one approach and document it. *(Two layered SVGs: `<name>.svg` and `<name>.accent.svg`, drawn by `ui::icon::two_tone` with the accent at runtime. Documented in `assets.rs`; tests check every constant resolves and both layers share a viewBox.)*
+- [x] S0.4.14 Keyboard focus model: visible focus ring, Tab/Shift+Tab order, and arrow-key navigation inside groups (theme tiles, swatches, menus, grids). *(`ui::focus`: Tab/Shift+Tab on every window, a focus ring for keyboard focus only, and arrow keys inside groups. Onboarding's theme tiles and swatches are keyboard groups now, and its Enter/Back keys only act when no control has focus. Headless tests in `ui/tests.rs` cover menus, dialogs, dropdowns, sliders, inputs and Tab order. A component gallery (`--component-gallery`) shows every piece.)*
 
 **Edge cases**
 - Popovers and menus near any window edge flip or shift to stay visible. If they still don't fit (a tiny window), they scroll.
 - The window resizes or moves to another monitor while a popover is open: reposition it or close it.
 - Nested modals: Escape closes only the top one.
 - Long labels truncate with an ellipsis and show the full text on hover.
-- Right-to-left text (Hebrew and Arabic file names) must shape and truncate correctly. Mixed-direction titles need the Unicode bidi algorithm.
+- Right-to-left text (Hebrew and Arabic file names) must shape and truncate correctly. Mixed-direction titles need the Unicode bidi algorithm. *(Open: GPUI shapes RTL runs, and `TextInput` edits by grapheme, but mixed-direction lines aren't reordered and RTL truncation is untested.)*
 - Very long words with no spaces (URLs, hashes) must wrap or truncate, never overflow.
 - A slider receiving a value outside its range from settings or the engine clamps for display. NaN or infinite values coming from the engine never reach the UI.
 - Holding a key on a slider auto-repeats without flooding the engine (throttle updates).
@@ -2212,6 +2212,8 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | Shortcuts | onboarding versus menus versus dialog | D3 |
 | Duplicates | `interface_02`, `subtitles_02`, `video_02`, `add_subtitles_…_04`, `controls-variant10` are byte-identical to their siblings | the scrolled or alternate states are missing |
 | Light theme | `player/screens/light` has a gray title bar and rail (#ABABAA) and a #C2C2C1 panel; onboarding's light preview uses #E6E6E6 and #F3F3F3 | confirm which light palette the player uses; S0.3.2 took the player design's values for `sidebar` and `panel` only |
+| `shared/components/button-variant2` | the same button on `#191919` instead of `#090909` | read as a second style (`Filled`), not a hover state; confirm |
+| Menus, dropdowns, popovers | about 95% opaque | the kit draws them opaque, since text underneath showed through; panels over video keep 95%. Confirm |
 
 ---
 

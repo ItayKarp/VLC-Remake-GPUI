@@ -5,14 +5,19 @@
 use std::path::PathBuf;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, ExternalPaths, FocusHandle, FontWeight, KeyDownEvent,
-    MouseButton, PathPromptOptions, SharedString, Window, div, prelude::*, px, svg,
+    AnyElement, ClickEvent, Context, DismissEvent, Entity, ExternalPaths, FocusHandle,
+    PathPromptOptions, SharedString, Subscription, Window, div, prelude::*, px, svg,
 };
 
 use crate::app::{self, MAIN_WINDOW_CONTEXT, OpenFile};
 use crate::assets::icons;
 use crate::settings::{self, Notice};
 use crate::theme::{self, Palette};
+use crate::ui::button::{Button, IconButton};
+use crate::ui::focus;
+use crate::ui::menu::{ContextMenu, MenuItem};
+use crate::ui::popover::{self, BoundsTracker, Side};
+use crate::ui::toast::{Level, banner};
 use crate::window_chrome::{self, Caption, TRAFFIC_LIGHTS_WIDTH};
 
 /// The player title bar's height in the designs (`player/screens/*`).
@@ -32,8 +37,9 @@ pub struct MainWindow {
     notices: Vec<SharedString>,
     focus_handle: FocusHandle,
     open_button: FocusHandle,
-    /// The `…` menu is showing.
-    menu_open: bool,
+    /// The `…` menu, while it's open.
+    menu: Option<(Entity<ContextMenu>, Subscription)>,
+    menu_button: BoundsTracker,
 }
 
 impl MainWindow {
@@ -56,7 +62,8 @@ impl MainWindow {
             notices,
             focus_handle: cx.focus_handle(),
             open_button,
-            menu_open: false,
+            menu: None,
+            menu_button: BoundsTracker::new(),
         };
         let mut this = this;
         this.add_files(files, window);
@@ -76,7 +83,6 @@ impl MainWindow {
     }
 
     fn open_file(&mut self, _: &OpenFile, window: &mut Window, cx: &mut Context<Self>) {
-        self.menu_open = false;
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
@@ -101,23 +107,38 @@ impl MainWindow {
         cx.notify();
     }
 
-    fn toggle_menu(&mut self, cx: &mut Context<Self>) {
-        self.menu_open = !self.menu_open;
+    fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.take().is_some() {
+            cx.notify();
+            return;
+        }
+        let this = cx.entity().downgrade();
+        let display = window.display(cx).map(|d| d.id());
+        let items = vec![
+            MenuItem::action("Open file…", move |window, cx| {
+                this.update(cx, |this, cx| this.open_file(&OpenFile, window, cx))
+                    .ok();
+            })
+            .shortcut(open_hint()),
+            MenuItem::action("Run setup again", move |_, cx| {
+                cx.defer(move |cx| app::run_setup_again(display, cx))
+            }),
+        ];
+        let menu = ContextMenu::build(items, window, cx);
+        let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
+            this.menu = None;
+            cx.notify();
+        });
+        self.menu = Some((menu, subscription));
         cx.notify();
     }
+}
 
-    fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let keystroke = &event.keystroke;
-        match keystroke.key.as_str() {
-            "escape" if self.menu_open => {
-                self.menu_open = false;
-                cx.notify();
-            }
-            "tab" if keystroke.modifiers.shift => window.focus_prev(cx),
-            "tab" => window.focus_next(cx),
-            _ => return,
-        }
-        cx.stop_propagation();
+fn open_hint() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "⌘O"
+    } else {
+        "Ctrl+O"
     }
 }
 
@@ -156,12 +177,11 @@ impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
 
-        div()
+        focus::tab_navigation(div())
             .id("main-window")
             .key_context(MAIN_WINDOW_CONTEXT)
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::open_file))
-            .on_key_down(cx.listener(Self::on_key_down))
             .relative()
             .size_full()
             .bg(p.background)
@@ -179,7 +199,7 @@ impl Render for MainWindow {
                     .child(self.render_empty_state(&p, cx)),
             )
             .child(self.render_title_bar(&p, window, cx))
-            .when(self.menu_open, |root| root.child(self.render_menu(&p, cx)))
+            .children(self.render_menu())
     }
 }
 
@@ -216,8 +236,15 @@ impl MainWindow {
                     ),
             )
             .child(
-                bar_button("menu", icons::MORE, self.menu_open, p)
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_menu(cx))),
+                div().relative().child(self.menu_button.element()).child(
+                    IconButton::new("menu", icons::MORE, "Menu")
+                        .size(BAR_BUTTON, 18.)
+                        .selected(self.menu.is_some())
+                        .in_title_bar()
+                        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                            this.toggle_menu(window, cx)
+                        })),
+                ),
             )
             .when_some(folder, |left, folder| {
                 left.child(div().mx(px(6.)).w(px(1.)).h(px(16.)).bg(p.divider))
@@ -275,83 +302,16 @@ impl MainWindow {
             .into_any_element()
     }
 
-    fn render_menu(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
-        let left = if cfg!(target_os = "macos") {
-            TRAFFIC_LIGHTS_WIDTH
-        } else {
-            BAR_PAD
-        } + BAR_BUTTON
-            + 4.;
-        let item = |id: &'static str, label: &'static str, hint: Option<&'static str>| {
-            div()
-                .id(id)
-                .h(px(32.))
-                .px(px(12.))
-                .mx(px(4.))
-                .flex()
-                .flex_row()
-                .items_center()
-                .justify_between()
-                .gap(px(24.))
-                .rounded(px(4.))
-                .cursor_pointer()
-                .hover(|style| style.bg(p.hover))
-                .text_size(px(14.))
-                .text_color(p.text)
-                .child(label)
-                .when_some(hint, |item, hint| {
-                    item.child(div().text_color(p.text_muted).child(hint))
-                })
-        };
-        let open_hint = if cfg!(target_os = "macos") {
-            "⌘O"
-        } else {
-            "Ctrl+O"
-        };
-
-        div()
-            .id("main-menu")
-            .absolute()
-            .top(px(TITLE_BAR_HEIGHT - 4.))
-            .left(px(left))
-            .min_w(px(220.))
-            .py(px(4.))
-            .rounded(px(8.))
-            .bg(p.menu)
-            .border_1()
-            .border_color(p.divider)
-            .shadow_lg()
-            .occlude()
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                this.menu_open = false;
-                cx.notify();
-            }))
-            .child(
-                item("menu-open-file", "Open file…", Some(open_hint)).on_click(cx.listener(
-                    |this, _: &ClickEvent, window, cx| this.open_file(&OpenFile, window, cx),
-                )),
-            )
-            .child(
-                item("menu-run-setup", "Run setup again", None).on_click(cx.listener(
-                    |this, _: &ClickEvent, window, cx| {
-                        this.menu_open = false;
-                        let display = window.display(cx).map(|d| d.id());
-                        cx.defer(move |cx| app::run_setup_again(display, cx));
-                    },
-                )),
-            )
-            .into_any_element()
+    /// The `…` menu, below its button.
+    fn render_menu(&self) -> Option<AnyElement> {
+        let (menu, _) = self.menu.as_ref()?;
+        let button = self.menu_button.bounds()?;
+        Some(popover::attached(button, Side::Below, 4., 1, menu.clone()))
     }
 
     fn render_empty_state(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
-        let warning = p.warning;
         let hover = p.hover;
         let accent_fg = p.accent_fg;
-        let open_hint = if cfg!(target_os = "macos") {
-            "⌘O"
-        } else {
-            "Ctrl+O"
-        };
 
         let drop_zone = div()
             .id("drop-zone")
@@ -384,39 +344,18 @@ impl MainWindow {
                     .child("or"),
             )
             .child(
-                div()
-                    .id("open-file")
+                Button::new("open-file", "Open file…")
+                    .primary()
                     .track_focus(&self.open_button)
-                    .h(px(36.))
-                    .px(px(20.))
-                    .flex()
-                    .items_center()
-                    .rounded(px(4.))
-                    .bg(p.accent)
-                    .text_color(p.on_accent)
-                    .text_size(px(15.))
-                    .font_weight(FontWeight::MEDIUM)
-                    .cursor_pointer()
-                    .border_2()
-                    .border_color(gpui::transparent_black())
-                    .hover(|style| style.opacity(0.9))
-                    .focus_visible(|style| style.border_color(p.focus_ring))
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                         this.open_file(&OpenFile, window, cx)
-                    }))
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
-                            this.open_file(&OpenFile, window, cx);
-                            cx.stop_propagation();
-                        }
-                    }))
-                    .child("Open file…"),
+                    })),
             )
             .child(
                 div()
                     .text_size(px(12.))
                     .text_color(p.text_muted)
-                    .child(open_hint),
+                    .child(open_hint()),
             );
 
         let opened = self.files.iter().map(|file| {
@@ -434,43 +373,20 @@ impl MainWindow {
             .items_center()
             .justify_center()
             .gap(px(16.))
-            .children(self.notices.iter().map(|notice| {
-                div()
-                    .max_w(px(640.))
-                    .px(px(14.))
-                    .py(px(8.))
-                    .rounded(px(4.))
-                    .border_1()
-                    .border_color(warning)
-                    .text_size(px(14.))
-                    .child(notice.clone())
+            .children(self.notices.iter().enumerate().map(|(i, notice)| {
+                let this = cx.entity().downgrade();
+                banner(("notice", i), Level::Warning, notice.clone()).on_dismiss(move |_, cx| {
+                    this.update(cx, |this, cx| {
+                        if i < this.notices.len() {
+                            this.notices.remove(i);
+                        }
+                        cx.notify();
+                    })
+                    .ok();
+                })
             }))
             .child(drop_zone)
             .children(opened)
             .into_any_element()
     }
-}
-
-/// A 28px icon button in the title bar.
-fn bar_button(
-    id: &'static str,
-    icon: &'static str,
-    active: bool,
-    p: &Palette,
-) -> gpui::Stateful<gpui::Div> {
-    let hover = p.button_hover;
-    div()
-        .id(id)
-        .size(px(BAR_BUTTON))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(px(4.))
-        .occlude()
-        .cursor_pointer()
-        .when(active, |this| this.bg(hover))
-        .hover(move |style| style.bg(hover))
-        // Don't let the drag bar start a window move from here.
-        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .child(svg().path(icon).size(px(18.)).text_color(p.icon))
 }

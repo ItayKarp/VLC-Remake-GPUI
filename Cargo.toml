@@ -14,11 +14,14 @@ log = "0.4"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
 toml_edit = { version = "0.25", features = ["serde"] }
+unicode-segmentation = "1"
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
 
 [dev-dependencies]
+# Headless window tests for the component kit (`ui::tests`).
+gpui = { git = "https://github.com/zed-industries/zed", branch = "main", features = ["test-support"] }
 # Only used by `cargo run --example gen_icons` to regenerate the app icons.
 resvg = "0.45"
 ico = "0.4"

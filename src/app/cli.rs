@@ -7,11 +7,15 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 pub const RESET_ONBOARDING: &str = "--reset-onboarding";
+/// Opens the component kit gallery (S0.4), for design checks.
+pub const COMPONENT_GALLERY: &str = "--component-gallery";
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Launch {
     /// Show onboarding even though it was completed.
     pub reset_onboarding: bool,
+    /// Open the component gallery instead of the app's windows.
+    pub component_gallery: bool,
     /// Files (or folders) the app was asked to open, e.g. by double-clicking a video.
     pub files: Vec<PathBuf>,
 }
@@ -31,6 +35,7 @@ impl Launch {
                 match flag {
                     "--" => only_files = true,
                     RESET_ONBOARDING => launch.reset_onboarding = true,
+                    COMPONENT_GALLERY => launch.component_gallery = true,
                     _ => log::warn!("ignoring unknown command-line option {flag}"),
                 }
                 continue;
@@ -47,11 +52,16 @@ impl Launch {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Route {
     Onboarding,
+    /// The component gallery (`--component-gallery`).
+    Gallery,
     /// The main window, opening these files (may be empty).
     Main(Vec<PathBuf>),
 }
 
 pub fn route(onboarding_complete: bool, launch: &Launch) -> Route {
+    if launch.component_gallery {
+        return Route::Gallery;
+    }
     if launch.reset_onboarding {
         if !launch.files.is_empty() {
             log::warn!("{RESET_ONBOARDING}: ignoring the files passed with it");
@@ -113,5 +123,9 @@ mod tests {
         assert_eq!(route(true, &with_file), main(&["movie.mkv"]));
         assert_eq!(route(true, &reset), Route::Onboarding);
         assert_eq!(route(false, &reset), Route::Onboarding);
+        assert_eq!(
+            route(false, &parse(&["--component-gallery"])),
+            Route::Gallery
+        );
     }
 }

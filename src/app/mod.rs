@@ -96,6 +96,7 @@ pub fn open_initial_window(launch: &Launch, cx: &mut App) {
     let opened = match cli::route(onboarding_complete, launch) {
         Route::Onboarding => open_onboarding(display, cx).map(drop),
         Route::Main(files) => open_main_window(display, files, cx).map(drop),
+        Route::Gallery => open_gallery(display, cx).map(drop),
     };
     if let Err(err) = opened {
         // Nothing to show; LastWindowClosed won't fire without a window, so quit.
@@ -177,6 +178,32 @@ pub fn open_main_window(
             ..window_options(crate::main_window::TITLE_BAR_HEIGHT)
         },
         |window, cx| cx.new(|cx| MainWindow::new(files, window, cx)),
+    )?;
+    Ok(correct_dpi_drift(handle, bounds, cx))
+}
+
+/// The component kit gallery (`--component-gallery`).
+pub fn open_gallery(
+    display: Option<DisplayId>,
+    cx: &mut App,
+) -> anyhow::Result<WindowHandle<crate::ui::gallery::Gallery>> {
+    let visible = visible_bounds(display, cx);
+    let bounds = Rect::centered_in(1200_f32.min(visible.w), 900_f32.min(visible.h), &visible);
+    let bounds = WindowBounds::Windowed(bounds.to_gpui());
+    let handle = cx.open_window(
+        WindowOptions {
+            window_bounds: Some(bounds),
+            is_resizable: true,
+            window_min_size: Some(size(px(400.), px(300.))),
+            display_id: display,
+            titlebar: Some(TitlebarOptions {
+                title: Some(SharedString::from("VLC component gallery")),
+                ..Default::default()
+            }),
+            app_id: Some(APP_ID.into()),
+            ..Default::default()
+        },
+        |window, cx| cx.new(|cx| crate::ui::gallery::Gallery::new(window, cx)),
     )?;
     Ok(correct_dpi_drift(handle, bounds, cx))
 }

@@ -5,6 +5,7 @@ mod main_window;
 mod onboarding;
 mod settings;
 mod theme;
+mod ui;
 mod window_chrome;
 
 use gpui::{App, QuitMode};
@@ -22,6 +23,7 @@ fn main() {
     application.run(move |cx: &mut App| {
         settings::init(cx);
         theme::init(cx);
+        ui::init(cx);
         app::init(cx);
         app::open_initial_window(&launch, cx);
     });

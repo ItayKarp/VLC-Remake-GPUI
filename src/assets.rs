@@ -1,48 +1,115 @@
 //! Assets compiled into the binary, so the app works without any files next to
 //! the executable (important for both the Windows .exe and the macOS .app).
+//!
+//! # Icon pipeline (S0.4.13)
+//!
+//! Icons come from the design library in `docs/icons/**` (24×24, `#8F8F8F`
+//! strokes, accent parts in `#AB6314`/`#D37918`). Copy the ones a stage needs into
+//! `assets/icons/` under a short name, then add them to [`icons!`] below; that
+//! embeds the file and defines the constant in one place.
+//!
+//! GPUI's `svg()` paints a single-color mask, so the designs' colors are ignored
+//! and the caller picks one (`text_color`). The `two_tone=yes` icons are split
+//! into two layered files instead of being rasterized, so they stay sharp at any
+//! scale and follow the accent at runtime:
+//!
+//! - `<name>.svg` holds the base (gray) paths,
+//! - `<name>.accent.svg` holds the accent paths, with the same `viewBox`.
+//!
+//! Declare them with [`TwoTone`] and draw them with `ui::icon::two_tone`.
+//! Tests check that every constant resolves and that both layers line up.
 
 use std::borrow::Cow;
 
 use anyhow::Result;
 use gpui::{AssetSource, SharedString};
 
-macro_rules! embed {
-    ($($name:literal),* $(,)?) => {
-        &[$(
+/// Declares the embedded icons: each `CONST => "file.svg"` becomes an
+/// `icons::CONST` path and an entry in the asset table.
+macro_rules! icons {
+    ($($(#[$meta:meta])* $name:ident => $file:literal),* $(,)?) => {
+        /// Icon paths, so call sites can't typo an asset name.
+        pub mod icons {
+            $(
+                $(#[$meta])*
+                pub const $name: &str = concat!("icons/", $file);
+            )*
+
+            /// Every icon constant, for the resolution test.
+            #[cfg(test)]
+            pub const ALL: &[&str] = &[$($name),*];
+        }
+
+        static ASSETS: &[(&str, &[u8])] = &[$(
             (
-                concat!("icons/", $name),
-                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icons/", $name)) as &[u8],
+                concat!("icons/", $file),
+                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icons/", $file)) as &[u8],
             ),
-        )*]
+        )*];
     };
 }
 
-static ASSETS: &[(&str, &[u8])] = embed![
-    "vlc-logo.svg",
-    "vlc-small.svg",
-    "play.svg",
-    "previous.svg",
-    "next.svg",
-    "minimize.svg",
-    "maximize.svg",
-    "fullscreen.svg",
-    "close.svg",
-    "volume.svg",
-    "audio.svg",
-    "subtitles.svg",
-    "settings.svg",
-    "list.svg",
-    "arrow-left.svg",
-    "arrow-right.svg",
-    "arrow-up.svg",
-    "arrow-down.svg",
-    "theme-system.svg",
-    "more.svg",
-    "sidebar.svg",
-    "folder.svg",
-    "file.svg",
-    "restore.svg",
-];
+icons! {
+    LOGO => "vlc-logo.svg",
+    LOGO_SMALL => "vlc-small.svg",
+    PLAY => "play.svg",
+    PREVIOUS => "previous.svg",
+    NEXT => "next.svg",
+    MINIMIZE => "minimize.svg",
+    MAXIMIZE => "maximize.svg",
+    FULLSCREEN => "fullscreen.svg",
+    CLOSE => "close.svg",
+    VOLUME => "volume.svg",
+    AUDIO => "audio.svg",
+    SUBTITLES => "subtitles.svg",
+    SETTINGS => "settings.svg",
+    LIST => "list.svg",
+    ARROW_LEFT => "arrow-left.svg",
+    ARROW_RIGHT => "arrow-right.svg",
+    ARROW_UP => "arrow-up.svg",
+    ARROW_DOWN => "arrow-down.svg",
+    THEME_SYSTEM => "theme-system.svg",
+    MORE => "more.svg",
+    /// The sidebar toggle arrives with the library (Stage 4).
+    #[allow(dead_code)]
+    SIDEBAR => "sidebar.svg",
+    FOLDER => "folder.svg",
+    FILE => "file.svg",
+    RESTORE => "restore.svg",
+    // Component kit (S0.4).
+    CHEVRON_DOWN => "chevron-down.svg",
+    CHEVRON_UP => "chevron-up.svg",
+    CHEVRON_RIGHT => "chevron-right.svg",
+    CHECK => "check.svg",
+    INFO => "info.svg",
+    INFO_TWO_TONE => "info-two-tone.svg",
+    INFO_TWO_TONE_ACCENT => "info-two-tone.accent.svg",
+    CHECK_BOX => "check-box.svg",
+    CHECK_BOX_ACCENT => "check-box.accent.svg",
+}
+
+/// A two-tone icon: a base layer in the icon color and an accent layer on top.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TwoTone {
+    pub base: &'static str,
+    pub accent: &'static str,
+}
+
+pub mod two_tone {
+    use super::{TwoTone, icons};
+
+    pub const INFO: TwoTone = TwoTone {
+        base: icons::INFO_TWO_TONE,
+        accent: icons::INFO_TWO_TONE_ACCENT,
+    };
+    pub const CHECK_BOX: TwoTone = TwoTone {
+        base: icons::CHECK_BOX,
+        accent: icons::CHECK_BOX_ACCENT,
+    };
+
+    #[cfg(test)]
+    pub const ALL: &[TwoTone] = &[INFO, CHECK_BOX];
+}
 
 pub struct Assets;
 
@@ -63,32 +130,63 @@ impl AssetSource for Assets {
     }
 }
 
-/// Icon paths, so call sites can't typo an asset name.
-pub mod icons {
-    pub const LOGO: &str = "icons/vlc-logo.svg";
-    pub const LOGO_SMALL: &str = "icons/vlc-small.svg";
-    pub const PLAY: &str = "icons/play.svg";
-    pub const PREVIOUS: &str = "icons/previous.svg";
-    pub const NEXT: &str = "icons/next.svg";
-    pub const MINIMIZE: &str = "icons/minimize.svg";
-    pub const MAXIMIZE: &str = "icons/maximize.svg";
-    pub const FULLSCREEN: &str = "icons/fullscreen.svg";
-    pub const CLOSE: &str = "icons/close.svg";
-    pub const VOLUME: &str = "icons/volume.svg";
-    pub const AUDIO: &str = "icons/audio.svg";
-    pub const SUBTITLES: &str = "icons/subtitles.svg";
-    pub const SETTINGS: &str = "icons/settings.svg";
-    pub const LIST: &str = "icons/list.svg";
-    pub const ARROW_LEFT: &str = "icons/arrow-left.svg";
-    pub const ARROW_RIGHT: &str = "icons/arrow-right.svg";
-    pub const ARROW_UP: &str = "icons/arrow-up.svg";
-    pub const ARROW_DOWN: &str = "icons/arrow-down.svg";
-    pub const THEME_SYSTEM: &str = "icons/theme-system.svg";
-    pub const MORE: &str = "icons/more.svg";
-    /// The sidebar toggle arrives with the library (Stage 4).
-    #[allow(dead_code)]
-    pub const SIDEBAR: &str = "icons/sidebar.svg";
-    pub const FOLDER: &str = "icons/folder.svg";
-    pub const FILE: &str = "icons/file.svg";
-    pub const RESTORE: &str = "icons/restore.svg";
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn load(path: &str) -> String {
+        let bytes = Assets
+            .load(path)
+            .unwrap()
+            .unwrap_or_else(|| panic!("{path} doesn't resolve to an embedded asset"));
+        String::from_utf8(bytes.into_owned()).unwrap()
+    }
+
+    fn view_box(svg: &str) -> &str {
+        let start = svg.find("viewBox=\"").expect("svg without a viewBox") + 9;
+        let len = svg[start..].find('"').unwrap();
+        &svg[start..start + len]
+    }
+
+    #[test]
+    fn every_icon_constant_resolves() {
+        for path in icons::ALL {
+            let svg = load(path);
+            assert!(svg.contains("<svg"), "{path} isn't an svg");
+        }
+    }
+
+    #[test]
+    fn icon_paths_are_unique() {
+        let mut seen = std::collections::HashSet::new();
+        for path in icons::ALL {
+            assert!(seen.insert(path), "{path} is declared twice");
+        }
+    }
+
+    #[test]
+    fn two_tone_layers_line_up() {
+        for icon in two_tone::ALL {
+            let base = load(icon.base);
+            let accent = load(icon.accent);
+            assert_eq!(
+                view_box(&base),
+                view_box(&accent),
+                "{} and {} have different viewBoxes",
+                icon.base,
+                icon.accent
+            );
+            assert!(
+                icon.accent.ends_with(".accent.svg"),
+                "{} should be named <base>.accent.svg",
+                icon.accent
+            );
+        }
+    }
+
+    #[test]
+    fn list_finds_icons() {
+        let listed = Assets.list("icons/").unwrap();
+        assert_eq!(listed.len(), icons::ALL.len());
+    }
 }

@@ -57,7 +57,8 @@ pub struct Palette {
     pub hover: Hsla,
     /// Hairlines between sections (under the library header).
     pub divider: Hsla,
-    /// Menus, dropdowns and popovers; about 95% opaque.
+    /// Menus, dropdowns and popovers. Opaque, unlike the designs' ~95%: they sit
+    /// over text, which would show through (S0.4.4c).
     pub menu: Hsla,
     /// Dims the window behind a modal dialog.
     pub scrim: Hsla,
@@ -73,6 +74,30 @@ pub struct Palette {
     /// Windows' red hover on the title bar Close button, and its icon color.
     pub close_hover: Hsla,
     pub close_hover_icon: Hsla,
+
+    // Component kit (S0.4), sampled from `shared/components/*` and the panels.
+    /// The recessed frame around dropdowns, toggles, segmented values and slider
+    /// tracks (`#090909` in the dark designs).
+    pub well: Hsla,
+    /// The raised face inside a well: a closed dropdown, an unselected segment, a
+    /// toggle's OFF half.
+    pub control: Hsla,
+    /// Selected segment, toggle ON track and the filled part of an accent slider:
+    /// the accent at about 23% over the well.
+    pub accent_tint: Hsla,
+    /// Accent text and icons drawn on `accent_tint`; at least 3:1 against it.
+    pub accent_on_tint: Hsla,
+    /// Toggle ON knob and the accent slider thumb: the accent at 80% over the well.
+    pub accent_strong: Hsla,
+    /// Toggle OFF knob.
+    pub knob: Hsla,
+    /// The filled part and the thumb of a neutral slider.
+    pub slider_fill: Hsla,
+    pub slider_thumb: Hsla,
+    /// In-player panels and popovers (`player/panels/*`).
+    pub popover: Hsla,
+    /// Text selection in inputs.
+    pub selection: Hsla,
 }
 
 pub(super) fn hex(value: u32) -> Hsla {
@@ -99,11 +124,31 @@ impl Palette {
             accent_fg,
             background,
         };
-        if dark {
+        let mut palette = if dark {
             Self::dark(shared)
         } else {
             Self::light(shared)
-        }
+        };
+        palette.derive_accent_tints();
+        palette
+    }
+
+    /// The accent mixes used by toggles, segmented values and sliders. In the dark
+    /// designs the tint is `#371F06` and the knob `#AB6314` for Orange, which is the
+    /// accent at 23% and 80% over the well.
+    fn derive_accent_tints(&mut self) {
+        let base = if self.dark { self.well } else { self.control };
+        self.accent_tint = super::blend(self.accent, base, 0.23);
+        self.accent_strong = if self.dark {
+            super::blend(self.accent, base, 0.8)
+        } else {
+            self.accent_fg
+        };
+        self.accent_on_tint = contrast::ensure_contrast(self.accent, self.accent_tint, UI_MIN);
+        self.selection = Hsla {
+            a: 0.35,
+            ..self.accent
+        };
     }
 
     fn dark(s: Shared) -> Self {
@@ -132,7 +177,7 @@ impl Palette {
             selected: hex(0x222222),
             hover: hex(0x1F1F1F),
             divider: hex(0x212121),
-            menu: hexa(0x181818, 0.95),
+            menu: hex(0x181818),
             scrim: hexa(0x000000, 0.6),
             // derived: no tooltip design yet (S0.4.2).
             tooltip: hex(0x2A2A2A),
@@ -145,6 +190,17 @@ impl Palette {
             video: hex(0x000000),
             close_hover: hex(0xE81123),
             close_hover_icon: hex(0xFFFFFF),
+            well: hex(0x090909),
+            control: hex(0x191919),
+            knob: hex(0x404040),
+            slider_fill: hex(0x232323),
+            slider_thumb: hex(0x707070),
+            popover: hex(0x1B1B1B),
+            // Set by `derive_accent_tints`.
+            accent_tint: s.accent,
+            accent_on_tint: s.accent,
+            accent_strong: s.accent,
+            selection: s.accent,
         }
     }
 
@@ -179,7 +235,7 @@ impl Palette {
             hover: hex(0xE6E6E6),
             divider: hex(0x717171),
             // derived
-            menu: hexa(0xFAFAFA, 0.95),
+            menu: hex(0xFAFAFA),
             scrim: hexa(0x000000, 0.4),
             tooltip: hex(0x2A2A2A),
             tooltip_text: hex(0xF3F3F3),
@@ -190,6 +246,19 @@ impl Palette {
             video: hex(0x000000),
             close_hover: hex(0xE81123),
             close_hover_icon: hex(0xFFFFFF),
+            // derived: the kit's controls have dark designs only. The light theme
+            // inverts the well/face relationship: a gray frame around a white face.
+            well: hex(0xD6D6D6),
+            control: hex(0xFFFFFF),
+            knob: hex(0xB4B4B4),
+            slider_fill: hex(0xBDBDBD),
+            slider_thumb: hex(0x7A7A7A),
+            popover: hex(0xFAFAFA),
+            // Set by `derive_accent_tints`.
+            accent_tint: s.accent,
+            accent_on_tint: s.accent,
+            accent_strong: s.accent,
+            selection: s.accent,
         }
     }
 
@@ -232,6 +301,16 @@ impl Palette {
             video: hex(0x000000),
             close_hover: sys.highlight,
             close_hover_icon: sys.highlight_text,
+            well: sys.window_text,
+            control: sys.button_face,
+            accent_tint: sys.highlight,
+            accent_on_tint: sys.highlight_text,
+            accent_strong: sys.highlight_text,
+            knob: sys.window_text,
+            slider_fill: sys.highlight,
+            slider_thumb: sys.window_text,
+            popover: sys.window,
+            selection: sys.highlight,
         }
     }
 }

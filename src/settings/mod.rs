@@ -60,6 +60,16 @@ pub fn init(cx: &mut App) {
     }
 }
 
+/// Installs default settings that are never written to disk, for tests that
+/// need the global.
+#[cfg(test)]
+pub fn init_in_memory(cx: &mut App) {
+    cx.set_global(SettingsStore {
+        state: SettingsState::load(None),
+        pending_save: None,
+    });
+}
+
 pub fn get(cx: &App) -> &Settings {
     &cx.global::<SettingsStore>().state.settings
 }
