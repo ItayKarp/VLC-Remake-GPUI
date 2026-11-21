@@ -65,7 +65,7 @@ impl MainWindow {
     }
 
     /// Plays item `index` of the list.
-    fn play(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn play(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(media) = self.files.get(index).cloned() else {
             return;
         };
@@ -147,6 +147,8 @@ impl MainWindow {
             PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),
         }
+        // The control bar shows the position, length, volume and what Play/Pause would do.
+        cx.notify();
     }
 
     /// Stops what is opening: resolving items, and the engine's open.

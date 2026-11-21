@@ -620,17 +620,17 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.1, S1.2, S0.5  **Size:** M  **Design refs:** `controls-default.png`, `play_button/*`
 
 **Subtasks**
-- [ ] S2.2.1 Lay out the bar from a **declarative item list** (it's needed for Customize Player in S8.7): the order, groups and spacers come from data, not hard-coded layout.
-- [ ] S2.2.2 Play/Pause: orange ▶ when paused or stopped, grey ❚❚ while playing, and a buffering spinner state (not designed; add one).
-- [ ] S2.2.3 Previous and Next: previous restarts the current item if it's more than 3 s in, otherwise goes to the previous item. Both are disabled at the queue's ends unless Repeat is All.
-- [ ] S2.2.4 Hover, pressed, focused and disabled states for every icon button, with a tooltip showing the action and its shortcut.
-- [ ] S2.2.5 Narrow windows: items drop in a defined priority order (for example Settings and List go into an overflow `…`) instead of overlapping.
+- [x] S2.2.1 Lay out the bar from a **declarative item list** (it's needed for Customize Player in S8.7): the order, groups and spacers come from data, not hard-coded layout. *(`main_window/control_bar/layout.rs`: a list of item and gap slots; gaps split the groups. The time readouts, seek bar and volume level show the player's state but aren't interactive until S2.3–S2.5.)*
+- [x] S2.2.2 Play/Pause: orange ▶ when paused or stopped, grey ❚❚ while playing, and a buffering spinner state (not designed; add one). *(`control_bar/play_button.rs`. The spinner turns on the grey pill while opening or buffering; pressing it pauses. The pill follows `Player::wants_to_play`, so it changes on the click.)*
+- [x] S2.2.3 Previous and Next: previous restarts the current item if it's more than 3 s in, otherwise goes to the previous item. Both are disabled at the queue's ends unless Repeat is All. *(`main_window/transport.rs` and `transport/rules.rs`; P and N do the same. Previous stays enabled on the first item while it would restart it. Repeat comes with the queue (S3.1), so the list stops at its ends for now.)*
+- [x] S2.2.4 Hover, pressed, focused and disabled states for every icon button, with a tooltip showing the action and its shortcut. *(The kit's `IconButton` and the pill; names and shortcuts come from the command table and keymap.)*
+- [x] S2.2.5 Narrow windows: items drop in a defined priority order (for example Settings and List go into an overflow `…`) instead of overlapping. *(`control_bar/fit.rs`: Settings, List, Subtitles, Audio, Volume (as Mute), Duration, Previous/Next, the current time, then the seek bar. Buttons move into the `…` menu; readouts are hidden. Play/Pause always stays.)*
 
 **Edge cases**
-- Rapid clicks on Play/Pause (double-click speed) produce exactly the matching number of toggles, debounced against the engine state, and the icon never desyncs from the real state.
-- Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on).
-- Pressing Play with an empty queue opens the Open File dialog, or does nothing with a tooltip (decide).
-- The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently.
+- Rapid clicks on Play/Pause (double-click speed) produce exactly the matching number of toggles, debounced against the engine state, and the icon never desyncs from the real state. *(Done: each click flips the player's requested state, not its reported one, and clicks skip the held-key gate.)*
+- Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on). *(Replays; the Repeat case comes with S3.1. Play after an error tries the item again.)*
+- Pressing Play with an empty queue opens the Open File dialog, or does nothing with a tooltip (decide). *(Decided: it opens the Open File dialog, unless an open is still resolving.)*
+- The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently. *(Decided: disabled. Previous and Next fade where they'd do nothing; the gear and List stay disabled until their panels exist (S2.7, Stage 3).)*
 
 ---
 

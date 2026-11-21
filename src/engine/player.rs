@@ -146,6 +146,13 @@ impl Player {
         self.state
     }
 
+    /// Whether the user wants the media playing rather than paused. A pause asked for while
+    /// opening or buffering shows here before the state follows, so the Play/Pause button never
+    /// lags behind a click (S2.2.2).
+    pub fn wants_to_play(&self) -> bool {
+        self.intent == Intent::Play
+    }
+
     /// The media opened last, if any.
     pub fn media(&self) -> Option<&Media> {
         self.media.as_ref()

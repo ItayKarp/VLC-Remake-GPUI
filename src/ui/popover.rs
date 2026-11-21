@@ -64,7 +64,6 @@ pub enum Side {
     /// Below, left edges aligned (dropdowns, title bar menus).
     Below,
     /// Above, right edges aligned (control bar popovers at the bottom right).
-    #[allow(dead_code, reason = "the control bar uses it (Stage 2)")]
     AboveEnd,
     /// Above, centered (control bar popovers).
     Above,

@@ -1,9 +1,10 @@
-//! The main window shell (S0.3.4): the player-style title bar and an empty state
-//! that opens or accepts dropped files, replaced by the video while media plays
+//! The main window shell (S0.3.4): the player-style title bar, the control bar (S2.2), and an
+//! empty state that opens or accepts dropped files, replaced by the video while media plays
 //! (S1.4). Onboarding hands off to it (S0.2); the player (Stage 2) and the library
 //! (Stage 4) fill the content area later.
 
 mod audio;
+mod control_bar;
 mod diagnostics;
 mod empty_state;
 mod fullscreen;
@@ -17,6 +18,7 @@ mod player_keys;
 mod tests;
 mod title_bar;
 mod tracks;
+mod transport;
 mod viewport;
 
 use gpui::{
@@ -77,6 +79,8 @@ pub struct MainWindow {
     repeat: RepeatGate,
     /// Transient messages at the bottom right.
     toasts: Entity<Toasts>,
+    /// The control bar's layout and overflow menu (S2.2).
+    control_bar: control_bar::ControlBar,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
 }
@@ -120,6 +124,7 @@ impl MainWindow {
             menu_button: BoundsTracker::new(),
             repeat: RepeatGate::default(),
             toasts: cx.new(|_| Toasts::new()),
+            control_bar: control_bar::ControlBar::default(),
             os_title: String::new(),
         };
         this.set_up_history(cx);
@@ -159,11 +164,12 @@ impl MainWindow {
         }
     }
 
-    /// Below the title bar (the whole window in fullscreen): the video while media is loaded,
-    /// else the empty state.
+    /// Between the title bar and the control bar (the whole window in fullscreen): the video
+    /// while media is loaded, else the empty state.
     fn render_content(&self, p: &theme::Palette, fullscreen: bool, cx: &mut Context<Self>) -> Div {
-        let top = if fullscreen { 0. } else { TITLE_BAR_HEIGHT };
-        let area = div().absolute().top(px(top)).left_0().right_0().bottom_0();
+        let (top, bottom) =
+            if fullscreen { (0., 0.) } else { (TITLE_BAR_HEIGHT, control_bar::CONTROL_BAR_HEIGHT) };
+        let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
             Some(video) => area.child(viewport::framed(video, p, fullscreen)),
             None => area.child(
@@ -181,7 +187,8 @@ impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
         let p = theme::palette(window, cx);
-        // Fullscreen is the video alone: no title bar (S2.8 brings auto-hiding controls).
+        // Fullscreen is the video alone: no title or control bar (S2.8 brings auto-hiding
+        // controls).
         let fullscreen = window.is_fullscreen();
 
         Self::history_actions(Self::player_keys(focus::tab_navigation(div()), cx), cx)
@@ -210,8 +217,10 @@ impl Render for MainWindow {
             .text_color(p.text)
             .child(self.render_content(&p, fullscreen, cx))
             .children((!fullscreen).then(|| self.render_title_bar(&p, window, cx)))
+            .children((!fullscreen).then(|| self.render_control_bar(&p, window, cx)))
             .child(self.toasts.clone())
             .children(self.render_menu())
+            .children(self.render_overflow_menu())
             .child(drop_target::highlight(&p))
     }
 }

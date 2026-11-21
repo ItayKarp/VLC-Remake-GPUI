@@ -1,8 +1,8 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
-//! keys (S1.5.1) and track cycling (S1.6.2, B and V) work; until the player exists (Stage 2) any other admitted command is
-//! only logged, and S2.10.3 gives each one its effect.
+//! keys (S1.5.1), track cycling (S1.6.2, B and V) and the transport (S2.2: Space, S, P, N)
+//! work; any other admitted command is only logged until S2.10.3 gives it its effect.
 
 use std::time::Instant;
 
@@ -67,23 +67,53 @@ impl MainWindow {
         .detach();
     }
 
-    fn run_player_command(&mut self, action: &dyn Action, _: &mut Window, cx: &mut Context<Self>) {
+    fn run_player_command(
+        &mut self,
+        action: &dyn Action,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(command) = commands::find(action) else {
             return;
         };
-        if !self.repeat.admit(command, Instant::now()) {
-            return;
-        }
-        if action.partial_eq(&act::VolumeUp) {
-            self.step_volume(VolumeChange::Up, cx);
-        } else if action.partial_eq(&act::VolumeDown) {
-            self.step_volume(VolumeChange::Down, cx);
-        } else if action.partial_eq(&act::CycleAudioTrack) {
-            self.cycle_track(TrackKind::Audio, cx);
-        } else if action.partial_eq(&act::CycleSubtitleTrack) {
-            self.cycle_track(TrackKind::Subtitle, cx);
-        } else {
+        if self.repeat.admit(command, Instant::now()) && !self.perform(action, window, cx) {
             tracing::debug!("{}: no player yet (Stage 2)", command.label);
         }
     }
+
+    /// Runs the player command `action`, as its key does but without the held-key gate (a
+    /// button's clicks each count). Returns `false` when nothing handles it yet.
+    pub(super) fn perform(
+        &mut self,
+        action: &dyn Action,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some((_, handler)) = HANDLERS.iter().find(|(handled, _)| handled.partial_eq(action))
+        else {
+            return false;
+        };
+        handler(self, window, cx);
+        true
+    }
+
+    /// Whether [`Self::perform`] handles `action`.
+    pub(super) fn handles(action: &dyn Action) -> bool {
+        HANDLERS.iter().any(|(handled, _)| handled.partial_eq(action))
+    }
 }
+
+/// Runs one player command on the main window.
+type Handler = fn(&mut MainWindow, &mut Window, &mut Context<MainWindow>);
+
+/// The player commands that do something, and what.
+const HANDLERS: &[(&dyn Action, Handler)] = &[
+    (&act::PlayPause, MainWindow::play_pause),
+    (&act::Stop, MainWindow::stop),
+    (&act::PreviousItem, MainWindow::previous),
+    (&act::NextItem, MainWindow::next),
+    (&act::VolumeUp, |this, _, cx| this.step_volume(VolumeChange::Up, cx)),
+    (&act::VolumeDown, |this, _, cx| this.step_volume(VolumeChange::Down, cx)),
+    (&act::CycleAudioTrack, |this, _, cx| this.cycle_track(TrackKind::Audio, cx)),
+    (&act::CycleSubtitleTrack, |this, _, cx| this.cycle_track(TrackKind::Subtitle, cx)),
+];

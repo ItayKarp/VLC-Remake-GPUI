@@ -54,6 +54,9 @@ icons! {
     LOGO => "vlc-logo.svg",
     LOGO_SMALL => "vlc-small.svg",
     PLAY => "play.svg",
+    PAUSE => "pause.svg",
+    /// The Play/Pause button while opening or buffering (S2.2.2; not in the designs).
+    SPINNER => "spinner.svg",
     PREVIOUS => "previous.svg",
     NEXT => "next.svg",
     MINIMIZE => "minimize.svg",
