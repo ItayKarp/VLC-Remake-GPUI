@@ -54,6 +54,8 @@ icns = "0.3"
 # The S1.1 playback spike (`examples/video_spike`) loads libVLC at run time.
 libloading = "0.8"
 libc = "0.2"
+# Its CPU path converts YCbCr to BGRA itself, with the right matrix (SIMD on every target).
+yuvutils-rs = "0.8.3"
 
 # The S1.1 spike: run its unit tests with `cargo test` like the app's.
 [[example]]

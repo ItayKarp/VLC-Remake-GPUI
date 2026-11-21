@@ -12,6 +12,7 @@
 //! `plugins/` and `include/` folders of the official VLC .dmg); `--libvlc DIR` points elsewhere.
 
 mod bgra;
+mod colour;
 mod libvlc;
 mod options;
 #[cfg(target_os = "macos")]

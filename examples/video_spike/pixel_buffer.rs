@@ -22,14 +22,12 @@ use objc2_core_video::{
     kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, kCVReturnSuccess,
 };
 
+use crate::colour::is_hd;
 use crate::sink::{Format, MAX_PLANES, Size, VideoSink, choose_size};
 use crate::slot::FrameSlot;
 
 /// NV12 has a luma plane and an interleaved chroma plane.
 const NV12_PLANES: usize = 2;
-/// The largest standard-definition picture. libVLC 3 does not report a track's YCbCr matrix,
-/// so, like other players, we take larger pictures to be BT.709 and the rest BT.601.
-const LARGEST_SD: (u32, u32) = (1024, 576);
 
 /// A pixel buffer that may cross to the GPUI thread.
 pub struct SendPixelBuffer(pub CFRetained<CVPixelBuffer>);
@@ -113,11 +111,6 @@ impl VideoSink for PixelBufferSink {
     }
 }
 
-/// Whether a `width`×`height` picture counts as HD (see [`LARGEST_SD`]).
-fn is_hd(width: u32, height: u32) -> bool {
-    width > LARGEST_SD.0 || height > LARGEST_SD.1
-}
-
 /// Tags `buffer` with BT.709 when `hd`, else BT.601, for GPUI's surface shader.
 fn tag_matrix(buffer: &CVPixelBuffer, hd: bool) {
     // SAFETY: the key and values are Core Video's constant strings; the buffer is live.
@@ -174,17 +167,4 @@ fn new_buffer(pool: &CVPixelBufferPool) -> Result<CFRetained<CVPixelBuffer>> {
     let buffer = NonNull::new(buffer).context("the pool returned NULL")?;
     // SAFETY: a successful create hands over one reference.
     Ok(unsafe { CFRetained::from_raw(buffer) })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_hd;
-
-    #[test]
-    fn hd_starts_above_standard_definition() {
-        assert!(!is_hd(720, 480));
-        assert!(!is_hd(1024, 576));
-        assert!(is_hd(1280, 720));
-        assert!(is_hd(1080, 1920));
-    }
 }
