@@ -23,10 +23,12 @@ covers part of the GPUI window (the "airspace" problem) does not work on its own
    IOSurface-backed `CVPixelBuffer`s from a `CVPixelBufferPool`, and GPUI draws them with
    `surface()`.
 3. **Presentation (D2), Windows and Linux:** path (a), BGRA frames as GPUI `RenderImage`s,
-   is the **working fallback** while we measure there. On this Mac it fails the 4K60
-   acceptance criterion (4.2% dropped), so expect to need path (d) on those platforms: an
-   NV12/P010 texture primitive in GPUI's wgpu and DirectX renderers, upstreamed or carried as
-   a patch. Decide after the Windows and Linux numbers are in.
+   is the **working fallback** while we measure there. libVLC hands it NV12 and we convert to
+   BGRA ourselves, with the right YCbCr matrix. On this Mac it passes the 4K60 acceptance
+   criterion (0.45% dropped), but at twice path (b)'s CPU, and it cannot sustain 8K. If it
+   fails 4K60 on Windows or Linux, we need path (d) there: an NV12/P010 texture primitive in
+   GPUI's wgpu and DirectX renderers, upstreamed or carried as a patch. Decide after the
+   Windows and Linux numbers are in.
 4. Path (c), a native child window, is **rejected**. GPUI cannot draw over a foreign child
    view, and the designs need overlays on top of the video.
 
@@ -70,23 +72,29 @@ mouse over a hover button every 100 ms through GPUI's event dispatch.
 
 | File (60 s) | Path | Shown fps | Dropped | CPU | Peak RSS | Paint p50/p95 | Input→paint p50/p95/max |
 |---|---|---|---|---|---|---|---|
-| 1080p60 H.264 | (a) CPU | 59.9 | 0.38% | 57% | 171 MB | 2.5/2.7 ms | 10.9/16.5/16.9 ms |
+| 1080p60 H.264 | (a) CPU | 59.9 | 0.16% | 45% | 166 MB | 2.8/3.6 ms | 10.8/17.0/18.0 ms |
 | 1080p60 H.264 | (b) surface | 59.9 | 0.16% | 24% | 132 MB | 0.0/0.0 ms | 8.7/16.3/16.6 ms |
-| 2160p30 H.264 | (a) CPU | 29.6 | 1.45% | 51% | 421 MB | 4.8/5.2 ms | 11.5/21.2/**892** ms |
+| 2160p30 H.264 | (a) CPU | 30.0 | 0.05% | 41% | 402 MB | 6.1/6.8 ms | 11.2/22.6/24.0 ms |
 | 2160p30 H.264 | (b) surface | 30.0 | 0.05% | 17% | 265 MB | 0.0/0.0 ms | 8.8/16.5/17.1 ms |
-| **2160p60 HEVC 10-bit** | (a) CPU | 57.5 | **4.16%** ✗ | 128% | 933 MB | 5.7/6.3 ms | 13.4/16.7/32.5 ms |
+| **2160p60 HEVC 10-bit** | (a) CPU | 59.7 | **0.45%** ✓ | 105% | 930 MB | 5.7/6.2 ms | 11.8/16.7/23.9 ms |
 | **2160p60 HEVC 10-bit** | (b) surface | 60.0 | **0.00%** ✓ | 48% | 788 MB | 0.0/0.0 ms | 8.4/16.2/16.6 ms |
 
 **Acceptance (macOS):** path (b) plays the 4K60 sample for 60 s with 0.00% dropped frames.
 The overlay's input→paint stays under 16.6 ms at p95 (one 60 Hz frame). This **passes**.
-Path (a) fails: 4.16% dropped, and on 4K30 one input stalled for 892 ms.
+Path (a) passes too, at 0.45% dropped, but uses twice the CPU and has a 1-frame-longer
+input→paint p95 at 4K30. Its rows were re-measured after it started converting NV12 to BGRA
+itself (see the colour check). Before that, libVLC did the conversion, and path (a) dropped
+4.16% at 4K60 with 128% CPU, and once stalled input for 892 ms at 4K30. The conversion
+takes about 2.7 ms per 4K frame on one core (`yuvutils-rs`, NEON). One 1080p60 run, not in
+the table, dropped 28%: nothing was painted for 14 s, which is what happens when the window
+is covered. The two repeats dropped 0.19% and 0.16%.
 
 **Paths (c) and (d)** were not prototyped. Path (c) is ruled out by the airspace problem
 (decision 4). Path (d) needs GPUI changes, estimated below.
 
 **Windows and Linux:** not measured yet; nothing in this checkout can run there. The spike
-builds on both. Path (a) is the only path available there, and its macOS numbers suggest it
-will pass 1080p and fail 4K60.
+builds on both. Path (a) is the only path available there. Its macOS numbers pass 4K60
+with little headroom, so slower CPUs may not.
 
 ### Path (d) cost estimate (GPUI change)
 
@@ -107,7 +115,7 @@ the pixel checks below.
 
 | File | (a) CPU | (b) surface | Notes |
 |---|---|---|---|
-| 8K HEVC (7680×4320, 30 fps) | **22% dropped**, 178% CPU, 2.1 GB RSS | 0.36%, 27% CPU | Path (a) cannot sustain 8K. Under the 8192 px limit, so no downscale. |
+| 8K HEVC (7680×4320, 30 fps) | **25% dropped**, 173% CPU, 2.1 GB RSS | 0.36%, 27% CPU | Path (a) cannot sustain 8K: painting (the atlas upload) takes 36 ms per frame. Under the 8192 px limit, so no downscale. |
 | HDR10 (PQ, BT.2020, 10-bit) | 0% | 0% | Plays, but **not tone-mapped** (see limits). |
 | HLG (BT.2020, 10-bit) | 0% | 0% | Same. |
 | Dolby Vision profile 5 | — | — | Not generated: FFmpeg cannot encode it. Needs a real sample (S9.8.1). |
@@ -133,6 +141,7 @@ fitted against three conversions; the number is the worst patch's error in 8-bit
 | (a) CPU, VideoToolbox decode | 32 | **2** | 20 |
 | (a) CPU, software decode | 32 | **2** | 20 |
 | (b) surface | 26 | 20 | **2** |
+| (a) CPU, **converting NV12 ourselves** | **3** | 31 | 28 |
 | (b) surface, **after the GPUI fix** | **2** | 32 | 26 |
 
 - **Path (b)** showed black at 16–18 instead of 0, and 100% white at 235 instead of 255.
@@ -141,16 +150,18 @@ fitted against three conversions; the number is the worst patch's error in 8-bit
   **Fixed** in our Zed fork (see limit 4). After the fix, HD bars are within 2 levels of
   BT.709, and SD bars (`bars-601-sd.mp4`, 720×480) are within 2 levels of BT.601 (30 off
   if read as BT.709).
-- **Path (a)** has the range right (black 0, white 255, greys exact), but libVLC 3's
+- **Path (a)** had the range right (black 0, white 255, greys exact), but libVLC 3's
   conversion to BGRA uses **BT.601 for HD video**, ignoring the BT.709 tag. Saturated colours
-  are off by up to 32 levels; neutral tones are exact.
+  were off by up to 32 levels; neutral tones were exact. **Fixed** in the spike: path (a) now
+  asks libVLC for NV12 and converts it to BGRA itself with `yuvutils-rs`, choosing the matrix
+  like path (b). HD bars are within 3 levels of BT.709, and SD bars within 2 of BT.601.
 
 **Odd-size edges** (`edges-1919x1079.mkv`: a 1-pixel red frame on grey, FFV1 4:2:0). On
 both paths, the red frame reaches the outermost pixel on all four sides. There are no green
 or black lines and no missing row or column. The centre is neutral: 128 on path (a), and
-126 on path (b) (the range error). Path (a) has a 2–3 pixel cyan halo inside the red line.
-That is ringing from libVLC's bicubic chroma upsampling (swscale), normal for 4:2:0, and
-path (b)'s bilinear GPU sampling does not show it.
+126 on path (b) (the range error). Path (a) had a 2–3 pixel cyan halo inside the red line,
+from libVLC's bicubic chroma upsampling (swscale), normal for 4:2:0. Since path (a) converts
+NV12 itself, the halo is gone: the red line fades straight into the grey (centre 129).
 
 **Deinterlacing** (`1080i-motion.ts`: 59.94p motion woven into 29.97i fields). libVLC's
 automatic mode detects the interlaced stream and inserts its `x` deinterlacer on both paths.
@@ -205,10 +216,11 @@ samples (S9.8.1).
    with each buffer's `kCVImageBufferYCbCrMatrixKey` (BT.601, BT.709 or BT.2020). All GPUI
    dependencies point at that commit. The spike now writes '420v' buffers tagged BT.709 for
    pictures larger than 1024×576 and BT.601 otherwise, because libVLC 3 does not report a
-   track's matrix; S1.4 should read the real tag where the container has one. Offer the patch
-   upstream so the fork can go. Path (a) is still wrong for HD: libVLC 3 converts to BGRA with
-   BT.601, so saturated colours are off by up to 32 levels. The fix is to ask for NV12 and
-   convert ourselves, or to accept it as fallback-only quality. → S1.4.
+   track's matrix; S1.4 should read the real tag where the container has one. The same patch,
+   rebased on Zed's main, is on the fork's `gpui-surface-ycbcr` branch, ready to propose
+   upstream so the fork can go. Path (a) is **fixed** too: libVLC 3 converts to BGRA with
+   BT.601 only, so path (a) now asks for NV12 and converts with the same matrix choice
+   (`yuvutils-rs`, SIMD on every target). → S1.4.
 5. **HDR:** through `vmem`, libVLC converts 10-bit PQ or HLG to 8-bit NV12 or BGRA **without
    tone-mapping**, so HDR looks washed out on SDR displays. Real HDR needs a GPU path
    (libVLC 4 with libplacebo, or our own tone-mapping shader in a path (d) primitive).
@@ -231,8 +243,8 @@ samples (S9.8.1).
 
 - [ ] Run `measure.sh` on Windows (path a) and Linux X11 and Wayland (path a), and fill in
       the table. Needs a libVLC there: `--libvlc DIR` pointing at an unpacked VLC.
-- [ ] Prototype path (d) on wgpu if path (a) fails 4K60 there, which the macOS numbers
-      suggest it will.
+- [ ] Prototype path (d) on wgpu if path (a) fails 4K60 there. On macOS it passes with
+      little headroom.
 - [x] Screenshot check of colours, odd-size edges and deinterlacing on macOS (see the
       screenshot checks). HDR still needs real samples.
 - [ ] The edge cases not exercised: remote desktop and GPU-less VMs, dual-GPU laptops, GPU
