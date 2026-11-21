@@ -599,17 +599,17 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S0.3, S0.4, S1.4  **Size:** M  **Design refs:** `player_01.png`, `player_light.png`, `window_chrome.rs`
 
 **Subtasks**
-- [ ] S2.1.1 Extend `window_chrome::title_bar` with the player layout: logo, `…`, sidebar toggle (active and inactive), divider, folder chip, centered title, and Minimize/Maximize/Fullscreen/Close. Keep native hit-testing (`WindowControlArea`) on Windows and the native traffic lights on macOS.
-- [ ] S2.1.2 Title text rule: the media title (from metadata, else the file name with the extension) while media is loaded, otherwise "VLC Media Player". It respects Settings → Interface "Show the file name in the title bar". **The mocks disagree (`player_01` shows "VLC Media Player" while playing); confirm.**
-- [ ] S2.1.3 Folder chip: shows the containing folder's name, and clicking it opens the library at that folder (S4.10). Hidden for URLs and discs.
-- [ ] S2.1.4 Video viewport inset with rounded corners, and letterboxing inside the rounded rectangle.
-- [ ] S2.1.5 The OS window title (taskbar, Alt+Tab, Mission Control) is set through `window.set_window_title`.
+- [x] S2.1.1 Extend `window_chrome::title_bar` with the player layout: logo, `…`, sidebar toggle (active and inactive), divider, folder chip, centered title, and Minimize/Maximize/Fullscreen/Close. Keep native hit-testing (`WindowControlArea`) on Windows and the native traffic lights on macOS. *(`main_window/title_bar.rs`. The sidebar toggle shows its inactive state, disabled, until the library sidebar exists (Stage 4); `IconButton::selected` is its active state.)*
+- [x] S2.1.2 Title text rule: the media title (from metadata, else the file name with the extension) while media is loaded, otherwise "VLC Media Player". It respects Settings → Interface "Show the file name in the title bar". **The mocks disagree (`player_01` shows "VLC Media Player" while playing); confirm.** *(Went with D8's recommendation, which matches `player_light.png` and the setting's default (on, `interface_01.png`). `title_bar/text.rs`; `prefs.interface.show_file_name_in_title_bar`, its row comes with S5.4. "Loaded" is Opening through Paused.)*
+- [x] S2.1.3 Folder chip: shows the containing folder's name, and clicking it opens the library at that folder (S4.10). Hidden for URLs and discs. *(With nothing loaded it shows the first media folder. Until the library exists, clicking opens the folder in the system file manager; S4.10 replaces that. The path is in its tooltip.)*
+- [x] S2.1.4 Video viewport inset with rounded corners, and letterboxing inside the rounded rectangle. *(`main_window/viewport.rs`: 10 px from the sides and bottom, 6 px radius. Frames are images or macOS surfaces that GPUI's content masks don't clip, so the corners are painted over in the frame colour. Fullscreen is edge to edge. Checked on macOS.)*
+- [x] S2.1.5 The OS window title (taskbar, Alt+Tab, Mission Control) is set through `window.set_window_title`. *(Set from the same rule as the title bar, only when it changes, so the title tag, the setting and Stop all reach it.)*
 
 **Edge cases**
-- Long titles: truncate with an ellipsis in the middle region and never overlap the left or right groups. A full-width title on a narrow window collapses the folder chip first.
-- Titles that contain right-to-left text, emoji, newlines or control characters (from bad tags): strip control characters and handle bidi.
-- macOS: the traffic lights sit where the logo is in the design, so the left group shifts right by the traffic-light inset.
-- Linux: client-side decorations on Wayland (GPUI draws them), and server-side decorations on X11 with some window managers produce a double title bar. Respect Settings → Interface "Show window decorations".
+- Long titles: truncate with an ellipsis in the middle region and never overlap the left or right groups. A full-width title on a narrow window collapses the folder chip first. *(Done: `title_bar/fit.rs` measures the title and chip.)*
+- Titles that contain right-to-left text, emoji, newlines or control characters (from bad tags): strip control characters and handle bidi. *(Done: control characters become spaces and explicit bidi formatting characters are dropped; GPUI's shaping orders right-to-left text.)*
+- macOS: the traffic lights sit where the logo is in the design, so the left group shifts right by the traffic-light inset. *(Done.)*
+- Linux: client-side decorations on Wayland (GPUI draws them), and server-side decorations on X11 with some window managers produce a double title bar. Respect Settings → Interface "Show window decorations". *(Not done: deferred to S5.4.1, which adds that setting; not tried on Linux.)*
 - Windows 11 snap layouts appear when hovering Maximize; keep the `WindowControlArea::Max` hit-test.
 - Double-clicking the title bar maximizes; double-clicking the video toggles fullscreen. These are separate hit regions.
 

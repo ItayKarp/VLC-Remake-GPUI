@@ -17,9 +17,10 @@ mod player_keys;
 mod tests;
 mod title_bar;
 mod tracks;
+mod viewport;
 
 use gpui::{
-    Context, DismissEvent, Div, Entity, FocusHandle, SharedString, Subscription, Window, div,
+    App, Context, DismissEvent, Div, Entity, FocusHandle, SharedString, Subscription, Window, div,
     prelude::*, px,
 };
 
@@ -41,8 +42,6 @@ use crate::video::VideoView;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
-
-const APP_TITLE: &str = "VLC Media Player";
 
 /// The main window's view: what's been opened, settings notices, and the `…` menu.
 pub struct MainWindow {
@@ -78,6 +77,8 @@ pub struct MainWindow {
     repeat: RepeatGate,
     /// Transient messages at the bottom right.
     toasts: Entity<Toasts>,
+    /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
+    os_title: String,
 }
 
 impl MainWindow {
@@ -85,6 +86,8 @@ impl MainWindow {
     /// notices.
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         theme::observe(window, cx);
+        // The title bar follows Settings → Interface.
+        cx.observe_global::<settings::SettingsStore>(|_, cx| cx.notify()).detach();
         // Swap the Maximize/Restore icon when the window is maximized or restored.
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
@@ -117,6 +120,7 @@ impl MainWindow {
             menu_button: BoundsTracker::new(),
             repeat: RepeatGate::default(),
             toasts: cx.new(|_| Toasts::new()),
+            os_title: String::new(),
         };
         this.set_up_history(cx);
         this.open(request, window, cx);
@@ -127,14 +131,6 @@ impl MainWindow {
     /// Shows `toast` at the bottom right of the window.
     pub fn show_toast(&mut self, toast: Toast, cx: &mut Context<Self>) {
         self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
-    }
-
-    /// The title bar's text: what's playing, or the app's name.
-    fn title(&self) -> String {
-        match self.current.and_then(|index| self.files.get(index)) {
-            Some(file) => file.display_name(),
-            None => APP_TITLE.to_owned(),
-        }
     }
 
     fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -154,13 +150,22 @@ impl MainWindow {
 }
 
 impl MainWindow {
+    /// Names the OS window (taskbar, Alt+Tab, Mission Control) like the title bar (S2.1.5).
+    fn sync_os_title(&mut self, window: &mut Window, cx: &App) {
+        let title = self.title(cx);
+        if title != self.os_title {
+            window.set_window_title(&title);
+            self.os_title = title;
+        }
+    }
+
     /// Below the title bar (the whole window in fullscreen): the video while media is loaded,
     /// else the empty state.
     fn render_content(&self, p: &theme::Palette, fullscreen: bool, cx: &mut Context<Self>) -> Div {
         let top = if fullscreen { 0. } else { TITLE_BAR_HEIGHT };
         let area = div().absolute().top(px(top)).left_0().right_0().bottom_0();
         match self.showing_video(cx) {
-            Some(video) => area.child(video),
+            Some(video) => area.child(viewport::framed(video, p, fullscreen)),
             None => area.child(
                 div()
                     .id("content")
@@ -174,6 +179,7 @@ impl MainWindow {
 
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.sync_os_title(window, cx);
         let p = theme::palette(window, cx);
         // Fullscreen is the video alone: no title bar (S2.8 brings auto-hiding controls).
         let fullscreen = window.is_fullscreen();

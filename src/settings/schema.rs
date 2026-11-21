@@ -10,6 +10,7 @@
 //!   everything that should follow the user between machines in [`Preferences`].
 
 mod audio;
+mod interface;
 mod playback;
 mod subtitles;
 
@@ -23,6 +24,7 @@ use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
+pub use interface::InterfaceSettings;
 pub use playback::{PlayerSettings, ResumePolicy};
 pub use subtitles::SubtitleSettings;
 
@@ -45,6 +47,9 @@ pub struct Preferences {
     /// The accent color.
     #[serde(deserialize_with = "lenient")]
     pub accent: Accent,
+    /// The window and its title bar.
+    #[serde(deserialize_with = "lenient")]
+    pub interface: InterfaceSettings,
     /// Player behavior.
     #[serde(deserialize_with = "lenient")]
     pub player: PlayerSettings,

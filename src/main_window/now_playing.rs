@@ -70,7 +70,6 @@ impl MainWindow {
             return;
         };
         self.current = Some(index);
-        window.set_window_title(&media.display_name());
         let player = self.player(window, cx);
         player.update(cx, |player, cx| player.open(media, cx));
         // The video replaces the empty state and its focused Open button; with nothing focused
@@ -144,6 +143,8 @@ impl MainWindow {
                 cx.notify();
             }
             PlayerEvent::VideoSizeChanged(_) => self.update_display_sleep(window, cx),
+            // The title bar names the media by its title tag (S2.1.2).
+            PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),
         }
     }
