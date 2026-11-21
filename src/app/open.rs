@@ -63,7 +63,7 @@ fn take(mut incoming: Incoming) -> Launch {
 
 /// Does what a launch asked for in this running app.
 fn deliver(launch: Launch, cx: &mut App) {
-    log::debug!("opening forwarded launch {launch:?}");
+    tracing::debug!("opening a forwarded launch: {}", launch.summary());
     match launch.start {
         StartScreen::Onboarding => super::run_setup_again(super::preferred_display(cx), cx),
         StartScreen::Gallery => super::open_initial_window(&launch, cx),

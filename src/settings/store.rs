@@ -45,7 +45,7 @@ impl FileSlot {
                 FileSlot { path, doc: loaded.doc, writable }
             }
             Err(err) => {
-                log::warn!("settings: couldn't read {}: {err}", path.display());
+                tracing::warn!("settings: couldn't read {}: {err}", path.display());
                 notices.push(Notice::NotPersisted {
                     reason: format!("Couldn't read {}: {err}", path.display()),
                 });
@@ -60,7 +60,9 @@ impl FileSlot {
         match merge_typed(&mut self.doc, typed) {
             Ok(()) if self.writable => writes.push((self.path.clone(), self.doc.to_string())),
             Ok(()) => {}
-            Err(err) => log::error!("settings: couldn't serialize {}: {err}", self.path.display()),
+            Err(err) => {
+                tracing::error!("settings: couldn't serialize {}: {err}", self.path.display());
+            }
         }
     }
 }
@@ -118,7 +120,7 @@ impl SettingsState {
     pub fn load(locations: Option<Locations>) -> Self {
         let mut notices = Vec::new();
         let Some(locations) = locations else {
-            log::warn!("settings: no config directory; changes won't be saved");
+            tracing::warn!("settings: no config directory; changes won't be saved");
             notices.push(Notice::NotPersisted {
                 reason: "No settings folder is available on this system.".into(),
             });
@@ -210,7 +212,7 @@ impl SettingsState {
             self.confirmed = self.confirmed.max(generation);
         }
         if let Err(error) = result {
-            log::warn!("settings: {error}");
+            tracing::warn!("settings: {error}");
             // Keep the changes in memory and retry on the next change.
             self.dirty = true;
             if !self.save_failure_reported {
@@ -242,7 +244,7 @@ fn record_issue(path: &Path, issue: Option<LoadIssue>, notices: &mut Vec<Notice>
 /// document as a whole doesn't fit the schema.
 fn deserialize<T: serde::de::DeserializeOwned + Default>(doc: &DocumentMut) -> T {
     toml_edit::de::from_document(doc.clone()).unwrap_or_else(|err| {
-        log::warn!("settings: couldn't read settings, using defaults: {err}");
+        tracing::warn!("settings: couldn't read settings, using defaults: {err}");
         T::default()
     })
 }

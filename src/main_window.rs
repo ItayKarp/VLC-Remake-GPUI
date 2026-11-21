@@ -2,6 +2,7 @@
 //! that opens or accepts dropped files. Onboarding hands off to it (S0.2); the
 //! player (Stage 2) and the library (Stage 4) fill the content area later.
 
+mod diagnostics;
 mod empty_state;
 mod main_menu;
 mod notice;
@@ -16,7 +17,7 @@ use gpui::{
 use crate::app;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
-use crate::keymap::actions::OpenFile;
+use crate::keymap::actions::{CopyDebugInfo, OpenFile};
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
 use crate::settings;
@@ -24,6 +25,7 @@ use crate::theme;
 use crate::ui::focus;
 use crate::ui::menu::ContextMenu;
 use crate::ui::popover::BoundsTracker;
+use crate::ui::toast::{Toast, Toasts};
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -44,6 +46,8 @@ pub struct MainWindow {
     menu_button: BoundsTracker,
     /// Player commands whose key may still be held (S0.5.6).
     repeat: RepeatGate,
+    /// Transient messages at the bottom right.
+    toasts: Entity<Toasts>,
 }
 
 impl MainWindow {
@@ -55,6 +59,7 @@ impl MainWindow {
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
         Self::release_keys_on_blur(window, cx);
+        crate::diagnostics::system::remember_gpu(window);
 
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
         open_button.focus(window, cx);
@@ -71,9 +76,16 @@ impl MainWindow {
             menu: None,
             menu_button: BoundsTracker::new(),
             repeat: RepeatGate::default(),
+            toasts: cx.new(|_| Toasts::new()),
         };
         this.open(request, window, cx);
+        this.show_pending_crash(cx);
         this
+    }
+
+    /// Shows `toast` at the bottom right of the window.
+    pub fn show_toast(&mut self, toast: Toast, cx: &mut Context<Self>) {
+        self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
     }
 
     /// Opens what a launch asked for (S0.6.2): replaces or extends the list, and
@@ -155,6 +167,9 @@ impl Render for MainWindow {
             .on_action(cx.listener(|_, _: &OpenFile, window, cx| {
                 Self::prompt_for_files(window, cx);
             }))
+            .on_action(cx.listener(|this, _: &CopyDebugInfo, window, cx| {
+                this.copy_debug_info(window, cx);
+            }))
             .relative()
             .size_full()
             .bg(p.background)
@@ -172,6 +187,7 @@ impl Render for MainWindow {
                     .child(self.render_empty_state(&p, cx)),
             )
             .child(self.render_title_bar(&p, window, cx))
+            .child(self.toasts.clone())
             .children(self.render_menu())
     }
 }

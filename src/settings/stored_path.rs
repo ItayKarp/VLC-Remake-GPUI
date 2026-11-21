@@ -102,7 +102,9 @@ pub mod list {
     ) -> Result<Vec<PathBuf>, D::Error> {
         let value = toml::Value::deserialize(deserializer)?;
         let toml::Value::Array(items) = value else {
-            log::warn!("settings: expected a list of paths, found `{value}`; using an empty list");
+            tracing::warn!(
+                "settings: expected a list of paths, found `{value}`; using an empty list"
+            );
             return Ok(Vec::new());
         };
         Ok(items
@@ -110,7 +112,7 @@ pub mod list {
             .filter_map(|item| {
                 let path = item.as_str().and_then(decode);
                 if path.is_none() {
-                    log::warn!("settings: dropping unreadable path entry `{item}`");
+                    tracing::warn!("settings: dropping unreadable path entry `{item}`");
                 }
                 path
             })

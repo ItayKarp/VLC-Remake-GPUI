@@ -128,19 +128,19 @@ fn acquire_at(paths: &InstancePaths, launch: &Launch, inbox: &Inbox) -> Role {
         Ok(Some(lock)) => match server::listen(paths, lock, inbox) {
             Ok(server) => Role::Primary(server),
             Err(err) => {
-                log::warn!("instance: couldn't listen for other launches: {err}");
+                tracing::warn!("instance: couldn't listen for other launches: {err}");
                 Role::Standalone
             }
         },
         Ok(None) => match client::forward(paths, launch) {
             Ok(()) => Role::Forwarded,
             Err(err) => {
-                log::warn!("instance: the running instance didn't take the launch: {err}");
+                tracing::warn!("instance: the running instance didn't take the launch: {err}");
                 Role::NotResponding
             }
         },
         Err(err) => {
-            log::warn!("instance: couldn't use {}: {err}", paths.lock_file.display());
+            tracing::warn!("instance: couldn't use {}: {err}", paths.lock_file.display());
             Role::Standalone
         }
     }

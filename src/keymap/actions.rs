@@ -32,6 +32,8 @@ actions!(
         CustomizePlayer,
         /// Show the About dialog.
         About,
+        /// Copy versions, OS, GPU and settings (without paths) for a bug report.
+        CopyDebugInfo,
         /// Search the library.
         Search,
     ]

@@ -45,7 +45,7 @@ impl Launch {
             FULLSCREEN => self.open.fullscreen = true,
             ENQUEUE => self.open.placement = Placement::Enqueue,
             _ if flag.starts_with(MACOS_PSN_PREFIX) => {}
-            _ => log::warn!("ignoring unknown command-line option {flag}"),
+            _ => tracing::warn!("ignoring unknown command-line option {flag}"),
         }
     }
 }
@@ -74,7 +74,7 @@ pub fn route(onboarding_complete: bool, launch: &Launch) -> Route {
         StartScreen::Gallery => Route::Gallery,
         StartScreen::Onboarding => {
             if !launch.open.items.is_empty() {
-                log::warn!("{RESET_ONBOARDING}: ignoring the files passed with it");
+                tracing::warn!("{RESET_ONBOARDING}: ignoring the files passed with it");
             }
             Route::Onboarding
         }

@@ -32,7 +32,7 @@ pub fn listen(paths: &InstancePaths, lock: File, inbox: &Inbox) -> io::Result<Se
         for connection in listener.incoming() {
             match connection {
                 Ok(stream) => serve_in_thread(stream, inbox.clone()),
-                Err(err) => log::warn!("instance: accepting a connection failed: {err}"),
+                Err(err) => tracing::warn!("instance: accepting a connection failed: {err}"),
             }
         }
     })?;
@@ -43,11 +43,11 @@ pub fn listen(paths: &InstancePaths, lock: File, inbox: &Inbox) -> io::Result<Se
 fn serve_in_thread(stream: Stream, inbox: Inbox) {
     let spawned = thread::Builder::new().name("instance-connection".into()).spawn(move || {
         if let Err(err) = serve(stream, &inbox) {
-            log::warn!("instance: dropped a forwarded launch: {err}");
+            tracing::warn!("instance: dropped a forwarded launch: {err}");
         }
     });
     if let Err(err) = spawned {
-        log::warn!("instance: couldn't serve a connection: {err}");
+        tracing::warn!("instance: couldn't serve a connection: {err}");
     }
 }
 
@@ -55,7 +55,7 @@ fn serve(mut stream: Stream, inbox: &Inbox) -> io::Result<()> {
     limit_reads(&stream)?;
     stream.write_all(&std::process::id().to_le_bytes())?;
     let launch = wire::read_frame(&mut stream)?;
-    log::debug!("instance: received {launch:?}");
+    tracing::debug!("instance: received a launch: {}", launch.summary());
 
     // Before the UI loop runs, launches queue up and are acknowledged right away:
     // the app is starting, not hung.

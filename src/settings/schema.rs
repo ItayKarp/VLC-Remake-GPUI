@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::lenient::lenient;
 use super::stored_path;
+use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 /// Everything the app persists, as one in-memory value.
@@ -57,6 +58,9 @@ pub struct Preferences {
     /// Custom key bindings.
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
+    /// Logging and crash reports (S0.7).
+    #[serde(deserialize_with = "lenient")]
+    pub diagnostics: DiagnosticsSettings,
 }
 
 /// State that only makes sense on this machine.
@@ -115,12 +119,25 @@ pub struct PrivacySettings {
     /// list (S0.6.5).
     #[serde(deserialize_with = "lenient")]
     pub save_recently_played: bool,
+    /// Hides media file names in the log file, keeping only their extensions
+    /// (S0.7.1). The home directory is always replaced by `~`.
+    #[serde(deserialize_with = "lenient")]
+    pub redact_file_names_in_logs: bool,
 }
 
 impl Default for PrivacySettings {
     fn default() -> Self {
-        PrivacySettings { save_recently_played: true }
+        PrivacySettings { save_recently_played: true, redact_file_names_in_logs: false }
     }
+}
+
+/// Logging and crash reports (S0.7). `RUST_LOG` overrides the level.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DiagnosticsSettings {
+    /// How much goes into the log file.
+    #[serde(deserialize_with = "lenient")]
+    pub log_level: LogLevel,
 }
 
 /// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens

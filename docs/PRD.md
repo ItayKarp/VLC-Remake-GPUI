@@ -383,12 +383,12 @@ flowchart LR
 **Depends on:** S0.1  **Size:** S
 
 **Subtasks**
-- [ ] S0.7.1 `tracing` with a rolling file appender in the data dir (size-capped, about 5 files × 5 MB), and the level set through `RUST_LOG` or a setting.
-- [ ] S0.7.2 Panic hook: write a crash report (backtrace, version, OS, GPU) and offer to open the folder on next launch. Never upload anything automatically (see Privacy settings).
-- [ ] S0.7.3 Replace every `eprintln!` with tracing plus, where the user is affected, a toast or banner.
-- [ ] S0.7.4 Help → "Copy debug info" (version, OS, GPU, libVLC version, settings without paths).
+- [x] S0.7.1 `tracing` with a rolling file appender in the data dir (size-capped, about 5 files × 5 MB), and the level set through `RUST_LOG` or a setting. *(`src/logging/`: `logs/vlc.log` next to `local.toml`, rolling to `vlc.1.log` … `vlc.4.log` at 5 MB. `RUST_LOG` wins over `diagnostics.log_level` (default `info` for our crate, `warn` for GPUI and the rest), and a changed setting applies while running. `log` records from GPUI are bridged in. `RVLC_LOG` is gone.)*
+- [x] S0.7.2 Panic hook: write a crash report (backtrace, version, OS, GPU) and offer to open the folder on next launch. Never upload anything automatically (see Privacy settings). *(`src/diagnostics/crash.rs`: `logs/crash-<time>-<pid>.txt`, the newest 10 kept. The next main window shows a toast with "Show Report", which reveals the file. Any panic, on any thread, writes the report and exits, so a dead background thread can't leave the UI frozen. The hook itself hasn't been triggered by hand yet.)*
+- [x] S0.7.3 Replace every `eprintln!` with tracing plus, where the user is affected, a toast or banner. *(Every `log::` call is now `tracing::`; the main window has a toast stack, and a failed Run Setup Again shows an error toast there. Settings problems already had banners and onboarding its save error.)*
+- [x] S0.7.4 Help → "Copy debug info" (version, OS, GPU, libVLC version, settings without paths). *(`CopyDebugInfo`: last item of the `…` menu, and Help on macOS. Preferences as TOML; of `local.toml` only `onboarding_complete` and the number of media folders. libVLC reads "not loaded yet" until Stage 1.)*
 
-**Edge cases:** the log dir isn't writable (log to stderr only); paths in logs are personal data (redact the home dir as `~` and offer a "redact file names" option); a panic on a background thread must not leave the UI frozen.
+**Edge cases:** the log dir isn't writable (log to stderr only); paths in logs are personal data (redact the home dir as `~` and offer a "redact file names" option); a panic on a background thread must not leave the UI frozen. *(All three handled. The file always has the home dir as `~`; `privacy.redact_file_names_in_logs` makes `logging::path` show `<redacted>.mkv`, and launches are logged as counts, not paths. Its settings row comes with the Privacy screen.)*
 
 ---
 

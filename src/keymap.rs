@@ -77,7 +77,7 @@ pub fn init(cx: &mut App) {
         cx.set_menus(menus::mac_menu_bar());
     }
     cx.on_keyboard_layout_change(|cx| {
-        log::info!("keyboard layout changed to {}", cx.keyboard_layout().name());
+        tracing::info!("keyboard layout changed to {}", cx.keyboard_layout().name());
         cx.refresh_windows();
     })
     .detach();
@@ -92,7 +92,7 @@ fn default_bindings(cx: &App) -> Vec<KeyBinding> {
         for source in command.keys.for_os(mac).iter().rev() {
             match binding(command, source, cx) {
                 Ok(binding) => bindings.push(binding),
-                Err(err) => log::error!("bad default binding {source:?}: {err:#}"),
+                Err(err) => tracing::error!("bad default binding {source:?}: {err:#}"),
             }
         }
     }

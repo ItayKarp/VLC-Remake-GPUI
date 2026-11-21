@@ -63,7 +63,7 @@ impl InstancePaths {
         #[cfg(unix)]
         match fs::remove_file(&self.socket) {
             Err(err) if err.kind() != io::ErrorKind::NotFound => {
-                log::warn!("instance: couldn't remove {}: {err}", self.socket.display());
+                tracing::warn!("instance: couldn't remove {}: {err}", self.socket.display());
             }
             _ => {}
         }

@@ -3,6 +3,7 @@
 
 mod app;
 mod assets;
+mod diagnostics;
 mod keymap;
 mod logging;
 mod main_window;
@@ -19,7 +20,7 @@ use crate::app::instance::{self, Role};
 use crate::app::request::Launch;
 
 fn main() {
-    logging::init();
+    diagnostics::init();
     let launch = Launch::from_env();
     let (inbox, receiver) = instance::inbox();
     let role = instance::acquire(&launch, &inbox);
@@ -32,6 +33,7 @@ fn main() {
     application.on_open_urls(move |urls| inbox.post_urls(&urls));
     application.run(move |cx: &mut App| {
         settings::init(cx);
+        diagnostics::follow_settings(cx);
         theme::init(cx);
         ui::init(cx);
         keymap::init(cx);

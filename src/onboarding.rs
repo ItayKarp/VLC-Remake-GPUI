@@ -55,6 +55,7 @@ impl Onboarding {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window, cx);
+        crate::diagnostics::system::remember_gpu(window);
 
         // Re-render when the OS switches light/dark (for the "System" theme) or
         // turns high contrast on or off.

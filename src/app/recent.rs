@@ -40,7 +40,7 @@ fn add_files(files: Vec<PathBuf>, _cx: &mut App) {
         windows_shell::add_to_recent_docs(&files);
     });
     if let Err(err) = spawned {
-        log::warn!("couldn't update the recent documents list: {err}");
+        tracing::warn!("couldn't update the recent documents list: {err}");
     }
 }
 

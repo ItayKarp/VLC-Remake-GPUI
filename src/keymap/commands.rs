@@ -132,6 +132,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd("About VLC", AppArea, keys(&["shift-f1"]), &act::About),
     cmd("Run Setup Again", AppArea, NONE, &act::RunSetupAgain),
+    cmd("Copy Debug Info", AppArea, NONE, &act::CopyDebugInfo),
     cmd(
         "Close Window",
         Global,

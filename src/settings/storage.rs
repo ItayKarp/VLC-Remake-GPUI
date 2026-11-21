@@ -53,7 +53,7 @@ pub fn load(path: &Path) -> io::Result<Loaded> {
     match parse(&text) {
         Ok(doc) => Ok(Loaded { doc, issue: None }),
         Err(error) => {
-            log::warn!("settings: {} is corrupt: {error}", path.display());
+            tracing::warn!("settings: {} is corrupt: {error}", path.display());
             let moved_to = move_aside(path);
             let backup = load_backup(path);
             Ok(Loaded {
@@ -96,7 +96,7 @@ fn move_aside(path: &Path) -> Option<PathBuf> {
     match with_retry(|| fs::rename(path, &target)) {
         Ok(()) => Some(target),
         Err(err) => {
-            log::warn!("settings: couldn't move corrupt file aside: {err}");
+            tracing::warn!("settings: couldn't move corrupt file aside: {err}");
             None
         }
     }
@@ -128,7 +128,7 @@ pub fn save(path: &Path, contents: &str) -> io::Result<()> {
         let backup = write_synced(&bak_tmp, &current)
             .and_then(|()| with_retry(|| fs::rename(&bak_tmp, sibling(path, ".bak"))));
         if let Err(err) = backup {
-            log::warn!("settings: couldn't update backup of {}: {err}", path.display());
+            tracing::warn!("settings: couldn't update backup of {}: {err}", path.display());
         }
     }
 

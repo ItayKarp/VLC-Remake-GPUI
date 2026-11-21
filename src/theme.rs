@@ -218,7 +218,7 @@ fn set_system_prefs(prefs: SystemPrefs, cx: &mut App) {
     if cx.global::<Theme>().system == prefs {
         return;
     }
-    log::info!("theme: OS preferences changed: {prefs:?}");
+    tracing::info!("theme: OS preferences changed: {prefs:?}");
     cx.set_reduce_motion(prefs.reduce_motion);
     cx.update_global::<Theme, _>(|theme, _| theme.system = prefs);
 }

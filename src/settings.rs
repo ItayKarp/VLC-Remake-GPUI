@@ -51,7 +51,7 @@ pub fn init(cx: &mut App) {
     cx.set_global(SettingsStore { state, pending_save: None });
     cx.on_app_quit(|cx| {
         if let Err(err) = flush(cx) {
-            log::error!("settings: couldn't save on quit: {err}");
+            tracing::error!("settings: couldn't save on quit: {err}");
         }
         async {}
     })

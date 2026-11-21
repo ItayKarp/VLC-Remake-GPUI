@@ -50,7 +50,7 @@ impl Onboarding {
 
     /// Records a failed save and restores the settings from before Finish.
     fn save_failed(&mut self, before: Settings, error: SharedString, cx: &mut Context<Self>) {
-        log::warn!("onboarding: couldn't save settings: {error}");
+        tracing::warn!("onboarding: couldn't save settings: {error}");
         // Undo, so quitting from here (which flushes settings) doesn't record
         // onboarding as done.
         settings::update(cx, |s| *s = before);
@@ -72,7 +72,7 @@ impl Onboarding {
         match app::open_main_window(display, app::open::take_pending(cx), cx) {
             Ok(_) => window.remove_window(),
             Err(err) => {
-                log::error!("onboarding: couldn't open the main window: {err:#}");
+                tracing::error!("onboarding: couldn't open the main window: {err:#}");
                 self.finish = FinishState::Failed("Couldn't open the main window.".into());
                 cx.notify();
             }

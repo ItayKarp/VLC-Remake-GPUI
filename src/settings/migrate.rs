@@ -50,7 +50,7 @@ pub fn migrate(docs: &mut Documents) -> Outcome {
     }
     let version = schema_version(&docs.prefs);
     if version > CURRENT_VERSION {
-        log::warn!(
+        tracing::warn!(
             "settings: schema version {version} is newer than this build ({CURRENT_VERSION}); \
              unknown settings will be kept but ignored"
         );
@@ -66,7 +66,7 @@ pub fn migrate(docs: &mut Documents) -> Outcome {
     if from == CURRENT_VERSION {
         Outcome::UpToDate
     } else {
-        log::info!("settings: migrated from schema version {from} to {CURRENT_VERSION}");
+        tracing::info!("settings: migrated from schema version {from} to {CURRENT_VERSION}");
         Outcome::Migrated { from }
     }
 }

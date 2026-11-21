@@ -27,6 +27,7 @@ use crate::keymap::actions::{CloseWindow, Quit, RunSetupAgain};
 use crate::main_window::MainWindow;
 use crate::onboarding::{self, Onboarding};
 use crate::settings;
+use crate::ui::toast::{Level, Toast};
 use cli::Route;
 use geometry::Rect;
 use instance::{InboxReceiver, Role};
@@ -68,7 +69,7 @@ pub fn start(launch: &Launch, role: Role, inbox: InboxReceiver, cx: &mut App) {
     match role {
         Role::NotResponding => {
             if let Err(err) = not_responding::open(cx) {
-                log::error!("couldn't open a window: {err:#}");
+                tracing::error!("couldn't open a window: {err:#}");
                 cx.quit();
             }
             cx.activate(true);
@@ -103,7 +104,7 @@ pub fn open_initial_window(launch: &Launch, cx: &mut App) {
     };
     if let Err(err) = opened {
         // Nothing to show; LastWindowClosed won't fire without a window, so quit.
-        log::error!("couldn't open a window: {err:#}");
+        tracing::error!("couldn't open a window: {err:#}");
         cx.quit();
     }
     cx.activate(true);
@@ -229,7 +230,7 @@ fn correct_dpi_drift<V: 'static>(
                 let drift = (actual.size.width - requested.size.width).abs()
                     + (actual.size.height - requested.size.height).abs();
                 if drift > px(2.) {
-                    log::debug!(
+                    tracing::debug!(
                         "window opened at {:?} instead of {:?}; resizing",
                         actual.size,
                         requested.size
@@ -247,13 +248,22 @@ fn correct_dpi_drift<V: 'static>(
 /// previous settings stay as they were.
 pub fn run_setup_again(display: Option<DisplayId>, cx: &mut App) {
     if let Err(err) = open_onboarding(display, cx) {
-        log::error!("couldn't open onboarding: {err:#}");
+        tracing::error!("couldn't open onboarding: {err:#}");
+        show_error_in_main_windows("Setup couldn't be opened. See the log for details.", cx);
         return;
     }
     for handle in cx.windows() {
         if let Some(main) = handle.downcast::<MainWindow>() {
             main.update(cx, |_, window, _| window.remove_window()).ok();
         }
+    }
+}
+
+/// Shows an error toast in every main window, for failures the user caused from one.
+fn show_error_in_main_windows(message: &'static str, cx: &mut App) {
+    let mains = cx.windows().into_iter().filter_map(|handle| handle.downcast::<MainWindow>());
+    for main in mains {
+        main.update(cx, |main, _, cx| main.show_toast(Toast::new(Level::Error, message), cx)).ok();
     }
 }
 

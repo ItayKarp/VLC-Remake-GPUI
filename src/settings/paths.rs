@@ -9,6 +9,8 @@ pub const APP_DIR_NAME: &str = "RedesignedVLC";
 pub const PREFS_FILE_NAME: &str = "settings.toml";
 /// The machine-local state file.
 pub const LOCAL_FILE_NAME: &str = "local.toml";
+/// The folder for logs and crash reports, next to the machine-local state.
+pub const LOGS_DIR_NAME: &str = "logs";
 /// Overrides both settings directories (tests, portable mode, debugging).
 pub const CONFIG_DIR_ENV: &str = "RVLC_CONFIG_DIR";
 
@@ -25,6 +27,12 @@ impl Locations {
     /// Both files in one directory.
     pub fn in_dir(dir: &Path) -> Self {
         Locations { prefs: dir.join(PREFS_FILE_NAME), local: dir.join(LOCAL_FILE_NAME) }
+    }
+
+    /// The folder for logs and crash reports: `logs/` next to [`Self::local`].
+    pub fn logs(&self) -> PathBuf {
+        let dir = self.local.parent().unwrap_or_else(|| Path::new(""));
+        dir.join(LOGS_DIR_NAME)
     }
 
     /// Resolves from `RVLC_CONFIG_DIR` or the platform's known folders. `None` if

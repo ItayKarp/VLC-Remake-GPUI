@@ -31,7 +31,8 @@ const fn command(action: &'static dyn Action, icon: &'static str) -> MainMenuEnt
     MainMenuEntry::Command { action, icon }
 }
 
-/// The main menu, top to bottom as designed, plus "Run Setup Again" (S0.2.5).
+/// The main menu, top to bottom as designed, plus "Run Setup Again" (S0.2.5) and
+/// "Copy Debug Info" (S0.7.4), which the Help menu holds on macOS.
 pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenFile, icons::FILE),
     command(&act::OpenFolder, icons::FOLDER),
@@ -46,6 +47,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenSettings, icons::SETTINGS),
     command(&act::RunSetupAgain, icons::THEME_SYSTEM),
     command(&act::About, icons::INFO),
+    command(&act::CopyDebugInfo, icons::LIST),
 ];
 
 /// The command table's label for `action`.
@@ -81,6 +83,8 @@ pub fn mac_menu_bar() -> Vec<Menu> {
         Menu::new("Help").items([
             item(&act::ShowKeyboardShortcuts, "Keyboard Shortcuts"),
             item(&act::RunSetupAgain, "Run Setup Again…"),
+            MenuItem::separator(),
+            item(&act::CopyDebugInfo, "Copy Debug Info"),
         ]),
     ]
 }

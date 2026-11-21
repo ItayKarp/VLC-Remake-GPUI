@@ -70,7 +70,7 @@ impl MainWindow {
             return;
         };
         if self.repeat.admit(command, Instant::now()) {
-            log::debug!("{}: no player yet (Stage 2)", command.label);
+            tracing::debug!("{}: no player yet (Stage 2)", command.label);
         }
     }
 }

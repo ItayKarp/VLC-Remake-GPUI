@@ -20,7 +20,7 @@ pub fn parse_or_default<T: DeserializeOwned + Default>(value: &toml::Value) -> T
     match T::deserialize(value.clone()) {
         Ok(parsed) => parsed,
         Err(err) => {
-            log::warn!(
+            tracing::warn!(
                 "settings: ignoring invalid {} value `{value}` ({}); using the default",
                 short_type_name::<T>(),
                 err.to_string().trim(),

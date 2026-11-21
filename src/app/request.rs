@@ -73,6 +73,20 @@ pub struct Launch {
     pub open: OpenRequest,
 }
 
+impl Launch {
+    /// The launch for a log message: counts instead of paths, which are personal data.
+    pub fn summary(&self) -> String {
+        let open = &self.open;
+        format!(
+            "{:?} screen, {} item(s) to {:?}, fullscreen: {}",
+            self.start,
+            open.items.len(),
+            open.placement,
+            open.fullscreen
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

@@ -54,7 +54,7 @@ fn connect(paths: &InstancePaths, deadline: Instant) -> io::Result<Stream> {
         match Stream::connect(paths.name()?) {
             Ok(stream) => return Ok(stream),
             Err(err) if Instant::now() + CONNECT_RETRY < deadline => {
-                log::debug!("instance: connect failed ({err}); retrying");
+                tracing::debug!("instance: connect failed ({err}); retrying");
                 thread::sleep(CONNECT_RETRY);
             }
             Err(err) => return Err(err),
@@ -72,7 +72,7 @@ fn allow_foreground(process_id: u32) {
     }
     // SAFETY: takes a plain integer; an unknown process ID only makes it fail.
     if unsafe { AllowSetForegroundWindow(process_id) } == 0 {
-        log::debug!("instance: AllowSetForegroundWindow({process_id}) failed");
+        tracing::debug!("instance: AllowSetForegroundWindow({process_id}) failed");
     }
 }
 
