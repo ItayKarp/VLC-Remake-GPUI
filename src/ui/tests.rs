@@ -41,10 +41,7 @@ struct Host {
 impl Render for Host {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         super::focus::tab_navigation(
-            div()
-                .track_focus(&self.focus)
-                .size_full()
-                .child(self.child.clone()),
+            div().track_focus(&self.focus).size_full().child(self.child.clone()),
         )
     }
 }
@@ -58,10 +55,7 @@ fn host<V: Render>(
     let (_, cx) = cx.add_window_view(move |window, cx| {
         let child = cx.new(|cx| build(window, cx));
         *out.borrow_mut() = Some(child.clone());
-        Host {
-            child: child.into(),
-            focus: cx.focus_handle(),
-        }
+        Host { child: child.into(), focus: cx.focus_handle() }
     });
     let child = slot.borrow_mut().take().unwrap();
     draw(cx);
@@ -89,11 +83,8 @@ impl Render for MenuHost {
 }
 
 fn open_menu(cx: &mut TestAppContext) -> (Entity<MenuHost>, &mut VisualTestContext) {
-    let (host, cx) = host(cx, |_, _| MenuHost {
-        menu: None,
-        chosen: Rc::default(),
-        _subscription: None,
-    });
+    let (host, cx) =
+        host(cx, |_, _| MenuHost { menu: None, chosen: Rc::default(), _subscription: None });
     host.update_in(cx, |this, window, cx| {
         let pick = |name: &'static str, chosen: &Rc<RefCell<Vec<&'static str>>>| {
             let chosen = chosen.clone();
@@ -212,8 +203,7 @@ fn open_dialog(
                 cx,
             )
         });
-        this.layer
-            .update(cx, |layer, cx| layer.push(dialog.clone(), window, cx));
+        this.layer.update(cx, |layer, cx| layer.push(dialog.clone(), window, cx));
         dialog
     });
     // One frame draws the dialog, the next moves focus into it.
@@ -250,29 +240,17 @@ fn focused_button(dialog: &Entity<Dialog>, cx: &mut VisualTestContext) -> Option
 fn dialog_traps_tab_and_restores_focus(cx: &mut TestAppContext) {
     setup(cx);
     let (host, dialog, cx) = open_dialog(cx);
-    assert_eq!(
-        focused_button(&dialog, cx),
-        Some(0),
-        "focus moves into the dialog"
-    );
+    assert_eq!(focused_button(&dialog, cx), Some(0), "focus moves into the dialog");
 
     cx.simulate_keystrokes("tab");
     draw(cx);
     assert_eq!(focused_button(&dialog, cx), Some(1));
     cx.simulate_keystrokes("tab");
     draw(cx);
-    assert_eq!(
-        focused_button(&dialog, cx),
-        Some(0),
-        "Tab wraps inside the dialog"
-    );
+    assert_eq!(focused_button(&dialog, cx), Some(0), "Tab wraps inside the dialog");
     cx.simulate_keystrokes("shift-tab");
     draw(cx);
-    assert_eq!(
-        focused_button(&dialog, cx),
-        Some(1),
-        "Shift+Tab wraps backward"
-    );
+    assert_eq!(focused_button(&dialog, cx), Some(1), "Shift+Tab wraps backward");
 
     cx.simulate_keystrokes("escape");
     draw(cx);
@@ -290,10 +268,7 @@ fn enter_presses_the_default_button_unless_another_has_focus(cx: &mut TestAppCon
     assert_eq!(focused_button(&dialog, cx), Some(0));
     press(cx, "enter");
     draw(cx);
-    assert_eq!(
-        host.read_with(cx, |h, _| h.pressed.borrow().clone()),
-        ["cancel"]
-    );
+    assert_eq!(host.read_with(cx, |h, _| h.pressed.borrow().clone()), ["cancel"]);
 }
 
 #[gpui::test]
@@ -309,8 +284,7 @@ fn nested_dialogs_close_one_at_a_time(cx: &mut TestAppContext) {
                 cx,
             )
         });
-        this.layer
-            .update(cx, |layer, cx| layer.push(second, window, cx));
+        this.layer.update(cx, |layer, cx| layer.push(second, window, cx));
     });
     draw(cx);
     draw(cx);
@@ -329,13 +303,9 @@ fn nested_dialogs_close_one_at_a_time(cx: &mut TestAppContext) {
 #[gpui::test]
 fn dropdown_opens_moves_and_chooses_with_the_keyboard(cx: &mut TestAppContext) {
     setup(cx);
-    let options: Vec<SharedString> = ["Mono", "Stereo", "Left", "Right"]
-        .into_iter()
-        .map(Into::into)
-        .collect();
-    let (dropdown, cx) = host(cx, move |window, cx| {
-        Dropdown::new("Mode", options, 0, window, cx)
-    });
+    let options: Vec<SharedString> =
+        ["Mono", "Stereo", "Left", "Right"].into_iter().map(Into::into).collect();
+    let (dropdown, cx) = host(cx, move |window, cx| Dropdown::new("Mode", options, 0, window, cx));
     let changes: Rc<RefCell<Vec<usize>>> = Rc::default();
     let sink = changes.clone();
     let _subscription = cx.update(|_, cx| {
@@ -369,9 +339,7 @@ fn slider_steps_with_arrows_and_clamps(cx: &mut TestAppContext) {
     let values: Rc<RefCell<Vec<f64>>> = Rc::default();
     let sink = values.clone();
     let _subscription = cx.update(|_, cx| {
-        cx.subscribe(&slider, move |_, event: &slider::Changed, _| {
-            sink.borrow_mut().push(event.0)
-        })
+        cx.subscribe(&slider, move |_, event: &slider::Changed, _| sink.borrow_mut().push(event.0))
     });
     cx.update(|window, cx| slider.read(cx).focus_handle(cx).focus(window, cx));
     draw(cx);
@@ -394,11 +362,7 @@ fn text_input_types_and_undoes(cx: &mut TestAppContext) {
     cx.simulate_input("hello");
     draw(cx);
     assert_eq!(input.read_with(cx, |i, _| i.text().to_owned()), "hello");
-    let undo = if cfg!(target_os = "macos") {
-        "cmd-z"
-    } else {
-        "ctrl-z"
-    };
+    let undo = if cfg!(target_os = "macos") { "cmd-z" } else { "ctrl-z" };
     cx.simulate_keystrokes(undo);
     draw(cx);
     assert_eq!(input.read_with(cx, |i, _| i.text().to_owned()), "");
@@ -420,9 +384,8 @@ fn tab_moves_between_controls(cx: &mut TestAppContext) {
         a: cx.new(|cx| TextInput::new(window, cx)),
         b: cx.new(|cx| TextInput::new(window, cx)),
     });
-    let (a, b) = two.read_with(cx, |t, cx| {
-        (t.a.read(cx).focus_handle(cx), t.b.read(cx).focus_handle(cx))
-    });
+    let (a, b) =
+        two.read_with(cx, |t, cx| (t.a.read(cx).focus_handle(cx), t.b.read(cx).focus_handle(cx)));
     cx.update(|window, cx| a.focus(window, cx));
     draw(cx);
     cx.simulate_keystrokes("tab");

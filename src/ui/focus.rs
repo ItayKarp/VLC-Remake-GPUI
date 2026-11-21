@@ -96,11 +96,7 @@ pub fn step(
     if len == 0 {
         return None;
     }
-    let Layout {
-        columns,
-        page,
-        wrap,
-    } = layout;
+    let Layout { columns, page, wrap } = layout;
     let columns = columns.max(1);
     let last = len - 1;
     let first_enabled = (0..len).find(|&i| enabled(i))?;
@@ -133,11 +129,7 @@ pub fn step(
         if index < 0 || index > last as isize {
             if paging {
                 // Paging past an end lands on it.
-                return Some(if index < 0 {
-                    first_enabled
-                } else {
-                    last_enabled
-                });
+                return Some(if index < 0 { first_enabled } else { last_enabled });
             }
             if !wrap {
                 return Some(current);
@@ -162,24 +154,12 @@ pub struct Layout {
 
 impl Layout {
     /// A one-dimensional group that wraps around (menus, swatches, tabs).
-    pub const WRAPPING: Layout = Layout {
-        columns: 1,
-        page: 10,
-        wrap: true,
-    };
+    pub const WRAPPING: Layout = Layout { columns: 1, page: 10, wrap: true };
     /// A one-dimensional group that stops at the ends (lists, dropdowns).
-    pub const LIST: Layout = Layout {
-        columns: 1,
-        page: 10,
-        wrap: false,
-    };
+    pub const LIST: Layout = Layout { columns: 1, page: 10, wrap: false };
 
     pub fn grid(columns: usize, visible_rows: usize) -> Layout {
-        Layout {
-            columns,
-            page: columns * visible_rows.max(1),
-            wrap: false,
-        }
+        Layout { columns, page: columns * visible_rows.max(1), wrap: false }
     }
 }
 
@@ -216,10 +196,7 @@ mod tests {
         assert_eq!(step(Some(3), 4, Move::Prev, Layout::LIST, enabled), Some(0));
         // Wrapping past disabled items at the end.
         let enabled = |i| i != 3;
-        assert_eq!(
-            step(Some(2), 4, Move::Next, Layout::WRAPPING, enabled),
-            Some(0)
-        );
+        assert_eq!(step(Some(2), 4, Move::Next, Layout::WRAPPING, enabled), Some(0));
         // A disabled last item: the list stays put rather than landing on it.
         assert_eq!(step(Some(2), 4, Move::Next, Layout::LIST, enabled), Some(2));
     }
@@ -242,16 +219,9 @@ mod tests {
     #[test]
     fn home_end_and_paging() {
         let enabled = |i| i != 0;
-        assert_eq!(
-            step(Some(3), 5, Move::First, Layout::LIST, enabled),
-            Some(1)
-        );
+        assert_eq!(step(Some(3), 5, Move::First, Layout::LIST, enabled), Some(1));
         assert_eq!(step(Some(1), 5, Move::Last, Layout::LIST, enabled), Some(4));
-        let layout = Layout {
-            columns: 1,
-            page: 3,
-            wrap: false,
-        };
+        let layout = Layout { columns: 1, page: 3, wrap: false };
         assert_eq!(step(Some(1), 10, Move::PageDown, layout, all), Some(4));
         assert_eq!(step(Some(8), 10, Move::PageDown, layout, all), Some(9));
         assert_eq!(step(Some(1), 10, Move::PageUp, layout, all), Some(0));

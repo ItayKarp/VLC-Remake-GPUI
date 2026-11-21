@@ -1,0 +1,16 @@
+# Thresholds for the clean-code lints in Cargo.toml (see CLEAN_CODE.md).
+# A function longer than this many lines does more than one thing.
+too-many-lines-threshold = 40
+# More parameters than this: group them in a struct.
+too-many-arguments-threshold = 5
+# Branches and loops a reader can hold in their head.
+cognitive-complexity-threshold = 15
+# Blocks inside blocks: return early, extract a function.
+excessive-nesting-threshold = 4
+# A bool parameter says "this function does two things".
+max-fn-params-bools = 1
+max-struct-bools = 2
+# Tests may unwrap: a panic is how they fail.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-dbg-in-tests = true

@@ -44,10 +44,7 @@ impl Global for SettingsStore {}
 pub fn init(cx: &mut App) {
     let state = SettingsState::load(Locations::resolve());
     let needs_save = state.is_dirty(); // e.g. just migrated
-    cx.set_global(SettingsStore {
-        state,
-        pending_save: None,
-    });
+    cx.set_global(SettingsStore { state, pending_save: None });
     cx.on_app_quit(|cx| {
         if let Err(err) = flush(cx) {
             log::error!("settings: couldn't save on quit: {err}");
@@ -64,10 +61,7 @@ pub fn init(cx: &mut App) {
 /// need the global.
 #[cfg(test)]
 pub fn init_in_memory(cx: &mut App) {
-    cx.set_global(SettingsStore {
-        state: SettingsState::load(None),
-        pending_save: None,
-    });
+    cx.set_global(SettingsStore { state: SettingsState::load(None), pending_save: None });
 }
 
 pub fn get(cx: &App) -> &Settings {
@@ -95,7 +89,7 @@ pub fn flush(cx: &mut App) -> Result<(), String> {
     let generation = job.generation();
     let result = job.run();
     cx.update_global::<SettingsStore, _>(|store, _| {
-        store.state.finish_save(generation, result.clone())
+        store.state.finish_save(generation, result.clone());
     });
     result
 }
@@ -120,7 +114,7 @@ pub fn save(cx: &mut App) -> Task<Result<(), String>> {
     cx.spawn(async move |cx| {
         let result = cx.background_spawn(async move { job.run() }).await;
         cx.update_global::<SettingsStore, _>(|store, _| {
-            store.state.finish_save(generation, result.clone())
+            store.state.finish_save(generation, result.clone());
         });
         result
     })
@@ -147,7 +141,7 @@ fn schedule_save(cx: &mut App) {
         let generation = job.generation();
         let result = cx.background_spawn(async move { job.run() }).await;
         cx.update_global::<SettingsStore, _>(|store, _| {
-            store.state.finish_save(generation, result)
+            store.state.finish_save(generation, result);
         });
     });
     cx.update_global::<SettingsStore, _>(|store, _| store.pending_save = Some(task));

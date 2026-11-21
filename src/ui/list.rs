@@ -125,10 +125,8 @@ impl VirtualList {
         match self.columns {
             Columns::One => 1,
             Columns::Fit { width, gap } => {
-                let available = self
-                    .viewport
-                    .bounds()
-                    .map_or(width, |b| f32::from(b.size.width) - 2. * gap);
+                let available =
+                    self.viewport.bounds().map_or(width, |b| f32::from(b.size.width) - 2. * gap);
                 grid_columns(available, width, gap)
             }
         }
@@ -137,9 +135,7 @@ impl VirtualList {
     fn visible_rows(&self) -> usize {
         self.viewport
             .bounds()
-            .map_or(10, |b| {
-                (f32::from(b.size.height) / self.row_height) as usize
-            })
+            .map_or(10, |b| (f32::from(b.size.height) / self.row_height) as usize)
             .max(1)
     }
 
@@ -163,11 +159,7 @@ impl VirtualList {
             return;
         }
         let columns = self.column_count();
-        let axis = if columns > 1 {
-            Axis::Grid
-        } else {
-            Axis::Vertical
-        };
+        let axis = if columns > 1 { Axis::Grid } else { Axis::Vertical };
         let Some(movement) = focus::group_key(event, axis) else {
             return;
         };
@@ -201,10 +193,8 @@ impl Render for VirtualList {
                 range
                     .map(|row| {
                         let items = row_items(row, columns, len).map(|index| {
-                            let state = ItemState {
-                                selected: this.selected == Some(index),
-                                focused,
-                            };
+                            let state =
+                                ItemState { selected: this.selected == Some(index), focused };
                             let item = (this.render_item)(index, state, window, cx);
                             div()
                                 .id(index)
@@ -242,11 +232,7 @@ impl Render for VirtualList {
             .relative()
             .size_full()
             .track_focus(&self.focus_handle)
-            .role(if item_width.is_some() {
-                accesskit::Role::Grid
-            } else {
-                accesskit::Role::List
-            })
+            .role(if item_width.is_some() { accesskit::Role::Grid } else { accesskit::Role::List })
             .aria_label(self.label.clone())
             .rounded(px(metrics::RADIUS))
             .border_2()

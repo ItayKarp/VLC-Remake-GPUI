@@ -87,12 +87,9 @@ pub fn restore(
         .filter(|(_, area)| *area > 0.)
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .map(|(d, _)| *d);
-    let placed = match display {
-        Some(display) => clamp_into(rect, &display, min),
-        None => {
-            let clamped = clamp_into(rect, fallback, min);
-            Rect::centered_in(clamped.w, clamped.h, fallback)
-        }
+    let placed = if let Some(display) = display { clamp_into(rect, &display, min) } else {
+        let clamped = clamp_into(rect, fallback, min);
+        Rect::centered_in(clamped.w, clamped.h, fallback)
     };
     let bounds = placed.to_gpui();
     Some(match saved.mode {
@@ -123,13 +120,7 @@ pub fn to_saved(bounds: WindowBounds) -> WindowGeometry {
         WindowBounds::Fullscreen(b) => (b, WindowMode::Fullscreen),
     };
     let rect = Rect::from_gpui(rect);
-    WindowGeometry {
-        x: rect.x,
-        y: rect.y,
-        width: rect.w,
-        height: rect.h,
-        mode,
-    }
+    WindowGeometry { x: rect.x, y: rect.y, width: rect.w, height: rect.h, mode }
 }
 
 #[cfg(test)]
@@ -141,13 +132,7 @@ mod tests {
     const MIN: (f32, f32) = (800., 500.);
 
     fn saved(x: f32, y: f32, w: f32, h: f32, mode: WindowMode) -> WindowGeometry {
-        WindowGeometry {
-            x,
-            y,
-            width: w,
-            height: h,
-            mode,
-        }
+        WindowGeometry { x, y, width: w, height: h, mode }
     }
 
     fn rect_of(bounds: WindowBounds) -> Rect {
@@ -182,10 +167,7 @@ mod tests {
         let bounds = restore(&s, &[PRIMARY, RIGHT], &PRIMARY, MIN).unwrap();
         assert!(matches!(bounds, WindowBounds::Maximized(_)));
         assert_eq!(rect_of(bounds), Rect::new(2000., 100., 1200., 800.));
-        let s = WindowGeometry {
-            mode: WindowMode::Fullscreen,
-            ..s
-        };
+        let s = WindowGeometry { mode: WindowMode::Fullscreen, ..s };
         let bounds = restore(&s, &[PRIMARY, RIGHT], &PRIMARY, MIN).unwrap();
         assert!(matches!(bounds, WindowBounds::Fullscreen(_)));
     }

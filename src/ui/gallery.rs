@@ -88,17 +88,10 @@ impl Gallery {
         let dropdown = cx.new(|cx| {
             Dropdown::new(
                 "Stereo mode",
-                [
-                    "Mono",
-                    "Stereo",
-                    "Reverse stereo",
-                    "Left",
-                    "Right",
-                    "Dolby Surround",
-                ]
-                .into_iter()
-                .map(SharedString::from)
-                .collect(),
+                ["Mono", "Stereo", "Reverse stereo", "Left", "Right", "Dolby Surround"]
+                    .into_iter()
+                    .map(SharedString::from)
+                    .collect(),
                 0,
                 window,
                 cx,
@@ -114,37 +107,22 @@ impl Gallery {
                 .format(|v| format!("{v:.2}"))
         });
         let speed = cx.new(|cx| {
-            Slider::new(
-                "Playback speed",
-                SliderModel::new(0.25, 4., 0.05, 1.),
-                window,
-                cx,
-            )
-            .accent()
-            .format(|v| format!("{v:.2}×"))
+            Slider::new("Playback speed", SliderModel::new(0.25, 4., 0.05, 1.), window, cx)
+                .accent()
+                .format(|v| format!("{v:.2}×"))
         });
         let sepia = cx.new(|cx| {
-            Slider::new(
-                "Sepia intensity",
-                SliderModel::new(0., 255., 1., 120.),
-                window,
-                cx,
-            )
-            .accent()
-            .format(|v| format!("{v:.0}"))
-            .with_field(window, cx)
+            Slider::new("Sepia intensity", SliderModel::new(0., 255., 1., 120.), window, cx)
+                .accent()
+                .format(|v| format!("{v:.0}"))
+                .with_field(window, cx)
         });
         let delay = cx.new(|cx| {
-            Slider::new(
-                "Audio track delay",
-                SliderModel::new(-10., 10., 0.05, 0.),
-                window,
-                cx,
-            )
-            .accent()
-            .centered()
-            .format(|v| format!("{v:.3} s"))
-            .with_field(window, cx)
+            Slider::new("Audio track delay", SliderModel::new(-10., 10., 0.05, 0.), window, cx)
+                .accent()
+                .centered()
+                .format(|v| format!("{v:.3} s"))
+                .with_field(window, cx)
         });
         let eq = (0..10)
             .map(|band| {
@@ -160,23 +138,15 @@ impl Gallery {
             })
             .collect();
         let name = cx.new(|cx| {
-            TextInput::new(window, cx)
-                .with_placeholder("Playlist name")
-                .with_label("Playlist name")
+            TextInput::new(window, cx).with_placeholder("Playlist name").with_label("Playlist name")
         });
-        let volume_field = cx.new(|cx| {
-            TextInput::new(window, cx)
-                .with_text("200%")
-                .with_label("Starting volume")
-        });
+        let volume_field =
+            cx.new(|cx| TextInput::new(window, cx).with_text("200%").with_label("Starting volume"));
         let grid = cx.new(|cx| {
             VirtualList::new(
                 "Media",
                 10_000,
-                Columns::Fit {
-                    width: 120.,
-                    gap: 8.,
-                },
+                Columns::Fit { width: 120., gap: 8. },
                 96.,
                 media_card,
                 window,
@@ -266,9 +236,7 @@ impl Gallery {
             }
         };
         let items = vec![
-            MenuItem::action("Play", say("Menu → Play"))
-                .icon(icons::PLAY)
-                .shortcut("Space"),
+            MenuItem::action("Play", say("Menu → Play")).icon(icons::PLAY).shortcut("Space"),
             MenuItem::action("Add to Queue", say("Menu → Add to Queue")).icon(icons::LIST),
             MenuItem::action("Show in File Explorer", say("Menu → Show")).icon(icons::FOLDER),
             MenuItem::Separator,
@@ -310,11 +278,7 @@ impl Gallery {
         let modals = self.modals.clone();
         let dialog = cx.new(|cx| {
             Dialog::new(
-                if nested {
-                    "Are you sure?"
-                } else {
-                    "New Playlist"
-                },
+                if nested { "Are you sure?" } else { "New Playlist" },
                 move |_, _| {
                     if nested {
                         div()
@@ -330,10 +294,7 @@ impl Gallery {
                     }
                 },
                 if nested {
-                    vec![
-                        DialogButton::new("Cancel"),
-                        DialogButton::new("Yes").primary(),
-                    ]
+                    vec![DialogButton::new("Cancel"), DialogButton::new("Yes").primary()]
                 } else {
                     vec![
                         DialogButton::new("Cancel"),
@@ -354,7 +315,7 @@ impl Gallery {
                                             t.push(
                                                 Toast::new(Level::Success, "Playlist created"),
                                                 cx,
-                                            )
+                                            );
                                         });
                                     })
                                     .ok();
@@ -414,35 +375,19 @@ fn section(title: &'static str, p: &theme::Palette) -> gpui::Div {
         .bg(p.panel)
         .border_1()
         .border_color(p.divider)
-        .child(
-            div()
-                .text_size(px(12.))
-                .text_color(p.text_muted)
-                .child(title.to_uppercase()),
-        )
+        .child(div().text_size(px(12.)).text_color(p.text_muted).child(title.to_uppercase()))
 }
 
 fn row() -> gpui::Div {
-    div()
-        .flex()
-        .flex_row()
-        .flex_wrap()
-        .items_center()
-        .gap(px(12.))
+    div().flex().flex_row().flex_wrap().items_center().gap(px(12.))
 }
 
 impl Render for Gallery {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let prefs = settings::get(cx).prefs.clone();
-        let theme_index = ThemeMode::ALL
-            .iter()
-            .position(|m| *m == prefs.theme)
-            .unwrap_or(0);
-        let accent_index = Accent::ALL
-            .iter()
-            .position(|a| *a == prefs.accent)
-            .unwrap_or(0);
+        let theme_index = ThemeMode::ALL.iter().position(|m| *m == prefs.theme).unwrap_or(0);
+        let accent_index = Accent::ALL.iter().position(|a| *a == prefs.accent).unwrap_or(0);
 
         let appearance = section("Theme", &p).child(
             row()
@@ -451,11 +396,11 @@ impl Render for Gallery {
                         Segmented::new(
                             "theme",
                             "Theme",
-                            ThemeMode::ALL.map(|m| m.label()),
+                            ThemeMode::ALL.map(ThemeMode::label),
                             theme_index,
                         )
                         .on_select(|i, _, cx| {
-                            settings::update(cx, |s| s.prefs.theme = ThemeMode::ALL[*i])
+                            settings::update(cx, |s| s.prefs.theme = ThemeMode::ALL[*i]);
                         }),
                     ),
                 )
@@ -464,11 +409,11 @@ impl Render for Gallery {
                         Segmented::new(
                             "accent",
                             "Accent",
-                            Accent::ALL.map(|a| a.key()),
+                            Accent::ALL.map(Accent::key),
                             accent_index,
                         )
                         .on_select(|i, _, cx| {
-                            settings::update(cx, |s| s.prefs.accent = Accent::ALL[*i])
+                            settings::update(cx, |s| s.prefs.accent = Accent::ALL[*i]);
                         }),
                     ),
                 ),
@@ -502,48 +447,32 @@ impl Render for Gallery {
                     )
                     .child(IconButton::new("i-vol", icons::VOLUME, "Mute").shortcut("M"))
                     .child(IconButton::new("i-off", icons::SETTINGS, "Settings").disabled(true))
-                    .child(super::icon::two_tone(
-                        two_tone::CHECK_BOX,
-                        24.,
-                        p.icon,
-                        p.accent_fg,
-                    ))
-                    .child(super::icon::two_tone(
-                        two_tone::INFO,
-                        24.,
-                        p.icon,
-                        p.accent_fg,
-                    )),
+                    .child(super::icon::two_tone(two_tone::CHECK_BOX, 24., p.icon, p.accent_fg))
+                    .child(super::icon::two_tone(two_tone::INFO, 24., p.icon, p.accent_fg)),
             );
 
         let toggles = section("Toggles, checkbox and values", &p)
             .child(
                 row()
-                    .child(
-                        Toggle::new("t-on", self.toggle_on, "Negate colors").on_change(
-                            cx.listener(|this, on: &bool, _, cx| {
-                                this.toggle_on = *on;
-                                cx.notify();
-                            }),
-                        ),
-                    )
-                    .child(
-                        Toggle::new("t-off", self.toggle_off, "Posterize").on_change(cx.listener(
-                            |this, on: &bool, _, cx| {
-                                this.toggle_off = *on;
-                                cx.notify();
-                            },
-                        )),
-                    )
+                    .child(Toggle::new("t-on", self.toggle_on, "Negate colors").on_change(
+                        cx.listener(|this, on: &bool, _, cx| {
+                            this.toggle_on = *on;
+                            cx.notify();
+                        }),
+                    ))
+                    .child(Toggle::new("t-off", self.toggle_off, "Posterize").on_change(
+                        cx.listener(|this, on: &bool, _, cx| {
+                            this.toggle_off = *on;
+                            cx.notify();
+                        }),
+                    ))
                     .child(Toggle::new("t-dis", true, "Disabled").disabled(true))
-                    .child(
-                        Checkbox::new("c", self.checkbox, "Remember last position").on_change(
-                            cx.listener(|this, on: &bool, _, cx| {
-                                this.checkbox = *on;
-                                cx.notify();
-                            }),
-                        ),
-                    )
+                    .child(Checkbox::new("c", self.checkbox, "Remember last position").on_change(
+                        cx.listener(|this, on: &bool, _, cx| {
+                            this.checkbox = *on;
+                            cx.notify();
+                        }),
+                    ))
                     .child(Checkbox::new("c-dis", false, "Unavailable").disabled(true)),
             )
             .child(
@@ -669,7 +598,7 @@ impl Render for Gallery {
                             .on_mouse_down(
                                 MouseButton::Right,
                                 cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
-                                    this.open_menu(event.position, window, cx)
+                                    this.open_menu(event.position, window, cx);
                                 }),
                             ),
                     )
@@ -694,8 +623,8 @@ impl Render for Gallery {
                     .child(Button::new("toast-info", "Toast").style(ButtonStyle::Filled).on_click(
                         cx.listener(|this, _, _, cx| {
                             this.toasts.update(cx, |t, cx| {
-                                t.push(Toast::new(Level::Info, "Snapshot saved to Pictures"), cx)
-                            })
+                                t.push(Toast::new(Level::Info, "Snapshot saved to Pictures"), cx);
+                            });
                         }),
                     ))
                     .child(
@@ -707,8 +636,8 @@ impl Render for Gallery {
                                         Toast::new(Level::Error, "Couldn't download subtitles: the server didn't respond.")
                                             .action("Retry", |_, _| {}),
                                         cx,
-                                    )
-                                })
+                                    );
+                                });
                             })),
                     ),
             )
@@ -737,38 +666,37 @@ impl Render for Gallery {
             .child(div().h(px(260.)).child(self.grid.clone()));
 
         let popover =
-            self.popover_open
-                .then(|| self.popover_trigger.bounds())
-                .flatten()
-                .map(|bounds| {
-                    popover::attached(
-                        bounds,
-                        // Like the control bar's popovers: above, flipping below near the top.
-                        Side::Above,
-                        6.,
-                        1,
-                        popover::surface(&p, window)
-                            .id("popover-surface")
-                            .w(px(280.))
-                            .p(px(12.))
-                            .flex()
-                            .flex_col()
-                            .gap(px(8.))
-                            .on_mouse_down_out(cx.listener(
-                                |this, event: &gpui::MouseDownEvent, _, cx| {
-                                    if !this.popover_trigger.contains(&event.position) {
-                                        this.popover_open = false;
-                                        cx.notify();
-                                    }
-                                },
-                            ))
-                            .child(div().text_color(p.text_strong).child("Playback speed"))
-                            .child(self.speed.clone())
-                            .child(div().text_size(px(12.)).text_color(p.text_muted).child(
+            self.popover_open.then(|| self.popover_trigger.bounds()).flatten().map(|bounds| {
+                popover::attached(
+                    bounds,
+                    // Like the control bar's popovers: above, flipping below near the top.
+                    Side::Above,
+                    6.,
+                    1,
+                    popover::surface(&p, window)
+                        .id("popover-surface")
+                        .w(px(280.))
+                        .p(px(12.))
+                        .flex()
+                        .flex_col()
+                        .gap(px(8.))
+                        .on_mouse_down_out(cx.listener(
+                            |this, event: &gpui::MouseDownEvent, _, cx| {
+                                if !this.popover_trigger.contains(&event.position) {
+                                    this.popover_open = false;
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                        .child(div().text_color(p.text_strong).child("Playback speed"))
+                        .child(self.speed.clone())
+                        .child(
+                            div().text_size(px(12.)).text_color(p.text_muted).child(
                                 "Opens above its button, and below it when there's no room.",
-                            )),
-                    )
-                });
+                            ),
+                        ),
+                )
+            });
 
         let menu = self
             .menu

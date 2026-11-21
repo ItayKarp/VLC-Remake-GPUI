@@ -8,9 +8,7 @@ use toml_edit::{DocumentMut, Item, TableLike, Value};
 /// Serializes `typed` and merges it into `doc` in place.
 pub fn merge_typed<T: Serialize>(doc: &mut DocumentMut, typed: &T) -> Result<(), String> {
     let text = toml::to_string(typed).map_err(|err| err.to_string())?;
-    let fresh: DocumentMut = text
-        .parse()
-        .map_err(|err: toml_edit::TomlError| err.to_string())?;
+    let fresh: DocumentMut = text.parse().map_err(|err: toml_edit::TomlError| err.to_string())?;
     merge(doc.as_table_mut(), fresh.as_table());
     Ok(())
 }
@@ -58,9 +56,7 @@ fn same_value(a: &Value, b: &Value) -> bool {
 /// The document's `schema_version`, or `0` if it has none (files from the first
 /// onboarding build).
 pub fn schema_version(doc: &DocumentMut) -> i64 {
-    doc.get("schema_version")
-        .and_then(Item::as_integer)
-        .unwrap_or(0)
+    doc.get("schema_version").and_then(Item::as_integer).unwrap_or(0)
 }
 
 /// Sets `schema_version`, as the first key when it's new.

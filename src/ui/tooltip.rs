@@ -28,13 +28,7 @@ pub fn text(
 ) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
     let label = label.into();
     let shortcut = shortcut.map(Into::into);
-    move |_, cx| {
-        cx.new(|_| Tooltip {
-            label: label.clone(),
-            shortcut: shortcut.clone(),
-        })
-        .into()
-    }
+    move |_, cx| cx.new(|_| Tooltip { label: label.clone(), shortcut: shortcut.clone() }).into()
 }
 
 impl Render for Tooltip {

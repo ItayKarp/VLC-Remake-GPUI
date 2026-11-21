@@ -75,7 +75,7 @@ fn unhex_os(hex: &str) -> Option<OsString> {
 pub mod list {
     use serde::{Deserialize, Deserializer, Serializer};
 
-    use super::*;
+    use super::{PathBuf, encode, decode};
 
     pub fn serialize<S: Serializer>(paths: &[PathBuf], serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(paths.iter().map(|path| encode(path)))

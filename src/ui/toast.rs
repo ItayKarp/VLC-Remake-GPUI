@@ -58,12 +58,7 @@ pub struct Toast {
 
 impl Toast {
     pub fn new(level: Level, message: impl Into<SharedString>) -> Self {
-        Self {
-            id: 0,
-            level,
-            message: message.into(),
-            action: None,
-        }
+        Self { id: 0, level, message: message.into(), action: None }
     }
 
     pub fn action(
@@ -113,10 +108,7 @@ impl Toasts {
 /// Drops the oldest auto-dismissing toasts first, then the oldest of any kind.
 fn trim(toasts: &mut Vec<Toast>, max: usize) {
     while toasts.len() > max {
-        let index = toasts
-            .iter()
-            .position(|t| t.level.auto_dismiss())
-            .unwrap_or(0);
+        let index = toasts.iter().position(|t| t.level.auto_dismiss()).unwrap_or(0);
         toasts.remove(index);
     }
 }
@@ -199,13 +191,7 @@ pub struct Banner {
 }
 
 pub fn banner(id: impl Into<ElementId>, level: Level, message: impl Into<SharedString>) -> Banner {
-    Banner {
-        id: id.into(),
-        level,
-        message: message.into(),
-        action: None,
-        on_dismiss: None,
-    }
+    Banner { id: id.into(), level, message: message.into(), action: None, on_dismiss: None }
 }
 
 impl Banner {
@@ -286,10 +272,7 @@ mod tests {
     use super::*;
 
     fn toast(level: Level, id: u64) -> Toast {
-        Toast {
-            id,
-            ..Toast::new(level, "")
-        }
+        Toast { id, ..Toast::new(level, "") }
     }
 
     #[test]

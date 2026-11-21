@@ -21,7 +21,7 @@ pub fn cursor_display(cx: &App) -> Option<DisplayId> {
     let mut point = Point { x: 0, y: 0 };
     // SAFETY: plain Win32 calls; `point` is a valid out-pointer.
     let monitor = unsafe {
-        if GetCursorPos(&mut point) == 0 {
+        if GetCursorPos(&raw mut point) == 0 {
             return None;
         }
         MonitorFromPoint(point, MONITOR_DEFAULTTONULL)
@@ -44,10 +44,7 @@ pub fn cursor_display(_cx: &App) -> Option<DisplayId> {
 /// The display of the active window, else the one with the cursor.
 pub fn preferred_display(cx: &mut App) -> Option<DisplayId> {
     let from_window = cx.active_window().and_then(|handle| {
-        handle
-            .update(cx, |_, window, cx| window.display(cx).map(|d| d.id()))
-            .ok()
-            .flatten()
+        handle.update(cx, |_, window, cx| window.display(cx).map(|d| d.id())).ok().flatten()
     });
     from_window.or_else(|| cursor_display(cx))
 }

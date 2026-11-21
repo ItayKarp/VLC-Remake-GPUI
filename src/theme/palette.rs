@@ -105,10 +105,7 @@ pub(super) fn hex(value: u32) -> Hsla {
 }
 
 fn hexa(value: u32, alpha: f32) -> Hsla {
-    Hsla {
-        a: alpha,
-        ..hex(value)
-    }
+    Hsla { a: alpha, ..hex(value) }
 }
 
 impl Palette {
@@ -118,17 +115,8 @@ impl Palette {
             contrast::readable_on(accent_color, hex(ON_ACCENT_DARK), hex(ON_ACCENT_LIGHT));
         let background = if dark { hex(0x0E0E0E) } else { hex(0xF3F3F3) };
         let accent_fg = contrast::ensure_contrast(accent_color, background, UI_MIN);
-        let shared = Shared {
-            accent: accent_color,
-            on_accent,
-            accent_fg,
-            background,
-        };
-        let mut palette = if dark {
-            Self::dark(shared)
-        } else {
-            Self::light(shared)
-        };
+        let shared = Shared { accent: accent_color, on_accent, accent_fg, background };
+        let mut palette = if dark { Self::dark(shared) } else { Self::light(shared) };
         palette.derive_accent_tints();
         palette
     }
@@ -139,16 +127,10 @@ impl Palette {
     fn derive_accent_tints(&mut self) {
         let base = if self.dark { self.well } else { self.control };
         self.accent_tint = super::blend(self.accent, base, 0.23);
-        self.accent_strong = if self.dark {
-            super::blend(self.accent, base, 0.8)
-        } else {
-            self.accent_fg
-        };
+        self.accent_strong =
+            if self.dark { super::blend(self.accent, base, 0.8) } else { self.accent_fg };
         self.accent_on_tint = contrast::ensure_contrast(self.accent, self.accent_tint, UI_MIN);
-        self.selection = Hsla {
-            a: 0.35,
-            ..self.accent
-        };
+        self.selection = Hsla { a: 0.35, ..self.accent };
     }
 
     fn dark(s: Shared) -> Self {

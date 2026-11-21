@@ -33,13 +33,11 @@ pub enum Caption {
 
 /// Onboarding's title strip: drag area plus Minimize and Close.
 pub fn title_bar(palette: &Palette) -> Stateful<Div> {
-    drag_bar("title-bar", TITLE_BAR_HEIGHT)
-        .justify_end()
-        .children(caption_buttons(
-            &[Caption::Minimize, Caption::Close],
-            false,
-            palette,
-        ))
+    drag_bar("title-bar", TITLE_BAR_HEIGHT).justify_end().children(caption_buttons(
+        &[Caption::Minimize, Caption::Close],
+        false,
+        palette,
+    ))
 }
 
 thread_local! {
@@ -97,10 +95,7 @@ pub fn caption_buttons(buttons: &[Caption], maximized: bool, palette: &Palette) 
     if cfg!(target_os = "macos") {
         return Vec::new();
     }
-    buttons
-        .iter()
-        .map(|&button| caption_button(button, maximized, palette))
-        .collect()
+    buttons.iter().map(|&button| caption_button(button, maximized, palette)).collect()
 }
 
 fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> AnyElement {
@@ -108,11 +103,7 @@ fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> AnyEle
         Caption::Minimize => ("minimize", icons::MINIMIZE, Some(WindowControlArea::Min)),
         Caption::Maximize => (
             "maximize",
-            if maximized {
-                icons::RESTORE
-            } else {
-                icons::MAXIMIZE
-            },
+            if maximized { icons::RESTORE } else { icons::MAXIMIZE },
             Some(WindowControlArea::Max),
         ),
         // Not a native caption button, so it's an ordinary click target.
@@ -120,11 +111,7 @@ fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> AnyEle
         Caption::Close => ("close", icons::CLOSE, Some(WindowControlArea::Close)),
     };
     let is_close = button == Caption::Close;
-    let hover_bg = if is_close {
-        palette.close_hover
-    } else {
-        palette.button_hover
-    };
+    let hover_bg = if is_close { palette.close_hover } else { palette.button_hover };
     let hover_icon = palette.close_hover_icon;
 
     div()
@@ -136,29 +123,24 @@ fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> AnyEle
         .items_center()
         .justify_center()
         .occlude()
-        .when_some(area, |this, area| this.window_control_area(area))
+        .when_some(area, InteractiveElement::window_control_area)
         .hover(move |style| style.bg(hover_bg))
         // Linux has no native hit-testing for these areas, and Fullscreen has none
         // anywhere, so handle clicks too.
-        .when(
-            !cfg!(target_os = "windows") || button == Caption::Fullscreen,
-            |this| {
-                this.on_click(move |_, window, _| match button {
-                    Caption::Close => window.remove_window(),
-                    Caption::Minimize => window.minimize_window(),
-                    Caption::Maximize => window.zoom_window(),
-                    Caption::Fullscreen => window.toggle_fullscreen(),
-                })
-            },
-        )
+        .when(!cfg!(target_os = "windows") || button == Caption::Fullscreen, |this| {
+            this.on_click(move |_, window, _| match button {
+                Caption::Close => window.remove_window(),
+                Caption::Minimize => window.minimize_window(),
+                Caption::Maximize => window.zoom_window(),
+                Caption::Fullscreen => window.toggle_fullscreen(),
+            })
+        })
         .child(
             svg()
                 .path(icon)
                 .size(px(16.))
                 .text_color(palette.icon)
-                .when(is_close, |this| {
-                    this.group_hover(id, |style| style.text_color(hover_icon))
-                }),
+                .when(is_close, |this| this.group_hover(id, |style| style.text_color(hover_icon))),
         )
         .into_any_element()
 }

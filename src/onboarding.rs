@@ -99,23 +99,16 @@ impl Onboarding {
             };
         }
         if let Some(theme) = var("RVLC_THEME") {
-            self.theme = ThemeMode::ALL
-                .into_iter()
-                .find(|m| m.key() == theme)
-                .unwrap_or_default();
+            self.theme = ThemeMode::ALL.into_iter().find(|m| m.key() == theme).unwrap_or_default();
         }
         if let Some(accent) = var("RVLC_ACCENT") {
-            self.accent = Accent::ALL
-                .into_iter()
-                .find(|a| a.key() == accent)
-                .unwrap_or_default();
+            self.accent = Accent::ALL.into_iter().find(|a| a.key() == accent).unwrap_or_default();
         }
     }
 
     /// The live preview of the choices on screen, not the saved theme.
     fn palette(&self, window: &Window, cx: &App) -> Palette {
-        cx.global::<Theme>()
-            .palette_for(self.theme, self.accent, window.appearance())
+        cx.global::<Theme>().palette_for(self.theme, self.accent, window.appearance())
     }
 
     fn go_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -219,10 +212,7 @@ impl Onboarding {
 
     fn cycle_accent(&mut self, delta: isize, cx: &mut Context<Self>) {
         let len = Accent::ALL.len() as isize;
-        let index = Accent::ALL
-            .iter()
-            .position(|a| *a == self.accent)
-            .unwrap_or(0) as isize;
+        let index = Accent::ALL.iter().position(|a| *a == self.accent).unwrap_or(0) as isize;
         self.accent = Accent::ALL[(index + delta).rem_euclid(len) as usize];
         cx.notify();
     }
@@ -375,11 +365,7 @@ impl Onboarding {
                             ),
                     ),
             )
-            .child(
-                bottom_bar()
-                    .justify_end()
-                    .child(self.nav_buttons(false, "Next", cx)),
-            )
+            .child(bottom_bar().justify_end().child(self.nav_buttons(false, "Next", cx)))
             .into_any_element()
     }
 
@@ -503,21 +489,11 @@ impl Onboarding {
                     .justify_between()
                     .px(px(8.))
                     .bg(p.title_bar)
-                    .child(
-                        svg()
-                            .path(icons::LOGO_SMALL)
-                            .size(px(14.))
-                            .text_color(p.accent),
-                    )
+                    .child(svg().path(icons::LOGO_SMALL).size(px(14.)).text_color(p.accent))
                     .child(
                         div().flex().flex_row().gap(px(8.)).children(
-                            [
-                                icons::MINIMIZE,
-                                icons::MAXIMIZE,
-                                icons::FULLSCREEN,
-                                icons::CLOSE,
-                            ]
-                            .map(|icon| svg().path(icon).size(px(12.)).text_color(p.icon)),
+                            [icons::MINIMIZE, icons::MAXIMIZE, icons::FULLSCREEN, icons::CLOSE]
+                                .map(|icon| svg().path(icon).size(px(12.)).text_color(p.icon)),
                         ),
                     ),
             )
@@ -572,11 +548,7 @@ impl Onboarding {
             .size(px(100.))
             .rounded(px(12.))
             .overflow_hidden()
-            .bg(if mode == ThemeMode::Light {
-                light
-            } else {
-                dark
-            })
+            .bg(if mode == ThemeMode::Light { light } else { dark })
             .when(mode == ThemeMode::System, |this| {
                 this.child(
                     svg()
@@ -605,11 +577,7 @@ impl Onboarding {
                     .p(px(8.))
                     .rounded(px(22.))
                     .border(px(3.))
-                    .border_color(if selected {
-                        p.accent
-                    } else {
-                        gpui::transparent_black()
-                    })
+                    .border_color(if selected { p.accent } else { gpui::transparent_black() })
                     .child(swatch),
             )
             .child(
@@ -622,12 +590,8 @@ impl Onboarding {
 
     fn render_control_bar(&self, p: &Palette) -> impl IntoElement {
         let icon = |path: &'static str| svg().path(path).size(px(12.)).text_color(p.icon);
-        let time = |label: &'static str| {
-            div()
-                .text_size(px(8.))
-                .text_color(p.text_muted)
-                .child(label)
-        };
+        let time =
+            |label: &'static str| div().text_size(px(8.)).text_color(p.text_muted).child(label);
 
         div()
             .h(px(29.))
@@ -647,12 +611,7 @@ impl Onboarding {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(
-                        svg()
-                            .path(icons::PLAY)
-                            .size(px(11.))
-                            .text_color(p.on_accent),
-                    ),
+                    .child(svg().path(icons::PLAY).size(px(11.)).text_color(p.on_accent)),
             )
             .child(icon(icons::NEXT))
             .child(time("00:02:10"))
@@ -684,13 +643,7 @@ impl Onboarding {
                     .h(px(9.))
                     .rounded(px(2.))
                     .bg(p.sunken)
-                    .child(
-                        div()
-                            .w(relative(0.35))
-                            .h_full()
-                            .rounded(px(2.))
-                            .bg(p.volume),
-                    ),
+                    .child(div().w(relative(0.35)).h_full().rounded(px(2.)).bg(p.volume)),
             )
             .child(icon(icons::AUDIO))
             .child(icon(icons::SUBTITLES))
@@ -754,63 +707,27 @@ struct Shortcut {
 }
 
 const LEFT_SHORTCUTS: &[Shortcut] = &[
-    Shortcut {
-        label: "Play / Pause",
-        keys: &[&[Key::Text("Space")]],
-    },
+    Shortcut { label: "Play / Pause", keys: &[&[Key::Text("Space")]] },
     Shortcut {
         label: "Seek Backward / Forward",
-        keys: &[
-            &[Key::Icon(icons::ARROW_LEFT)],
-            &[Key::Icon(icons::ARROW_RIGHT)],
-        ],
+        keys: &[&[Key::Icon(icons::ARROW_LEFT)], &[Key::Icon(icons::ARROW_RIGHT)]],
     },
-    Shortcut {
-        label: "Previous / Next Item",
-        keys: &[&[Key::Text("<")], &[Key::Text(">")]],
-    },
-    Shortcut {
-        label: "Previous / Next Frame",
-        keys: &[&[Key::Text(",")], &[Key::Text(".")]],
-    },
-    Shortcut {
-        label: "Cycle Subtitle Track",
-        keys: &[&[Key::Text("V")]],
-    },
-    Shortcut {
-        label: "Cycle Audio Track",
-        keys: &[&[Key::Text("B")]],
-    },
+    Shortcut { label: "Previous / Next Item", keys: &[&[Key::Text("<")], &[Key::Text(">")]] },
+    Shortcut { label: "Previous / Next Frame", keys: &[&[Key::Text(",")], &[Key::Text(".")]] },
+    Shortcut { label: "Cycle Subtitle Track", keys: &[&[Key::Text("V")]] },
+    Shortcut { label: "Cycle Audio Track", keys: &[&[Key::Text("B")]] },
 ];
 
 const RIGHT_SHORTCUTS: &[Shortcut] = &[
-    Shortcut {
-        label: "Toggle Fullscreen",
-        keys: &[&[Key::Text("F")]],
-    },
+    Shortcut { label: "Toggle Fullscreen", keys: &[&[Key::Text("F")]] },
     Shortcut {
         label: "Increase / Decrease Volume",
-        keys: &[
-            &[Key::Icon(icons::ARROW_UP)],
-            &[Key::Icon(icons::ARROW_DOWN)],
-        ],
+        keys: &[&[Key::Icon(icons::ARROW_UP)], &[Key::Icon(icons::ARROW_DOWN)]],
     },
-    Shortcut {
-        label: "Show / Hide Queue",
-        keys: &[&[Key::Text("Q")]],
-    },
-    Shortcut {
-        label: "Show / Hide File Browser",
-        keys: &[&[Key::Text("L")]],
-    },
-    Shortcut {
-        label: "Take a Snapshot",
-        keys: &[&[Key::Text("SHIFT"), Key::Text("S")]],
-    },
-    Shortcut {
-        label: "Record",
-        keys: &[&[Key::Text("SHIFT"), Key::Text("R")]],
-    },
+    Shortcut { label: "Show / Hide Queue", keys: &[&[Key::Text("Q")]] },
+    Shortcut { label: "Show / Hide File Browser", keys: &[&[Key::Text("L")]] },
+    Shortcut { label: "Take a Snapshot", keys: &[&[Key::Text("SHIFT"), Key::Text("S")]] },
+    Shortcut { label: "Record", keys: &[&[Key::Text("SHIFT"), Key::Text("R")]] },
 ];
 
 impl Onboarding {
@@ -861,11 +778,7 @@ impl Onboarding {
                     )
                     .child(self.nav_buttons(
                         true,
-                        if self.finish == FinishState::Saving {
-                            "Saving…"
-                        } else {
-                            "Finish"
-                        },
+                        if self.finish == FinishState::Saving { "Saving…" } else { "Finish" },
                         cx,
                     ))
                     .into_any_element(),
@@ -936,17 +849,12 @@ impl Onboarding {
                         Button::new("continue-without-saving", "Continue without saving")
                             .style(ButtonStyle::Filled)
                             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                this.continue_without_saving(window, cx)
+                                this.continue_without_saving(window, cx);
                             })),
                     )
-                    .child(
-                        Button::new("retry", "Retry")
-                            .primary()
-                            .width(100.)
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                this.finish(window, cx)
-                            })),
-                    ),
+                    .child(Button::new("retry", "Retry").primary().width(100.).on_click(
+                        cx.listener(|this, _: &ClickEvent, window, cx| this.finish(window, cx)),
+                    )),
             )
     }
 }
@@ -958,11 +866,7 @@ fn shortcut_row(shortcut: &Shortcut, p: &Palette) -> impl IntoElement {
             keys = keys.child(div().text_size(px(16.)).text_color(p.text_muted).child("/"));
         }
         keys = keys.child(
-            div()
-                .flex()
-                .flex_row()
-                .gap(px(6.))
-                .children(combo.iter().map(|key| keycap(*key, p))),
+            div().flex().flex_row().gap(px(6.)).children(combo.iter().map(|key| keycap(*key, p))),
         );
     }
 
@@ -971,13 +875,7 @@ fn shortcut_row(shortcut: &Shortcut, p: &Palette) -> impl IntoElement {
         .flex()
         .flex_row()
         .items_center()
-        .child(
-            div()
-                .w(px(240.))
-                .text_size(px(16.))
-                .text_color(p.text_muted)
-                .child(shortcut.label),
-        )
+        .child(div().w(px(240.)).text_size(px(16.)).text_color(p.text_muted).child(shortcut.label))
         .child(keys)
 }
 

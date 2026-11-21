@@ -1,0 +1,5 @@
+# Google's Rust formatting (Chromium / Fuchsia): rustfmt defaults, 100 columns, and let
+# short constructs use the full width instead of rustfmt's narrower heuristics.
+edition = "2024"
+max_width = 100
+use_small_heuristics = "Max"

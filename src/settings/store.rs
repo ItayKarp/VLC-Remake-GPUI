@@ -16,11 +16,7 @@ use super::storage::{self, LoadIssue};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Notice {
     /// A settings file didn't parse; it was kept as `moved_to`.
-    Corrupt {
-        file: PathBuf,
-        moved_to: Option<PathBuf>,
-        restored_from_backup: bool,
-    },
+    Corrupt { file: PathBuf, moved_to: Option<PathBuf>, restored_from_backup: bool },
     /// A settings file was empty and its backup was used.
     RestoredFromBackup { file: PathBuf },
     /// Changes won't be saved this session (no config directory, or a file that can't
@@ -43,10 +39,7 @@ impl FileSlot {
         match merge_typed(&mut self.doc, typed) {
             Ok(()) if self.writable => writes.push((self.path.clone(), self.doc.to_string())),
             Ok(()) => {}
-            Err(err) => log::error!(
-                "settings: couldn't serialize {}: {err}",
-                self.path.display()
-            ),
+            Err(err) => log::error!("settings: couldn't serialize {}: {err}", self.path.display()),
         }
     }
 }
@@ -80,7 +73,7 @@ impl SaveJob {
     }
 
     pub fn run(self) -> Result<(), String> {
-        let mut written = self.written.lock().unwrap_or_else(|e| e.into_inner());
+        let mut written = self.written.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if *written > self.generation {
             return Ok(());
         }
@@ -112,11 +105,7 @@ impl SettingsState {
                         Some(LoadIssue::RestoredFromBackup) => {
                             notices.push(Notice::RestoredFromBackup { file: path.clone() });
                         }
-                        Some(LoadIssue::Corrupt {
-                            moved_to,
-                            restored_from_backup,
-                            ..
-                        }) => {
+                        Some(LoadIssue::Corrupt { moved_to, restored_from_backup, .. }) => {
                             // If the corrupt file couldn't be moved aside, saving over it
                             // would lose it.
                             writable = moved_to.is_some();
@@ -138,11 +127,7 @@ impl SettingsState {
                     (DocumentMut::new(), false)
                 }
             };
-            FileSlot {
-                path,
-                doc,
-                writable,
-            }
+            FileSlot { path, doc, writable }
         };
         let mut prefs = load(locations.prefs);
         let mut local = load(locations.local);
@@ -194,9 +179,7 @@ impl SettingsState {
     }
 
     pub fn is_persistent(&self) -> bool {
-        self.files
-            .as_ref()
-            .is_some_and(|files| files.iter().all(|file| file.writable))
+        self.files.as_ref().is_some_and(|files| files.iter().all(|file| file.writable))
     }
 
     pub fn take_notices(&mut self) -> Vec<Notice> {
@@ -216,11 +199,7 @@ impl SettingsState {
         prefs.render(&self.settings.prefs, &mut writes);
         local.render(&self.settings.local, &mut writes);
         self.generation += 1;
-        Some(SaveJob {
-            writes,
-            generation: self.generation,
-            written: self.written.clone(),
-        })
+        Some(SaveJob { writes, generation: self.generation, written: self.written.clone() })
     }
 
     pub fn finish_save(&mut self, generation: u64, result: Result<(), String>) {

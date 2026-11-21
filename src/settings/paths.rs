@@ -21,10 +21,7 @@ pub struct Locations {
 impl Locations {
     /// Both files in one directory.
     pub fn in_dir(dir: &Path) -> Self {
-        Locations {
-            prefs: dir.join(PREFS_FILE_NAME),
-            local: dir.join(LOCAL_FILE_NAME),
-        }
+        Locations { prefs: dir.join(PREFS_FILE_NAME), local: dir.join(LOCAL_FILE_NAME) }
     }
 
     /// Resolves from `RVLC_CONFIG_DIR` or the platform's known folders. `None` if
@@ -45,13 +42,8 @@ impl Locations {
         // `APPDATA`/`USERPROFILE` being set.
         let config = dirs::config_dir()?.join(APP_DIR_NAME);
         let local = dirs::state_dir()
-            .or_else(dirs::data_local_dir)
-            .map(|dir| dir.join(APP_DIR_NAME))
-            .unwrap_or_else(|| config.clone());
-        Some(Locations {
-            prefs: config.join(PREFS_FILE_NAME),
-            local: local.join(LOCAL_FILE_NAME),
-        })
+            .or_else(dirs::data_local_dir).map_or_else(|| config.clone(), |dir| dir.join(APP_DIR_NAME));
+        Some(Locations { prefs: config.join(PREFS_FILE_NAME), local: local.join(LOCAL_FILE_NAME) })
     }
 }
 
@@ -62,11 +54,7 @@ pub fn default_media_folder() -> PathBuf {
         return dir;
     }
     let home = dirs::home_dir().unwrap_or_default();
-    if cfg!(target_os = "macos") {
-        home.join("Movies")
-    } else {
-        home.join("Videos")
-    }
+    if cfg!(target_os = "macos") { home.join("Movies") } else { home.join("Videos") }
 }
 
 /// Shortens the home directory prefix to `~` for display, like the design's `~/Videos`.

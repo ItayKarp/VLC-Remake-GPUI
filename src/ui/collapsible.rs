@@ -25,13 +25,7 @@ pub struct Collapsible {
 
 impl Collapsible {
     pub fn new(id: impl Into<ElementId>, title: impl Into<SharedString>, expanded: bool) -> Self {
-        Self {
-            id: id.into(),
-            title: title.into(),
-            expanded,
-            content: Vec::new(),
-            on_toggle: None,
-        }
+        Self { id: id.into(), title: title.into(), expanded, content: Vec::new(), on_toggle: None }
     }
 
     /// Called with the new expanded state.
@@ -76,11 +70,7 @@ impl RenderOnce for Collapsible {
             })
             .child(div().truncate().child(self.title))
             .child(icon(
-                if expanded {
-                    icons::CHEVRON_UP
-                } else {
-                    icons::CHEVRON_DOWN
-                },
+                if expanded { icons::CHEVRON_UP } else { icons::CHEVRON_DOWN },
                 20.,
                 p.icon,
             ));

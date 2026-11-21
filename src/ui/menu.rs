@@ -99,11 +99,7 @@ impl MenuItem {
     }
 
     pub fn submenu(label: impl Into<SharedString>, items: Vec<MenuItem>) -> Self {
-        MenuItem::Submenu {
-            label: label.into(),
-            icon: None,
-            items,
-        }
+        MenuItem::Submenu { label: label.into(), icon: None, items }
     }
 
     pub fn icon(mut self, path: &'static str) -> Self {
@@ -124,7 +120,7 @@ impl MenuItem {
     pub fn disabled(mut self, value: bool) -> Self {
         match &mut self {
             MenuItem::Action { disabled, .. } | MenuItem::Check { disabled, .. } => {
-                *disabled = value
+                *disabled = value;
             }
             _ => {}
         }
@@ -223,10 +219,7 @@ impl ContextMenu {
     /// Whether `position` is over this menu or any of its open submenus.
     pub fn contains(&self, position: &gpui::Point<gpui::Pixels>, cx: &App) -> bool {
         self.tracker.contains(position)
-            || self
-                .submenu
-                .as_ref()
-                .is_some_and(|s| s.menu.read(cx).contains(position, cx))
+            || self.submenu.as_ref().is_some_and(|s| s.menu.read(cx).contains(position, cx))
     }
 
     /// Starts with the first item highlighted, for menus opened from the keyboard.
@@ -236,13 +229,10 @@ impl ContextMenu {
 
     fn move_highlight(&mut self, movement: Move, cx: &mut Context<Self>) {
         let items = &self.items;
-        self.highlighted = focus::step(
-            self.highlighted,
-            items.len(),
-            movement,
-            Layout::WRAPPING,
-            |i| items[i].selectable(),
-        );
+        self.highlighted =
+            focus::step(self.highlighted, items.len(), movement, Layout::WRAPPING, |i| {
+                items[i].selectable()
+            });
         if let Some(index) = self.highlighted {
             self.scroll.scroll_to_item(index);
         }
@@ -251,16 +241,8 @@ impl ContextMenu {
 
     fn activate(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         match &self.items[index] {
-            MenuItem::Action {
-                on_select,
-                disabled: false,
-                ..
-            }
-            | MenuItem::Check {
-                on_select,
-                disabled: false,
-                ..
-            } => {
+            MenuItem::Action { on_select, disabled: false, .. }
+            | MenuItem::Check { on_select, disabled: false, .. } => {
                 let on_select = on_select.clone();
                 cx.emit(DismissEvent);
                 // Run after the menu is gone, so the action can open dialogs or
@@ -296,7 +278,7 @@ impl ContextMenu {
         let items = std::mem::take(items);
         let menu = Self::build_at_depth(items, self.depth + 1, window, cx);
         if from_keyboard {
-            menu.update(cx, |menu, cx| menu.highlight_first(cx));
+            menu.update(cx, ContextMenu::highlight_first);
         } else {
             // Hovering shouldn't steal the keyboard from this menu.
             self.focus_handle.focus(window, cx);
@@ -307,20 +289,14 @@ impl ContextMenu {
             cx.emit(DismissEvent);
         });
         self.close_submenu(window, cx);
-        self.submenu = Some(OpenSubmenu {
-            index,
-            menu,
-            _subscription: subscription,
-        });
+        self.submenu = Some(OpenSubmenu { index, menu, _subscription: subscription });
         cx.notify();
     }
 
     /// Closes the open submenu (if any), returning its items to this menu.
     fn close_submenu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(open) = self.submenu.take() {
-            let items = open
-                .menu
-                .update(cx, |menu, _| std::mem::take(&mut menu.items));
+            let items = open.menu.update(cx, |menu, _| std::mem::take(&mut menu.items));
             if let MenuItem::Submenu { items: slot, .. } = &mut self.items[open.index] {
                 *slot = items;
             }
@@ -420,25 +396,16 @@ impl Render for ContextMenu {
                         .bg(p.divider)
                         .into_any_element();
                 }
-                MenuItem::Action {
-                    label,
-                    icon,
-                    shortcut,
-                    disabled,
-                    ..
-                } => OptionRow::new("row", label.clone())
-                    .icon(*icon)
-                    .shortcut(shortcut.clone())
-                    .disabled(*disabled)
-                    .check_column(false),
-                MenuItem::Check {
-                    label,
-                    checked,
-                    disabled,
-                    ..
-                } => OptionRow::new("row", label.clone())
-                    .checked(*checked)
-                    .disabled(*disabled),
+                MenuItem::Action { label, icon, shortcut, disabled, .. } => {
+                    OptionRow::new("row", label.clone())
+                        .icon(*icon)
+                        .shortcut(shortcut.clone())
+                        .disabled(*disabled)
+                        .check_column(false)
+                }
+                MenuItem::Check { label, checked, disabled, .. } => {
+                    OptionRow::new("row", label.clone()).checked(*checked).disabled(*disabled)
+                }
                 MenuItem::Submenu { label, icon, items } => OptionRow::new("row", label.clone())
                     .icon(*icon)
                     .submenu(true)
@@ -474,13 +441,7 @@ impl Render for ContextMenu {
 
         let submenu = self.submenu.as_ref().and_then(|open| {
             let bounds = self.rows[open.index].bounds()?;
-            Some(popover::attached(
-                bounds,
-                Side::Right,
-                4.,
-                self.depth + 2,
-                open.menu.clone(),
-            ))
+            Some(popover::attached(bounds, Side::Right, 4., self.depth + 2, open.menu.clone()))
         });
 
         let tracker = self.tracker.clone();

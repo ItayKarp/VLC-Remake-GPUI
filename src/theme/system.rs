@@ -69,7 +69,7 @@ mod imp {
             SystemParametersInfoW(
                 SPI_GETCLIENTAREAANIMATION,
                 0,
-                (&mut enabled as *mut i32).cast(),
+                (&raw mut enabled).cast(),
                 0,
             )
         };
@@ -87,7 +87,7 @@ mod imp {
             SystemParametersInfoW(
                 SPI_GETHIGHCONTRAST,
                 hc.cb_size,
-                (&mut hc as *mut HighContrastW).cast(),
+                (&raw mut hc).cast(),
                 0,
             )
         };
@@ -117,15 +117,10 @@ mod imp {
     use super::{SystemPrefs, output};
 
     pub fn read() -> SystemPrefs {
-        let reduce_motion = output(
-            "defaults",
-            &["read", "com.apple.universalaccess", "reduceMotion"],
-        )
-        .is_some_and(|value| value == "1");
-        SystemPrefs {
-            reduce_motion,
-            high_contrast: None,
-        }
+        let reduce_motion =
+            output("defaults", &["read", "com.apple.universalaccess", "reduceMotion"])
+                .is_some_and(|value| value == "1");
+        SystemPrefs { reduce_motion, high_contrast: None }
     }
 }
 
@@ -134,15 +129,10 @@ mod imp {
     use super::{SystemPrefs, output};
 
     pub fn read() -> SystemPrefs {
-        let reduce_motion = output(
-            "gsettings",
-            &["get", "org.gnome.desktop.interface", "enable-animations"],
-        )
-        .is_some_and(|value| value == "false");
-        SystemPrefs {
-            reduce_motion,
-            high_contrast: None,
-        }
+        let reduce_motion =
+            output("gsettings", &["get", "org.gnome.desktop.interface", "enable-animations"])
+                .is_some_and(|value| value == "false");
+        SystemPrefs { reduce_motion, high_contrast: None }
     }
 }
 
@@ -154,7 +144,5 @@ fn output(program: &str, args: &[&str]) -> Option<String> {
         .stderr(std::process::Stdio::null())
         .output()
         .ok()?;
-    out.status
-        .success()
-        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
+    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
 }

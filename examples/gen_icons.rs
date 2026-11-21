@@ -20,11 +20,7 @@ fn render(tree: &usvg::Tree, size: u32) -> Vec<u8> {
     let mut pixmap = tiny_skia::Pixmap::new(size, size).expect("pixmap");
     let svg_size = tree.size();
     let scale = size as f32 / svg_size.width().max(svg_size.height());
-    resvg::render(
-        tree,
-        tiny_skia::Transform::from_scale(scale, scale),
-        &mut pixmap.as_mut(),
-    );
+    resvg::render(tree, tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
     pixmap.encode_png().expect("encode png")
 }
 
@@ -45,8 +41,7 @@ fn main() {
         let image = ico::IconImage::read_png(Cursor::new(png)).unwrap();
         ico.add_entry(ico::IconDirEntry::encode(&image).unwrap());
     }
-    ico.write(fs::File::create(out.join("icon.ico")).unwrap())
-        .unwrap();
+    ico.write(fs::File::create(out.join("icon.ico")).unwrap()).unwrap();
 
     // macOS .icns.
     let mut icns = icns::IconFamily::new();
@@ -55,8 +50,7 @@ fn main() {
         let image = icns::Image::read_png(Cursor::new(png)).unwrap();
         icns.add_icon(&image).unwrap();
     }
-    icns.write(fs::File::create(out.join("icon.icns")).unwrap())
-        .unwrap();
+    icns.write(fs::File::create(out.join("icon.icns")).unwrap()).unwrap();
 
     println!("icons written to {OUT}/");
 }

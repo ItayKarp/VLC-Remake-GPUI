@@ -57,10 +57,9 @@ impl ThemeMode {
         match self {
             ThemeMode::Light => false,
             ThemeMode::Dark => true,
-            ThemeMode::System => matches!(
-                appearance,
-                WindowAppearance::Dark | WindowAppearance::VibrantDark
-            ),
+            ThemeMode::System => {
+                matches!(appearance, WindowAppearance::Dark | WindowAppearance::VibrantDark)
+            }
         }
     }
 }
@@ -159,19 +158,10 @@ impl Theme {
 pub fn init(cx: &mut App) {
     let prefs = &settings::get(cx).prefs;
     let (mode, accent) = (prefs.theme, prefs.accent);
-    let system = if system::READ_IS_CHEAP {
-        system::read()
-    } else {
-        SystemPrefs::default()
-    };
+    let system = if system::READ_IS_CHEAP { system::read() } else { SystemPrefs::default() };
     cx.set_reduce_motion(system.reduce_motion);
-    cx.set_global(Theme {
-        mode,
-        accent,
-        system,
-    });
-    cx.observe_global::<SettingsStore>(sync_from_settings)
-        .detach();
+    cx.set_global(Theme { mode, accent, system });
+    cx.observe_global::<SettingsStore>(sync_from_settings).detach();
     if !system::READ_IS_CHEAP {
         refresh_system_prefs(cx);
     }

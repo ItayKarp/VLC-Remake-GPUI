@@ -46,8 +46,7 @@ impl MainWindow {
     pub fn new(files: Vec<PathBuf>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         theme::observe(window, cx);
         // Swap the Maximize/Restore icon when the window is maximized or restored.
-        cx.observe_window_bounds(window, |_, _, cx| cx.notify())
-            .detach();
+        cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
 
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
@@ -116,12 +115,11 @@ impl MainWindow {
         let display = window.display(cx).map(|d| d.id());
         let items = vec![
             MenuItem::action("Open file…", move |window, cx| {
-                this.update(cx, |this, cx| this.open_file(&OpenFile, window, cx))
-                    .ok();
+                this.update(cx, |this, cx| this.open_file(&OpenFile, window, cx)).ok();
             })
             .shortcut(open_hint()),
             MenuItem::action("Run setup again", move |_, cx| {
-                cx.defer(move |cx| app::run_setup_again(display, cx))
+                cx.defer(move |cx| app::run_setup_again(display, cx));
             }),
         ];
         let menu = ContextMenu::build(items, window, cx);
@@ -135,18 +133,11 @@ impl MainWindow {
 }
 
 fn open_hint() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "⌘O"
-    } else {
-        "Ctrl+O"
-    }
+    if cfg!(target_os = "macos") { "⌘O" } else { "Ctrl+O" }
 }
 
 fn file_name(file: &std::path::Path) -> String {
-    file.file_name()
-        .unwrap_or(file.as_os_str())
-        .to_string_lossy()
-        .into_owned()
+    file.file_name().unwrap_or(file.as_os_str()).to_string_lossy().into_owned()
 }
 
 fn notice_text(notice: &Notice) -> String {
@@ -157,16 +148,10 @@ fn notice_text(notice: &Notice) -> String {
                 file.display(),
                 moved.display()
             ),
-            None => format!(
-                "{} couldn't be read; settings won't be saved.",
-                file.display()
-            ),
+            None => format!("{} couldn't be read; settings won't be saved.", file.display()),
         },
         Notice::RestoredFromBackup { file } => {
-            format!(
-                "{} was empty and was restored from its backup.",
-                file.display()
-            )
+            format!("{} was empty and was restored from its backup.", file.display())
         }
         Notice::NotPersisted { reason } => format!("Changes won't be saved. {reason}"),
         Notice::SaveFailed { error } => format!("Settings couldn't be saved: {error}"),
@@ -205,11 +190,7 @@ impl Render for MainWindow {
 
 impl MainWindow {
     fn render_title_bar(&self, p: &Palette, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let left_inset = if cfg!(target_os = "macos") {
-            TRAFFIC_LIGHTS_WIDTH
-        } else {
-            BAR_PAD
-        };
+        let left_inset = if cfg!(target_os = "macos") { TRAFFIC_LIGHTS_WIDTH } else { BAR_PAD };
         let folder = settings::get(cx)
             .local
             .media_folders
@@ -228,12 +209,7 @@ impl MainWindow {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(
-                        svg()
-                            .path(icons::LOGO_SMALL)
-                            .size(px(18.))
-                            .text_color(p.accent_fg),
-                    ),
+                    .child(svg().path(icons::LOGO_SMALL).size(px(18.)).text_color(p.accent_fg)),
             )
             .child(
                 div().relative().child(self.menu_button.element()).child(
@@ -242,32 +218,26 @@ impl MainWindow {
                         .selected(self.menu.is_some())
                         .in_title_bar()
                         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                            this.toggle_menu(window, cx)
+                            this.toggle_menu(window, cx);
                         })),
                 ),
             )
             .when_some(folder, |left, folder| {
-                left.child(div().mx(px(6.)).w(px(1.)).h(px(16.)).bg(p.divider))
-                    .child(
-                        // The folder the library opens on (Stage 4).
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap(px(6.))
-                            .px(px(4.))
-                            .child(svg().path(icons::FOLDER).size(px(18.)).text_color(p.icon))
-                            .child(div().text_size(px(13.)).text_color(p.text).child(folder)),
-                    )
+                left.child(div().mx(px(6.)).w(px(1.)).h(px(16.)).bg(p.divider)).child(
+                    // The folder the library opens on (Stage 4).
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(6.))
+                        .px(px(4.))
+                        .child(svg().path(icons::FOLDER).size(px(18.)).text_color(p.icon))
+                        .child(div().text_size(px(13.)).text_color(p.text).child(folder)),
+                )
             });
 
         let caption = window_chrome::caption_buttons(
-            &[
-                Caption::Minimize,
-                Caption::Maximize,
-                Caption::Fullscreen,
-                Caption::Close,
-            ],
+            &[Caption::Minimize, Caption::Maximize, Caption::Fullscreen, Caption::Close],
             window.is_maximized(),
             p,
         );
@@ -332,31 +302,18 @@ impl MainWindow {
             })
             .child(svg().path(icons::FILE).size(px(48.)).text_color(p.icon))
             .child(
-                div()
-                    .text_size(px(20.))
-                    .text_color(p.text_strong)
-                    .child("Drop files here to play"),
+                div().text_size(px(20.)).text_color(p.text_strong).child("Drop files here to play"),
             )
-            .child(
-                div()
-                    .text_size(px(14.))
-                    .text_color(p.text_muted)
-                    .child("or"),
-            )
+            .child(div().text_size(px(14.)).text_color(p.text_muted).child("or"))
             .child(
                 Button::new("open-file", "Open file…")
                     .primary()
                     .track_focus(&self.open_button)
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                        this.open_file(&OpenFile, window, cx)
+                        this.open_file(&OpenFile, window, cx);
                     })),
             )
-            .child(
-                div()
-                    .text_size(px(12.))
-                    .text_color(p.text_muted)
-                    .child(open_hint()),
-            );
+            .child(div().text_size(px(12.)).text_color(p.text_muted).child(open_hint()));
 
         let opened = self.files.iter().map(|file| {
             div()

@@ -16,9 +16,8 @@ use crate::app::cli::Launch;
 fn main() {
     logging::init();
     let launch = Launch::from_env();
-    let application = application()
-        .with_assets(assets::Assets)
-        .with_quit_mode(QuitMode::LastWindowClosed);
+    let application =
+        application().with_assets(assets::Assets).with_quit_mode(QuitMode::LastWindowClosed);
     application.on_reopen(app::reopen);
     application.run(move |cx: &mut App| {
         settings::init(cx);

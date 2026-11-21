@@ -102,11 +102,7 @@ impl RenderOnce for OptionRow {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let hover = p.hover;
-        let fg: Hsla = if self.highlighted || self.checked {
-            p.text_strong
-        } else {
-            p.text
-        };
+        let fg: Hsla = if self.highlighted || self.checked { p.text_strong } else { p.text };
         // Long labels truncate and show the full text on hover. GPUI doesn't say
         // whether text was truncated, so go by length: about what fits a menu.
         let long_label = (self.label.chars().count() > LONG_LABEL).then(|| self.label.clone());
@@ -127,13 +123,9 @@ impl RenderOnce for OptionRow {
             .aria_label(self.label.clone())
             .aria_selected(self.checked)
             .when(self.highlighted, |r| r.bg(hover))
-            .when(!self.disabled, |r| {
-                r.cursor_pointer().hover(move |s| s.bg(hover))
-            })
+            .when(!self.disabled, |r| r.cursor_pointer().hover(move |s| s.bg(hover)))
             .when(self.disabled, |r| r.opacity(0.4))
-            .when_some(self.icon, |r, path| {
-                r.child(icon(path, metrics::ICON, p.accent_fg))
-            })
+            .when_some(self.icon, |r, path| r.child(icon(path, metrics::ICON, p.accent_fg)))
             .when(self.icon.is_none() && self.reserve_icon, |r| {
                 r.child(div().size(px(metrics::ICON)).flex_none())
             })
@@ -157,12 +149,8 @@ impl RenderOnce for OptionRow {
                         .child(hint),
                 )
             })
-            .when(self.submenu, |r| {
-                r.child(icon(icons::CHEVRON_RIGHT, 18., p.icon))
-            })
-            .when(self.checked, |r| {
-                r.child(icon(icons::CHECK, 22., p.accent_fg))
-            })
+            .when(self.submenu, |r| r.child(icon(icons::CHEVRON_RIGHT, 18., p.icon)))
+            .when(self.checked, |r| r.child(icon(icons::CHECK, 22., p.accent_fg)))
             .when(!self.checked && self.check_column && !self.submenu, |r| {
                 r.child(div().size(px(22.)).flex_none())
             })

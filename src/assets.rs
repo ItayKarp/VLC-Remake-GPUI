@@ -98,14 +98,10 @@ pub struct TwoTone {
 pub mod two_tone {
     use super::{TwoTone, icons};
 
-    pub const INFO: TwoTone = TwoTone {
-        base: icons::INFO_TWO_TONE,
-        accent: icons::INFO_TWO_TONE_ACCENT,
-    };
-    pub const CHECK_BOX: TwoTone = TwoTone {
-        base: icons::CHECK_BOX,
-        accent: icons::CHECK_BOX_ACCENT,
-    };
+    pub const INFO: TwoTone =
+        TwoTone { base: icons::INFO_TWO_TONE, accent: icons::INFO_TWO_TONE_ACCENT };
+    pub const CHECK_BOX: TwoTone =
+        TwoTone { base: icons::CHECK_BOX, accent: icons::CHECK_BOX_ACCENT };
 
     #[cfg(test)]
     pub const ALL: &[TwoTone] = &[INFO, CHECK_BOX];
@@ -115,10 +111,7 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
-        Ok(ASSETS
-            .iter()
-            .find(|(name, _)| *name == path)
-            .map(|(_, data)| Cow::Borrowed(*data)))
+        Ok(ASSETS.iter().find(|(name, _)| *name == path).map(|(_, data)| Cow::Borrowed(*data)))
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {

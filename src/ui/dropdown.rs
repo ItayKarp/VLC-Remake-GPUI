@@ -68,8 +68,7 @@ impl Dropdown {
         popover::close_on_deactivate(window, cx, |this: &mut Self, _, cx| this.close(cx));
         let focus_handle = cx.focus_handle().tab_stop(true);
         // Tabbing away closes the list.
-        cx.on_blur(&focus_handle, window, |this, _, cx| this.close(cx))
-            .detach();
+        cx.on_blur(&focus_handle, window, |this, _, cx| this.close(cx)).detach();
         Self {
             selected: selected.min(options.len().saturating_sub(1)),
             options,
@@ -183,10 +182,7 @@ impl Dropdown {
             }
             _ => {
                 if let Some(movement) = focus::group_key(event, Axis::Vertical) {
-                    let layout = Layout {
-                        page: VISIBLE_ROWS,
-                        ..Layout::LIST
-                    };
+                    let layout = Layout { page: VISIBLE_ROWS, ..Layout::LIST };
                     if self.open {
                         self.highlighted =
                             focus::step(self.highlighted, len, movement, layout, |_| true);
@@ -222,12 +218,8 @@ impl Dropdown {
 
     fn type_to_select(&mut self, ch: &str, cx: &mut Context<Self>) {
         let query = self.type_ahead.push(ch, Instant::now());
-        let labels: Vec<&str> = self.options.iter().map(|o| o.as_ref()).collect();
-        let current = if self.open {
-            self.highlighted
-        } else {
-            Some(self.selected)
-        };
+        let labels: Vec<&str> = self.options.iter().map(AsRef::as_ref).collect();
+        let current = if self.open { self.highlighted } else { Some(self.selected) };
         let Some(index) = find_match(&labels, &query, current, |_| true) else {
             return;
         };
@@ -276,11 +268,7 @@ impl Render for Dropdown {
             .child(self.trigger.element())
             .child(div().min_w_0().truncate().child(value))
             .child(icon(
-                if self.open {
-                    icons::CHEVRON_UP
-                } else {
-                    icons::CHEVRON_DOWN
-                },
+                if self.open { icons::CHEVRON_UP } else { icons::CHEVRON_DOWN },
                 20.,
                 p.icon,
             ))
@@ -292,59 +280,53 @@ impl Render for Dropdown {
             .when(!enabled, |t| t.opacity(0.4));
         let trigger = focus::ring(trigger, &p);
 
-        let list = self
-            .open
-            .then(|| self.trigger.bounds())
-            .flatten()
-            .map(|bounds| {
-                let rows = self.options.iter().enumerate().map(|(i, option)| {
-                    OptionRow::new(i, option.clone())
-                        .height(ROW_HEIGHT)
-                        .checked(i == self.selected)
-                        .highlighted(self.highlighted == Some(i))
-                        .into_any_element()
-                });
-                let rows = rows.enumerate().map(|(i, row)| {
-                    div()
-                        .id(("option", i))
-                        .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
-                            if *hovered && this.highlighted != Some(i) {
-                                this.highlighted = Some(i);
-                                cx.notify();
-                            }
-                        }))
-                        .on_click(cx.listener(move |this, _, _, cx| this.choose(i, cx)))
-                        .child(row)
-                });
-                let list_height = (ROW_HEIGHT * VISIBLE_ROWS as f32 + 12.)
-                    .min(f32::from(popover::max_height(window)));
-                let tracker = self.list.clone();
-                popover::attached(
-                    bounds,
-                    Side::Below,
-                    4.,
-                    1,
-                    popover::surface(&p, window)
-                        .id("dropdown-list")
-                        .relative()
-                        .w(bounds.size.width)
-                        .max_h(px(list_height))
-                        .p(px(6.))
-                        .overflow_y_scroll()
-                        .track_scroll(&self.scroll)
-                        .role(accesskit::Role::ListBox)
-                        .on_mouse_down_out(cx.listener(
-                            |this, event: &gpui::MouseDownEvent, _, cx| {
-                                // The trigger toggles on its own click.
-                                if !this.trigger.contains(&event.position) {
-                                    this.close(cx);
-                                }
-                            },
-                        ))
-                        .child(tracker.element())
-                        .children(rows),
-                )
+        let list = self.open.then(|| self.trigger.bounds()).flatten().map(|bounds| {
+            let rows = self.options.iter().enumerate().map(|(i, option)| {
+                OptionRow::new(i, option.clone())
+                    .height(ROW_HEIGHT)
+                    .checked(i == self.selected)
+                    .highlighted(self.highlighted == Some(i))
+                    .into_any_element()
             });
+            let rows = rows.enumerate().map(|(i, row)| {
+                div()
+                    .id(("option", i))
+                    .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                        if *hovered && this.highlighted != Some(i) {
+                            this.highlighted = Some(i);
+                            cx.notify();
+                        }
+                    }))
+                    .on_click(cx.listener(move |this, _, _, cx| this.choose(i, cx)))
+                    .child(row)
+            });
+            let list_height = (ROW_HEIGHT * VISIBLE_ROWS as f32 + 12.)
+                .min(f32::from(popover::max_height(window)));
+            let tracker = self.list.clone();
+            popover::attached(
+                bounds,
+                Side::Below,
+                4.,
+                1,
+                popover::surface(&p, window)
+                    .id("dropdown-list")
+                    .relative()
+                    .w(bounds.size.width)
+                    .max_h(px(list_height))
+                    .p(px(6.))
+                    .overflow_y_scroll()
+                    .track_scroll(&self.scroll)
+                    .role(accesskit::Role::ListBox)
+                    .on_mouse_down_out(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                        // The trigger toggles on its own click.
+                        if !this.trigger.contains(&event.position) {
+                            this.close(cx);
+                        }
+                    }))
+                    .child(tracker.element())
+                    .children(rows),
+            )
+        });
 
         div().w_full().child(trigger).children(list)
     }
@@ -363,10 +345,7 @@ impl TypeAhead {
 
     /// Adds typed text and returns the query to search for.
     pub fn push(&mut self, text: &str, now: Instant) -> String {
-        if self
-            .last
-            .is_none_or(|last| now.duration_since(last) > Self::RESET_AFTER)
-        {
+        if self.last.is_none_or(|last| now.duration_since(last) > Self::RESET_AFTER) {
             self.query.clear();
         }
         self.last = Some(now);

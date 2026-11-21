@@ -19,11 +19,7 @@ pub enum LoadIssue {
     RestoredFromBackup,
     /// The file didn't parse. It was moved aside to `moved_to` (if that worked), and
     /// the backup was used if it parsed, otherwise defaults.
-    Corrupt {
-        error: String,
-        moved_to: Option<PathBuf>,
-        restored_from_backup: bool,
-    },
+    Corrupt { error: String, moved_to: Option<PathBuf>, restored_from_backup: bool },
 }
 
 #[derive(Debug)]
@@ -47,14 +43,8 @@ pub fn load(path: &Path) -> io::Result<Loaded> {
         // Missing or 0-byte: fall back to the backup if there is one.
         let existed = path.exists();
         return Ok(match load_backup(path) {
-            Some(doc) => Loaded {
-                doc,
-                issue: existed.then_some(LoadIssue::RestoredFromBackup),
-            },
-            None => Loaded {
-                doc: DocumentMut::new(),
-                issue: None,
-            },
+            Some(doc) => Loaded { doc, issue: existed.then_some(LoadIssue::RestoredFromBackup) },
+            None => Loaded { doc: DocumentMut::new(), issue: None },
         });
     }
 
@@ -93,10 +83,7 @@ fn load_backup(path: &Path) -> Option<DocumentMut> {
 /// lost. The timestamp is only a label; nothing relies on it for ordering.
 fn move_aside(path: &Path) -> Option<PathBuf> {
     let stem = path.file_stem()?.to_string_lossy().into_owned();
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
     let dir = path.parent()?;
     let target = (0..100)
         .map(|n| match n {
@@ -121,11 +108,8 @@ pub fn save(path: &Path, contents: &str) -> io::Result<()> {
     }
 
     // Backstop against two instances writing at once (single instance is S0.6).
-    let lock = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(sibling(path, ".lock"))?;
+    let lock =
+        OpenOptions::new().create(true).truncate(false).write(true).open(sibling(path, ".lock"))?;
     lock.lock()?;
 
     let current = fs::read(path).ok();
@@ -142,10 +126,7 @@ pub fn save(path: &Path, contents: &str) -> io::Result<()> {
         let backup = write_synced(&bak_tmp, &current)
             .and_then(|()| with_retry(|| fs::rename(&bak_tmp, sibling(path, ".bak"))));
         if let Err(err) = backup {
-            log::warn!(
-                "settings: couldn't update backup of {}: {err}",
-                path.display()
-            );
+            log::warn!("settings: couldn't update backup of {}: {err}", path.display());
         }
     }
 

@@ -101,11 +101,7 @@ impl SliderModel {
 
     pub fn step_by(&mut self, steps: f64, big: bool) -> bool {
         let step = if big { self.big_step } else { self.step };
-        let step = if step > 0. {
-            step
-        } else {
-            (self.max - self.min) / 100.
-        };
+        let step = if step > 0. { step } else { (self.max - self.min) / 100. };
         self.set(self.value + steps * step)
     }
 
@@ -122,11 +118,7 @@ impl SliderModel {
 }
 
 fn fraction_of(value: f64, min: f64, max: f64) -> f64 {
-    if max > min {
-        ((value - min) / (max - min)).clamp(0., 1.)
-    } else {
-        0.
-    }
+    if max > min { ((value - min) / (max - min)).clamp(0., 1.) } else { 0. }
 }
 
 /// Lets at most one value through per `interval`, keeping the latest of the rest
@@ -140,19 +132,12 @@ pub struct Throttle {
 
 impl Throttle {
     pub fn new(interval: Duration) -> Self {
-        Self {
-            interval,
-            last: None,
-            pending: None,
-        }
+        Self { interval, last: None, pending: None }
     }
 
     /// Returns the value to send now, if any.
     pub fn offer(&mut self, value: f64, now: Instant) -> Option<f64> {
-        if self
-            .last
-            .is_some_and(|last| now.duration_since(last) < self.interval)
-        {
+        if self.last.is_some_and(|last| now.duration_since(last) < self.interval) {
             self.pending = Some(value);
             return None;
         }
@@ -264,11 +249,8 @@ impl Slider {
     /// Adds an editable numeric field next to the slider.
     pub fn with_field(mut self, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let text = (self.format)(self.model.value());
-        let field = cx.new(|cx| {
-            TextInput::new(window, cx)
-                .with_text(text)
-                .with_label(self.label.clone())
-        });
+        let field =
+            cx.new(|cx| TextInput::new(window, cx).with_text(text).with_label(self.label.clone()));
         let subscription = cx.subscribe_in(&field, window, |this, field, event, window, cx| {
             if let text_input::Event::Submitted | text_input::Event::Blurred = event {
                 let text = field.read(cx).text().to_owned();
@@ -322,7 +304,7 @@ impl Slider {
                 (bounds.bottom() - position.y) / bounds.size.height.max(px(1.))
             }
         };
-        Some(fraction as f64)
+        Some(f64::from(fraction))
     }
 
     fn on_mouse_down(
@@ -431,21 +413,14 @@ impl Render for Slider {
         };
         let value_text = SharedString::from((self.format)(self.model.value()));
 
-        let fill = div()
-            .absolute()
-            .bg(fill_color)
-            .rounded(px(TRACK / 2.))
-            .map(|f| {
-                let (start, len) = (fill_start as f32, (fill_end - fill_start) as f32);
-                if horizontal {
-                    f.top_0().bottom_0().left(relative(start)).w(relative(len))
-                } else {
-                    f.left_0()
-                        .right_0()
-                        .bottom(relative(start))
-                        .h(relative(len))
-                }
-            });
+        let fill = div().absolute().bg(fill_color).rounded(px(TRACK / 2.)).map(|f| {
+            let (start, len) = (fill_start as f32, (fill_end - fill_start) as f32);
+            if horizontal {
+                f.top_0().bottom_0().left(relative(start)).w(relative(len))
+            } else {
+                f.left_0().right_0().bottom(relative(start)).h(relative(len))
+            }
+        });
 
         // A tick at zero on centered sliders (`video_colors`, the delay slider).
         let zero_tick = self.centered.then(|| {
@@ -454,10 +429,7 @@ impl Render for Slider {
                 if horizontal {
                     t.top(px(3.)).bottom(px(3.)).w(px(2.)).left(relative(zero))
                 } else {
-                    t.left(px(3.))
-                        .right(px(3.))
-                        .h(px(2.))
-                        .bottom(relative(zero))
+                    t.left(px(3.)).right(px(3.)).h(px(2.)).bottom(relative(zero))
                 }
             })
         });
@@ -509,13 +481,7 @@ impl Render for Slider {
             .relative()
             .rounded(px(TRACK / 2.))
             .bg(p.well)
-            .map(|t| {
-                if horizontal {
-                    t.h(px(TRACK)).w_full()
-                } else {
-                    t.w(px(TRACK)).h_full()
-                }
-            })
+            .map(|t| if horizontal { t.h(px(TRACK)).w_full() } else { t.w(px(TRACK)).h_full() })
             .child(self.track.element())
             .child(fill)
             .children(zero_tick)
@@ -526,17 +492,17 @@ impl Render for Slider {
             let entity = cx.entity();
             canvas(
                 |_, _, _| {},
-                move |_, _, window, _| {
+                move |_, (), window, _| {
                     let moved = entity.clone();
                     window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
                         if phase.bubble() && event.dragging() {
                             moved.update(cx, |this, cx| this.drag_to(event.position, window, cx));
                         }
                     });
-                    let released = entity.clone();
+                    let released = entity;
                     window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
                         if phase.bubble() {
-                            released.update(cx, |this, cx| this.end_drag(cx));
+                            released.update(cx, Slider::end_drag);
                         }
                     });
                 },
@@ -552,15 +518,9 @@ impl Render for Slider {
             .justify_center()
             .map(|s| {
                 if horizontal {
-                    s.flex_1()
-                        .min_w(px(40.))
-                        .h(px(THUMB_LONG + 6.))
-                        .px(px(THUMB_SHORT / 2.))
+                    s.flex_1().min_w(px(40.)).h(px(THUMB_LONG + 6.)).px(px(THUMB_SHORT / 2.))
                 } else {
-                    s.h_full()
-                        .min_h(px(40.))
-                        .w(px(THUMB_LONG + 6.))
-                        .py(px(THUMB_SHORT / 2.))
+                    s.h_full().min_h(px(40.)).w(px(THUMB_LONG + 6.)).py(px(THUMB_SHORT / 2.))
                 }
             })
             .rounded(px(metrics::RADIUS))

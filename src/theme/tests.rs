@@ -37,10 +37,7 @@ fn accent_fg_meets_ui_minimum_on_background() {
         for accent in Accent::ALL {
             let p = Palette::new(dark, accent);
             let r = ratio(p.accent_fg, p.background);
-            assert!(
-                r >= UI_MIN,
-                "{accent:?} (dark: {dark}): accent_fg contrast {r:.2} < {UI_MIN}"
-            );
+            assert!(r >= UI_MIN, "{accent:?} (dark: {dark}): accent_fg contrast {r:.2} < {UI_MIN}");
         }
     }
 }
@@ -65,11 +62,7 @@ fn text_meets_aa_on_background() {
             ("text_muted", p.text_muted),
             ("tooltip_text", p.tooltip_text),
         ] {
-            let bg = if name == "tooltip_text" {
-                p.tooltip
-            } else {
-                p.background
-            };
+            let bg = if name == "tooltip_text" { p.tooltip } else { p.background };
             let r = ratio(color, bg);
             assert!(r >= TEXT_MIN, "{name} (dark: {dark}): {r:.2}");
         }
@@ -102,10 +95,7 @@ fn high_contrast_ignores_theme_and_accent() {
     let theme = super::Theme {
         mode: ThemeMode::Light,
         accent: Accent::Pink,
-        system: super::SystemPrefs {
-            reduce_motion: false,
-            high_contrast: Some(sys),
-        },
+        system: super::SystemPrefs { reduce_motion: false, high_contrast: Some(sys) },
     };
     let p = theme.palette(WindowAppearance::Light);
     assert_eq!(p, Palette::high_contrast(sys));

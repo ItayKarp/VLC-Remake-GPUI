@@ -59,11 +59,7 @@ actions!(
 /// Picks the macOS or the Windows/Linux spelling of a binding.
 macro_rules! platform {
     ($mac:literal, $other:literal) => {
-        if cfg!(target_os = "macos") {
-            $mac
-        } else {
-            $other
-        }
+        if cfg!(target_os = "macos") { $mac } else { $other }
     };
 }
 
@@ -83,24 +79,12 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("shift-home", SelectToHome, ctx),
         KeyBinding::new("shift-end", SelectToEnd, ctx),
         KeyBinding::new("enter", Submit, ctx),
-        KeyBinding::new(
-            platform!("alt-backspace", "ctrl-backspace"),
-            BackspaceWord,
-            ctx,
-        ),
+        KeyBinding::new(platform!("alt-backspace", "ctrl-backspace"), BackspaceWord, ctx),
         KeyBinding::new(platform!("alt-delete", "ctrl-delete"), DeleteWord, ctx),
         KeyBinding::new(platform!("alt-left", "ctrl-left"), WordLeft, ctx),
         KeyBinding::new(platform!("alt-right", "ctrl-right"), WordRight, ctx),
-        KeyBinding::new(
-            platform!("alt-shift-left", "ctrl-shift-left"),
-            SelectWordLeft,
-            ctx,
-        ),
-        KeyBinding::new(
-            platform!("alt-shift-right", "ctrl-shift-right"),
-            SelectWordRight,
-            ctx,
-        ),
+        KeyBinding::new(platform!("alt-shift-left", "ctrl-shift-left"), SelectWordLeft, ctx),
+        KeyBinding::new(platform!("alt-shift-right", "ctrl-shift-right"), SelectWordRight, ctx),
         KeyBinding::new(platform!("cmd-a", "ctrl-a"), SelectAll, ctx),
         KeyBinding::new(platform!("cmd-v", "ctrl-v"), Paste, ctx),
         KeyBinding::new(platform!("cmd-c", "ctrl-c"), Copy, ctx),
@@ -165,11 +149,7 @@ impl EditState {
     pub fn new(text: &str) -> Self {
         let text = single_line(text);
         let end = text.len();
-        Self {
-            text,
-            selection: end..end,
-            ..Default::default()
-        }
+        Self { text, selection: end..end, ..Default::default() }
     }
 
     pub fn text(&self) -> &str {
@@ -182,11 +162,7 @@ impl EditState {
     }
 
     pub fn cursor(&self) -> usize {
-        if self.reversed {
-            self.selection.start
-        } else {
-            self.selection.end
-        }
+        if self.reversed { self.selection.start } else { self.selection.end }
     }
 
     pub fn selected_text(&self) -> &str {
@@ -206,11 +182,7 @@ impl EditState {
 
     fn clamp_boundary(&self, offset: usize) -> usize {
         let offset = offset.min(self.text.len());
-        if self.is_boundary(offset) {
-            offset
-        } else {
-            self.prev_grapheme(offset)
-        }
+        if self.is_boundary(offset) { offset } else { self.prev_grapheme(offset) }
     }
 
     fn is_boundary(&self, offset: usize) -> bool {
@@ -240,8 +212,7 @@ impl EditState {
             .split_word_bound_indices()
             .rev()
             .find(|(i, word)| *i < offset && word.chars().any(|c| !c.is_whitespace()))
-            .map(|(i, _)| i)
-            .unwrap_or(0)
+            .map_or(0, |(i, _)| i)
     }
 
     /// The end of the word at or after `offset`.
@@ -250,8 +221,7 @@ impl EditState {
             .split_word_bound_indices()
             .map(|(i, word)| (i + word.len(), word))
             .find(|(end, word)| *end > offset && word.chars().any(|c| !c.is_whitespace()))
-            .map(|(end, _)| end)
-            .unwrap_or(self.text.len())
+            .map_or(self.text.len(), |(end, _)| end)
     }
 
     /// The word around `offset`, for double-click.
@@ -321,20 +291,14 @@ impl EditState {
     }
 
     pub fn select_left(&mut self, word: bool) {
-        let target = if word {
-            self.prev_word(self.cursor())
-        } else {
-            self.prev_grapheme(self.cursor())
-        };
+        let target =
+            if word { self.prev_word(self.cursor()) } else { self.prev_grapheme(self.cursor()) };
         self.select_to(target);
     }
 
     pub fn select_right(&mut self, word: bool) {
-        let target = if word {
-            self.next_word(self.cursor())
-        } else {
-            self.next_grapheme(self.cursor())
-        };
+        let target =
+            if word { self.next_word(self.cursor()) } else { self.next_grapheme(self.cursor()) };
         self.select_to(target);
     }
 
@@ -345,10 +309,7 @@ impl EditState {
             Some((last, at)) if last == kind && kind != EditKind::Other && now.duration_since(at) < UNDO_COALESCE
         );
         if !merge {
-            self.undo.push(Snapshot {
-                text: self.text.clone(),
-                selection: self.selection.clone(),
-            });
+            self.undo.push(Snapshot { text: self.text.clone(), selection: self.selection.clone() });
             if self.undo.len() > UNDO_LIMIT {
                 self.undo.remove(0);
             }
@@ -360,9 +321,7 @@ impl EditState {
     /// Replaces `range` (or the selection) with `new_text`, as typing or pasting
     /// does. Newlines become spaces; the max length truncates what's inserted.
     pub fn replace(&mut self, range: Option<Range<usize>>, new_text: &str, now: Instant) -> bool {
-        let range = range
-            .or_else(|| self.marked.clone())
-            .unwrap_or_else(|| self.selection.clone());
+        let range = range.or_else(|| self.marked.clone()).unwrap_or_else(|| self.selection.clone());
         let range = self.clamp_boundary(range.start)..self.clamp_boundary(range.end);
         let mut new_text = single_line(new_text);
         if let Some(max) = self.max_len {
@@ -430,9 +389,7 @@ impl EditState {
         new_text: &str,
         selected_in_new: Option<Range<usize>>,
     ) {
-        let range = range
-            .or_else(|| self.marked.clone())
-            .unwrap_or_else(|| self.selection.clone());
+        let range = range.or_else(|| self.marked.clone()).unwrap_or_else(|| self.selection.clone());
         let range = range.start.min(self.text.len())..range.end.min(self.text.len());
         if self.marked.is_none() {
             // The composition as a whole is one undo step.
@@ -485,10 +442,7 @@ impl EditState {
     // UTF-16 conversion for the platform input handler.
 
     pub fn offset_to_utf16(&self, offset: usize) -> usize {
-        self.text[..offset.min(self.text.len())]
-            .chars()
-            .map(char::len_utf16)
-            .sum()
+        self.text[..offset.min(self.text.len())].chars().map(char::len_utf16).sum()
     }
 
     pub fn offset_from_utf16(&self, offset: usize) -> usize {
@@ -568,8 +522,7 @@ impl TextInput {
             cx.notify();
         })
         .detach();
-        cx.on_focus(&focus_handle, window, |_, _, cx| cx.notify())
-            .detach();
+        cx.on_focus(&focus_handle, window, |_, _, cx| cx.notify()).detach();
         Self {
             state: EditState::new(""),
             placeholder: SharedString::default(),
@@ -817,8 +770,7 @@ impl TextInput {
         cx: &mut Context<Self>,
     ) {
         if self.selecting {
-            self.state
-                .select_to(self.index_for_position(event.position));
+            self.state.select_to(self.index_for_position(event.position));
             self.moved(window, cx);
         }
     }
@@ -865,10 +817,7 @@ impl gpui::EntityInputHandler for TextInput {
     }
 
     fn marked_text_range(&self, _: &mut Window, _: &mut Context<Self>) -> Option<Range<usize>> {
-        self.state
-            .marked
-            .as_ref()
-            .map(|range| self.state.range_to_utf16(range))
+        self.state.marked.as_ref().map(|range| self.state.range_to_utf16(range))
     }
 
     fn unmark_text(&mut self, _: &mut Window, cx: &mut Context<Self>) {
@@ -931,14 +880,8 @@ impl gpui::EntityInputHandler for TextInput {
         let line = self.last_layout.as_ref()?;
         let range = self.state.range_from_utf16(&range_utf16);
         Some(Bounds::from_corners(
-            point(
-                bounds.left() + line.x_for_index(range.start) - self.scroll_x,
-                bounds.top(),
-            ),
-            point(
-                bounds.left() + line.x_for_index(range.end) - self.scroll_x,
-                bounds.bottom(),
-            ),
+            point(bounds.left() + line.x_for_index(range.start) - self.scroll_x, bounds.top()),
+            point(bounds.left() + line.x_for_index(range.end) - self.scroll_x, bounds.bottom()),
         ))
     }
 
@@ -998,7 +941,7 @@ impl Element for TextElement {
         _: Option<&GlobalElementId>,
         _: Option<&gpui::InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         window: &mut Window,
         cx: &mut App,
     ) -> PrepaintState {
@@ -1023,10 +966,7 @@ impl Element for TextElement {
         };
         let runs = match state.marked.as_ref().filter(|_| !state.text.is_empty()) {
             Some(marked) => [
-                TextRun {
-                    len: marked.start,
-                    ..run.clone()
-                },
+                TextRun { len: marked.start, ..run.clone() },
                 TextRun {
                     len: marked.end - marked.start,
                     underline: Some(UnderlineStyle {
@@ -1036,10 +976,7 @@ impl Element for TextElement {
                     }),
                     ..run.clone()
                 },
-                TextRun {
-                    len: text.len() - marked.end,
-                    ..run
-                },
+                TextRun { len: text.len() - marked.end, ..run },
             ]
             .into_iter()
             .filter(|run| run.len > 0)
@@ -1047,16 +984,10 @@ impl Element for TextElement {
             None => vec![run],
         };
         let font_size = style.font_size.to_pixels(window.rem_size());
-        let line = window
-            .text_system()
-            .shape_line(text, font_size, &runs, None);
+        let line = window.text_system().shape_line(text, font_size, &runs, None);
 
         // Keep the caret in view.
-        let caret_x = if state.text.is_empty() {
-            px(0.)
-        } else {
-            line.x_for_index(state.cursor())
-        };
+        let caret_x = if state.text.is_empty() { px(0.) } else { line.x_for_index(state.cursor()) };
         let width = bounds.size.width;
         let mut scroll_x = input.scroll_x;
         if caret_x - scroll_x > width - px(2.) {
@@ -1064,9 +995,7 @@ impl Element for TextElement {
         } else if caret_x < scroll_x {
             scroll_x = caret_x;
         }
-        scroll_x = scroll_x
-            .max(px(0.))
-            .min((line.width - width + px(2.)).max(px(0.)));
+        scroll_x = scroll_x.max(px(0.)).min((line.width - width + px(2.)).max(px(0.)));
 
         let selection = state.selection.clone();
         let (selection, cursor) = if selection.is_empty() || state.text.is_empty() {
@@ -1092,20 +1021,11 @@ impl Element for TextElement {
                         bounds.bottom(),
                     ),
                 ),
-                if focused {
-                    p.selection
-                } else {
-                    p.selection.opacity(0.15)
-                },
+                if focused { p.selection } else { p.selection.opacity(0.15) },
             );
             (Some(quad), None)
         };
-        PrepaintState {
-            line: Some(line),
-            cursor,
-            selection,
-            scroll_x,
-        }
+        PrepaintState { line: Some(line), cursor, selection, scroll_x }
     }
 
     fn paint(
@@ -1113,7 +1033,7 @@ impl Element for TextElement {
         _: Option<&GlobalElementId>,
         _: Option<&gpui::InspectorElementId>,
         bounds: Bounds<Pixels>,
-        _: &mut (),
+        (): &mut (),
         prepaint: &mut PrepaintState,
         window: &mut Window,
         cx: &mut App,
@@ -1216,19 +1136,11 @@ impl Render for TextInput {
             })
             .when(!enabled, |f| f.opacity(0.4))
             .child(TextElement { input: cx.entity() });
-        let field = if error.is_some() {
-            field
-        } else {
-            focus::ring(field, &p)
-        };
+        let field = if error.is_some() { field } else { focus::ring(field, &p) };
 
-        div()
-            .flex()
-            .flex_col()
-            .gap(px(4.))
-            .w_full()
-            .child(field)
-            .when_some(error, |this, message| {
+        div().flex().flex_col().gap(px(4.)).w_full().child(field).when_some(
+            error,
+            |this, message| {
                 this.child(
                     div()
                         .text_size(px(12.))
@@ -1236,7 +1148,8 @@ impl Render for TextInput {
                         .text_color(p.danger)
                         .child(message),
                 )
-            })
+            },
+        )
     }
 }
 

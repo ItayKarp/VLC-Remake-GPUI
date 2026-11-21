@@ -31,13 +31,7 @@ pub struct Toggle {
 impl Toggle {
     /// `label` names the setting for screen readers; it isn't drawn.
     pub fn new(id: impl Into<ElementId>, on: bool, label: impl Into<SharedString>) -> Self {
-        Self {
-            id: id.into(),
-            on,
-            label: label.into(),
-            disabled: false,
-            on_change: None,
-        }
+        Self { id: id.into(), on, label: label.into(), disabled: false, on_change: None }
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -90,18 +84,8 @@ impl RenderOnce for Toggle {
             .border_color(p.well)
             .role(accesskit::Role::Switch)
             .aria_label(self.label)
-            .aria_toggled(if on {
-                accesskit::Toggled::True
-            } else {
-                accesskit::Toggled::False
-            })
-            .map(|t| {
-                if on {
-                    t.child(text).child(knob)
-                } else {
-                    t.child(knob).child(text)
-                }
-            })
+            .aria_toggled(if on { accesskit::Toggled::True } else { accesskit::Toggled::False })
+            .map(|t| if on { t.child(text).child(knob) } else { t.child(knob).child(text) })
             .when(!enabled, |t| t.opacity(0.4));
 
         if !enabled {
@@ -127,13 +111,7 @@ pub struct Checkbox {
 
 impl Checkbox {
     pub fn new(id: impl Into<ElementId>, checked: bool, label: impl Into<SharedString>) -> Self {
-        Self {
-            id: id.into(),
-            checked,
-            label: label.into(),
-            disabled: false,
-            on_change: None,
-        }
+        Self { id: id.into(), checked, label: label.into(), disabled: false, on_change: None }
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -182,9 +160,7 @@ impl RenderOnce for Checkbox {
                     .bg(if checked { p.accent_tint } else { p.well })
                     .border_1()
                     .border_color(if checked { p.accent_fg } else { p.key_border })
-                    .when(checked, |b| {
-                        b.child(icon(icons::CHECK, 16., p.accent_on_tint))
-                    }),
+                    .when(checked, |b| b.child(icon(icons::CHECK, 16., p.accent_on_tint))),
             )
             .child(
                 div()

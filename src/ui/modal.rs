@@ -43,12 +43,7 @@ pub struct DialogButton {
 impl DialogButton {
     /// A button that closes the dialog after running `on_click`.
     pub fn new(label: impl Into<SharedString>) -> Self {
-        Self {
-            label: label.into(),
-            style: ButtonStyle::Filled,
-            default: false,
-            on_click: None,
-        }
+        Self { label: label.into(), style: ButtonStyle::Filled, default: false, on_click: None }
     }
 
     /// The dialog's default (accent) button.
@@ -89,10 +84,7 @@ impl Dialog {
         buttons: Vec<DialogButton>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let button_focus = buttons
-            .iter()
-            .map(|_| cx.focus_handle().tab_stop(true))
-            .collect();
+        let button_focus = buttons.iter().map(|_| cx.focus_handle().tab_stop(true)).collect();
         Self {
             title: title.into(),
             body: Box::new(body),
@@ -358,10 +350,6 @@ impl Render for ModalLayer {
                 )
         });
 
-        div()
-            .absolute()
-            .inset_0()
-            .children(layers)
-            .into_any_element()
+        div().absolute().inset_0().children(layers).into_any_element()
     }
 }

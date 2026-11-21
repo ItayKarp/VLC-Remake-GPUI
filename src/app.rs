@@ -54,9 +54,7 @@ pub fn init(cx: &mut App) {
     cx.on_action(|_: &CloseWindow, cx| {
         if let Some(window) = cx.active_window() {
             cx.defer(move |cx| {
-                window
-                    .update(cx, |_, window, _| window.remove_window())
-                    .ok();
+                window.update(cx, |_, window, _| window.remove_window()).ok();
             });
         }
     });
@@ -65,16 +63,8 @@ pub fn init(cx: &mut App) {
         cx.defer(move |cx| run_setup_again(display, cx));
     });
 
-    let open_file = if cfg!(target_os = "macos") {
-        "cmd-o"
-    } else {
-        "ctrl-o"
-    };
-    cx.bind_keys([KeyBinding::new(
-        open_file,
-        OpenFile,
-        Some(MAIN_WINDOW_CONTEXT),
-    )]);
+    let open_file = if cfg!(target_os = "macos") { "cmd-o" } else { "ctrl-o" };
+    cx.bind_keys([KeyBinding::new(open_file, OpenFile, Some(MAIN_WINDOW_CONTEXT))]);
 
     if cfg!(target_os = "macos") {
         cx.bind_keys([
@@ -147,11 +137,8 @@ pub fn open_main_window(
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<MainWindow>> {
     let fallback = visible_bounds(display, cx);
-    let displays: Vec<(DisplayId, Rect)> = cx
-        .displays()
-        .iter()
-        .map(|d| (d.id(), Rect::from_gpui(d.visible_bounds())))
-        .collect();
+    let displays: Vec<(DisplayId, Rect)> =
+        cx.displays().iter().map(|d| (d.id(), Rect::from_gpui(d.visible_bounds()))).collect();
     let rects: Vec<Rect> = displays.iter().map(|(_, r)| *r).collect();
     let saved = settings::get(cx).local.window.main;
     let bounds = geometry::restore(&saved, &rects, &fallback, MAIN_MIN_SIZE).unwrap_or_else(|| {
@@ -162,11 +149,7 @@ pub fn open_main_window(
     // Create the window on the display that holds it, so Windows applies that
     // display's scale factor when placing it.
     let center = Rect::from_gpui(bounds.get_bounds()).center();
-    let display = displays
-        .iter()
-        .find(|(_, r)| r.contains(center))
-        .map(|(id, _)| *id)
-        .or(display);
+    let display = displays.iter().find(|(_, r)| r.contains(center)).map(|(id, _)| *id).or(display);
     let min_w = MAIN_MIN_SIZE.0.min(fallback.w);
     let min_h = MAIN_MIN_SIZE.1.min(fallback.h);
     let handle = cx.open_window(
@@ -279,14 +262,13 @@ fn visible_bounds(display: Option<DisplayId>, cx: &App) -> Rect {
     display
         .and_then(|id| cx.find_display(id))
         .or_else(|| cx.primary_display())
-        .map(|d| Rect::from_gpui(d.visible_bounds()))
-        .unwrap_or(Rect::new(0., 0., 1280., 800.))
+        .map_or(Rect::new(0., 0., 1280., 800.), |d| Rect::from_gpui(d.visible_bounds()))
 }
 
 /// Remembers a window's geometry whenever it moves or resizes (S0.2.9).
 pub fn save_geometry_on_change<V: 'static>(
     window: &mut gpui::Window,
-    cx: &mut gpui::Context<V>,
+    cx: &mut Context<V>,
     slot: fn(&mut settings::Settings) -> &mut settings::WindowGeometry,
 ) {
     cx.observe_window_bounds(window, move |_, window, cx| {

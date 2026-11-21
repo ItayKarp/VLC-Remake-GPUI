@@ -123,9 +123,6 @@ mod tests {
         assert_eq!(route(true, &with_file), main(&["movie.mkv"]));
         assert_eq!(route(true, &reset), Route::Onboarding);
         assert_eq!(route(false, &reset), Route::Onboarding);
-        assert_eq!(
-            route(false, &parse(&["--component-gallery"])),
-            Route::Gallery
-        );
+        assert_eq!(route(false, &parse(&["--component-gallery"])), Route::Gallery);
     }
 }

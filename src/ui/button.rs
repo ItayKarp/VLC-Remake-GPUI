@@ -44,12 +44,9 @@ struct Colors {
 impl ButtonStyle {
     fn colors(self, p: &Palette) -> Colors {
         match self {
-            ButtonStyle::Subtle => Colors {
-                bg: p.well,
-                hover: p.control,
-                pressed: p.hover,
-                fg: p.text_muted,
-            },
+            ButtonStyle::Subtle => {
+                Colors { bg: p.well, hover: p.control, pressed: p.hover, fg: p.text_muted }
+            }
             ButtonStyle::Filled => Colors {
                 bg: p.control,
                 hover: p.button_hover,
@@ -181,16 +178,12 @@ impl RenderOnce for Button {
                     Some(handle) => b.track_focus(handle),
                     None => b.tab_index(0),
                 };
-                let b = b
-                    .cursor_pointer()
-                    .hover(move |s| s.bg(hover))
-                    .active(move |s| s.bg(pressed));
+                let b =
+                    b.cursor_pointer().hover(move |s| s.bg(hover)).active(move |s| s.bg(pressed));
                 focus::ring(b, &p)
             })
             .when(!enabled, |b| b.opacity(0.4))
-            .when_some(self.icon, |b, path| {
-                b.child(icon(path, metrics::ICON, colors.fg))
-            })
+            .when_some(self.icon, |b, path| b.child(icon(path, metrics::ICON, colors.fg)))
             .child(div().truncate().child(self.label))
             .when_some(self.tooltip.filter(|_| enabled), |b, (label, shortcut)| {
                 b.tooltip(tooltip::text(label, shortcut))

@@ -94,25 +94,15 @@ impl RenderOnce for Segmented {
                 .px(px(8.))
                 .rounded(px(metrics::RADIUS))
                 .text_size(px(metrics::TEXT))
-                .bg(if is_selected {
-                    p.accent_tint
-                } else {
-                    p.control
-                })
-                .text_color(if is_selected {
-                    p.accent_on_tint
-                } else {
-                    p.text_muted
-                })
+                .bg(if is_selected { p.accent_tint } else { p.control })
+                .text_color(if is_selected { p.accent_on_tint } else { p.text_muted })
                 .role(accesskit::Role::RadioButton)
                 .aria_selected(is_selected)
-                .when(!is_selected, |s| {
-                    s.cursor_pointer().hover(move |s| s.bg(hover))
-                })
+                .when(!is_selected, |s| s.cursor_pointer().hover(move |s| s.bg(hover)))
                 .when_some(on_select, |s, f| {
                     s.on_click(move |_, window, cx| {
                         if !is_selected {
-                            f(&i, window, cx)
+                            f(&i, window, cx);
                         }
                     })
                 })
@@ -134,13 +124,7 @@ impl RenderOnce for Segmented {
             .role(accesskit::Role::RadioGroup)
             .aria_label(self.label)
             .children(segments);
-        radio_keys(
-            focus::ring(group, &p),
-            selected,
-            len,
-            Axis::Horizontal,
-            self.on_select,
-        )
+        radio_keys(focus::ring(group, &p), selected, len, Axis::Horizontal, self.on_select)
     }
 }
 
@@ -152,10 +136,7 @@ pub struct Choice {
 
 impl Choice {
     pub fn new(label: impl Into<SharedString>) -> Self {
-        Self {
-            label: label.into(),
-            field: None,
-        }
+        Self { label: label.into(), field: None }
     }
 
     /// An inline field shown at the right of the row (a `TextInput`, usually).
@@ -181,13 +162,7 @@ impl StackedChoice {
         choices: Vec<Choice>,
         selected: usize,
     ) -> Self {
-        Self {
-            id: id.into(),
-            label: label.into(),
-            choices,
-            selected,
-            on_select: None,
-        }
+        Self { id: id.into(), label: label.into(), choices, selected, on_select: None }
     }
 
     pub fn on_select(mut self, f: impl Fn(&usize, &mut Window, &mut App) + 'static) -> Self {
@@ -219,25 +194,15 @@ impl RenderOnce for StackedChoice {
                 .py(px(2.))
                 .rounded(px(metrics::RADIUS))
                 .text_size(px(metrics::TEXT))
-                .bg(if is_selected {
-                    p.accent_tint
-                } else {
-                    p.control
-                })
-                .text_color(if is_selected {
-                    p.accent_on_tint
-                } else {
-                    p.text_muted
-                })
+                .bg(if is_selected { p.accent_tint } else { p.control })
+                .text_color(if is_selected { p.accent_on_tint } else { p.text_muted })
                 .role(accesskit::Role::RadioButton)
                 .aria_selected(is_selected)
-                .when(!is_selected, |s| {
-                    s.cursor_pointer().hover(move |s| s.bg(hover))
-                })
+                .when(!is_selected, |s| s.cursor_pointer().hover(move |s| s.bg(hover)))
                 .when_some(on_select, |s, f| {
                     s.on_click(move |_, window, cx| {
                         if !is_selected {
-                            f(&i, window, cx)
+                            f(&i, window, cx);
                         }
                     })
                 })
@@ -261,12 +226,6 @@ impl RenderOnce for StackedChoice {
             .role(accesskit::Role::RadioGroup)
             .aria_label(self.label)
             .children(rows);
-        radio_keys(
-            focus::ring(group, &p),
-            selected,
-            len,
-            Axis::Vertical,
-            self.on_select,
-        )
+        radio_keys(focus::ring(group, &p), selected, len, Axis::Vertical, self.on_select)
     }
 }

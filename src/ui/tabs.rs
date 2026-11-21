@@ -21,10 +21,7 @@ pub struct Tab {
 
 impl Tab {
     pub fn new(icon: Option<&'static str>, label: impl Into<SharedString>) -> Self {
-        Self {
-            icon,
-            label: label.into(),
-        }
+        Self { icon, label: label.into() }
     }
 }
 
@@ -38,12 +35,7 @@ pub struct Tabs {
 
 impl Tabs {
     pub fn new(id: impl Into<ElementId>, tabs: Vec<Tab>, selected: usize) -> Self {
-        Self {
-            id: id.into(),
-            tabs,
-            selected,
-            on_select: None,
-        }
+        Self { id: id.into(), tabs, selected, on_select: None }
     }
 
     pub fn on_select(mut self, f: impl Fn(&usize, &mut Window, &mut App) + 'static) -> Self {
@@ -72,35 +64,21 @@ impl RenderOnce for Tabs {
                 .gap(px(6.))
                 .px(px(10.))
                 .border_b_2()
-                .border_color(if is_selected {
-                    p.accent_fg
-                } else {
-                    gpui::transparent_black()
-                })
+                .border_color(if is_selected { p.accent_fg } else { gpui::transparent_black() })
                 .text_size(px(13.))
-                .text_color(if is_selected {
-                    p.text_strong
-                } else {
-                    p.text_muted
-                })
+                .text_color(if is_selected { p.text_strong } else { p.text_muted })
                 .role(accesskit::Role::Tab)
                 .aria_selected(is_selected)
-                .when(!is_selected, |t| {
-                    t.cursor_pointer().hover(move |s| s.text_color(hover))
-                })
+                .when(!is_selected, |t| t.cursor_pointer().hover(move |s| s.text_color(hover)))
                 .when_some(on_select, |t, f| {
                     t.on_click(move |_, window, cx| {
                         if !is_selected {
-                            f(&i, window, cx)
+                            f(&i, window, cx);
                         }
                     })
                 })
                 .when_some(tab.icon, |t, path| {
-                    t.child(icon(
-                        path,
-                        16.,
-                        if is_selected { p.accent_fg } else { p.icon },
-                    ))
+                    t.child(icon(path, 16., if is_selected { p.accent_fg } else { p.icon }))
                 })
                 .child(div().whitespace_nowrap().child(tab.label))
         });

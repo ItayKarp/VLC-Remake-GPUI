@@ -47,7 +47,7 @@ impl BoundsTracker {
     /// An invisible element covering its parent that records the parent's bounds.
     pub fn element(&self) -> impl IntoElement {
         let cell = self.0.clone();
-        canvas(move |bounds, _, _| cell.set(Some(bounds)), |_, _, _, _| {})
+        canvas(move |bounds, _, _| cell.set(Some(bounds)), |_, (), _, _| {})
             .absolute()
             .top_0()
             .left_0()
@@ -174,10 +174,7 @@ mod tests {
     #[test]
     fn sides_touch_the_trigger() {
         // Below: the popover's top-left sits on the trigger's bottom-left.
-        assert_eq!(
-            Side::Below.corners(),
-            (Anchor::TopLeft, Anchor::BottomLeft, point(0., 1.))
-        );
+        assert_eq!(Side::Below.corners(), (Anchor::TopLeft, Anchor::BottomLeft, point(0., 1.)));
         // Submenus open to the right, top edges aligned.
         assert_eq!(Side::Right.corners().1, Anchor::TopRight);
     }

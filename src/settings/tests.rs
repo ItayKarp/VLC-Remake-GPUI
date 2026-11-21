@@ -105,14 +105,8 @@ fn round_trip() {
 
     let reloaded = dir.load();
     assert_eq!(reloaded.settings, state.settings);
-    assert!(
-        dir.read("settings.toml")
-            .starts_with("schema_version = 1\n")
-    );
-    assert!(
-        dir.read("local.toml")
-            .contains("onboarding_complete = true")
-    );
+    assert!(dir.read("settings.toml").starts_with("schema_version = 1\n"));
+    assert!(dir.read("local.toml").contains("onboarding_complete = true"));
     // Machine-specific data stays out of the roaming file.
     assert!(!dir.read("settings.toml").contains("media_folders"));
 }
@@ -140,10 +134,7 @@ fn cancelled_save_is_retried_by_flush() {
 #[test]
 fn unknown_enum_value_falls_back_per_field() {
     let dir = TempDir::new();
-    dir.write(
-        "settings.toml",
-        "schema_version = 1\ntheme = \"light\"\naccent = \"magenta\"\n",
-    );
+    dir.write("settings.toml", "schema_version = 1\ntheme = \"light\"\naccent = \"magenta\"\n");
     dir.write(
         "local.toml",
         "onboarding_complete = \"yes\"\nmedia_folders = [\"/a\", 42, \"/b\"]\nwindow = 5\n",
@@ -152,10 +143,7 @@ fn unknown_enum_value_falls_back_per_field() {
     assert_eq!(state.settings.prefs.theme, ThemeMode::Light);
     assert_eq!(state.settings.prefs.accent, Accent::default());
     assert!(!state.settings.local.onboarding_complete);
-    assert_eq!(
-        state.settings.local.media_folders,
-        vec![PathBuf::from("/a"), PathBuf::from("/b")]
-    );
+    assert_eq!(state.settings.local.media_folders, vec![PathBuf::from("/a"), PathBuf::from("/b")]);
 }
 
 #[test]
@@ -214,10 +202,7 @@ fn migrates_the_v0_onboarding_file() {
     assert_eq!(state.settings.prefs.theme, ThemeMode::System);
     assert_eq!(state.settings.prefs.accent, Accent::Pink);
     assert!(state.settings.local.onboarding_complete);
-    assert_eq!(
-        state.settings.local.media_folders,
-        vec![PathBuf::from(r"C:\Users\me\Videos")]
-    );
+    assert_eq!(state.settings.local.media_folders, vec![PathBuf::from(r"C:\Users\me\Videos")]);
 
     save(&mut state);
     let prefs = dir.read("settings.toml");
@@ -237,43 +222,26 @@ fn corrupt_file_is_moved_aside_and_defaults_used() {
     assert_eq!(state.settings, Default::default());
 
     let notices = state.take_notices();
-    let [
-        Notice::Corrupt {
-            moved_to: Some(moved_to),
-            restored_from_backup: false,
-            ..
-        },
-    ] = notices.as_slice()
+    let [Notice::Corrupt { moved_to: Some(moved_to), restored_from_backup: false, .. }] =
+        notices.as_slice()
     else {
         panic!("unexpected notices: {notices:?}");
     };
     assert_eq!(fs::read_to_string(moved_to).unwrap(), corrupt);
     assert!(!dir.path("settings.toml").exists());
-    assert!(
-        moved_to
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .starts_with("settings.corrupt-")
-    );
+    assert!(moved_to.file_name().unwrap().to_string_lossy().starts_with("settings.corrupt-"));
 }
 
 #[test]
 fn corrupt_file_restores_from_backup() {
     let dir = TempDir::new();
     dir.write("settings.toml", "accent = \n");
-    dir.write(
-        "settings.toml.bak",
-        "schema_version = 1\naccent = \"yellow\"\n",
-    );
+    dir.write("settings.toml.bak", "schema_version = 1\naccent = \"yellow\"\n");
     let mut state = dir.load();
     assert_eq!(state.settings.prefs.accent, Accent::Yellow);
     assert!(matches!(
         state.take_notices().as_slice(),
-        [Notice::Corrupt {
-            restored_from_backup: true,
-            ..
-        }]
+        [Notice::Corrupt { restored_from_backup: true, .. }]
     ));
 }
 
@@ -281,16 +249,10 @@ fn corrupt_file_restores_from_backup() {
 fn empty_file_restores_from_backup() {
     let dir = TempDir::new();
     dir.write("settings.toml", "");
-    dir.write(
-        "settings.toml.bak",
-        "schema_version = 1\naccent = \"gray\"\n",
-    );
+    dir.write("settings.toml.bak", "schema_version = 1\naccent = \"gray\"\n");
     let mut state = dir.load();
     assert_eq!(state.settings.prefs.accent, Accent::Gray);
-    assert!(matches!(
-        state.take_notices().as_slice(),
-        [Notice::RestoredFromBackup { .. }]
-    ));
+    assert!(matches!(state.take_notices().as_slice(), [Notice::RestoredFromBackup { .. }]));
 }
 
 #[test]
@@ -310,20 +272,14 @@ fn save_keeps_previous_file_as_backup_and_leaves_no_temp_files() {
     storage::save(&path, "a = 2\n").unwrap();
     assert_eq!(dir.read("settings.toml"), "a = 2\n");
     assert_eq!(dir.read("settings.toml.bak"), "a = 1\n");
-    assert_eq!(
-        dir.names(),
-        ["settings.toml", "settings.toml.bak", "settings.toml.lock"]
-    );
+    assert_eq!(dir.names(), ["settings.toml", "settings.toml.bak", "settings.toml.lock"]);
 }
 
 #[test]
 fn no_config_dir_runs_in_memory() {
     let mut state = SettingsState::load(None);
     assert!(!state.is_persistent());
-    assert!(matches!(
-        state.take_notices().as_slice(),
-        [Notice::NotPersisted { .. }]
-    ));
+    assert!(matches!(state.take_notices().as_slice(), [Notice::NotPersisted { .. }]));
     state.update(|s| s.prefs.accent = Accent::Red);
     assert!(state.prepare_save().is_none());
     assert_eq!(state.settings.prefs.accent, Accent::Red);
@@ -401,18 +357,10 @@ fn symlinked_file_is_written_through() {
     let dir = TempDir::new();
     fs::create_dir(dir.path("dotfiles")).unwrap();
     dir.write("dotfiles/settings.toml", "a = 1\n");
-    std::os::unix::fs::symlink(
-        dir.path("dotfiles/settings.toml"),
-        dir.path("settings.toml"),
-    )
-    .unwrap();
+    std::os::unix::fs::symlink(dir.path("dotfiles/settings.toml"), dir.path("settings.toml"))
+        .unwrap();
     storage::save(&dir.path("settings.toml"), "a = 2\n").unwrap();
-    assert!(
-        fs::symlink_metadata(dir.path("settings.toml"))
-            .unwrap()
-            .file_type()
-            .is_symlink()
-    );
+    assert!(fs::symlink_metadata(dir.path("settings.toml")).unwrap().file_type().is_symlink());
     assert_eq!(dir.read("dotfiles/settings.toml"), "a = 2\n");
 }
 
@@ -459,11 +407,8 @@ fn kill_during_save() {
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
-        let jitter = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .subsec_nanos()
-            % 40;
+        let jitter =
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().subsec_nanos() % 40;
         std::thread::sleep(Duration::from_millis(20 + u64::from(jitter)));
         child.kill().unwrap();
         child.wait().unwrap();
@@ -471,15 +416,8 @@ fn kill_during_save() {
         let text = fs::read_to_string(&path).unwrap();
         let doc: toml::Table = toml::from_str(&text)
             .unwrap_or_else(|err| panic!("round {round}: settings file is broken: {err}"));
-        assert_eq!(
-            doc.get("end"),
-            Some(&toml::Value::Boolean(true)),
-            "round {round}"
-        );
+        assert_eq!(doc.get("end"), Some(&toml::Value::Boolean(true)), "round {round}");
         progressed |= doc.get("generation").and_then(toml::Value::as_integer) != Some(0);
     }
-    assert!(
-        progressed,
-        "the writer never got to write; the test proved nothing"
-    );
+    assert!(progressed, "the writer never got to write; the test proved nothing");
 }
