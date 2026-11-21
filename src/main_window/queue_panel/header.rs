@@ -1,11 +1,13 @@
-//! The Queue tab's header (S3.2.2): "N items - Xh Ym", then sort, "−" (remove the selected rows)
-//! and "+" (add files). Sort opens a menu of one-time sorts (S3.2.5). Repeat and Shuffle join
-//! with S3.3.
+//! The Queue tab's header (S3.2.2): "N items - Xh Ym", then sort, repeat, shuffle, "−" (remove
+//! the selected rows) and "+" (add files). Sort opens a menu of one-time sorts (S3.2.5). Repeat
+//! cycles Off → All → One and Shuffle switches on and off (S3.3), as their commands do.
 
 use gpui::{AnyElement, ClickEvent, Context, DismissEvent, Div, Window, div, prelude::*, px};
 
 use super::MainWindow;
 use crate::assets::icons;
+use crate::keymap::actions as act;
+use crate::main_window::play_order::repeat_button_look;
 use crate::queue::SortKey;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
@@ -28,17 +30,8 @@ const MENU_GAP: f32 = 4.;
 impl MainWindow {
     /// The header above the rows.
     pub(super) fn render_queue_header(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let entries = self.queue.entries();
-        let total = self.queue_panel.lengths.total(entries).label();
-        let sort = IconButton::new("queue-sort", icons::SORT, "Sort")
-            .size(BUTTON, ICON)
-            .selected(self.queue_panel.sort_menu.is_some())
-            .disabled(entries.len() < 2)
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                this.toggle_sort_menu(window, cx);
-            }));
-        let sort =
-            div().relative().flex_none().child(self.queue_panel.sort_button.element()).child(sort);
+        let total = self.queue_panel.lengths.total(self.queue.entries()).label();
+        let sort = self.sort_button(cx);
         let remove = IconButton::new("queue-remove", icons::REMOVE, "Remove selected")
             .size(BUTTON, ICON)
             .disabled(self.queue_panel.selection.is_empty())
@@ -50,7 +43,13 @@ impl MainWindow {
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
                 Self::prompt_to_enqueue(window, cx);
             }));
-        let buttons = div().flex().flex_none().gap(px(BUTTON_GAP)).child(sort).child(remove);
+        let buttons = div()
+            .flex()
+            .flex_none()
+            .gap(px(BUTTON_GAP))
+            .child(sort)
+            .children(self.play_order_buttons(cx))
+            .child(remove);
         div()
             .flex_none()
             .h(px(HEIGHT))
@@ -63,6 +62,38 @@ impl MainWindow {
             .text_color(p.text_muted)
             .child(div().min_w_0().truncate().child(total))
             .child(buttons.child(add))
+    }
+
+    /// Sort, which opens the sort menu; there's nothing to sort below two entries.
+    fn sort_button(&self, cx: &mut Context<Self>) -> Div {
+        let sort = IconButton::new("queue-sort", icons::SORT, "Sort")
+            .size(BUTTON, ICON)
+            .selected(self.queue_panel.sort_menu.is_some())
+            .disabled(self.queue.len() < 2)
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.toggle_sort_menu(window, cx);
+            }));
+        div().relative().flex_none().child(self.queue_panel.sort_button.element()).child(sort)
+    }
+
+    /// Repeat and Shuffle, which run their commands.
+    fn play_order_buttons(&self, cx: &mut Context<Self>) -> [IconButton; 2] {
+        let (repeat_icon, repeating, repeat_label) = repeat_button_look(self.queue.repeat());
+        let repeat = IconButton::new("queue-repeat", repeat_icon, repeat_label)
+            .size(BUTTON, ICON)
+            .selected(repeating)
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.perform(&act::CycleRepeat, window, cx);
+            }));
+        let shuffled = self.queue.is_shuffled();
+        let shuffle_label = if shuffled { "Shuffle: On" } else { "Shuffle: Off" };
+        let shuffle = IconButton::new("queue-shuffle", icons::SHUFFLE, shuffle_label)
+            .size(BUTTON, ICON)
+            .selected(shuffled)
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.perform(&act::ToggleShuffle, window, cx);
+            }));
+        [repeat, shuffle]
     }
 
     /// Opens the sort menu below its button, or closes it.

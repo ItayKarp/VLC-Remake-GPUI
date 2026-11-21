@@ -1,18 +1,22 @@
 //! Playing the queue (S3.1): opened items replace the queue, are added to its end or go right
 //! after the current item; the player then moves through it by itself.
 //!
-//! At an item's end the next one plays. An item that fails is skipped with a toast ("Couldn't
-//! play X, skipped"), and after [`MAX_CONSECUTIVE_FAILURES`] failures in a row the queue
-//! stops, so a broken list (a disconnected drive, deleted files) isn't spun through.
+//! At an item's end the next one plays, as Repeat and Shuffle say (S3.3), unless "Stop after
+//! each item" holds it; when the queue runs out, "When playback finishes" decides. An item that
+//! fails is skipped with a toast ("Couldn't play X, skipped"), and after
+//! [`MAX_CONSECUTIVE_FAILURES`] failures in a row the queue stops, so a broken list (a
+//! disconnected drive, deleted files) isn't spun through, even under Repeat All.
 
-use gpui::{Context, Window};
+use gpui::{Action, Context, Window};
 
 use super::MainWindow;
 use super::opening::Target;
 use crate::app::media::Media;
 use crate::app::request::Placement;
+use crate::keymap::actions::Quit;
 use crate::opening::Resolved;
 use crate::queue::{AfterError, MAX_CONSECUTIVE_FAILURES};
+use crate::settings::{self, WhenFinished};
 use crate::ui::toast::{Level, Toast};
 
 impl MainWindow {
@@ -61,17 +65,26 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// The current item ended: the next one plays.
+    /// The current item ended: the next one plays (the same one under Repeat One), unless
+    /// "Stop after each item" is on; Play then goes on. At the end of the queue, "When playback
+    /// finishes" says what happens.
     pub(super) fn advance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(next) = self.queue.next(self.ends()) {
-            self.play(next, window, cx);
+        let prefs = &settings::get(cx).prefs.player;
+        let (stop_after_each, when_finished) = (prefs.stop_after_each_item, prefs.when_finished);
+        match self.queue.after_end() {
+            Some(next) if !stop_after_each => self.play(next, window, cx),
+            Some(_) => {}
+            None => match when_finished {
+                WhenFinished::Stop => {}
+                WhenFinished::Quit => window.dispatch_action(Quit.boxed_clone(), cx),
+            },
         }
     }
 
     /// The current item couldn't play: skips to the next one, unless too many failed in a row.
     /// The last item's error stays on screen instead.
     pub(super) fn skip_failed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(next) = self.queue.next(self.ends()) else { return };
+        let Some(next) = self.queue.next() else { return };
         let name = self.playing_name(cx);
         let toast = match self.skips.failed() {
             AfterError::Skip => {

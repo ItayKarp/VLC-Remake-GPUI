@@ -31,7 +31,7 @@ pub use paths::{Locations, default_media_folder, display_path};
 pub use schema::{
     AudioSettings, AutoHide, ClickAction, ControlsSettings, DoubleClickAction, DurationReadout,
     HorizontalWheelAction, LocalState, PlayerSettings, Preferences, QueueSiblings, ResumePolicy,
-    Settings, SkipLength, StartupVolume, WheelAction, WindowGeometry, WindowMode,
+    Settings, SkipLength, StartupVolume, WheelAction, WhenFinished, WindowGeometry, WindowMode,
 };
 pub use store::Notice;
 use store::SettingsState;

@@ -1,6 +1,8 @@
 //! Player behavior (Settings → Playback; most of it comes with Stage 2 and S5.7): pausing for
 //! other apps' audio (S1.5.6), resuming and marking media watched (S1.7.4), and the speed each
-//! launch starts at (S2.7.4), and queueing a file's folder with it (S3.1.3).
+//! launch starts at (S2.7.4), queueing a file's folder with it (S3.1.3), and stopping after
+//! each item and what to do when the queue finishes (S3.3.3). Repeat and Shuffle aren't here:
+//! they belong to the queue, and Settings → Playback edits the queue's own state (S3.3.4).
 
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +40,13 @@ pub struct PlayerSettings {
     /// Whether opening one file also queues the other media in its folder (S3.1.3).
     #[serde(deserialize_with = "lenient")]
     pub queue_siblings: QueueSiblings,
+    /// "Stop after each item": the queue waits at the end of every item, and Play goes on to
+    /// the next one.
+    #[serde(deserialize_with = "lenient")]
+    pub stop_after_each_item: bool,
+    /// "When playback finishes": what happens when the queue's last item ends.
+    #[serde(deserialize_with = "lenient")]
+    pub when_finished: WhenFinished,
 }
 
 impl Default for PlayerSettings {
@@ -49,6 +58,8 @@ impl Default for PlayerSettings {
             watched_remaining_seconds: DEFAULT_WATCHED_REMAINING_SECONDS,
             default_speed: DEFAULT_SPEED,
             queue_siblings: QueueSiblings::default(),
+            stop_after_each_item: false,
+            when_finished: WhenFinished::default(),
         }
     }
 }
@@ -78,4 +89,30 @@ pub enum QueueSiblings {
     Episodes,
     /// The folder's other media is always queued.
     Always,
+}
+
+/// What happens when the queue's last item ends (S3.3.3). "Close the player" joins with the
+/// library (Stage 4), the place it would close to; sleeping or shutting the computer down isn't
+/// offered.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WhenFinished {
+    /// The player stays on the finished item.
+    #[default]
+    Stop,
+    /// VLC quits.
+    Quit,
+}
+
+impl WhenFinished {
+    /// Every choice, in menu order.
+    pub const ALL: [Self; 2] = [Self::Stop, Self::Quit];
+
+    /// The choice's name in menus.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Stop => "Stop",
+            Self::Quit => "Quit VLC",
+        }
+    }
 }

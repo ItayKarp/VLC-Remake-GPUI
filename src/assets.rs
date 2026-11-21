@@ -126,6 +126,11 @@ icons! {
     CHAPTERS => "chapters.svg",
     SORT => "sort.svg",
     REMOVE => "remove.svg",
+    // Repeat and Shuffle (S3.3).
+    REPEAT => "repeat.svg",
+    /// Repeat One (not in the icon set): the repeat arrows around a 1.
+    REPEAT_ONE => "repeat-one.svg",
+    SHUFFLE => "shuffle.svg",
     /// A queue row's drag handle (`move` in the icon set).
     DRAG_HANDLE => "drag-handle.svg",
 }

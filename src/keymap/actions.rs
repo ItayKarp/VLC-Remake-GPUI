@@ -89,6 +89,10 @@ actions!(
         PreviousItem,
         /// Go to the next item in the queue.
         NextItem,
+        /// Move Repeat to its next mode: Off, All, One.
+        CycleRepeat,
+        /// Switch Shuffle on or off.
+        ToggleShuffle,
         /// Step one frame back.
         PreviousFrame,
         /// Step one frame forward.

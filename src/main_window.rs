@@ -23,6 +23,7 @@ mod notice;
 mod now_playing;
 mod opening;
 mod osd;
+mod play_order;
 mod player_keys;
 mod queue_panel;
 mod queue_play;

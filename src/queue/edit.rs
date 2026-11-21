@@ -30,9 +30,13 @@ impl Queue {
             }
         });
         self.entries.retain(|entry| !ids.contains(&entry.id));
+        if let Some(order) = &mut self.shuffle {
+            order.removed(ids);
+        }
         let removed = before - self.entries.len();
         if removed > 0 {
             self.revision += 1;
+            self.settle();
         }
         removed
     }
@@ -77,7 +81,6 @@ mod tests {
 
     use super::*;
     use crate::app::media::Media;
-    use crate::queue::Ends;
 
     fn queue(names: &[&str]) -> Queue {
         let mut queue = Queue::default();
@@ -111,9 +114,9 @@ mod tests {
         let gone = ids(&q, &[1, 2]);
         q.remove(&gone);
         assert_eq!(q.current_index(), None);
-        assert_eq!(q.next(Ends::Stop), Some(1));
+        assert_eq!(q.next(), Some(1));
         assert_eq!(q.entries()[1].media.display_name(), "d");
-        assert_eq!(q.previous(Ends::Stop), Some(0));
+        assert_eq!(q.previous(), Some(0));
     }
 
     #[test]
@@ -123,7 +126,8 @@ mod tests {
         q.remove(&ids(&q, &[0, 1]));
         assert_eq!(q.len(), 0);
         assert!(q.has_current());
-        assert_eq!(q.next(Ends::Wrap), None);
+        q.set_repeat(crate::queue::Repeat::All);
+        assert_eq!(q.next(), None);
     }
 
     #[test]
@@ -158,7 +162,7 @@ mod tests {
         q.remove(&ids(&q, &[0]));
         q.reorder(|entries| entries.reverse());
         assert_eq!(names(&q), "cb");
-        assert_eq!(q.next(Ends::Stop), Some(1));
+        assert_eq!(q.next(), Some(1));
     }
 
     #[test]
@@ -168,6 +172,6 @@ mod tests {
         q.remove(&ids(&q, &[1]));
         q.insert_at(0, vec![Media::File(PathBuf::from("x"))]);
         assert_eq!(names(&q), "xac");
-        assert_eq!(q.next(Ends::Stop), Some(2));
+        assert_eq!(q.next(), Some(2));
     }
 }

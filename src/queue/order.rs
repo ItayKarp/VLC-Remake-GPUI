@@ -3,8 +3,9 @@
 //! put.
 
 use std::cmp::Ordering;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
+use super::random::Random;
 use super::{Entry, Queue};
 use crate::app::media::Media;
 use crate::opening::scan::natural_cmp;
@@ -45,7 +46,7 @@ impl Queue {
             SortKey::Name => entries.sort_by(by_name),
             SortKey::Duration => entries.sort_by(|a, b| by_duration(&duration, a, b)),
             SortKey::DateAdded => entries.sort_by_key(|entry| entry.id.0),
-            SortKey::Shuffle => shuffle(entries, seed()),
+            SortKey::Shuffle => Random::from_clock().shuffle(entries),
         });
     }
 }
@@ -61,30 +62,6 @@ fn by_duration(duration: impl Fn(&Media) -> Option<Duration>, a: &Entry, b: &Ent
         (None, Some(_)) => Ordering::Greater,
         (None, None) => Ordering::Equal,
     }
-}
-
-/// A seed that differs from one shuffle to the next.
-fn seed() -> u64 {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-    (now.as_nanos() as u64) | 1
-}
-
-/// Shuffles `items` (Fisher–Yates) with a generator seeded by `seed`.
-fn shuffle<T>(items: &mut [T], seed: u64) {
-    let mut state = seed;
-    for last in (1..items.len()).rev() {
-        state = splitmix(state);
-        let pick = (state % (last as u64 + 1)) as usize;
-        items.swap(last, pick);
-    }
-}
-
-/// One step of SplitMix64: a small, well-mixed pseudo-random sequence.
-fn splitmix(state: u64) -> u64 {
-    let mut z = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^ (z >> 31)
 }
 
 #[cfg(test)]
@@ -134,17 +111,5 @@ mod tests {
         assert_eq!(names(&q), ["0", "a", "b"]);
         q.sort(SortKey::DateAdded, length);
         assert_eq!(names(&q), ["b", "a", "0"]);
-    }
-
-    #[test]
-    fn shuffling_keeps_every_item() {
-        let mut items: Vec<u32> = (0..100).collect();
-        shuffle(&mut items, 42);
-        assert_ne!(items, (0..100).collect::<Vec<_>>());
-        items.sort_unstable();
-        assert_eq!(items, (0..100).collect::<Vec<_>>());
-        let mut one = [7];
-        shuffle(&mut one, 1);
-        assert_eq!(one, [7]);
     }
 }

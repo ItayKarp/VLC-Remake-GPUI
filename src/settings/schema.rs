@@ -30,7 +30,7 @@ pub use controls::{
     WheelAction,
 };
 pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
-pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy};
+pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
 pub use subtitles::SubtitleSettings;
 
 /// Everything the app persists, as one in-memory value.

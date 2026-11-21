@@ -4,7 +4,8 @@
 //!
 //! Shift+F10 or the context-menu key opens it at the video's top-left corner with its first item
 //! highlighted, rather than at the pointer. Opening it closes any popover or other menu first.
-//! Playlist shows or hides the queue and clears it (S3.2); Repeat and Shuffle join it with S3.3.
+//! Playlist shows or hides the queue and clears it (S3.2), and holds Repeat, Shuffle, Stop After
+//! Each Item and When Playback Finishes (S3.3).
 //! Record (S8.6) joins with its story (S2.9.4).
 
 mod media;
@@ -126,15 +127,17 @@ impl MainWindow {
 }
 
 impl MainWindow {
-    /// Playlist: show or hide the queue, and clear it.
+    /// Playlist: show or hide the queue, clear it, and the play order.
     fn playlist_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let show = if self.queue_panel.is_open() { "Hide Queue" } else { "Show Queue" };
-        let items = vec![
+        let mut items = vec![
             run(main, &act::ToggleQueue, show, cx).icon(icons::QUEUE),
             on_main(main, "Clear Queue", |this, _, cx| this.clear_queue(cx))
                 .disabled(self.queue.len() == 0)
                 .why_disabled("The queue is empty"),
+            MenuItem::Separator,
         ];
+        items.extend(self.play_order_items(main, cx));
         MenuItem::submenu("Playlist", items).icon(icons::LIST)
     }
 }

@@ -6,7 +6,9 @@
 //! previous one are O(1); inserting and removing shift the items after them, which is a quick
 //! memory move even for a 10,000-item queue.
 //!
-//! The queue panel (S3.2) edits it: removing, moving and sorting entries (`edit.rs`).
+//! The queue panel (S3.2) edits it: removing, moving and sorting entries (`edit.rs`). Repeat
+//! ([`Repeat`]) and Shuffle (`shuffle.rs`, S3.3) live here too, so the queue's buttons, the
+//! menus and Settings → Playback all change this one state.
 //!
 //! When the current item is removed (the queue panel's Delete, S3.2), playback goes on and the
 //! item stays in the history: VLC stops instead, but cutting off what the user is watching
@@ -17,28 +19,19 @@
 mod edit;
 mod lengths;
 mod order;
+mod random;
+mod repeat;
+mod shuffle;
 mod skips;
-
-use std::collections::VecDeque;
 
 use crate::app::media::Media;
 
+use self::shuffle::ShuffleOrder;
+
 pub use lengths::{Length, Lengths, row_duration};
 pub use order::SortKey;
+pub use repeat::Repeat;
 pub use skips::{AfterError, MAX_CONSECUTIVE_FAILURES, Skips};
-
-/// How many played entries the history remembers.
-const HISTORY_LIMIT: usize = 1_000;
-
-/// What Next and Previous do at the queue's ends.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Ends {
-    /// They stop there: Previous on the first item and Next on the last do nothing.
-    Stop,
-    /// They wrap around to the other end (Repeat All, S3.3).
-    #[allow(dead_code, reason = "Repeat All comes with S3.3; the tests cover it now")]
-    Wrap,
-}
 
 /// Names one entry for as long as it is queued, wherever it moves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -67,8 +60,10 @@ enum Current {
 pub struct Queue {
     entries: Vec<Entry>,
     current: Option<Current>,
-    /// The entries made current, oldest first (for Previous under shuffle, S3.3).
-    history: VecDeque<EntryId>,
+    /// What happens at an item's end and at the queue's ends (S3.3.1).
+    repeat: Repeat,
+    /// The random play order, while Shuffle is on (S3.3.2).
+    shuffle: Option<ShuffleOrder>,
     next_id: u64,
     /// Changes whenever the entries do, so views can tell when to look again.
     revision: u64,
@@ -103,11 +98,24 @@ impl Queue {
         self.current.is_some()
     }
 
+    /// The repeat mode.
+    pub fn repeat(&self) -> Repeat {
+        self.repeat
+    }
+
+    /// Changes the repeat mode.
+    pub fn set_repeat(&mut self, repeat: Repeat) {
+        self.repeat = repeat;
+        self.settle();
+    }
+
     /// Replaces everything with `media`; nothing is current until [`Self::set_current`].
     pub fn replace(&mut self, media: Vec<Media>) {
         self.entries.clear();
         self.current = None;
-        self.history.clear();
+        if let Some(order) = &mut self.shuffle {
+            order.clear();
+        }
         self.revision += 1;
         self.append(media);
     }
@@ -129,50 +137,66 @@ impl Queue {
         self.insert_at(at, media)
     }
 
-    /// Makes the entry at `index` current, remembers it in the history, and returns what it
-    /// plays; `None` (and no change) when there's no such entry.
+    /// Makes the entry at `index` current and returns what it plays; `None` (and no change)
+    /// when there's no such entry.
     pub fn set_current(&mut self, index: usize) -> Option<&Media> {
-        let entry = self.entries.get(index)?;
-        if self.history.len() == HISTORY_LIMIT {
-            self.history.pop_front();
+        let to = self.entries.get(index)?.id;
+        let from = self.current_id();
+        if let Some(order) = &mut self.shuffle {
+            order.moved(from, to);
         }
-        self.history.push_back(entry.id);
         self.current = Some(Current::At(index));
-        Some(&entry.media)
+        self.settle();
+        Some(&self.entries[index].media)
     }
 
-    /// The entry Next plays, or `None` at the end of the queue (unless it wraps).
-    pub fn next(&self, ends: Ends) -> Option<usize> {
-        let next = match self.current? {
+    /// The entry Next plays: the next one in play order, or `None` at the end of the queue
+    /// (Repeat All wraps around; Repeat One doesn't hold Next back).
+    pub fn next(&self) -> Option<usize> {
+        let current = self.current?;
+        if let Some(order) = &self.shuffle {
+            return order.next().and_then(|id| self.index_of(id));
+        }
+        let next = match current {
             Current::At(index) => index + 1,
             Current::Removed { next } => next,
         };
         match next {
             next if next < self.len() => Some(next),
-            _ if ends == Ends::Wrap && !self.entries.is_empty() => Some(0),
+            _ if self.repeat.wraps() && !self.entries.is_empty() => Some(0),
             _ => None,
         }
     }
 
-    /// The entry before the current one, or `None` at the start of the queue (unless it
-    /// wraps).
-    pub fn previous(&self, ends: Ends) -> Option<usize> {
-        let before = match self.current? {
+    /// The entry Previous plays: the one before the current one in play order (under shuffle,
+    /// the one that played before it), or `None` at the start (Repeat All wraps around).
+    pub fn previous(&self) -> Option<usize> {
+        let current = self.current?;
+        if let Some(order) = &self.shuffle {
+            return order.previous().and_then(|id| self.index_of(id));
+        }
+        let before = match current {
             Current::At(index) | Current::Removed { next: index } => index.checked_sub(1),
         };
         match before {
             Some(previous) if previous < self.len() => Some(previous),
-            _ if ends == Ends::Wrap && !self.entries.is_empty() => Some(self.len() - 1),
+            _ if self.repeat.wraps() && !self.entries.is_empty() => Some(self.len() - 1),
             _ => None,
         }
     }
 
-    /// The index of the entry that was current before the current one, if it is still
-    /// queued: where Previous goes when the play order isn't the queue order.
-    #[allow(dead_code, reason = "Previous under shuffle (S3.3); the tests cover it now")]
-    pub fn previous_in_history(&self) -> Option<usize> {
-        let before = *self.history.iter().rev().nth(1)?;
-        self.entries.iter().position(|entry| entry.id == before)
+    /// The entry to play when the current one reaches its end: itself again under Repeat One,
+    /// else what Next plays.
+    pub fn after_end(&self) -> Option<usize> {
+        match self.current_index() {
+            Some(current) if self.repeat == Repeat::One => Some(current),
+            _ => self.next(),
+        }
+    }
+
+    /// The id of the current entry, unless it was removed.
+    fn current_id(&self) -> Option<EntryId> {
+        self.current_index().map(|index| self.entries[index].id)
     }
 
     /// Adds `media` before the entry at `at` (at the end past the last one). Returns where the
@@ -180,10 +204,16 @@ impl Queue {
     pub fn insert_at(&mut self, at: usize, media: Vec<Media>) -> usize {
         let at = at.min(self.entries.len());
         let count = media.len();
-        let entries = media.into_iter().map(|media| {
-            self.next_id += 1;
-            Entry { id: EntryId(self.next_id), media }
-        });
+        let entries: Vec<Entry> = media
+            .into_iter()
+            .map(|media| {
+                self.next_id += 1;
+                Entry { id: EntryId(self.next_id), media }
+            })
+            .collect();
+        if let Some(order) = &mut self.shuffle {
+            order.added(entries.iter().map(|entry| entry.id));
+        }
         self.entries.splice(at..at, entries);
         self.revision += 1;
         match &mut self.current {

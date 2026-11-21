@@ -4,7 +4,7 @@
 //! The Queue tab lists the queue ([`header`], [`rows`]): rows can be selected, reordered by
 //! dragging, played with a double-click or Enter and removed with Delete or "−", and files dropped
 //! on it are inserted where they land ([`editing`]). Bookmarks and Chapters come with their
-//! stories (S8.3, S8.2) and say so until then. Repeat and Shuffle join the header with S3.3. The
+//! stories (S8.3, S8.2) and say so until then. The header has Repeat and Shuffle (S3.3). The
 //! miniplayer's queue (S4.10.4) will reuse the rows.
 //!
 //! Unlike the track popover and the settings panel, it stays open while the video is used

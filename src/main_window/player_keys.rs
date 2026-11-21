@@ -37,6 +37,29 @@ impl MainWindow {
     pub(super) fn player_keys(root: Div, cx: &mut Context<Self>) -> Div {
         let root = root.on_key_up(cx.listener(|this, _, _, _| this.repeat.release_all()));
         let root = Self::fullscreen_actions(root, cx);
+        let root = Self::playback_actions(root, cx);
+        player_actions!(
+            root,
+            cx,
+            [
+                CycleSubtitleTrack,
+                CycleAudioTrack,
+                VolumeUp,
+                VolumeDown,
+                ShowTime,
+                ShowControls,
+                HideInterface,
+                ToggleQueue,
+                ToggleFileBrowser,
+                Snapshot,
+                Record,
+                ShowContextMenu,
+            ]
+        )
+    }
+
+    /// The transport, play order, seeking, frame step and speed commands.
+    fn playback_actions(root: Div, cx: &mut Context<Self>) -> Div {
         player_actions!(
             root,
             cx,
@@ -55,24 +78,14 @@ impl MainWindow {
                 SeekToEnd,
                 PreviousItem,
                 NextItem,
+                CycleRepeat,
+                ToggleShuffle,
                 PreviousFrame,
                 NextFrame,
                 NextProgram,
-                CycleSubtitleTrack,
-                CycleAudioTrack,
                 Faster,
                 Slower,
                 NormalSpeed,
-                VolumeUp,
-                VolumeDown,
-                ShowTime,
-                ShowControls,
-                HideInterface,
-                ToggleQueue,
-                ToggleFileBrowser,
-                Snapshot,
-                Record,
-                ShowContextMenu,
             ]
         )
     }
@@ -141,6 +154,8 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::Stop, MainWindow::stop),
     (&act::PreviousItem, MainWindow::previous),
     (&act::NextItem, MainWindow::next),
+    (&act::CycleRepeat, MainWindow::cycle_repeat),
+    (&act::ToggleShuffle, MainWindow::toggle_shuffle),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),
     (&act::SeekForward, |this, _, cx| this.skip(Way::Forward, SkipLength::Short, cx)),
     (&act::SeekBackwardVeryShort, |this, _, cx| this.skip(Way::Back, SkipLength::VeryShort, cx)),

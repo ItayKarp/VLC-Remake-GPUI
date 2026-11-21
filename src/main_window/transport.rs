@@ -16,7 +16,6 @@ use super::MainWindow;
 use crate::engine::player::Player;
 use crate::engine::state::PlaybackState;
 use crate::engine::values::SeekTarget;
-use crate::queue::Ends;
 
 impl MainWindow {
     /// Plays or pauses what's loaded. With nothing to play it asks for files: an empty list has
@@ -28,14 +27,20 @@ impl MainWindow {
             }
             return;
         };
-        // A failed item has nothing to resume: Play tries it again.
-        if matches!(player.read(cx).state(), PlaybackState::Error(_)) {
-            if let Some(current) = self.queue.current_index() {
-                self.play(current, window, cx);
-            }
-            return;
+        let state = player.read(cx).state();
+        let item = match state {
+            // A failed item has nothing to resume: Play tries it again.
+            PlaybackState::Error(_) => self.queue.current_index(),
+            // After "Stop after each item", or under Repeat, Play goes on as the end would
+            // have; at the end of the queue it plays the item again.
+            PlaybackState::Ended => self.queue.after_end(),
+            _ => None,
+        };
+        if let Some(index) = item {
+            self.play(index, window, cx);
+        } else if !matches!(state, PlaybackState::Error(_)) {
+            player.update(cx, Player::toggle);
         }
-        player.update(cx, Player::toggle);
     }
 
     /// Stops playback; Play starts the item again.
@@ -47,7 +52,7 @@ impl MainWindow {
 
     /// Restarts the current item past its first seconds, else plays the one before it.
     pub(super) fn previous(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match rules::back(&self.queue, self.ends(), self.position(cx)) {
+        match rules::back(&self.queue, self.position(cx)) {
             Some(Back::Restart) => self.restart(cx),
             Some(Back::Item(index)) => self.play(index, window, cx),
             None => {}
@@ -56,26 +61,19 @@ impl MainWindow {
 
     /// Plays the next item.
     pub(super) fn next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(index) = self.queue.next(self.ends()) {
+        if let Some(index) = self.queue.next() {
             self.play(index, window, cx);
         }
     }
 
     /// Whether Previous would do anything now.
     pub(super) fn can_go_back(&self, cx: &App) -> bool {
-        rules::back(&self.queue, self.ends(), self.position(cx)).is_some()
+        rules::back(&self.queue, self.position(cx)).is_some()
     }
 
     /// Whether Next would do anything now.
     pub(super) fn can_go_next(&self) -> bool {
-        self.queue.next(self.ends()).is_some()
-    }
-
-    /// What Previous, Next and the end of an item do at the queue's ends. Until Repeat
-    /// (S3.3), the queue stops there.
-    #[allow(clippy::unused_self, reason = "Repeat (S3.3) reads it from the window's state")]
-    pub(super) fn ends(&self) -> Ends {
-        Ends::Stop
+        self.queue.next().is_some()
     }
 
     /// The player, while it has media (in any state, ended and failed included).

@@ -113,6 +113,9 @@ pub const COMMANDS: &[Command] = &[
     // P/N are layout-safe; `<`/`>` (taught by onboarding's design) stay as aliases.
     cmd("Previous item", Player, keys(&["p", "<"]), &act::PreviousItem),
     cmd("Next item", Player, keys(&["n", ">"]), &act::NextItem),
+    // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
+    cmd("Repeat (Off, All, One)", Player, NONE, &act::CycleRepeat),
+    cmd("Shuffle", Player, NONE, &act::ToggleShuffle),
     // The skip amounts (S2.3.4): Shift is finer, Alt (Option) and Ctrl (Cmd) coarser.
     held("Seek backward", keys(&["left"]), &act::SeekBackward),
     held("Seek forward", keys(&["right"]), &act::SeekForward),
