@@ -243,7 +243,8 @@ samples (S9.8.1).
 
 - [ ] Run `measure.sh` on Windows (path a) and Linux X11 and Wayland (path a), and fill in
       the table. Needs a libVLC there: `--libvlc DIR` pointing at an unpacked VLC. Step-by-step
-      for Windows: `examples/video_spike/WINDOWS.md`.
+      for Windows: `examples/video_spike/WINDOWS.md`; for Linux:
+      `examples/video_spike/LINUX.md`.
 - [ ] Prototype path (d) on wgpu if path (a) fails 4K60 there. On macOS it passes with
       little headroom.
 - [x] Screenshot check of colours, odd-size edges and deinterlacing on macOS (see the
