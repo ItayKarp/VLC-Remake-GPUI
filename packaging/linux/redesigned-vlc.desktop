@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=VLC
+GenericName=Media Player
+Comment=Play videos, music and network streams
+Exec=RedesignedVLC %U
+Icon=redesigned-vlc
+Terminal=false
+Categories=AudioVideo;Player;Video;Audio;
+Keywords=video;music;player;stream;
+StartupWMClass=org.redesignedvlc.app
+MimeType=video/3gpp;video/x-msvideo;video/x-flv;video/mp2t;video/x-m4v;video/x-matroska;video/quicktime;video/mp4;video/mpeg;video/ogg;video/x-ms-vob;video/webm;video/x-ms-wmv;audio/aac;audio/x-aiff;audio/x-ape;audio/flac;audio/mp4;audio/x-matroska;audio/mpeg;audio/ogg;audio/opus;audio/x-wav;audio/x-ms-wma;audio/x-mpegurl;application/vnd.apple.mpegurl;audio/x-scpls;application/xspf+xml;x-scheme-handler/mms;x-scheme-handler/rtmp;x-scheme-handler/rtsp;

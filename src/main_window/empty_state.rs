@@ -6,7 +6,7 @@ use gpui::{
     px, svg,
 };
 
-use super::{MainWindow, file_name};
+use super::MainWindow;
 use crate::assets::icons;
 use crate::keymap::{self, actions::OpenFile};
 use crate::theme::Palette;
@@ -19,7 +19,7 @@ impl MainWindow {
             div()
                 .text_size(px(14.))
                 .text_color(p.text_muted)
-                .child(SharedString::from(format!("Opened {}", file_name(file))))
+                .child(SharedString::from(format!("Opened {}", file.display_name())))
         });
 
         div()

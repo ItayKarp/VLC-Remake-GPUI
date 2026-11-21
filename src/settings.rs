@@ -61,6 +61,19 @@ pub fn init(cx: &mut App) {
     }
 }
 
+/// Reads the preferences file without loading the store: nothing is recovered,
+/// migrated or written. For decisions made before GPUI starts, such as whether to
+/// look for a running instance (S0.6.1). Anything unreadable gives the defaults.
+pub fn peek() -> Preferences {
+    let Some(locations) = Locations::resolve() else {
+        return Preferences::default();
+    };
+    std::fs::read_to_string(&locations.prefs)
+        .ok()
+        .and_then(|text| toml::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
 /// Installs default settings that are never written to disk, for tests that
 /// need the global.
 #[cfg(test)]

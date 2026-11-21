@@ -93,12 +93,34 @@ empty_sections! {
     VideoSettings,
     /// Subtitle preferences (Stage 6).
     SubtitleSettings,
-    /// Library preferences (Stage 4).
-    LibrarySettings,
-    /// Privacy preferences (Stage 5).
-    PrivacySettings,
     /// Custom key bindings (S0.5).
     KeymapSettings,
+}
+
+/// Library preferences (Stage 4, S5.9).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibrarySettings {
+    /// Lets every launch open its own window instead of handing its files to the
+    /// running one (S0.6.1). The opposite of "Only allow one VLC window" (S5.9.1).
+    #[serde(deserialize_with = "lenient")]
+    pub allow_multiple_instances: bool,
+}
+
+/// Privacy preferences (Stage 5).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PrivacySettings {
+    /// "Save recently played items" (S5.5.1). Also governs the OS recent documents
+    /// list (S0.6.5).
+    #[serde(deserialize_with = "lenient")]
+    pub save_recently_played: bool,
+}
+
+impl Default for PrivacySettings {
+    fn default() -> Self {
+        PrivacySettings { save_recently_played: true }
+    }
 }
 
 /// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens

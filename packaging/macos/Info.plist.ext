@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the bundle's Info.plist by cargo-bundle (osx_info_plist_exts in Cargo.toml).
+     Keep the lists in sync with src/app/file_types.rs; its tests check them. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Media file</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>3gp</string>
+				<string>avi</string>
+				<string>flv</string>
+				<string>m2ts</string>
+				<string>m4v</string>
+				<string>mkv</string>
+				<string>mov</string>
+				<string>mp4</string>
+				<string>mpeg</string>
+				<string>mpg</string>
+				<string>mts</string>
+				<string>ogv</string>
+				<string>ts</string>
+				<string>vob</string>
+				<string>webm</string>
+				<string>wmv</string>
+				<string>aac</string>
+				<string>aiff</string>
+				<string>ape</string>
+				<string>flac</string>
+				<string>m4a</string>
+				<string>mka</string>
+				<string>mp3</string>
+				<string>oga</string>
+				<string>ogg</string>
+				<string>opus</string>
+				<string>wav</string>
+				<string>wma</string>
+				<string>m3u</string>
+				<string>m3u8</string>
+				<string>pls</string>
+				<string>xspf</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Streaming URL</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mms</string>
+				<string>rtmp</string>
+				<string>rtsp</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

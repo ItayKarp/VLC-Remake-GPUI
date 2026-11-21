@@ -3,7 +3,8 @@
 
 use gpui::{AnyElement, ClickEvent, Context, Div, SharedString, Window, div, prelude::*, px, svg};
 
-use super::{MainWindow, TITLE_BAR_HEIGHT, file_name};
+use super::{MainWindow, TITLE_BAR_HEIGHT};
+use crate::app::media::Media;
 use crate::assets::icons;
 use crate::settings;
 use crate::theme::Palette;
@@ -44,7 +45,7 @@ impl MainWindow {
             .local
             .media_folders
             .first()
-            .map(|folder| SharedString::from(file_name(folder)));
+            .map(|folder| SharedString::from(Media::File(folder.clone()).display_name()));
 
         div()
             .flex()

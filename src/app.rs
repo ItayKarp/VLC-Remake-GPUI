@@ -1,14 +1,22 @@
-//! Windows, routing and app-wide actions (S0.2).
+//! Windows, routing and app-wide actions (S0.2), and launches (S0.6).
 //!
 //! At startup the app opens either onboarding or the main window ([`cli::route`]).
+//! Later launches reach the running app through [`instance`] and [`open`].
 //! Onboarding hands off by opening the main window *before* closing itself, because
 //! with `QuitMode::LastWindowClosed` closing the only window quits the app.
 
 pub mod cli;
 mod display;
+// Only the tests read it today: they keep `packaging/` in sync with it.
+#[cfg(test)]
+mod file_types;
 mod geometry;
-
-use std::path::PathBuf;
+pub mod instance;
+pub mod media;
+mod not_responding;
+pub mod open;
+pub mod recent;
+pub mod request;
 
 use gpui::{
     App, DisplayId, SharedString, TitlebarOptions, WindowBounds, WindowHandle, WindowOptions,
@@ -19,8 +27,10 @@ use crate::keymap::actions::{CloseWindow, Quit, RunSetupAgain};
 use crate::main_window::MainWindow;
 use crate::onboarding::{self, Onboarding};
 use crate::settings;
-use cli::{Launch, Route};
+use cli::Route;
 use geometry::Rect;
+use instance::{InboxReceiver, Role};
+use request::{Launch, OpenRequest};
 
 pub use display::preferred_display;
 
@@ -52,13 +62,43 @@ pub fn init(cx: &mut App) {
     });
 }
 
+/// Starts the UI for this process's [`Role`]: the first window, and receiving
+/// launches forwarded by later processes.
+pub fn start(launch: &Launch, role: Role, inbox: InboxReceiver, cx: &mut App) {
+    match role {
+        Role::NotResponding => {
+            if let Err(err) = not_responding::open(cx) {
+                log::error!("couldn't open a window: {err:#}");
+                cx.quit();
+            }
+            cx.activate(true);
+        }
+        Role::Primary(server) => {
+            cx.set_global(InstanceServer { _server: server });
+            open_initial_window(launch, cx);
+            open::receive(inbox, cx);
+        }
+        Role::Standalone | Role::Forwarded => {
+            open_initial_window(launch, cx);
+            open::receive(inbox, cx);
+        }
+    }
+}
+
+/// Keeps the instance lock and listener for the app's lifetime.
+struct InstanceServer {
+    _server: instance::Server,
+}
+
+impl gpui::Global for InstanceServer {}
+
 /// Opens the first window for this launch.
 pub fn open_initial_window(launch: &Launch, cx: &mut App) {
     let onboarding_complete = settings::get(cx).local.onboarding_complete;
     let display = display::cursor_display(cx);
     let opened = match cli::route(onboarding_complete, launch) {
         Route::Onboarding => open_onboarding(display, cx).map(drop),
-        Route::Main(files) => open_main_window(display, files, cx).map(drop),
+        Route::Main(request) => open_main_window(display, request, cx).map(drop),
         Route::Gallery => open_gallery(display, cx).map(drop),
     };
     if let Err(err) = opened {
@@ -106,10 +146,10 @@ pub fn open_onboarding(
 }
 
 /// Opens the main window where it was last saved (or centered at the default size),
-/// with `files` to open in it.
+/// opening `request` in it.
 pub fn open_main_window(
     display: Option<DisplayId>,
-    files: Vec<PathBuf>,
+    request: OpenRequest,
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<MainWindow>> {
     let fallback = visible_bounds(display, cx);
@@ -136,7 +176,7 @@ pub fn open_main_window(
             display_id: display,
             ..window_options(crate::main_window::TITLE_BAR_HEIGHT)
         },
-        |window, cx| cx.new(|cx| MainWindow::new(files, window, cx)),
+        |window, cx| cx.new(|cx| MainWindow::new(request, window, cx)),
     )?;
     Ok(correct_dpi_drift(handle, bounds, cx))
 }

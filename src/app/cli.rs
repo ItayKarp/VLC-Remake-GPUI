@@ -1,26 +1,20 @@
-//! Command-line arguments and the launch routing decision (S0.2.1, S0.2.5, S0.2.6).
-//!
-//! Only what S0.2 needs: `--reset-onboarding` and files to open. Full parsing
-//! (`--fullscreen`, `--enqueue`, URLs, forwarding to a running instance) is S0.6.
+//! Command-line parsing (S0.6.2) and the launch routing decision (S0.2.1, S0.2.6).
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+
+use super::media::Media;
+use super::request::{Launch, OpenRequest, Placement, StartScreen};
 
 /// Runs onboarding again even though it was completed (S0.2.5).
 pub const RESET_ONBOARDING: &str = "--reset-onboarding";
 /// Opens the component kit gallery (S0.4), for design checks.
 pub const COMPONENT_GALLERY: &str = "--component-gallery";
-
-/// What this launch was asked to do, parsed from the command line.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Launch {
-    /// Show onboarding even though it was completed.
-    pub reset_onboarding: bool,
-    /// Open the component gallery instead of the app's windows.
-    pub component_gallery: bool,
-    /// Files (or folders) the app was asked to open, e.g. by double-clicking a video.
-    pub files: Vec<PathBuf>,
-}
+/// Shows the main window fullscreen.
+pub const FULLSCREEN: &str = "--fullscreen";
+/// Adds the items to the queue instead of replacing it.
+pub const ENQUEUE: &str = "--enqueue";
+/// macOS before 10.9 passed a process serial number to apps that Finder launched.
+const MACOS_PSN_PREFIX: &str = "-psn_";
 
 impl Launch {
     /// Parses this process's command line.
@@ -29,26 +23,37 @@ impl Launch {
     }
 
     /// Parses the arguments after the program name. Unknown flags are ignored with a
-    /// warning; everything after `--` is a file.
+    /// warning; everything after `--` is a file or URL. Relative paths are made
+    /// absolute here, against this process's working directory.
     pub fn parse(args: impl IntoIterator<Item = OsString>) -> Self {
         let mut launch = Launch::default();
-        let mut only_files = false;
+        let mut only_items = false;
         for arg in args {
-            if !only_files && let Some(flag) = arg.to_str().filter(|a| a.starts_with("--")) {
-                match flag {
-                    "--" => only_files = true,
-                    RESET_ONBOARDING => launch.reset_onboarding = true,
-                    COMPONENT_GALLERY => launch.component_gallery = true,
-                    _ => log::warn!("ignoring unknown command-line option {flag}"),
-                }
-                continue;
-            }
-            if !arg.is_empty() {
-                launch.files.push(PathBuf::from(arg));
+            match arg.to_str().filter(|a| !only_items && is_flag(a)) {
+                Some("--") => only_items = true,
+                Some(flag) => launch.apply_flag(flag),
+                None => launch.open.items.extend(Media::from_arg(&arg)),
             }
         }
         launch
     }
+
+    fn apply_flag(&mut self, flag: &str) {
+        match flag {
+            RESET_ONBOARDING => self.start = StartScreen::Onboarding,
+            COMPONENT_GALLERY => self.start = StartScreen::Gallery,
+            FULLSCREEN => self.open.fullscreen = true,
+            ENQUEUE => self.open.placement = Placement::Enqueue,
+            _ if flag.starts_with(MACOS_PSN_PREFIX) => {}
+            _ => log::warn!("ignoring unknown command-line option {flag}"),
+        }
+    }
+}
+
+/// Whether `arg` is an option rather than a file. Files whose names start with a
+/// single `-` stay files.
+fn is_flag(arg: &str) -> bool {
+    arg.starts_with("--") || arg.starts_with(MACOS_PSN_PREFIX)
 }
 
 /// Which window the app opens at startup.
@@ -58,53 +63,79 @@ pub enum Route {
     Onboarding,
     /// The component gallery (`--component-gallery`).
     Gallery,
-    /// The main window, opening these files (may be empty).
-    Main(Vec<PathBuf>),
+    /// The main window, opening this (may be empty).
+    Main(OpenRequest),
 }
 
 /// Decides which window opens first, from whether onboarding was completed and what
 /// the command line asked for.
 pub fn route(onboarding_complete: bool, launch: &Launch) -> Route {
-    if launch.component_gallery {
-        return Route::Gallery;
-    }
-    if launch.reset_onboarding {
-        if !launch.files.is_empty() {
-            log::warn!("{RESET_ONBOARDING}: ignoring the files passed with it");
+    match launch.start {
+        StartScreen::Gallery => Route::Gallery,
+        StartScreen::Onboarding => {
+            if !launch.open.items.is_empty() {
+                log::warn!("{RESET_ONBOARDING}: ignoring the files passed with it");
+            }
+            Route::Onboarding
         }
-        return Route::Onboarding;
-    }
-    // D4: a first launch triggered by opening a file plays it right away with the
-    // default theme and runs onboarding on the next plain launch, because
-    // `onboarding_complete` stays false.
-    if onboarding_complete || !launch.files.is_empty() {
-        Route::Main(launch.files.clone())
-    } else {
-        Route::Onboarding
+        // D4: a first launch triggered by opening a file plays it right away with the
+        // default theme and runs onboarding on the next plain launch, because
+        // `onboarding_complete` stays false.
+        StartScreen::Auto if onboarding_complete || !launch.open.items.is_empty() => {
+            Route::Main(launch.open.clone())
+        }
+        StartScreen::Auto => Route::Onboarding,
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     fn parse(args: &[&str]) -> Launch {
         Launch::parse(args.iter().map(OsString::from))
     }
 
+    fn file(name: &str) -> Media {
+        Media::File(std::path::absolute(name).expect("absolute path"))
+    }
+
     #[test]
-    fn parses_flags_and_files() {
+    fn parses_flags_and_items() {
         assert_eq!(parse(&[]), Launch::default());
-        let launch = parse(&["--reset-onboarding", "a.mkv", "--bogus", "b c.mp4"]);
-        assert!(launch.reset_onboarding);
-        assert_eq!(launch.files, [PathBuf::from("a.mkv"), "b c.mp4".into()]);
+        let launch = parse(&[
+            "--reset-onboarding",
+            "a.mkv",
+            "--bogus",
+            "b c.mp4",
+            "-psn_0_1234",
+            "https://example.com/live",
+        ]);
+        assert_eq!(launch.start, StartScreen::Onboarding);
+        assert_eq!(
+            launch.open.items,
+            [file("a.mkv"), file("b c.mp4"), Media::Url("https://example.com/live".into())]
+        );
+        assert_eq!(launch.open.placement, Placement::Replace);
+        assert!(!launch.open.fullscreen);
+    }
+
+    #[test]
+    fn parses_fullscreen_and_enqueue() {
+        let launch = parse(&["--fullscreen", "--enqueue", "a.mkv"]);
+        assert_eq!(launch.start, StartScreen::Auto);
+        assert!(launch.open.fullscreen);
+        assert_eq!(launch.open.placement, Placement::Enqueue);
+        assert_eq!(launch.open.items, [file("a.mkv")]);
     }
 
     #[test]
     fn double_dash_ends_flags() {
         let launch = parse(&["--", "--reset-onboarding", ""]);
-        assert!(!launch.reset_onboarding);
-        assert_eq!(launch.files, [PathBuf::from("--reset-onboarding")]);
+        assert_eq!(launch.start, StartScreen::Auto);
+        assert_eq!(launch.open.items, [file("--reset-onboarding")]);
     }
 
     #[cfg(windows)]
@@ -113,7 +144,8 @@ mod tests {
         use std::os::windows::ffi::OsStringExt;
         let odd = OsString::from_wide(&[0xD800, 'a' as u16]);
         let launch = Launch::parse([odd.clone()]);
-        assert_eq!(launch.files, [PathBuf::from(odd)]);
+        let expected = std::path::absolute(PathBuf::from(odd)).expect("absolute path");
+        assert_eq!(launch.open.items, [Media::File(expected)]);
     }
 
     #[test]
@@ -121,12 +153,12 @@ mod tests {
         let plain = Launch::default();
         let with_file = parse(&["movie.mkv"]);
         let reset = parse(&["--reset-onboarding", "movie.mkv"]);
-        let main = |files: &[&str]| Route::Main(files.iter().map(PathBuf::from).collect());
+        let main = |items: Vec<Media>| Route::Main(OpenRequest::replace(items));
 
         assert_eq!(route(false, &plain), Route::Onboarding);
-        assert_eq!(route(true, &plain), main(&[]));
-        assert_eq!(route(false, &with_file), main(&["movie.mkv"]));
-        assert_eq!(route(true, &with_file), main(&["movie.mkv"]));
+        assert_eq!(route(true, &plain), main(vec![]));
+        assert_eq!(route(false, &with_file), main(vec![file("movie.mkv")]));
+        assert_eq!(route(true, &with_file), main(vec![file("movie.mkv")]));
         assert_eq!(route(true, &reset), Route::Onboarding);
         assert_eq!(route(false, &reset), Route::Onboarding);
         assert_eq!(route(false, &parse(&["--component-gallery"])), Route::Gallery);

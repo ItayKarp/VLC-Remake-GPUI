@@ -8,14 +8,14 @@ mod notice;
 mod player_keys;
 mod title_bar;
 
-use std::path::{Path, PathBuf};
-
 use gpui::{
     Context, DismissEvent, Entity, ExternalPaths, FocusHandle, PathPromptOptions, SharedString,
     Subscription, Window, div, prelude::*, px,
 };
 
 use crate::app;
+use crate::app::media::Media;
+use crate::app::request::{OpenRequest, Placement};
 use crate::keymap::actions::OpenFile;
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
@@ -32,9 +32,9 @@ const APP_TITLE: &str = "VLC Media Player";
 
 /// The main window's view: what's been opened, settings notices, and the `…` menu.
 pub struct MainWindow {
-    /// Files the app was launched with, opened or dropped. Played once the engine
-    /// exists (Stage 1).
-    files: Vec<PathBuf>,
+    /// Files and URLs the app was launched with, opened or dropped. Played once the
+    /// engine exists (Stage 1); the queue (Stage 3) takes over from this list.
+    files: Vec<Media>,
     /// Settings notices (corrupt file recovered, changes not saved, …).
     notices: Vec<SharedString>,
     focus_handle: FocusHandle,
@@ -47,9 +47,9 @@ pub struct MainWindow {
 }
 
 impl MainWindow {
-    /// Builds the window's view, showing `files` as opened and any pending settings
+    /// Builds the window's view, opening `request` and showing any pending settings
     /// notices.
-    pub fn new(files: Vec<PathBuf>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         theme::observe(window, cx);
         // Swap the Maximize/Restore icon when the window is maximized or restored.
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
@@ -72,18 +72,32 @@ impl MainWindow {
             menu_button: BoundsTracker::new(),
             repeat: RepeatGate::default(),
         };
-        this.add_files(files, window);
+        this.open(request, window, cx);
         this
     }
 
-    fn add_files(&mut self, files: impl IntoIterator<Item = PathBuf>, window: &mut Window) {
+    /// Opens what a launch asked for (S0.6.2): replaces or extends the list, and
+    /// switches to fullscreen if asked.
+    pub fn open(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
+        if request.placement == Placement::Replace && !request.items.is_empty() {
+            self.files.clear();
+        }
+        self.add_files(request.items, window, cx);
+        if request.fullscreen && !window.is_fullscreen() {
+            window.toggle_fullscreen();
+        }
+    }
+
+    fn add_files(&mut self, files: Vec<Media>, window: &mut Window, cx: &mut Context<Self>) {
+        app::recent::add(&files, cx);
         self.files.extend(files);
         window.set_window_title(&self.title());
+        cx.notify();
     }
 
     fn title(&self) -> String {
         match self.files.last() {
-            Some(file) => file_name(file),
+            Some(file) => file.display_name(),
             None => APP_TITLE.to_owned(),
         }
     }
@@ -101,8 +115,7 @@ impl MainWindow {
                 return;
             };
             this.update_in(cx, |this, window, cx| {
-                this.add_files(paths, window);
-                cx.notify();
+                this.add_files(paths.into_iter().map(Media::from).collect(), window, cx);
             })
             .ok();
         })
@@ -111,8 +124,7 @@ impl MainWindow {
     }
 
     fn on_drop(&mut self, paths: &ExternalPaths, window: &mut Window, cx: &mut Context<Self>) {
-        self.add_files(paths.paths().iter().cloned(), window);
-        cx.notify();
+        self.add_files(paths.paths().iter().cloned().map(Media::from).collect(), window, cx);
     }
 
     fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -129,11 +141,6 @@ impl MainWindow {
         self.menu = Some((menu, subscription));
         cx.notify();
     }
-}
-
-/// The last component of `file`, for display.
-fn file_name(file: &Path) -> String {
-    file.file_name().unwrap_or(file.as_os_str()).to_string_lossy().into_owned()
 }
 
 impl Render for MainWindow {

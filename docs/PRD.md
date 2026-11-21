@@ -360,11 +360,11 @@ flowchart LR
 **Depends on:** S0.2  **Size:** M  **Design refs:** none
 
 **Subtasks**
-- [ ] S0.6.1 Single-instance lock with IPC (a named pipe on Windows, a Unix domain socket on macOS/Linux). A second launch forwards its arguments and the working directory, then exits. Add an "Allow multiple instances" setting for power users (Stage 7).
-- [ ] S0.6.2 Command-line parsing: paths, URLs, `--fullscreen`, `--reset-onboarding`, `--enqueue` (add to queue rather than replace).
-- [ ] S0.6.3 macOS: `cx.on_open_urls` (Finder Open With, dropping onto the Dock icon), `on_reopen`, and Info.plist `CFBundleDocumentTypes` / `CFBundleURLTypes`.
-- [ ] S0.6.4 File associations: Windows installer ProgIDs and "Default apps" registration; Linux `.desktop` file with `MimeType=`.
-- [ ] S0.6.5 Add opened files to the OS recent documents list (`cx.add_recent_document`), subject to the privacy setting.
+- [x] S0.6.1 Single-instance lock with IPC (a named pipe on Windows, a Unix domain socket on macOS/Linux). A second launch forwards its arguments and the working directory, then exits. Add an "Allow multiple instances" setting for power users (Stage 7). *(`src/app/instance/`: an OS file lock on `instance.lock` next to `local.toml` picks the instance, so a crash never leaves a stale lock; the listener is an `interprocess` local socket. The second launch resolves its paths against its own working directory before sending them. Launches within 300 ms are batched (`instance/batch.rs`), and a hung instance shows "VLC is not responding" after 2 s. `library.allow_multiple_instances` exists in settings; its row comes with S5.9.1. The not-responding path hasnt been triggered by hand yet.)*
+- [x] S0.6.2 Command-line parsing: paths, URLs, `--fullscreen`, `--reset-onboarding`, `--enqueue` (add to queue rather than replace). *(`app/cli.rs`, `app/media.rs`. `file://` URLs become paths, other URLs stay URLs. Until the queue exists (Stage 3), "replace" and "enqueue" act on the main windows list of opened items.)*
+- [x] S0.6.3 macOS: `cx.on_open_urls` (Finder Open With, dropping onto the Dock icon), `on_reopen`, and Info.plist `CFBundleDocumentTypes` / `CFBundleURLTypes`. *(The URLs go through the same inbox as forwarded launches. The plist keys are in `packaging/macos/Info.plist.ext`, merged by cargo-bundle. Not yet tried on a Mac.)*
+- [x] S0.6.4 File associations: Windows installer ProgIDs and "Default apps" registration; Linux `.desktop` file with `MimeType=`. *(One list in `src/app/file_types.rs`; tests keep `packaging/` in sync with it. Windows: `packaging/windows/register-file-types.ps1` registers per user until the installer (S9.4.1) does it. Linux: `packaging/linux/redesigned-vlc.desktop`.)*
+- [x] S0.6.5 Add opened files to the OS recent documents list (`cx.add_recent_document`), subject to the privacy setting. *(`app/recent.rs`, gated by `privacy.save_recently_played`. GPUI only implements it on macOS, so Windows calls `SHAddToRecentDocs` directly. Linux is left out: GPUI has no hook and `recently-used.xbel` isnt written.)*
 
 **Edge cases**
 - Relative paths are resolved against the **launching** process's working directory, not the running instance's.
@@ -372,8 +372,8 @@ flowchart LR
 - Windows command-line length limit (32,767 characters) with hundreds of files: some files are dropped by the OS. Document it and suggest dragging and dropping instead.
 - A stale lock or socket after a crash: detect the dead owner (PID check or failed connect) and take over.
 - The running instance is hung: the second instance times out (about 2 s) and shows "VLC is not responding" instead of hanging too.
-- `file://` URLs with percent-encoding, UNC paths (`\\server\share`), `\\?\` long paths over 260 characters, Windows `.lnk` shortcuts and macOS aliases: normalize and resolve them.
-- Launched while onboarding is showing: queue the files and play them after onboarding finishes, or follow the S0.2.6 decision.
+- `file://` URLs with percent-encoding, UNC paths (`\\server\share`), `\\?\` long paths over 260 characters, Windows `.lnk` shortcuts and macOS aliases: normalize and resolve them. *(Open: URLs, UNC and long paths are handled; `.lnk` files and macOS aliases arent resolved yet.)*
+- Launched while onboarding is showing: queue the files and play them after onboarding finishes, or follow the S0.2.6 decision. *(Queued and opened by the hand-off.)*
 - Different users on the same machine (fast user switching): the lock is per user and per session, never global.
 
 ---

@@ -69,7 +69,7 @@ impl Onboarding {
     /// app, since closing the last window quits.
     fn hand_off(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let display = window.display(cx).map(|d| d.id());
-        match app::open_main_window(display, Vec::new(), cx) {
+        match app::open_main_window(display, app::open::take_pending(cx), cx) {
             Ok(_) => window.remove_window(),
             Err(err) => {
                 log::error!("onboarding: couldn't open the main window: {err:#}");
