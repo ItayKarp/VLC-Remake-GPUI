@@ -70,4 +70,18 @@ make 720p240-h264.mp4 -f lavfi -i "$(card 1280x720 240 10)" -c:v libx264 -preset
 make audio-only.flac -f lavfi -i "$(tone 30)"
 make single-frame.png -f lavfi -i "$(card 1920x1080 1 1)" -frames:v 1
 
+# Screenshot checks (screenshot.sh): still pictures whose correct pixels are known.
+# SMPTE HD bars hold black, white, greys and 75% colours: a wrong range or matrix shows.
+make bars-709.mp4 -f lavfi -i "smptehdbars=size=1920x1080:rate=30:duration=10" \
+  -c:v libx264 -preset veryfast -pix_fmt yuv420p -color_range tv -colorspace bt709 \
+  -color_primaries bt709 -color_trc bt709
+# A 1-pixel red frame on grey at an odd size: green or missing edge lines show.
+make edges-1919x1079.mkv -f lavfi -i "color=c=gray:size=1919x1079:rate=30:duration=10" \
+  -vf "drawbox=x=0:y=0:w=iw:h=ih:color=red:t=1" -c:v ffv1 -pix_fmt yuv420p
+# Fast horizontal motion, truly interlaced (59.94p woven into 29.97i, so the two fields of a
+# frame show different moments): combing on moving edges shows missing deinterlacing.
+make 1080i-motion.ts -f lavfi -i "$(card 1920x1080 60000/1001 10)" \
+  -vf "scroll=h=0.01,interlace=scan=tff" -c:v libx264 -preset veryfast -flags +ildct+ilme \
+  -x264-params tff=1 -pix_fmt yuv420p
+
 echo "corpus ready in $out"
