@@ -32,6 +32,7 @@ dependencies = [
  "unicode-segmentation",
  "url",
  "winresource",
+ "zbus 5.19.0",
 ]
 
 [[package]]

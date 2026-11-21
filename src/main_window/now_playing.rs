@@ -3,11 +3,15 @@
 //! that says what's happening ("Opening …" with Cancel, or why something couldn't play).
 //!
 //! The player is created on the first open, so a window that opens nothing never loads
-//! libVLC. Video goes to libVLC's dummy output until S1.4.
+//! libVLC. Its video shows in a [`VideoView`] that replaces the empty state while media is
+//! loaded, and the display stays awake while that video plays (S1.4).
 
 use std::path::PathBuf;
 
-use gpui::{AnyElement, ClickEvent, Context, Entity, SharedString, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, App, ClickEvent, Context, Entity, SharedString, Subscription, Window, div,
+    prelude::*, px,
+};
 
 use super::MainWindow;
 use crate::app::media::Media;
@@ -15,9 +19,11 @@ use crate::app::request::Placement;
 use crate::engine;
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::{ErrorKind, PlaybackState};
+use crate::power::Playback;
 use crate::theme::Palette;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
+use crate::video::{Output, VideoView};
 
 impl MainWindow {
     /// Puts `media` in the list, replacing it or adding to it, and plays the first new item
@@ -78,10 +84,36 @@ impl MainWindow {
         if let Some((player, _)) = &self.player {
             return player.clone();
         }
-        let player = cx.new(|cx| Player::new(engine::default_backend, cx));
+        let output = Output::new();
+        let backend = engine::default_backend(output.sink());
+        let player = cx.new(|cx| Player::new(backend, cx));
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
+        self.video = Some(cx.new(|cx| VideoView::new(output, player.clone(), window, cx)));
         self.player = Some((player.clone(), events));
         player
+    }
+
+    /// The video area, while the player has media loaded.
+    pub(super) fn showing_video(&self, cx: &App) -> Option<Entity<VideoView>> {
+        let (player, _) = self.player.as_ref()?;
+        player.read(cx).state().is_active().then(|| self.video.clone()).flatten()
+    }
+
+    /// Re-checks whether the display should stay awake when the window shows or hides.
+    pub(super) fn follow_visibility(window: &mut Window, cx: &mut Context<Self>) -> Subscription {
+        cx.observe_window_visibility(window, |this, _, window, cx| {
+            this.update_display_sleep(window, cx);
+        })
+    }
+
+    fn update_display_sleep(&mut self, window: &Window, cx: &App) {
+        let Some((player, _)) = &self.player else { return };
+        let player = player.read(cx);
+        self.display_sleep.update(Playback {
+            state: player.state(),
+            has_video: player.video_size().is_some(),
+            visible: window.is_visible(),
+        });
     }
 
     fn on_player_event(
@@ -98,7 +130,11 @@ impl MainWindow {
                     self.play(next, window, cx);
                 }
             }
-            PlayerEvent::StateChanged(_) => cx.notify(),
+            PlayerEvent::StateChanged(_) => {
+                self.update_display_sleep(window, cx);
+                cx.notify();
+            }
+            PlayerEvent::VideoSizeChanged(_) => self.update_display_sleep(window, cx),
             _ => {}
         }
     }

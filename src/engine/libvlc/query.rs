@@ -2,7 +2,7 @@
 //! worker thread, and sends it to the player.
 
 use std::ffi::c_int;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::api::{MediaTrack, TrackDescription, VideoTrack, borrowed_string};
 use super::worker::{Refresh, Worker};
@@ -15,6 +15,9 @@ const META_ARTIST: c_int = 1;
 const META_ALBUM: c_int = 4;
 /// `libvlc_video_orient_left_top` and the three after it swap width and height.
 const FIRST_TRANSPOSED_ORIENTATION: c_int = 4;
+/// Pixel aspect ratios this close to 1:1 count as square: rescaling a picture by a pixel or two
+/// costs a scaler pass and shows no difference (`odd-1919x1079.mkv` is 17264:17271).
+const SQUARE_TOLERANCE: f64 = 0.01;
 /// The chapters of the current title, for `libvlc_media_player_get_full_chapter_descriptions`.
 const CURRENT_TITLE: c_int = -1;
 
@@ -50,13 +53,24 @@ impl Worker {
 
     fn send_tracks(&self) {
         let streams = self.streams();
-        let size = streams.iter().find_map(|stream| stream.size);
         let mut tracks = Tracks::default();
         for kind in [TrackKind::Audio, TrackKind::Video, TrackKind::Subtitle] {
             tracks.all.extend(merge(kind, &self.names(kind), &streams));
             tracks.select(kind, self.selected(kind));
         }
         self.shared.send(BackendEvent::Tracks(tracks));
+        self.send_size_of(&streams);
+    }
+
+    /// Reads the video size again; see [`super::size_watch`].
+    pub(super) fn send_video_size(&self) {
+        self.send_size_of(&self.streams());
+    }
+
+    fn send_size_of(&self, streams: &[Stream]) {
+        let size = streams.iter().find_map(|stream| stream.size);
+        let has_video = streams.iter().any(|stream| stream.kind == Some(TrackKind::Video));
+        self.size_watch.observe(has_video && size.is_none(), Instant::now());
         self.shared.send(BackendEvent::VideoSize(size));
     }
 
@@ -188,16 +202,14 @@ unsafe fn stream(track: &MediaTrack) -> Stream {
 
 /// The size a video track shows at: square pixels, after rotation. `None` while unknown (MPEG-TS
 /// reports 0×0 until decoding starts).
-fn display_size(video: &VideoTrack) -> Option<VideoSize> {
+pub(super) fn display_size(video: &VideoTrack) -> Option<VideoSize> {
     if video.width == 0 || video.height == 0 {
         return None;
     }
     let (num, den) = (u64::from(video.sar_num), u64::from(video.sar_den));
-    let width = if num == 0 || den == 0 {
-        video.width
-    } else {
-        ((u64::from(video.width) * num + den / 2) / den) as u32
-    };
+    let square = num == 0 || den == 0 || (num as f64 / den as f64 - 1.0).abs() < SQUARE_TOLERANCE;
+    let width =
+        if square { video.width } else { ((u64::from(video.width) * num + den / 2) / den) as u32 };
     let (width, height) = if video.orientation >= FIRST_TRANSPOSED_ORIENTATION {
         (video.height, width)
     } else {
@@ -246,6 +258,7 @@ mod tests {
         let size = |w, h| Some(VideoSize { width: w, height: h });
         assert_eq!(display_size(&video(1920, 1080, (1, 1), 0)), size(1920, 1080));
         assert_eq!(display_size(&video(720, 480, (32, 27), 0)), size(853, 480));
+        assert_eq!(display_size(&video(1919, 1079, (17264, 17271), 0)), size(1919, 1079));
         assert_eq!(display_size(&video(1920, 1080, (0, 0), 5)), size(1080, 1920));
         assert_eq!(display_size(&video(0, 0, (1, 1), 0)), None);
     }

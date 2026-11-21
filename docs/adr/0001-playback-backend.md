@@ -221,6 +221,11 @@ samples (S9.8.1).
 9. **Display-limited frame rates:** on a 60 Hz display, sources above 60 fps lose frames by
    design. Counting those as drops would hide real problems, so report them apart. → S1.2.
 
+**Status after S1.4:** limits 1–3 are handled. The engine parses local files before playing
+and answers `vmem` with the display size. MPEG-PS/TS shapes are re-read once decoding reveals
+them. Rotated tracks are decoded in software. Limit 7 is handled by `Frame::release`. Limit 4
+(colour) is still open.
+
 ## Remaining work before accepting
 
 - [ ] Run `measure.sh` on Windows (path a) and Linux X11 and Wayland (path a), and fill in

@@ -85,7 +85,7 @@ fn new_backend(events: EventSender) -> LibVlcBackend {
     // SAFETY: these tests are run one at a time (`--test-threads 1`, as the module comment
     // says), so no other thread reads the environment meanwhile.
     unsafe { super::runtime::prepare_environment() };
-    LibVlcBackend::new(events).expect("libVLC loads")
+    LibVlcBackend::new(events, None).expect("libVLC loads")
 }
 
 fn media(name: &str) -> PathBuf {

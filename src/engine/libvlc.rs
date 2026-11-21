@@ -6,17 +6,23 @@
 //! - [`events`] is the libVLC event callback: it translates and forwards, and never calls libVLC.
 //! - [`failure`] names the cause of an error libVLC reports without one.
 //!
-//! Video output is a placeholder until S1.4 attaches the presentation path proven in S1.1: the
-//! dummy video output decodes and discards pictures, so libVLC never opens a window of its own.
+//! - [`vmem`] hands decoded pictures to a [`VideoSink`] (S1.4.1), and [`prepare`] reads a file's
+//!   video geometry before it plays. Without a sink, libVLC's dummy output decodes and discards
+//!   pictures, so libVLC never opens a window of its own.
 
 mod api;
 mod control;
 mod events;
 mod failure;
+mod prepare;
 mod query;
 pub mod runtime;
+mod size_watch;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod video_tests;
+mod vmem;
 mod worker;
 
 use std::ffi::CString;
@@ -30,19 +36,19 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use self::api::{Instance, LibVlc};
 use self::events::Shared;
 use self::runtime::{PLUGIN_PATH_ENV, Runtime};
+use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
 use super::backend::{Backend, Command, EventSender};
 use super::media_info::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
+use super::video::VideoSink;
 use crate::app::media::Media;
 
-/// The arguments every libVLC instance starts with.
-const ARGUMENTS: [&str; 2] = [
-    // The file name would be drawn into the video when it starts.
-    "--no-video-title-show",
-    // Decode and discard video until S1.4 attaches the real output.
-    "--vout=vdummy",
-];
+/// The arguments every libVLC instance starts with: the file name would otherwise be drawn into
+/// the video when it starts.
+const ARGUMENTS: [&str; 1] = ["--no-video-title-show"];
+/// Added without a video sink: decode and discard video.
+const NO_VIDEO_ARGUMENT: &str = "--vout=vdummy";
 
 /// The libVLC library, loaded once per process. A failure is kept as text so every caller
 /// gets the same answer without retrying.
@@ -70,10 +76,15 @@ pub struct LibVlcBackend {
 
 impl LibVlcBackend {
     /// Loads libVLC (once per process), creates an instance and a media player, and starts the
-    /// worker thread that will report through `events`.
-    pub fn new(events: EventSender) -> Result<Self> {
+    /// worker thread that will report through `events` and send pictures to `video` (or discard
+    /// them, with `None`).
+    pub fn new(events: EventSender, video: Option<Arc<dyn VideoSink>>) -> Result<Self> {
         let vlc = library()?;
-        let handles = new_handles(&vlc)?;
+        let handles = new_handles(&vlc, video.is_some())?;
+        let video = video.map(|sink| Arc::new(Vmem::new(sink)));
+        if let Some(vmem) = &video {
+            vmem::install(&vlc, handles.player, vmem);
+        }
         let (sender, inbox) = mpsc::channel();
         let shared = Arc::new(Shared {
             events,
@@ -85,7 +96,7 @@ impl LibVlcBackend {
         });
         let thread = thread::Builder::new()
             .name("libvlc-worker".into())
-            .spawn(move || Worker::new(vlc, handles, shared).run(&inbox))
+            .spawn(move || Worker::new(vlc, handles, shared, video).run(&inbox))
             .context("starting the libVLC worker thread")?;
         Ok(Self { worker: sender, thread: Some(thread) })
     }
@@ -168,10 +179,16 @@ impl Drop for LibVlcBackend {
     }
 }
 
-/// A new libVLC instance with [`ARGUMENTS`] and a media player on it.
-fn new_handles(vlc: &LibVlc) -> Result<Handles> {
-    let arguments = ARGUMENTS.map(|argument| CString::new(argument).expect("no NUL in constants"));
-    let pointers = arguments.each_ref().map(|argument| argument.as_ptr());
+/// A new libVLC instance with [`ARGUMENTS`] and a media player on it; `with_video` false adds
+/// [`NO_VIDEO_ARGUMENT`].
+fn new_handles(vlc: &LibVlc, with_video: bool) -> Result<Handles> {
+    let extra = (!with_video).then_some(NO_VIDEO_ARGUMENT);
+    let arguments: Vec<CString> = ARGUMENTS
+        .into_iter()
+        .chain(extra)
+        .map(|argument| CString::new(argument).expect("no NUL in constants"))
+        .collect();
+    let pointers: Vec<_> = arguments.iter().map(|argument| argument.as_ptr()).collect();
     // SAFETY: `pointers` holds NUL-terminated strings that outlive the call.
     let instance: *mut Instance =
         unsafe { (vlc.api.libvlc_new)(pointers.len() as i32, pointers.as_ptr()) };

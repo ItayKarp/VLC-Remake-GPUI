@@ -11,11 +11,13 @@ mod logging;
 mod main_window;
 mod onboarding;
 mod opening;
+mod power;
 #[cfg(test)]
 mod screenshot_test;
 mod settings;
 mod theme;
 mod ui;
+mod video;
 mod window_chrome;
 
 use gpui::{App, QuitMode};

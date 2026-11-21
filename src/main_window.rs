@@ -1,18 +1,22 @@
 //! The main window shell (S0.3.4): the player-style title bar and an empty state
-//! that opens or accepts dropped files. Onboarding hands off to it (S0.2); the
-//! player (Stage 2) and the library (Stage 4) fill the content area later.
+//! that opens or accepts dropped files, replaced by the video while media plays
+//! (S1.4). Onboarding hands off to it (S0.2); the player (Stage 2) and the library
+//! (Stage 4) fill the content area later.
 
 mod diagnostics;
 mod empty_state;
+mod fullscreen;
 mod main_menu;
 mod notice;
 mod now_playing;
 mod opening;
 mod player_keys;
+#[cfg(test)]
+mod tests;
 mod title_bar;
 
 use gpui::{
-    Context, DismissEvent, Entity, FocusHandle, SharedString, Subscription, Window, div,
+    Context, DismissEvent, Div, Entity, FocusHandle, SharedString, Subscription, Window, div,
     prelude::*, px,
 };
 
@@ -23,12 +27,14 @@ use crate::engine::player::Player;
 use crate::keymap::actions::{CopyDebugInfo, OpenFile, OpenFolder, OpenFromClipboard};
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
+use crate::power::DisplaySleep;
 use crate::settings;
 use crate::theme;
 use crate::ui::focus;
 use crate::ui::popover::BoundsTracker;
 use crate::ui::toast::{Toast, Toasts};
 use crate::ui::{drop_target, menu::ContextMenu};
+use crate::video::VideoView;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -47,6 +53,11 @@ pub struct MainWindow {
     next_job: u64,
     /// The engine, once something was opened, and its event subscription.
     player: Option<(Entity<Player>, Subscription)>,
+    /// The video area, created with the player.
+    video: Option<Entity<VideoView>>,
+    /// Keeps the display awake while video plays where it shows (S1.4.3).
+    display_sleep: DisplaySleep,
+    _visibility: Subscription,
     /// Settings notices (corrupt file recovered, changes not saved, …).
     notices: Vec<SharedString>,
     focus_handle: FocusHandle,
@@ -84,6 +95,9 @@ impl MainWindow {
             jobs: Vec::new(),
             next_job: 0,
             player: None,
+            video: None,
+            display_sleep: DisplaySleep::default(),
+            _visibility: Self::follow_visibility(window, cx),
             notices,
             focus_handle: cx.focus_handle(),
             open_button,
@@ -126,9 +140,30 @@ impl MainWindow {
     }
 }
 
+impl MainWindow {
+    /// Below the title bar (the whole window in fullscreen): the video while media is loaded,
+    /// else the empty state.
+    fn render_content(&self, p: &theme::Palette, fullscreen: bool, cx: &mut Context<Self>) -> Div {
+        let top = if fullscreen { 0. } else { TITLE_BAR_HEIGHT };
+        let area = div().absolute().top(px(top)).left_0().right_0().bottom_0();
+        match self.showing_video(cx) {
+            Some(video) => area.child(video),
+            None => area.child(
+                div()
+                    .id("content")
+                    .size_full()
+                    .overflow_y_scroll()
+                    .child(self.render_empty_state(p, cx)),
+            ),
+        }
+    }
+}
+
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
+        // Fullscreen is the video alone: no title bar (S2.8 brings auto-hiding controls).
+        let fullscreen = window.is_fullscreen();
 
         Self::player_keys(focus::tab_navigation(div()), cx)
             .id("main-window")
@@ -154,18 +189,8 @@ impl Render for MainWindow {
             .size_full()
             .bg(p.background)
             .text_color(p.text)
-            .child(
-                div()
-                    .id("content")
-                    .absolute()
-                    .top(px(TITLE_BAR_HEIGHT))
-                    .left_0()
-                    .right_0()
-                    .bottom_0()
-                    .overflow_y_scroll()
-                    .child(self.render_empty_state(&p, cx)),
-            )
-            .child(self.render_title_bar(&p, window, cx))
+            .child(self.render_content(&p, fullscreen, cx))
+            .children((!fullscreen).then(|| self.render_title_bar(&p, window, cx)))
             .child(self.toasts.clone())
             .children(self.render_menu())
             .child(drop_target::highlight(&p))

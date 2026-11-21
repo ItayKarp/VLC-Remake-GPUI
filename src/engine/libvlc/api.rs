@@ -55,6 +55,24 @@ pub union EventData {
 /// `libvlc_callback_t`.
 pub type Callback = unsafe extern "C" fn(*const Event, *mut c_void);
 
+/// `libvlc_video_format_cb`: agrees on the picture format (chroma, size, pitches, lines).
+pub type FormatCallback = unsafe extern "C" fn(
+    *mut *mut c_void,
+    *mut c_char,
+    *mut c_uint,
+    *mut c_uint,
+    *mut c_uint,
+    *mut c_uint,
+) -> c_uint;
+/// `libvlc_video_cleanup_cb`: the video output closed.
+pub type CleanupCallback = unsafe extern "C" fn(*mut c_void);
+/// `libvlc_video_lock_cb`: hands out the plane buffers for the next picture.
+pub type LockCallback = unsafe extern "C" fn(*mut c_void, *mut *mut c_void) -> *mut c_void;
+/// `libvlc_video_unlock_cb`: the picture is written.
+pub type UnlockCallback = unsafe extern "C" fn(*mut c_void, *mut c_void, *const *mut c_void);
+/// `libvlc_video_display_cb`: the picture is due on screen.
+pub type DisplayCallback = unsafe extern "C" fn(*mut c_void, *mut c_void);
+
 /// `libvlc_media_track_t` from libVLC 3, field for field.
 #[repr(C)]
 pub struct MediaTrack {
@@ -141,6 +159,9 @@ libvlc_api! {
     libvlc_media_new_path: fn(*mut Instance, *const c_char) -> *mut Media;
     libvlc_media_new_location: fn(*mut Instance, *const c_char) -> *mut Media;
     libvlc_media_release: fn(*mut Media);
+    libvlc_media_add_option: fn(*mut Media, *const c_char);
+    libvlc_media_parse_with_options: fn(*mut Media, c_int, c_int) -> c_int;
+    libvlc_media_get_parsed_status: fn(*mut Media) -> c_int;
     libvlc_media_event_manager: fn(*mut Media) -> *mut EventManager;
     libvlc_media_get_meta: fn(*mut Media, c_int) -> *mut c_char;
     libvlc_media_tracks_get: fn(*mut Media, *mut *mut *mut MediaTrack) -> c_uint;
@@ -176,6 +197,14 @@ libvlc_api! {
     libvlc_video_set_spu_delay: fn(Player, i64) -> c_int;
     libvlc_media_player_add_slave: fn(Player, c_int, *const c_char, bool) -> c_int;
     libvlc_track_description_list_release: fn(*mut TrackDescription);
+    libvlc_video_set_callbacks: fn(
+        Player,
+        LockCallback,
+        Option<UnlockCallback>,
+        Option<DisplayCallback>,
+        *mut c_void
+    );
+    libvlc_video_set_format_callbacks: fn(Player, FormatCallback, Option<CleanupCallback>);
 }
 
 /// The libVLC libraries, core first, by their file names on this OS.

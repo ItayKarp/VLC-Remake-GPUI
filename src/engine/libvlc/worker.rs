@@ -7,11 +7,13 @@ use std::ffi::CString;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
+use super::size_watch::{SIZE_POLL, SizeWatch};
+use super::vmem::Vmem;
 use crate::app::media::Media as Source;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::state::{ErrorKind, PlaybackState};
@@ -71,11 +73,19 @@ pub struct Worker {
     pub(super) source: Option<Source>,
     pub(super) audio_delay: Offset,
     pub(super) subtitle_delay: Offset,
+    /// Where video goes; `None` decodes and discards it.
+    pub(super) video: Option<Arc<Vmem>>,
+    pub(super) size_watch: SizeWatch,
 }
 
 impl Worker {
-    /// A worker for `handles`; call [`Self::run`] on its own thread.
-    pub fn new(vlc: Arc<LibVlc>, handles: Handles, shared: Arc<Shared>) -> Self {
+    /// A worker for `handles`, sending video to `video`; call [`Self::run`] on its own thread.
+    pub fn new(
+        vlc: Arc<LibVlc>,
+        handles: Handles,
+        shared: Arc<Shared>,
+        video: Option<Arc<Vmem>>,
+    ) -> Self {
         let worker = Self {
             vlc,
             handles,
@@ -84,6 +94,8 @@ impl Worker {
             source: None,
             audio_delay: Offset::default(),
             subtitle_delay: Offset::default(),
+            video,
+            size_watch: SizeWatch::default(),
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -103,22 +115,33 @@ impl Worker {
         self.release();
     }
 
-    /// The next message, settling a seek libVLC never confirmed after [`SEEK_SETTLE`]. `None`
-    /// once every sender is gone.
+    /// The next message. Meanwhile it settles a seek libVLC never confirmed after
+    /// [`SEEK_SETTLE`] without messages, and reads a still-unknown video size every
+    /// [`SIZE_POLL`]. `None` once every sender is gone.
     fn next_message(&self, inbox: &Receiver<Message>) -> Option<Message> {
-        while self.shared.seeking.load(Ordering::Relaxed) {
-            match inbox.recv_timeout(SEEK_SETTLE) {
+        let idle_since = Instant::now();
+        loop {
+            let seeking = self.shared.seeking.load(Ordering::Relaxed);
+            let watching = self.size_watch.is_watching(Instant::now());
+            let wait = match (seeking, watching) {
+                (false, false) => return inbox.recv().ok(),
+                (_, true) => SIZE_POLL,
+                (true, false) => SEEK_SETTLE.saturating_sub(idle_since.elapsed()),
+            };
+            match inbox.recv_timeout(wait) {
                 Ok(message) => return Some(message),
-                Err(RecvTimeoutError::Timeout) => self.settle_seek(),
                 Err(RecvTimeoutError::Disconnected) => return None,
+                Err(RecvTimeoutError::Timeout) => self.idle(idle_since),
             }
         }
-        inbox.recv().ok()
     }
 
     /// Replaces the media with `source` and starts playing it as open `generation`.
     pub(super) fn open(&mut self, source: Source, generation: Generation) {
         let media = self.new_media(&source);
+        if !media.is_null() {
+            self.prepare_video(media, &source);
+        }
         // `set_media` stops the previous media first; its events still carry the old
         // generation, because the new one is published only afterwards.
         // SAFETY: the player is live; `media` is NULL or live, and the player takes its own
@@ -127,6 +150,7 @@ impl Worker {
         self.release_media();
         self.media = media;
         self.source = Some(source);
+        self.size_watch.stop();
         *self.shared.generation.lock().unwrap_or_else(PoisonError::into_inner) = generation;
         for flag in [&self.shared.started, &self.shared.paused, &self.shared.seeking] {
             flag.store(false, Ordering::Relaxed);
@@ -155,6 +179,17 @@ impl Worker {
             if from_path { api.libvlc_media_new_path } else { api.libvlc_media_new_location };
         // SAFETY: the instance is live and `text` is NUL-terminated.
         unsafe { create(self.handles.instance, text.as_ptr()) }
+    }
+
+    /// Nothing arrived since `idle_since`: re-reads a still-unknown video size, and settles a
+    /// seek that waited [`SEEK_SETTLE`].
+    fn idle(&self, idle_since: Instant) {
+        if self.size_watch.is_watching(Instant::now()) {
+            self.send_video_size();
+        }
+        if idle_since.elapsed() >= SEEK_SETTLE {
+            self.settle_seek();
+        }
     }
 
     fn settle_seek(&self) {
@@ -216,5 +251,7 @@ impl Worker {
         self.release_media();
         // SAFETY: nothing uses the instance any more.
         unsafe { (self.vlc.api.libvlc_release)(self.handles.instance) };
+        // The player is gone, so `vmem`'s callbacks can't run: the sink may be dropped now.
+        drop(self.video.take());
     }
 }

@@ -1,7 +1,8 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
-//! arrow seeks at a steady rate. Until the player exists (Stage 2) an admitted
-//! command is only logged; S2.10.3 gives each one its effect.
+//! arrow seeks at a steady rate. Fullscreen works (S1.4.2, `fullscreen.rs`); until
+//! the player exists (Stage 2) any other admitted command is only logged, and S2.10.3
+//! gives each one its effect.
 
 use std::time::Instant;
 
@@ -25,6 +26,7 @@ impl MainWindow {
     /// held key.
     pub(super) fn player_keys(root: Div, cx: &mut Context<Self>) -> Div {
         let root = root.on_key_up(cx.listener(|this, _, _, _| this.repeat.release_all()));
+        let root = Self::fullscreen_actions(root, cx);
         player_actions!(
             root,
             cx,
@@ -42,8 +44,6 @@ impl MainWindow {
                 CycleAudioTrack,
                 VolumeUp,
                 VolumeDown,
-                ToggleFullscreen,
-                ExitFullscreen,
                 ShowTime,
                 ShowControls,
                 HideInterface,

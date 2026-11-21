@@ -36,7 +36,21 @@ url = "2"
 # Reading XSPF and ASX playlists (S1.3.4).
 quick-xml = "0.41"
 tracing = "0.1"
+# BGRA video frames become GPUI `RenderImage`s, which hold `image` frames (S1.4.1).
+image = { version = "0.25", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "registry", "std", "tracing-log"] }
+
+# Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
+# primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must
+# match GPUI's (`=0.3.2`).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-foundation = { version = "=0.3.2", features = ["CFDictionary", "CFNumber", "CFString"] }
+objc2-core-video = { version = "=0.3.2", features = ["CVBase", "CVBuffer", "CVImageBuffer", "CVPixelBuffer", "CVPixelBufferPool", "CVReturn"] }
+
+# Asks the desktop's screen saver not to start during video (S1.4.3). GPUI's portal support
+# already builds zbus 5.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
@@ -63,9 +77,6 @@ test = true
 # created on the main thread, and tests run on worker threads.
 [target.'cfg(target_os = "macos")'.dev-dependencies]
 gpui_apple = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4", features = ["font-kit"] }
-# The S1.1 spike's `CVPixelBuffer` path; the versions must match GPUI's (`=0.3.2`).
-objc2-core-foundation = { version = "=0.3.2", features = ["CFDictionary", "CFNumber", "CFString"] }
-objc2-core-video = { version = "=0.3.2", features = ["CVBase", "CVBuffer", "CVImageBuffer", "CVPixelBuffer", "CVPixelBufferPool", "CVReturn"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui_wgpu = { git = "https://github.com/zed-industries/zed", rev = "2f808b3c2de049ecfdbad0fdb26763cebfcaa3b4" }
