@@ -127,6 +127,10 @@ pub const COMMANDS: &[Command] = &[
     held("Previous frame", keys(&[","]), &act::PreviousFrame),
     held("Next frame", keys(&["."]), &act::NextFrame),
     cmd("Next program / Service ID", Player, keys(&["x"]), &act::NextProgram),
+    // VLC's keys (S2.7.3); a held key keeps changing the speed.
+    held("Faster", keys(&["]"]), &act::Faster),
+    held("Slower", keys(&["["]), &act::Slower),
+    cmd("Normal speed", Player, keys(&["="]), &act::NormalSpeed),
     held("Increase volume", keys(&["up"]), &act::VolumeUp),
     held("Decrease volume", keys(&["down"]), &act::VolumeDown),
     cmd("Cycle audio track", Player, keys(&["b"]), &act::CycleAudioTrack),

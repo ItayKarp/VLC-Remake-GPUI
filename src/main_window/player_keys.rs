@@ -1,8 +1,9 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
-//! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N)
-//! and seeking (S2.3.4: the arrows with their modifiers, Home and End) work; any other
+//! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N),
+//! seeking (S2.3.4: the arrows with their modifiers, Home and End) and the speed (S2.7.3: `[`,
+//! `]` and `=`) work; any other
 //! admitted command is only logged until S2.10.3 gives it its effect.
 
 use std::time::Instant;
@@ -11,6 +12,7 @@ use gpui::{Action, Context, Div, Window, prelude::*};
 
 use super::MainWindow;
 use super::seeking::{Edge, Way};
+use super::speed::rules::SpeedChange;
 use crate::engine::tracks::TrackKind;
 use crate::engine::values::VolumeChange;
 use crate::keymap::actions as act;
@@ -55,6 +57,9 @@ impl MainWindow {
                 NextProgram,
                 CycleSubtitleTrack,
                 CycleAudioTrack,
+                Faster,
+                Slower,
+                NormalSpeed,
                 VolumeUp,
                 VolumeDown,
                 ShowTime,
@@ -138,4 +143,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::VolumeDown, |this, window, cx| this.step_volume(VolumeChange::Down, window, cx)),
     (&act::CycleAudioTrack, |this, _, cx| this.cycle_track(TrackKind::Audio, cx)),
     (&act::CycleSubtitleTrack, |this, _, cx| this.cycle_track(TrackKind::Subtitle, cx)),
+    (&act::Faster, |this, window, cx| this.change_speed(SpeedChange::Faster, window, cx)),
+    (&act::Slower, |this, window, cx| this.change_speed(SpeedChange::Slower, window, cx)),
+    (&act::NormalSpeed, |this, window, cx| this.change_speed(SpeedChange::Normal, window, cx)),
 ];

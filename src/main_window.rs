@@ -4,6 +4,7 @@
 //! (Stage 4) fill the content area later.
 
 mod audio;
+mod bar_panel;
 mod control_bar;
 mod diagnostics;
 mod empty_state;
@@ -18,6 +19,8 @@ mod osd;
 mod player_keys;
 mod seek_bar;
 mod seeking;
+mod settings_panel;
+mod speed;
 #[cfg(test)]
 mod tests;
 mod title_bar;
@@ -95,6 +98,8 @@ pub struct MainWindow {
     osd: osd::Osd,
     /// The Video | Audio | Subtitles popover (S2.6).
     track_popover: track_popover::TrackPopover,
+    /// The gear's Playback | Video | Audio | Subtitles panel (S2.7).
+    settings_panel: settings_panel::SettingsPanel,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
 }
@@ -110,7 +115,7 @@ impl MainWindow {
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
         Self::release_keys_on_blur(window, cx);
-        Self::close_tracks_on_deactivate(window, cx);
+        Self::close_popovers_on_deactivate(window, cx);
         crate::diagnostics::system::remember_gpu(window);
 
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
@@ -140,6 +145,7 @@ impl MainWindow {
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
             track_popover: track_popover::TrackPopover::new(cx),
+            settings_panel: settings_panel::SettingsPanel::new(window, cx),
             os_title: String::new(),
         };
         this.set_up_history(cx);
@@ -164,7 +170,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
-        self.close_track_popover(window, cx);
+        self.close_popovers(window, cx);
         let items = main_menu::items(&cx.entity().downgrade(), window, cx);
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
@@ -247,6 +253,7 @@ impl Render for MainWindow {
             .children((!fullscreen).then(|| self.render_title_bar(&p, window, cx)))
             .children((!fullscreen).then(|| self.render_control_bar(&p, window, cx)))
             .children(self.render_track_popover(&p, window, cx))
+            .children(self.render_settings_panel(&p, window, cx))
             .children((!fullscreen).then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(self.toasts.clone())
             .children(self.render_menu())

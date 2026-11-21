@@ -119,7 +119,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
-        self.close_track_popover(window, cx);
+        self.close_popovers(window, cx);
         let entries: Vec<MenuItem> =
             overflow.iter().filter_map(|item| self.overflow_entry(*item, cx)).collect();
         let menu = ContextMenu::build(entries, window, cx);

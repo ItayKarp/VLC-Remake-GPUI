@@ -17,8 +17,9 @@ impl Generation {
 
 /// The slowest playback rate offered.
 pub const MIN_RATE: f32 = 0.25;
-/// The fastest playback rate offered. Video may drop frames this fast.
-pub const MAX_RATE: f32 = 8.0;
+/// The fastest playback rate offered (S2.7). libVLC mutes audio past 4×, and video drops
+/// frames well before, so faster isn't worth offering.
+pub const MAX_RATE: f32 = 4.0;
 
 /// A playback speed multiplier, kept within [`MIN_RATE`]`..=`[`MAX_RATE`].
 #[derive(Clone, Copy, Debug, PartialEq)]

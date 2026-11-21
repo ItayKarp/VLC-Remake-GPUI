@@ -630,7 +630,7 @@ Design facts the stories rely on (`docs/ui/player/**`):
 - Rapid clicks on Play/Pause (double-click speed) produce exactly the matching number of toggles, debounced against the engine state, and the icon never desyncs from the real state. *(Done: each click flips the player's requested state, not its reported one, and clicks skip the held-key gate.)*
 - Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on). *(Replays; the Repeat case comes with S3.1. Play after an error tries the item again.)*
 - Pressing Play with an empty queue opens the Open File dialog, or does nothing with a tooltip (decide). *(Decided: it opens the Open File dialog, unless an open is still resolving.)*
-- The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently. *(Decided: disabled. Previous and Next fade where they'd do nothing; the gear and List stay disabled until their panels exist (S2.7, Stage 3).)*
+- The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently. *(Decided: disabled. Previous and Next fade where they'd do nothing; the gear and List stay disabled until their panels exist (S2.7, Stage 3). S2.7 enabled the gear.)*
 
 ---
 
@@ -711,7 +711,7 @@ Design facts the stories rely on (`docs/ui/player/**`):
 - [x] S2.6.2 **Embedded Tracks:** "None" plus each track, with a check on the selected one. *(`track_popover/sections.rs`. Names are the S1.6 labels ("English — AC3 5.1"). Picking one counts as the user's pick, so auto-selection leaves that kind alone; the popover stays open. Subtitle files the user added are listed under External Tracks instead.)*
 - [x] S2.6.3 Audio tab, **Output Device:** device list with a check, and a refresh icon to re-enumerate. *("System default" first, then the devices; the check is on the device sound goes to. Picking one sets `local.audio.output_device`. Refresh asks the backend to list devices now (`Backend::refresh_audio_devices`) instead of at the next poll.)*
 - [x] S2.6.4 Subtitles tab, **External Tracks:** loaded subtitle files with a pencil (edit: opens the Add Subtitles dialog, S6.4) and "+" (add from a file). *(`Player::subtitle_files`: each file added to the media (a drop, "+") and the track it became; libVLC lists an added file after the media's own streams, so a file takes the last new subtitle track. "+" asks for files and adds the subtitle ones, naming the first that isn't. The pencil stays disabled until the Add Subtitles dialog exists (S6.4).)*
-- [x] S2.6.5 The **Show Preferences** footer opens the matching tab of the settings panel (S2.7). **Write down the difference from "Open Advanced Settings"** (proposal: Show Preferences opens the in-player panel; Open Advanced Settings opens the Settings window category). *(Decided as proposed: Show Preferences opens the in-player panel, which changes the playing media; Open Advanced Settings opens the Settings window's category, which holds the defaults. Show Preferences is disabled until S2.7 adds the panel.)*
+- [x] S2.6.5 The **Show Preferences** footer opens the matching tab of the settings panel (S2.7). **Write down the difference from "Open Advanced Settings"** (proposal: Show Preferences opens the in-player panel; Open Advanced Settings opens the Settings window category). *(Decided as proposed: Show Preferences opens the in-player panel, which changes the playing media; Open Advanced Settings opens the Settings window's category, which holds the defaults. Show Preferences was disabled until S2.7 added the panel.)*
 - [x] S2.6.6 Close on outside click, Escape, clicking the same button again, or opening another popover. Only one popover is open at a time. *(The other button switches tabs. Opening either `…` menu closes the popover and the other way round. It also closes when the window loses focus (so the "+" file dialog closes it), when the media stops, and in fullscreen, which hides the bar until S2.8.)*
 
 **Edge cases**
@@ -728,16 +728,16 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.6  **Size:** M  **Design refs:** `controls-playback.png`, and the Video, Audio and Subtitle settings screenshots (their content lands in Stages 6 and 7)
 
 **Subtasks**
-- [ ] S2.7.1 The panel opens from the gear button with tabs **Playback | Video | Audio | Subtitles**. It's taller than the track popover (945 px in the design), scrolls, and has a sticky footer on the Video, Audio and Subtitles tabs (**Default Preset ^** and **⚙ Open Advanced Settings**).
-- [ ] S2.7.2 Playback tab: **Speed**, a text field ("1x") plus a slider from 0.25 to 2 with ticks every 0.25 and labels. The tab also has these rows, implemented in later stories: **Show Subtitle Timeline on Seekbar** (S6.6), **Show Statistics** (S8.13), **Reverse** (S8.13), **Sleep Timer** (S8.13) and **Audio Visualizer** (S7.8). Until each story ships, its row is hidden, never a dead toggle.
-- [ ] S2.7.3 Speed shortcuts (VLC uses `[`/`]` and `=` to reset) and an OSD toast "Speed 1.25×".
-- [ ] S2.7.4 Speed persists for the session only by default. Settings → Playback "Default playback speed" (S5.7) is the default for each new item.
+- [x] S2.7.1 The panel opens from the gear button with tabs **Playback | Video | Audio | Subtitles**. It's taller than the track popover (945 px in the design), scrolls, and has a sticky footer on the Video, Audio and Subtitles tabs (**Default Preset ^** and **⚙ Open Advanced Settings**). *(`main_window/settings_panel.rs`; placement and surface shared with the track popover in `bar_panel.rs`. It closes like the popover, and only one of the two is open at a time; the popover's Show Preferences now opens the matching tab. Video, Audio and Subtitles say "Nothing to adjust here yet." until Stages 6 and 7. Default Preset waits for presets (S5.11) and Open Advanced Settings for the Settings window (S5.2), both disabled. Not checked on screen yet.)*
+- [x] S2.7.2 Playback tab: **Speed**, a text field ("1x") plus a slider from 0.25 to 2 with ticks every 0.25 and labels. The tab also has these rows, implemented in later stories: **Show Subtitle Timeline on Seekbar** (S6.6), **Show Statistics** (S8.13), **Reverse** (S8.13), **Sleep Timer** (S8.13) and **Audio Visualizer** (S7.8). Until each story ships, its row is hidden, never a dead toggle. *(`settings_panel/playback.rs`. The kit slider gained marks (ticks and labels) and a disabled state; it moves in 0.05 steps, Shift and PageUp/PageDown by 0.25.)*
+- [x] S2.7.3 Speed shortcuts (VLC uses `[`/`]` and `=` to reset) and an OSD toast "Speed 1.25×". *(`main_window/speed.rs`: `]` Faster and `[` Slower step to the next quarter (a typed 1.1 goes to 1.25 or 1); held, they repeat throttled. `=` is Normal speed.)*
+- [x] S2.7.4 Speed persists for the session only by default. Settings → Playback "Default playback speed" (S5.7) is the default for each new item. *(Decided: a launch starts at `prefs.player.default_speed` (1 by default; its row comes with S5.7); a picked speed carries from item to item for the rest of the session and is never saved, as in VLC.)*
 
 **Edge cases**
-- Speed typed outside the slider's range (0.1×, 8×): allow 0.25–4× in the field (the backend's sane range), keep the slider clamped, and show the value.
-- Speed typed as "1.5", "1,5" (a decimal comma), "1.5x" or "150%": accept them all.
-- A non-seekable live stream: speed is disabled (you can't fast-forward live).
-- Audio pitch correction at non-1× speeds is on (scaletempo); above 4× audio is muted.
+- Speed typed outside the slider's range (0.1×, 8×): allow 0.25–4× in the field (the backend's sane range), keep the slider clamped, and show the value. *(Done: `MAX_RATE` is now 4; typed values are clamped to 0.25–4.)*
+- Speed typed as "1.5", "1,5" (a decimal comma), "1.5x" or "150%": accept them all. *(Done, and `1.5×`; anything else turns the field red.)*
+- A non-seekable live stream: speed is disabled (you can't fast-forward live). *(Done: the controls are disabled and the keys do nothing.)*
+- Audio pitch correction at non-1× speeds is on (scaletempo); above 4× audio is muted. *(libVLC's time-stretch is on by default; speed stops at 4×.)*
 
 ---
 

@@ -8,34 +8,31 @@
 //! `…` menus), the window losing focus, and when its media goes. Only one popover shows at a
 //! time.
 //!
-//! **Show Preferences** opens the matching tab of the in-player settings panel (S2.7), and is
-//! disabled until that panel exists. **Open Advanced Settings**, in that panel's footer, opens
-//! the matching category of the Settings window instead: the popover and the panel change the
-//! playing media, the Settings window the defaults.
+//! **Show Preferences** opens the matching tab of the in-player settings panel (S2.7,
+//! `settings_panel.rs`). **Open Advanced Settings**, in that panel's footer, opens the matching
+//! category of the Settings window instead: the popover and the panel change the playing media,
+//! the Settings window the defaults.
 
 mod sections;
 
 use gpui::{
-    Context, Div, FocusHandle, KeyDownEvent, MouseDownEvent, Pixels, Point, Stateful, Window, div,
-    prelude::*, px,
+    ClickEvent, Context, Div, FocusHandle, KeyDownEvent, MouseDownEvent, Pixels, Point, Stateful,
+    Window, div, prelude::*, px,
 };
 
 use super::MainWindow;
-use super::TITLE_BAR_HEIGHT;
-use super::control_bar::CONTROL_BAR_HEIGHT;
+use super::bar_panel;
+use super::settings_panel::PanelTab;
 use crate::assets::icons;
 use crate::engine::tracks::TrackKind;
 use crate::theme::Palette;
 use crate::ui::button::Button;
 use crate::ui::focus;
-use crate::ui::popover::{self, BoundsTracker};
+use crate::ui::popover::BoundsTracker;
 use crate::ui::tabs::{Tab, Tabs};
 
-/// The popover's size in the designs.
-const WIDTH: f32 = 400.;
+/// The popover's height in the designs.
 const DESIGN_HEIGHT: f32 = 524.;
-/// Its distance from the window's right edge and from the bar.
-const GAP: f32 = 20.;
 /// The footer's padding around Show Preferences.
 const FOOTER_PADDING: f32 = 20.;
 /// The fewest video tracks that bring the Video tab (D22).
@@ -103,6 +100,7 @@ impl MainWindow {
     ) {
         self.menu = None;
         self.control_bar.close_overflow();
+        self.close_settings_panel(window, cx);
         self.track_popover.open = Some(kind);
         // After the click that opened it, which focuses the clicked button once its handlers ran.
         let handle = self.track_popover.focus.clone();
@@ -130,44 +128,29 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Option<Stateful<Div>> {
         let open = self.track_popover.open?;
-        if window.is_fullscreen() || !self.can_pick_tracks(cx) {
+        if window.is_fullscreen() || !self.has_active_media(cx) {
             self.close_track_popover(window, cx);
             return None;
         }
         let snapshot = self.track_snapshot(cx)?;
         let tabs = tabs(snapshot.tracks.of(TrackKind::Video).count());
         let kind = if tabs.contains(&open) { open } else { TrackKind::Audio };
-        let size = window.viewport_size();
-        let width = WIDTH.min(f32::from(size.width) - 2. * GAP);
         let body = Self::render_track_tab(kind, &snapshot, p, cx);
+        let footer = footer(kind, bar_panel::width(window), cx);
         Some(
-            div()
-                .id("track-popover")
-                .absolute()
-                .right(px(GAP))
-                .bottom(px(CONTROL_BAR_HEIGHT + GAP))
-                .w(px(width))
-                .h(px(height(f32::from(size.height))))
-                .flex()
-                .flex_col()
-                .overflow_hidden()
-                .rounded(px(8.))
-                .bg(p.panel)
-                .text_color(p.text)
-                .shadow_lg()
-                .occlude()
+            bar_panel::surface("track-popover", DESIGN_HEIGHT, window, p)
                 .track_focus(&self.track_popover.focus)
                 .key_context(focus::context(&["TrackPopover", focus::CONTROL]))
                 .on_key_down(cx.listener(Self::on_track_popover_key))
                 .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_tracks))
                 .child(Self::render_track_tabs(&tabs, kind, p, cx))
                 .child(body)
-                .child(footer(width)),
+                .child(footer),
         )
     }
 
-    /// Whether there is media whose tracks the popover can show.
-    pub(super) fn can_pick_tracks(&self, cx: &gpui::App) -> bool {
+    /// Whether media is open (opening, playing, paused or buffering): what the popovers act on.
+    pub(super) fn has_active_media(&self, cx: &gpui::App) -> bool {
         self.loaded_player(cx).is_some_and(|player| player.read(cx).state().is_active())
     }
 
@@ -213,18 +196,16 @@ impl MainWindow {
             self.close_track_popover(window, cx);
         }
     }
-
-    /// Closes the popover when the window loses focus, as menus do.
-    pub(super) fn close_tracks_on_deactivate(window: &mut Window, cx: &mut Context<Self>) {
-        popover::close_on_deactivate(window, cx, Self::close_track_popover);
-    }
 }
 
-/// The footer: Show Preferences, disabled until the settings panel exists (S2.7).
-fn footer(width: f32) -> Div {
+/// The footer: Show Preferences, which opens the settings panel on the tab of `kind`.
+fn footer(kind: TrackKind, width: f32, cx: &mut Context<MainWindow>) -> Div {
+    let tab = PanelTab::of(kind);
     let button = Button::new("show-preferences", "Show Preferences")
         .width(width - 2. * FOOTER_PADDING)
-        .disabled(true);
+        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+            this.open_settings_panel(tab, window, cx);
+        }));
     div().flex_none().p(px(FOOTER_PADDING)).child(button)
 }
 
@@ -239,14 +220,8 @@ fn tabs(video_tracks: usize) -> Vec<TrackKind> {
     video.into_iter().chain([TrackKind::Audio, TrackKind::Subtitle]).collect()
 }
 
-/// The popover's height in a window `window_height` tall: as designed, but never above the
-/// title bar (it scrolls instead).
-fn height(window_height: f32) -> f32 {
-    let room = window_height - TITLE_BAR_HEIGHT - CONTROL_BAR_HEIGHT - 2. * GAP;
-    room.clamp(0., DESIGN_HEIGHT)
-}
-
-fn tab_icon(kind: TrackKind) -> &'static str {
+/// The tab's icon, shared with the settings panel's matching tab.
+pub(super) fn tab_icon(kind: TrackKind) -> &'static str {
     match kind {
         TrackKind::Video => icons::VIDEO,
         TrackKind::Audio => icons::AUDIO,
@@ -277,12 +252,5 @@ mod tests {
     fn the_video_tab_needs_two_video_tracks() {
         assert_eq!(tabs(1), [TrackKind::Audio, TrackKind::Subtitle]);
         assert_eq!(tabs(2)[0], TrackKind::Video);
-    }
-
-    #[test]
-    fn a_short_window_shortens_the_popover() {
-        assert_eq!(height(1080.), DESIGN_HEIGHT);
-        assert_eq!(height(300.), 300. - 40. - 54. - 40.);
-        assert_eq!(height(100.), 0.);
     }
 }

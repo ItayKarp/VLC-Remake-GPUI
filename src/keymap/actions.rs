@@ -88,6 +88,12 @@ actions!(
         CycleSubtitleTrack,
         /// Switch to the next audio track.
         CycleAudioTrack,
+        /// Play a quarter faster.
+        Faster,
+        /// Play a quarter slower.
+        Slower,
+        /// Play at normal speed.
+        NormalSpeed,
         /// Raise the volume.
         VolumeUp,
         /// Lower the volume.

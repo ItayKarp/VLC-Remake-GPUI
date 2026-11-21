@@ -170,7 +170,6 @@ impl TextInput {
     }
 
     /// Enables or disables the input; a disabled input takes no focus, keys or mouse.
-    #[allow(dead_code, reason = "Kit API for later stages.")]
     pub fn set_disabled(&mut self, disabled: bool, cx: &mut Context<Self>) {
         self.disabled = disabled;
         self.focus_handle = self.focus_handle.clone().tab_stop(!disabled);

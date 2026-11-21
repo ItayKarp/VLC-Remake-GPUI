@@ -92,6 +92,7 @@ impl MainWindow {
         let output = Output::new();
         let backend = engine::default_backend(output.sink(), Self::audio_config(cx));
         let player = cx.new(|cx| Player::new(backend, cx));
+        Self::start_at_default_speed(&player, cx);
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
         self.video = Some(cx.new(|cx| VideoView::new(output, player.clone(), window, cx)));
         self.player = Some((player.clone(), events));

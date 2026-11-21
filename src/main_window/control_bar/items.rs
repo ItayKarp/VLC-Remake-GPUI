@@ -2,8 +2,9 @@
 //!
 //! The seek bar (`seek_bar.rs`, S2.3), the time readouts (`readouts.rs`, S2.4) and the volume
 //! control (`volume_slider.rs`, S2.5) are their own modules. The Audio and Subtitles buttons
-//! open the track popover (`track_popover.rs`, S2.6). The Settings and List buttons are disabled
-//! until their panels exist (S2.7, Stage 3): the light theme's faded gear means exactly that.
+//! open the track popover (`track_popover.rs`, S2.6) and the gear the settings panel
+//! (`settings_panel.rs`, S2.7). The List button is disabled until the queue exists (Stage 3):
+//! the light theme's faded buttons mean exactly that.
 
 use gpui::{Action, AnyElement, App, ClickEvent, Context, Entity, SharedString, div, prelude::*};
 
@@ -27,6 +28,8 @@ enum Press {
     Run(&'static dyn Action),
     /// Opens (or closes) the track popover's tab of this kind.
     Tracks(TrackKind),
+    /// Opens (or closes) the settings panel.
+    Settings,
 }
 
 /// An icon button's look and what it does.
@@ -77,6 +80,12 @@ impl MainWindow {
                 });
                 return Some(entry.disabled(!enabled));
             }
+            Press::Settings => {
+                let entry = MenuItem::action(label, move |window, cx| {
+                    main.update(cx, |main, cx| main.open_playback_settings(window, cx)).ok();
+                });
+                return Some(entry.disabled(!enabled));
+            }
         };
         let entry = MenuItem::action(label, move |window, cx| {
             main.update(cx, |main, cx| main.perform(action, window, cx)).ok();
@@ -90,22 +99,22 @@ impl MainWindow {
 
     /// The icon button `item` is, if it is one.
     fn button_item(&self, item: Item, cx: &App) -> Option<ButtonItem> {
-        let tracks = |icon, label, kind| {
-            let press = Press::Tracks(kind);
-            Some(ButtonItem { icon, label, press, enabled: self.can_pick_tracks(cx) })
+        let panel = |icon, label, press| {
+            Some(ButtonItem { icon, label, press, enabled: self.has_active_media(cx) })
         };
         let (icon, action, enabled): (_, &'static dyn Action, _) = match item {
             Item::Previous => (icons::PREVIOUS, &act::PreviousItem, self.can_go_back(cx)),
             Item::Next => (icons::NEXT, &act::NextItem, self.can_go_next()),
-            Item::Audio => return tracks(icons::AUDIO, "Audio", TrackKind::Audio),
-            Item::Subtitles => return tracks(icons::SUBTITLES, "Subtitles", TrackKind::Subtitle),
-            Item::Settings => (icons::SETTINGS, &act::OpenSettings, false),
+            Item::Audio => return panel(icons::AUDIO, "Audio", Press::Tracks(TrackKind::Audio)),
+            Item::Subtitles => {
+                return panel(icons::SUBTITLES, "Subtitles", Press::Tracks(TrackKind::Subtitle));
+            }
+            Item::Settings => return panel(icons::SETTINGS, "Playback settings", Press::Settings),
             Item::List => (icons::LIST, &act::ToggleQueue, true),
             _ => return None,
         };
-        let label = if item == Item::Settings { "Playback settings" } else { menus::label(action) };
         let enabled = enabled && Self::handles(action);
-        Some(ButtonItem { icon, label, press: Press::Run(action), enabled })
+        Some(ButtonItem { icon, label: menus::label(action), press: Press::Run(action), enabled })
     }
 
     fn render_button(&self, item: Item, button: ButtonItem, cx: &mut Context<Self>) -> AnyElement {
@@ -132,6 +141,15 @@ impl MainWindow {
                 );
                 // The popover tells a press on its button from an outside click by these bounds.
                 let tracker = self.track_popover.button(kind).element();
+                div().relative().flex_none().child(tracker).child(icon_button).into_any_element()
+            }
+            Press::Settings => {
+                let icon_button = icon_button.selected(self.settings_panel.is_open()).on_click(
+                    cx.listener(|this, _: &ClickEvent, window, cx| {
+                        this.toggle_settings_panel(window, cx);
+                    }),
+                );
+                let tracker = self.settings_panel.button().element();
                 div().relative().flex_none().child(tracker).child(icon_button).into_any_element()
             }
         }

@@ -65,7 +65,12 @@ impl SliderModel {
 
     /// The value's position along the track, 0.0 to 1.0.
     pub fn fraction(&self) -> f64 {
-        fraction_of(self.value, self.min, self.max)
+        self.fraction_at(self.value)
+    }
+
+    /// Where `value` sits along the track, 0.0 to 1.0 (clamped).
+    pub fn fraction_at(&self, value: f64) -> f64 {
+        fraction_of(value, self.min, self.max)
     }
 
     /// Sets the value from a position along the track (0.0 to 1.0, clamped).
