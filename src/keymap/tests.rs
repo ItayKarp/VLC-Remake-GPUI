@@ -73,6 +73,21 @@ fn d3_defaults() {
 }
 
 #[test]
+fn seek_modifiers_pick_the_skip_amounts() {
+    let os = OperatingSystem::Windows;
+    let primary = |action: &dyn gpui::Action| {
+        let keys = find(action).expect("command exists").keys.for_os(false);
+        keys.first().map(|s| parse(s, os))
+    };
+    assert_eq!(primary(&act::SeekForward), Some(parse("right", os)));
+    assert_eq!(primary(&act::SeekForwardVeryShort), Some(parse("shift-right", os)));
+    assert_eq!(primary(&act::SeekBackwardMedium), Some(parse("alt-left", os)));
+    assert_eq!(primary(&act::SeekBackwardLong), Some(parse("ctrl-left", os)));
+    assert_eq!(primary(&act::SeekToStart), Some(parse("home", os)));
+    assert_eq!(primary(&act::SeekToEnd), Some(parse("end", os)));
+}
+
+#[test]
 fn no_default_takes_os_or_editing_shortcuts() {
     // Copy stays Copy, and Ctrl+F stays the library's Search. macOS Hide and
     // Minimize stay the system's.
@@ -104,6 +119,8 @@ fn predicates_follow_the_key_kind() {
     assert_eq!(player("shift-s"), "Player && !Modal && !Typing");
     assert_eq!(player("space"), "Player && !Modal && !Control");
     assert_eq!(player("left"), "Player && !Modal && !Control");
+    assert_eq!(player("alt-left"), "Player && !Modal && !Control");
+    assert_eq!(player("ctrl-end"), "Player && !Modal && !Control");
     assert_eq!(player("ctrl-\\"), "Player && !Modal");
     assert_eq!(
         predicate(Area::App, &parse("shift-f1", os)).as_deref(),

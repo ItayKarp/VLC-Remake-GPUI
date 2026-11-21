@@ -20,11 +20,24 @@ const THUMB_SHORT: f32 = 8.;
 const MIN_LENGTH: f32 = 40.;
 /// Width of the numeric field next to the slider.
 const FIELD_WIDTH: f32 = 96.;
+/// The transparent border the focus ring draws in.
+const FOCUS_BORDER: f32 = 2.;
+/// A disabled slider's opacity, as the kit's other disabled controls.
+const DISABLED_OPACITY: f32 = 0.4;
 
 impl Render for Slider {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let slider = focus::ring(self.slider_element(&p, cx), &p);
+        // The labels line up with the track: inside the thumb's room and the focus border.
+        let labels = self.mark_labels(THUMB_SHORT / 2. + FOCUS_BORDER, &p);
+        let slider = match labels {
+            // A block, so the slider and its labels stack and fill its width.
+            Some(labels) => {
+                div().flex_1().min_w(px(MIN_LENGTH)).child(slider).child(labels).into_any_element()
+            }
+            None => slider.into_any_element(),
+        };
         match &self.field {
             Some((field, _)) => div()
                 .flex()
@@ -41,7 +54,7 @@ impl Render for Slider {
 }
 
 impl Slider {
-    fn horizontal(&self) -> bool {
+    pub(super) fn horizontal(&self) -> bool {
         self.orientation == Orientation::Horizontal
     }
 
@@ -70,9 +83,15 @@ impl Slider {
             .border_color(gpui::transparent_black())
             .key_context(focus::CONTROL)
             .track_focus(&self.focus_handle)
-            .cursor_pointer()
-            .on_key_down(cx.listener(Self::on_key_down))
-            .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
+            .map(|s| {
+                if self.is_disabled() {
+                    s.opacity(DISABLED_OPACITY)
+                } else {
+                    s.cursor_pointer()
+                        .on_key_down(cx.listener(Self::on_key_down))
+                        .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
+                }
+            })
             .child(self.track_element(p))
             .children(self.drag_listener(cx));
         self.with_accessibility(slider)
@@ -104,6 +123,7 @@ impl Slider {
             .map(|t| if horizontal { t.h(px(TRACK)).w_full() } else { t.w(px(TRACK)).h_full() })
             .child(self.track.element())
             .child(self.fill_element(p))
+            .children(self.ticks(p))
             .children(self.zero_tick(p))
             .child(self.thumb(p))
     }
@@ -165,7 +185,7 @@ impl Slider {
                         .mb(px(-THUMB_SHORT / 2.))
                 }
             })
-            .when(self.dragging, |t| t.child(self.value_tooltip(p)))
+            .when(self.is_dragging(), |t| t.child(self.value_tooltip(p)))
     }
 
     /// The value tooltip shown above the thumb while dragging.
@@ -191,7 +211,7 @@ impl Slider {
 
     /// While dragging, follows the mouse anywhere in the window.
     fn drag_listener(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        if !self.dragging {
+        if !self.is_dragging() {
             return None;
         }
         let entity = cx.entity();

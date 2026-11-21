@@ -94,6 +94,8 @@ const fn keys(keys: &'static [&'static str]) -> Keys {
 pub const COMMANDS: &[Command] = &[
     cmd("Open File(s)", AppArea, keys(&["secondary-o"]), &act::OpenFile),
     cmd("Open Folder", AppArea, keys(&["secondary-shift-o"]), &act::OpenFolder),
+    // A text input's own paste binding is deeper in the key context, so it wins there.
+    cmd("Open from Clipboard", AppArea, keys(&["secondary-v"]), &act::OpenFromClipboard),
     cmd("Open Network Stream", AppArea, keys(&["secondary-n"]), &act::OpenNetworkStream),
     cmd("Open Disc", AppArea, keys(&["secondary-d"]), &act::OpenDisc),
     cmd("Open Capture Device", AppArea, keys(&["secondary-shift-c"]), &act::OpenCaptureDevice),
@@ -111,17 +113,35 @@ pub const COMMANDS: &[Command] = &[
     // P/N are layout-safe; `<`/`>` (taught by onboarding's design) stay as aliases.
     cmd("Previous item", Player, keys(&["p", "<"]), &act::PreviousItem),
     cmd("Next item", Player, keys(&["n", ">"]), &act::NextItem),
+    // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
+    cmd("Repeat (Off, All, One)", Player, NONE, &act::CycleRepeat),
+    cmd("Shuffle", Player, NONE, &act::ToggleShuffle),
+    // The skip amounts (S2.3.4): Shift is finer, Alt (Option) and Ctrl (Cmd) coarser.
     held("Seek backward", keys(&["left"]), &act::SeekBackward),
     held("Seek forward", keys(&["right"]), &act::SeekForward),
+    held("Very short seek backward", keys(&["shift-left"]), &act::SeekBackwardVeryShort),
+    held("Very short seek forward", keys(&["shift-right"]), &act::SeekForwardVeryShort),
+    held("Medium seek backward", keys(&["alt-left"]), &act::SeekBackwardMedium),
+    held("Medium seek forward", keys(&["alt-right"]), &act::SeekForwardMedium),
+    held("Long seek backward", keys(&["secondary-left"]), &act::SeekBackwardLong),
+    held("Long seek forward", keys(&["secondary-right"]), &act::SeekForwardLong),
+    cmd("Go to the start", Player, keys(&["home"]), &act::SeekToStart),
+    cmd("Go to the end", Player, keys(&["end"]), &act::SeekToEnd),
     held("Previous frame", keys(&[","]), &act::PreviousFrame),
     held("Next frame", keys(&["."]), &act::NextFrame),
     cmd("Next program / Service ID", Player, keys(&["x"]), &act::NextProgram),
+    // VLC's keys (S2.7.3); a held key keeps changing the speed.
+    held("Faster", keys(&["]"]), &act::Faster),
+    held("Slower", keys(&["["]), &act::Slower),
+    cmd("Normal speed", Player, keys(&["="]), &act::NormalSpeed),
     held("Increase volume", keys(&["up"]), &act::VolumeUp),
     held("Decrease volume", keys(&["down"]), &act::VolumeDown),
     cmd("Cycle audio track", Player, keys(&["b"]), &act::CycleAudioTrack),
     cmd("Cycle subtitle track", Player, keys(&["v"]), &act::CycleSubtitleTrack),
     cmd("Take a snapshot", Player, keys(&["shift-s"]), &act::Snapshot),
     cmd("Record", Player, keys(&["shift-r"]), &act::Record),
+    // The context-menu key ("menu") exists on Windows and Linux keyboards.
+    cmd("Show context menu", Player, keys(&["shift-f10", "menu"]), &act::ShowContextMenu),
     cmd("Keyboard Shortcuts", AppArea, NONE, &act::ShowKeyboardShortcuts),
     cmd("Customize Player", AppArea, NONE, &act::CustomizePlayer),
     cmd(
@@ -133,6 +153,12 @@ pub const COMMANDS: &[Command] = &[
     cmd("About VLC", AppArea, keys(&["shift-f1"]), &act::About),
     cmd("Run Setup Again", AppArea, NONE, &act::RunSetupAgain),
     cmd("Copy Debug Info", AppArea, NONE, &act::CopyDebugInfo),
+    cmd("Mark as Watched", AppArea, NONE, &act::MarkWatched),
+    cmd("Mark as Unwatched", AppArea, NONE, &act::MarkUnwatched),
+    cmd("Clear History", AppArea, NONE, &act::ClearHistory),
+    cmd("New Playlist", AppArea, NONE, &act::NewPlaylist),
+    cmd("Save Queue as Playlist", AppArea, NONE, &act::SaveQueueAsPlaylist),
+    cmd("Import Playlist", AppArea, NONE, &act::ImportPlaylist),
     cmd(
         "Close Window",
         Global,
@@ -146,4 +172,9 @@ pub const COMMANDS: &[Command] = &[
 /// The command that dispatches `action`, if it is one of ours.
 pub fn find(action: &dyn Action) -> Option<&'static Command> {
     COMMANDS.iter().find(|command| command.action.partial_eq(action))
+}
+
+/// The command labelled `label`.
+pub fn by_label(label: &str) -> Option<&'static Command> {
+    COMMANDS.iter().find(|command| command.label == label)
 }

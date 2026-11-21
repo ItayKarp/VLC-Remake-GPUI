@@ -14,7 +14,7 @@ pub fn text(settings: &Settings, gpu: &str) -> String {
         "VLC {}\nOS: {}\nGPU: {gpu}\nlibVLC: {}\n",
         system::VERSION,
         system::os(),
-        system::LIBVLC_VERSION,
+        system::libvlc_version(),
     );
     let prefs = toml::to_string(&settings.prefs)
         .unwrap_or_else(|err| format!("# couldn't list the preferences: {err}\n"));

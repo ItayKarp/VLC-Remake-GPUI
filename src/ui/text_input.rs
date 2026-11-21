@@ -39,6 +39,17 @@ pub enum Validation {
     Error(SharedString),
 }
 
+/// How the field is drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Look {
+    /// A 32 px well with a border, a focus ring and the validation message under it.
+    #[default]
+    Framed,
+    /// The text alone, in the surrounding text style: the host draws any frame. An error
+    /// turns the text red; its message isn't shown.
+    Bare,
+}
+
 /// What a text input tells its listeners.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
@@ -56,6 +67,7 @@ pub struct TextInput {
     placeholder: SharedString,
     label: SharedString,
     validation: Validation,
+    look: Look,
     disabled: bool,
     focus_handle: FocusHandle,
     last_layout: Option<ShapedLine>,
@@ -91,6 +103,7 @@ impl TextInput {
             placeholder: SharedString::default(),
             label: SharedString::default(),
             validation: Validation::None,
+            look: Look::Framed,
             disabled: false,
             focus_handle,
             last_layout: None,
@@ -103,6 +116,18 @@ impl TextInput {
     /// Starts the input with `text`, without an undo step.
     pub fn with_text(mut self, text: impl AsRef<str>) -> Self {
         self.state.set_text(text.as_ref());
+        self
+    }
+
+    /// Starts with the whole text selected, so typing replaces it.
+    pub fn with_all_selected(mut self) -> Self {
+        self.state.select_all();
+        self
+    }
+
+    /// Sets how the field is drawn.
+    pub fn with_look(mut self, look: Look) -> Self {
+        self.look = look;
         self
     }
 
@@ -145,11 +170,15 @@ impl TextInput {
     }
 
     /// Enables or disables the input; a disabled input takes no focus, keys or mouse.
-    #[allow(dead_code, reason = "Kit API for later stages.")]
     pub fn set_disabled(&mut self, disabled: bool, cx: &mut Context<Self>) {
         self.disabled = disabled;
         self.focus_handle = self.focus_handle.clone().tab_stop(!disabled);
         cx.notify();
+    }
+
+    /// Whether a validation error is showing.
+    pub fn is_invalid(&self) -> bool {
+        matches!(self.validation, Validation::Error(_))
     }
 
     /// Whether the input has keyboard focus in `window`.

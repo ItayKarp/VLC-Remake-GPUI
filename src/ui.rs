@@ -22,6 +22,7 @@
 
 pub mod button;
 pub mod collapsible;
+pub mod drop_target;
 pub mod dropdown;
 pub mod focus;
 pub mod gallery;

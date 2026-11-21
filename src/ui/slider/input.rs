@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use gpui::{Context, KeyDownEvent, Keystroke, MouseDownEvent, Pixels, Point, Window, px};
 
-use super::{Changed, KEY_REPEAT_INTERVAL, Orientation, Slider, Throttle};
+use super::{Changed, Interaction, KEY_REPEAT_INTERVAL, Orientation, Slider, Throttle};
 
 impl Slider {
     /// The track position under `position`, 0.0 to 1.0 (unclamped), once laid out.
@@ -30,13 +30,13 @@ impl Slider {
     ) {
         self.focus_handle.focus(window, cx);
         if event.click_count >= 2 {
-            self.dragging = false;
+            self.interaction = Interaction::Idle;
             let default = self.model.default;
             self.set_from_user(default, cx);
             self.sync_field(window, cx);
             return;
         }
-        self.dragging = true;
+        self.interaction = Interaction::Dragging;
         if let Some(fraction) = self.fraction_at(event.position)
             && self.model.set_fraction(fraction)
         {
@@ -64,8 +64,8 @@ impl Slider {
 
     /// Ends a drag when the mouse button is released anywhere.
     pub(super) fn end_drag(&mut self, cx: &mut Context<Self>) {
-        if self.dragging {
-            self.dragging = false;
+        if self.is_dragging() {
+            self.interaction = Interaction::Idle;
             cx.notify();
         }
     }

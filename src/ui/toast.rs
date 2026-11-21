@@ -102,8 +102,8 @@ impl Toasts {
     }
 
     /// Shows `toast`, dropping old ones past [`MAX_VISIBLE`], and schedules its
-    /// dismissal if its level goes away alone.
-    pub fn push(&mut self, mut toast: Toast, cx: &mut Context<Self>) {
+    /// dismissal if its level goes away alone. Returns its id, for [`Self::dismiss`].
+    pub fn push(&mut self, mut toast: Toast, cx: &mut Context<Self>) -> u64 {
         self.next_id += 1;
         toast.id = self.next_id;
         let id = toast.id;
@@ -118,6 +118,7 @@ impl Toasts {
             .detach();
         }
         cx.notify();
+        id
     }
 
     /// Removes the toast with `id`, if it's still showing.

@@ -1,8 +1,8 @@
 //! Drawing a [`ContextMenu`]: its rows, the menu surface and the open submenu.
 
 use gpui::{
-    AnyElement, Context, DismissEvent, Div, MouseButton, MouseDownEvent, Stateful, Window,
-    accesskit, div, prelude::*, px,
+    AnyElement, Context, DismissEvent, Div, MouseButton, MouseDownEvent, SharedString, Stateful,
+    Window, accesskit, div, prelude::*, px,
 };
 
 use super::{ContextMenu, MenuItem};
@@ -11,6 +11,7 @@ use crate::ui::focus;
 use crate::ui::metrics;
 use crate::ui::option_row::OptionRow;
 use crate::ui::popover::{self, Side};
+use crate::ui::tooltip;
 
 /// Height of one menu row.
 const ROW_HEIGHT: f32 = 40.;
@@ -88,11 +89,13 @@ impl ContextMenu {
             .reserve_icon(any_icons)
             .height(ROW_HEIGHT);
         let selectable = item.selectable() || submenu_open;
+        let reason = item.disabled_reason().filter(|_| !submenu_open).cloned();
         div()
             .id(i)
             .relative()
             .child(self.rows[i].element())
             .child(row)
+            .when_some(reason, |r, reason| r.tooltip(tooltip::text(reason, None::<SharedString>)))
             .when(selectable, |r| {
                 r.on_hover(cx.listener(move |this, hovered: &bool, window, cx| {
                     this.hover_row(i, *hovered, window, cx);
@@ -144,7 +147,7 @@ fn option_row(item: &MenuItem, submenu_open: bool) -> Option<OptionRow> {
         MenuItem::Check { label, checked, disabled, .. } => {
             OptionRow::new("row", label.clone()).checked(*checked).disabled(*disabled)
         }
-        MenuItem::Submenu { label, icon, items } => OptionRow::new("row", label.clone())
+        MenuItem::Submenu { label, icon, items, .. } => OptionRow::new("row", label.clone())
             .icon(*icon)
             .submenu(true)
             .disabled(items.is_empty() && !submenu_open),

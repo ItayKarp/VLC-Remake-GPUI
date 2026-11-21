@@ -1,0 +1,245 @@
+//! Opening media in the main window (S1.3): the Open File(s) and Open Folder dialogs, drops,
+//! paste and launches all end in [`MainWindow::open`], which resolves the items off the UI
+//! thread ([`opening::resolve`]) and then plays them.
+//!
+//! Opened items replace the queue; Add to Queue (`--enqueue`, Shift+drop) appends them, and Play
+//! Next puts them after the current item (S3.1.2). One file opened in place of the queue brings
+//! its folder along when Settings say so (S3.1.3).
+//!
+//! While items resolve (a large folder, a sleeping network drive), the window shows
+//! "Opening…" with a Cancel button. Opening something new in place of the queue cancels what
+//! is still resolving; adding to the queue doesn't.
+
+use gpui::{
+    ClipboardEntry, Context, ExternalPaths, PathPromptOptions, SharedString, Task, Window,
+    prelude::*,
+};
+
+use super::MainWindow;
+use crate::app::media::Media;
+use crate::app::request::{OpenRequest, Placement};
+use crate::opening::resolve::Options;
+use crate::opening::scan::Subfolders;
+use crate::opening::{self, Cancel, Resolved, paste, recent};
+use crate::queue::EntryId;
+use crate::settings::{self, QueueSiblings};
+use crate::ui::toast::{Level, Toast};
+
+/// Where resolved items go in the queue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Target {
+    /// Where an open request says (replace, append, play next).
+    Placed(Placement),
+    /// Before this entry, or at the end when it's `None` or gone: files dropped between the
+    /// queue panel's rows (S3.2.4).
+    Before(Option<EntryId>),
+}
+
+/// Items being resolved before they play.
+pub(super) struct Job {
+    id: u64,
+    target: Target,
+    cancel: Cancel,
+    /// What is being opened, for "Opening …".
+    pub(super) label: SharedString,
+    _task: Task<()>,
+}
+
+/// Which dialog to show.
+#[derive(Clone, Copy)]
+enum Pick {
+    Files,
+    Folder,
+}
+
+impl MainWindow {
+    /// Opens what was asked for (S0.6.2, S1.3): switches to fullscreen if asked, then resolves
+    /// the items in the background and plays them, replacing the list or adding to it.
+    pub fn open(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
+        if request.fullscreen && !window.is_fullscreen() {
+            window.toggle_fullscreen();
+        }
+        if request.items.is_empty() {
+            return;
+        }
+        if request.placement == Placement::Replace {
+            self.cancel_opening(cx);
+        }
+        self.resolve_into(request.items, Target::Placed(request.placement), window, cx);
+    }
+
+    /// Resolves `items` in the background, then puts them in the queue at `target`.
+    pub(super) fn resolve_into(
+        &mut self,
+        items: Vec<Media>,
+        target: Target,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let cancel = Cancel::default();
+        self.next_job += 1;
+        let id = self.next_job;
+        let label = job_label(&items);
+        let options = Self::resolve_options(target, cx);
+        let job_cancel = cancel.clone();
+        let task = cx.spawn_in(window, async move |this, cx| {
+            let resolved = cx.background_spawn(async move {
+                opening::resolve::resolve(items, options, &job_cancel)
+            });
+            let resolved = resolved.await;
+            this.update_in(cx, |this, window, cx| this.finish_job(id, resolved, window, cx)).ok();
+        });
+        self.jobs.push(Job { id, target, cancel, label, _task: task });
+        cx.notify();
+    }
+
+    /// How to read folders, from the settings. Only an open that replaces the queue brings a
+    /// file's folder along: adding one file to the queue means that file.
+    fn resolve_options(target: Target, cx: &Context<Self>) -> Options {
+        let prefs = &settings::get(cx).prefs;
+        let siblings = match target {
+            Target::Placed(Placement::Replace) => prefs.player.queue_siblings,
+            _ => QueueSiblings::Never,
+        };
+        Options { subfolders: Subfolders::from_setting(prefs.library.include_subfolders), siblings }
+    }
+
+    /// Stops resolving every pending open.
+    pub(super) fn cancel_opening(&mut self, cx: &mut Context<Self>) {
+        for job in self.jobs.drain(..) {
+            job.cancel.cancel();
+        }
+        cx.notify();
+    }
+
+    /// Plays what job `id` resolved to, unless it was cancelled meanwhile.
+    fn finish_job(
+        &mut self,
+        id: u64,
+        resolved: Option<Resolved>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(index) = self.jobs.iter().position(|job| job.id == id) else {
+            return;
+        };
+        let job = self.jobs.remove(index);
+        cx.notify();
+        let (Some(mut resolved), target) = (resolved, job.target) else {
+            return;
+        };
+        self.report(&resolved, cx);
+        recent::record(&resolved.opened, cx);
+        if !resolved.media.is_empty() {
+            self.play_resolved(&mut resolved, target, window, cx);
+        }
+        self.attach_subtitles(&resolved.subtitles, cx);
+    }
+
+    /// Tells the user what was left out and what couldn't be read.
+    fn report(&mut self, resolved: &Resolved, cx: &mut Context<Self>) {
+        for (item, problem) in &resolved.problems {
+            self.show_toast(Toast::new(Level::Error, problem.message(item)), cx);
+        }
+        if resolved.skipped > 0 {
+            let message = match resolved.skipped {
+                1 => "1 file skipped: it isn't media.".to_owned(),
+                n => format!("{n} files skipped: they aren't media."),
+            };
+            self.show_toast(Toast::new(Level::Info, message), cx);
+        }
+    }
+
+    /// Asks for files or a folder to open, and opens what the user picks as `placement` says.
+    fn prompt(pick: Pick, placement: Placement, window: &mut Window, cx: &mut Context<Self>) {
+        let folder = matches!(pick, Pick::Folder);
+        let paths = cx.prompt_for_paths(PathPromptOptions {
+            files: !folder,
+            directories: folder,
+            multiple: true,
+            prompt: Some("Open".into()),
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let Ok(Ok(Some(paths))) = paths.await else {
+                return;
+            };
+            this.update_in(cx, |this, window, cx| {
+                let items = paths.into_iter().map(Media::from).collect();
+                this.open(OpenRequest::placed(items, placement), window, cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Open File(s) (S1.3.1).
+    pub(super) fn prompt_for_files(window: &mut Window, cx: &mut Context<Self>) {
+        Self::prompt(Pick::Files, Placement::Replace, window, cx);
+    }
+
+    /// Add to Queue (S3.1.2): files to play after the rest of the queue.
+    pub(super) fn prompt_to_enqueue(window: &mut Window, cx: &mut Context<Self>) {
+        Self::prompt(Pick::Files, Placement::Enqueue, window, cx);
+    }
+
+    /// Play Next (S3.1.2): files to play after the current item.
+    pub(super) fn prompt_to_play_next(window: &mut Window, cx: &mut Context<Self>) {
+        Self::prompt(Pick::Files, Placement::PlayNext, window, cx);
+    }
+
+    /// Open Folder (S1.3.1).
+    pub(super) fn prompt_for_folder(window: &mut Window, cx: &mut Context<Self>) {
+        Self::prompt(Pick::Folder, Placement::Replace, window, cx);
+    }
+
+    /// Files dropped anywhere on the window (S1.3.2); with Shift held, added to the queue.
+    pub(super) fn on_drop(
+        &mut self,
+        paths: &ExternalPaths,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let items = paths.paths().iter().cloned().map(Media::from).collect();
+        let placement =
+            if window.modifiers().shift { Placement::Enqueue } else { Placement::Replace };
+        self.open(OpenRequest::placed(items, placement), window, cx);
+    }
+
+    /// Opens the paths or URLs on the clipboard (S1.3.3): files copied in a file manager, or
+    /// text with one path or URL per line.
+    pub(super) fn paste(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let items = cx.read_from_clipboard().map(|item| clipboard_items(item.entries()));
+        match items {
+            Some(items) if !items.is_empty() => {
+                self.open(OpenRequest::replace(items), window, cx);
+            }
+            _ => self.show_toast(
+                Toast::new(Level::Info, "Copy a file path or a URL first, then paste it here."),
+                cx,
+            ),
+        }
+    }
+}
+
+/// The items on the clipboard: copied files, and paths or URLs in copied text.
+fn clipboard_items(entries: &[ClipboardEntry]) -> Vec<Media> {
+    let home = dirs::home_dir();
+    entries
+        .iter()
+        .flat_map(|entry| match entry {
+            ClipboardEntry::ExternalPaths(paths) => {
+                paths.paths().iter().cloned().map(Media::from).collect()
+            }
+            ClipboardEntry::String(text) => paste::items(text.text(), home.as_deref()),
+            ClipboardEntry::Image(_) => Vec::new(),
+        })
+        .collect()
+}
+
+/// "Opening …" names the item, or counts several.
+fn job_label(items: &[Media]) -> SharedString {
+    match items {
+        [item] => item.display_name().into(),
+        items => format!("{} items", items.len()).into(),
+    }
+}

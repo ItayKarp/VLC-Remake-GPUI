@@ -86,7 +86,6 @@ impl Dropdown {
     }
 
     /// The index of the chosen option.
-    #[allow(dead_code, reason = "kit API for later stages, exercised by the tests")]
     pub fn selected(&self) -> usize {
         self.selected
     }

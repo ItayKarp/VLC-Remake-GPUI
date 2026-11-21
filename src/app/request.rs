@@ -22,8 +22,10 @@ pub enum Placement {
     /// Replace the queue (the default, like double-clicking a file).
     #[default]
     Replace,
-    /// Add to the end of the queue (`--enqueue`).
+    /// Add to the end of the queue (`--enqueue`, Add to Queue, Shift+drop).
     Enqueue,
+    /// Insert right after the current item (Play Next, S3.1.2).
+    PlayNext,
 }
 
 /// Items to open and how.
@@ -41,6 +43,11 @@ impl OpenRequest {
     /// Opens `items`, replacing what's open.
     pub fn replace(items: Vec<Media>) -> Self {
         OpenRequest { items, ..Self::default() }
+    }
+
+    /// Opens `items` placed as `placement` says.
+    pub fn placed(items: Vec<Media>, placement: Placement) -> Self {
+        OpenRequest { items, placement, ..Self::default() }
     }
 
     /// Whether this request opens nothing and changes nothing.

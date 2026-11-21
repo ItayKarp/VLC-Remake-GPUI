@@ -15,10 +15,12 @@ mod paths;
 mod schema;
 mod storage;
 mod store;
-mod stored_path;
+pub mod stored_path;
 #[cfg(test)]
 mod tests;
 
+use std::io;
+use std::path::Path;
 use std::time::Duration;
 
 use gpui::{App, AppContext, BorrowAppContext, Global, Task};
@@ -28,7 +30,11 @@ pub use paths::{Locations, default_media_folder, display_path};
     unused_imports,
     reason = "part of the settings API; some types are named only by tests and later stages"
 )]
-pub use schema::{LocalState, Preferences, Settings, WindowGeometry, WindowMode};
+pub use schema::{
+    AudioSettings, AutoHide, ClickAction, ControlsSettings, DoubleClickAction, DurationReadout,
+    HorizontalWheelAction, LocalState, PlayerSettings, Preferences, QueueSiblings, ResumePolicy,
+    Settings, SkipLength, StartupVolume, WheelAction, WhenFinished, WindowGeometry, WindowMode,
+};
 pub use store::Notice;
 use store::SettingsState;
 
@@ -136,6 +142,13 @@ pub fn save(cx: &mut App) -> Task<Result<(), String>> {
         });
         result
     })
+}
+
+/// Atomically replaces `path` with `contents` the way settings files are saved: a crash leaves
+/// the old file or the new one, never part of each. For other state kept beside the settings,
+/// such as the last session (S3.4).
+pub fn write_atomically(path: &Path, contents: &str) -> io::Result<()> {
+    storage::save(path, contents)
 }
 
 /// Notices for the user (corrupt file recovered, settings not saved, …), each

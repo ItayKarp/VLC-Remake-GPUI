@@ -8,8 +8,16 @@ use gpui::Window;
 /// The app's version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// The engine's version. There is no engine until Stage 1 links libVLC.
-pub const LIBVLC_VERSION: &str = "not loaded yet";
+/// The engine's version, such as "3.0.23 Vetinari", or why there is none.
+/// Loads libVLC if nothing has yet.
+pub fn libvlc_version() -> String {
+    crate::engine::libvlc_version().unwrap_or_else(|| "unavailable".to_owned())
+}
+
+/// The engine's version if it is loaded, without loading it (a crash report can't).
+pub fn loaded_libvlc_version() -> String {
+    crate::engine::loaded_libvlc_version().unwrap_or_else(|| "not loaded".to_owned())
+}
 
 /// The GPU the first window renders with; GPUI only knows it once a window exists.
 static GPU: OnceLock<String> = OnceLock::new();

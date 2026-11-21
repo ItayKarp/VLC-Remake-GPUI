@@ -73,7 +73,7 @@ fn report(info: &PanicHookInfo<'_>, backtrace: &Backtrace) -> String {
         system::VERSION,
         system::os(),
         system::gpu(),
-        system::LIBVLC_VERSION,
+        system::loaded_libvlc_version(),
         thread.name().unwrap_or("unnamed"),
         message(info),
     );

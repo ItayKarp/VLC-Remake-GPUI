@@ -9,6 +9,12 @@
 //! - Machine-specific data (paths, window geometry, device IDs) goes in [`LocalState`],
 //!   everything that should follow the user between machines in [`Preferences`].
 
+mod audio;
+mod controls;
+mod interface;
+mod playback;
+mod subtitles;
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -17,6 +23,15 @@ use super::lenient::lenient;
 use super::stored_path;
 use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
+
+pub use audio::{AudioSettings, LocalAudio, StartupVolume};
+pub use controls::{
+    ClickAction, ControlsSettings, DoubleClickAction, HorizontalWheelAction, SkipLength,
+    WheelAction,
+};
+pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
+pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
+pub use subtitles::SubtitleSettings;
 
 /// Everything the app persists, as one in-memory value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -37,9 +52,15 @@ pub struct Preferences {
     /// The accent color.
     #[serde(deserialize_with = "lenient")]
     pub accent: Accent,
+    /// The window and its title bar.
+    #[serde(deserialize_with = "lenient")]
+    pub interface: InterfaceSettings,
     /// Player behavior.
     #[serde(deserialize_with = "lenient")]
     pub player: PlayerSettings,
+    /// The seek keys' skip amounts and the wheel over the video (S5.6).
+    #[serde(deserialize_with = "lenient")]
+    pub controls: ControlsSettings,
     /// Audio preferences.
     #[serde(deserialize_with = "lenient")]
     pub audio: AudioSettings,
@@ -71,12 +92,27 @@ pub struct LocalState {
     /// machine-specific, so a new machine should run onboarding again.
     #[serde(deserialize_with = "lenient")]
     pub onboarding_complete: bool,
-    /// Onboarding writes one; the Library settings screen can manage several.
+    /// Onboarding writes one; the Library settings screen can manage several. The library
+    /// indexes each as a video folder (S4.2.1).
     #[serde(with = "stored_path::list")]
     pub media_folders: Vec<PathBuf>,
+    /// Folders the library indexes as music (S4.2.7): the OS Music folder, added once.
+    #[serde(with = "stored_path::list")]
+    pub music_folders: Vec<PathBuf>,
+    /// Whether the OS Music folder was offered to the library (S4.2.7, D7), so removing it
+    /// later sticks.
+    #[serde(deserialize_with = "lenient")]
+    pub music_folder_added: bool,
     /// Where each window was last placed.
     #[serde(deserialize_with = "lenient")]
     pub window: WindowState,
+    /// Media opened recently, newest first (S1.3.5): URLs as written, local paths encoded
+    /// like [`stored_path`] does. Read and written through `opening::recent`.
+    #[serde(deserialize_with = "lenient")]
+    pub recent_media: Vec<String>,
+    /// The output device and last volume (S1.5).
+    #[serde(deserialize_with = "lenient")]
+    pub audio: LocalAudio,
 }
 
 macro_rules! empty_sections {
@@ -89,45 +125,76 @@ macro_rules! empty_sections {
 }
 
 empty_sections! {
-    /// Player behavior (Stage 2).
-    PlayerSettings,
-    /// Audio preferences (Stage 1/7). The output device ID is local, not here.
-    AudioSettings,
     /// Video preferences (Stage 7).
     VideoSettings,
-    /// Subtitle preferences (Stage 6).
-    SubtitleSettings,
     /// Custom key bindings (S0.5).
     KeymapSettings,
 }
 
 /// Library preferences (Stage 4, S5.9).
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent switches, each its own row in Settings → Library"
+)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LibrarySettings {
     /// Lets every launch open its own window instead of handing its files to the
     /// running one (S0.6.1). The opposite of "Only allow one VLC window" (S5.9.1).
     #[serde(deserialize_with = "lenient")]
     pub allow_multiple_instances: bool,
+    /// "When opening a folder: Include subfolders" (S5.9): whether opening a folder, or a
+    /// file's folder (S3.1.3), takes the media in its subfolders too.
+    #[serde(deserialize_with = "lenient")]
+    pub include_subfolders: bool,
+    /// "Show hidden files" (S5.9.1): whether the library indexes dot files and files the OS
+    /// marks hidden or system (S4.2.2).
+    #[serde(deserialize_with = "lenient")]
+    pub show_hidden_files: bool,
+}
+
+impl Default for LibrarySettings {
+    fn default() -> Self {
+        Self { allow_multiple_instances: false, include_subfolders: true, show_hidden_files: false }
+    }
 }
 
 /// Privacy preferences (Stage 5).
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent switches, each its own row in Settings → Privacy"
+)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PrivacySettings {
     /// "Save recently played items" (S5.5.1). Also governs the OS recent documents
-    /// list (S0.6.5).
+    /// list (S0.6.5) and the playback history (S1.7): off, nothing is written to either.
     #[serde(deserialize_with = "lenient")]
     pub save_recently_played: bool,
     /// Hides media file names in the log file, keeping only their extensions
     /// (S0.7.1). The home directory is always replaced by `~`.
     #[serde(deserialize_with = "lenient")]
     pub redact_file_names_in_logs: bool,
+    /// How many items Open Recent keeps (S1.3.5); `0` keeps none.
+    #[serde(deserialize_with = "lenient")]
+    pub recent_media_count: u32,
+    /// "Remember the playback position" (S5.5.1): save where media was left, so it can resume
+    /// (S1.7). Plays are still counted while history is saved.
+    #[serde(deserialize_with = "lenient")]
+    pub remember_playback_position: bool,
 }
+
+/// How many items Open Recent keeps by default.
+pub const DEFAULT_RECENT_MEDIA_COUNT: u32 = 10;
 
 impl Default for PrivacySettings {
     fn default() -> Self {
-        PrivacySettings { save_recently_played: true, redact_file_names_in_logs: false }
+        PrivacySettings {
+            save_recently_played: true,
+            redact_file_names_in_logs: false,
+            recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
+            remember_playback_position: true,
+        }
     }
 }
 

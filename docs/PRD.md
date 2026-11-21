@@ -337,7 +337,7 @@ flowchart LR
 **Subtasks**
 - [x] S0.5.1 Define a GPUI action for every command (play/pause, seek ±, previous/next item, previous/next frame, cycle subtitle/audio track, fullscreen, volume ±, toggle queue, toggle file browser, snapshot, record, open file, settings, and so on). *(`src/keymap/actions.rs`; each one has a row in the command table `keymap::commands::COMMANDS` with its label, area, default keys and held-key behavior. Until Stage 2 the main window only logs player commands; S2.10.3 gives them their effects.)*
 - [x] S0.5.2 Default keymap with key contexts (`Player`, `Library`, `TextInput`, `Modal`). Single-letter and Space shortcuts don't fire while a text input has focus. *(Each binding's predicate comes from its area and key (`keymap::predicate`): letters and symbols skip controls marked `Typing` (text inputs, menus, dropdowns), Space/Enter/Escape/arrows skip any kit control marked `Control` (buttons press on Space, sliders move on arrows), and only global shortcuts work inside a `Modal`. The main window is `MainWindow Player` until the player gets its own view. Headless tests in `keymap/tests/dispatch.rs`.)*
-- [x] S0.5.3 A single source of truth for shortcuts, so onboarding step 3, the Keyboard Shortcuts dialog, tooltips and the menus all read from the keymap instead of hard-coded constants (`LEFT_SHORTCUTS`/`RIGHT_SHORTCUTS` today). *(`keymap::shortcut` and `keymap::key_caps` read the binding the keymap ranks first. Onboarding, the main menu and the empty state's Open hint use them; the dialog (S2.10) and the control bar tooltips (Stage 2) will too.)*
+- [x] S0.5.3 A single source of truth for shortcuts, so onboarding step 3, the Keyboard Shortcuts dialog, tooltips and the menus all read from the keymap instead of hard-coded constants (`LEFT_SHORTCUTS`/`RIGHT_SHORTCUTS` today). *(`keymap::shortcut` and `keymap::key_caps` read the binding the keymap ranks first. Onboarding, the main menu and the empty state's Open hint use them; the Keyboard Shortcuts dialog (S2.10.4) lists every binding through `keymap::shortcuts`; the control bar tooltips (Stage 2) will too.)*
 - [x] S0.5.4 macOS menu bar via `cx.set_menus`. On Windows/Linux, the in-window main menu from the design. *(`keymap::menus`. The `…` menu lists the designed items plus Run Setup Again; commands nothing handles yet are greyed out, and Open Recent and Profile are empty submenus until they're designed. The macOS bar holds only commands with modifier shortcuts, because macOS would fire a plain-letter key equivalent even inside a text field.)*
 - [x] S0.5.5 Keyboard layout handling: `<` and `>` are Shift+`,` and Shift+`.` on US layouts but separate keys on German ISO and other layouts, and AZERTY moves `,` and `.`. Decide on character-based versus physical-key bindings, test with US, UK, German, French AZERTY, Hebrew and Russian layouts, and react to `on_keyboard_layout_change`. *(Decided: character-based. GPUI matches the typed character, and on Windows it reports letters by their Latin virtual key, so letter shortcuts work on Hebrew and Russian too. `keymap/tests/layouts.rs` replays each layout's keystrokes as GPUI's Windows backend reports them; it hasn't been tried with real OS layouts or on macOS/Linux yet. A layout change re-renders the windows. Open: Ctrl+`\` needs AltGr on German and other layouts, and GPUI doesn't match it there.)*
 - [x] S0.5.6 Key repeat: holding an arrow key seeks repeatedly with throttling (optionally accelerating). Holding Space doesn't toggle play/pause repeatedly. *(`keymap::repeat::RepeatGate`: toggles run once per press, and seek, frame step and volume run at most every 120 ms while held. Key-up or the window losing focus releases them. No acceleration.)*
@@ -444,13 +444,13 @@ flowchart LR
 **Depends on:** S1.1  **Size:** L
 
 **Subtasks**
-- [ ] S1.2.1 `Player` GPUI entity that owns the backend. Commands: `open`, `play`, `pause`, `toggle`, `stop`, `seek(absolute | relative | fraction)`, `frame_step(±1)`, `set_rate`, `set_volume`, `set_mute`, `select_track`, `set_audio_delay`, `set_subtitle_delay`.
-- [ ] S1.2.2 States: `Idle → Opening → Buffering ⇄ Playing ⇄ Paused → Ended | Stopped | Error(kind)`. Document the allowed transitions and test every edge in the graph.
-- [ ] S1.2.3 Events: `StateChanged`, `PositionChanged` (throttled to about 15 Hz for the UI), `DurationChanged`, `SeekableChanged`, `PausableChanged`, `TracksChanged`, `Buffering(%)`, `VideoSizeChanged`, `ChaptersChanged`, `MetadataChanged`, `EndReached`, `Error`.
-- [ ] S1.2.4 Threading: backend callbacks run on backend threads. Send them through a channel to the GPUI foreground executor, and never call back into libVLC from inside a libVLC event callback (documented deadlock).
-- [ ] S1.2.5 Coalesce commands: rapid seeks (dragging the seek bar, holding an arrow key) keep only the latest target; frame stepping queues up to N steps.
-- [ ] S1.2.6 Shutdown: stop and release with a timeout (about 2 s), so a hung network stream never blocks quitting.
-- [ ] S1.2.7 A mock backend behind the same interface, so the UI and state machine can be tested without media files.
+- [x] S1.2.1 `Player` GPUI entity that owns the backend. Commands: `open`, `play`, `pause`, `toggle`, `stop`, `seek(absolute | relative | fraction)`, `frame_step(±1)`, `set_rate`, `set_volume`, `set_mute`, `select_track`, `set_audio_delay`, `set_subtitle_delay`. *(`src/engine/player.rs`. The backend is `engine::libvlc::LibVlcBackend`; `engine::default_backend` falls back to one that fails every open with `BackendUnavailable` when libVLC can't load. Video goes to libVLC's dummy output until S1.4. Not yet used by any screen.)*
+- [x] S1.2.2 States: `Idle → Opening → Buffering ⇄ Playing ⇄ Paused → Ended | Stopped | Error(kind)`. Document the allowed transitions and test every edge in the graph. *(`src/engine/state.rs` documents the graph; a test checks every pair of states against it.)*
+- [x] S1.2.3 Events: `StateChanged`, `PositionChanged` (throttled to about 15 Hz for the UI), `DurationChanged`, `SeekableChanged`, `PausableChanged`, `TracksChanged`, `Buffering(%)`, `VideoSizeChanged`, `ChaptersChanged`, `MetadataChanged`, `EndReached`, `Error`. *(`PlayerEvent`. Tracks, chapters and metadata events carry no payload; read them from the player.)*
+- [x] S1.2.4 Threading: backend callbacks run on backend threads. Send them through a channel to the GPUI foreground executor, and never call back into libVLC from inside a libVLC event callback (documented deadlock). *(The libVLC callback only forwards; a worker thread owns every libVLC handle and makes every call, so `stop` on a hung stream never blocks the UI. libVLC 3 has no seek-done event: a seek completes at the next time report, or after 300 ms.)*
+- [x] S1.2.5 Coalesce commands: rapid seeks (dragging the seek bar, holding an arrow key) keep only the latest target; frame stepping queues up to N steps. *(`src/engine/coalesce.rs`; N is 8.)*
+- [x] S1.2.6 Shutdown: stop and release with a timeout (about 2 s), so a hung network stream never blocks quitting. *(`src/engine/shutdown.rs`, run on app quit.)*
+- [x] S1.2.7 A mock backend behind the same interface, so the UI and state machine can be tested without media files. *(`src/engine/mock.rs`. The libVLC backend has smoke tests against the S1.1 media, ignored by default; run on macOS only so far.)*
 
 **Edge cases**
 - `open` while another open is in progress: cancel the first and ignore its late events (tag every event with an open generation id).
@@ -476,23 +476,23 @@ flowchart LR
 **Depends on:** S1.2, S0.4  **Size:** M  **Design refs:** main menu (`docs/ui/player/menus/main_menu/menu.png`)
 
 **Subtasks**
-- [ ] S1.3.1 Open File(s) (Ctrl/Cmd+O) and Open Folder, through `cx.prompt_for_paths`.
-- [ ] S1.3.2 Drag and drop onto any window (`on_drop` with `ExternalPaths`), with a drop-target highlight while dragging.
-- [ ] S1.3.3 Paste a path or URL (Ctrl/Cmd+V) in the player or library to open it.
-- [ ] S1.3.4 Playlist files (`.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue`, `.asx`) expand into the queue (S3) instead of being played as media.
-- [ ] S1.3.5 A recent media list (Media → Recent), with a configurable count, "Clear recent", and the privacy toggle (Stage 7).
-- [ ] S1.3.6 Probe by content, not extension: files with no or wrong extensions still open, and extensions are matched case-insensitively (`.MKV`).
+- [x] S1.3.1 Open File(s) (Ctrl/Cmd+O) and Open Folder, through `cx.prompt_for_paths`. *(`main_window/opening.rs`. Every way of opening ends in `MainWindow::open`, which resolves the items off the UI thread (`opening::resolve`) and shows "Opening …" with Cancel meanwhile. Folders are scanned 8 levels deep, up to 10,000 files, in natural order, skipping hidden and system files and following a symlinked folder once (`opening/scan.rs`). Until Stage 2 and 3, the main window plays the opened list straight through with the S1.2 `Player`, and a status line says what is playing or why it couldn't.)*
+- [x] S1.3.2 Drag and drop onto any window (`on_drop` with `ExternalPaths`), with a drop-target highlight while dragging. *(The window root takes the drop, so it works over menus, toasts and in fullscreen; `ui::drop_target` draws an accent frame over the whole window. Drops onto onboarding are queued and open after the hand-off (D4), with no message yet. Not tried by hand yet.)*
+- [x] S1.3.3 Paste a path or URL (Ctrl/Cmd+V) in the player or library to open it. *(`OpenFromClipboard`, bound in the main window; a text input's own paste wins inside it. Copied files, and text with one absolute path, `~/` path or URL per line (`opening/paste.rs`). Not in the macOS menu bar, where Cmd+V would take paste from text fields.)*
+- [x] S1.3.4 Playlist files (`.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue`, `.asx`) expand into the queue (S3) instead of being played as media. *(`opening/playlist/`: nested local playlists expand up to 8 deep, cycles once; a local HLS `.m3u8` plays as a stream; network playlists are left to libVLC. UTF-8, UTF-16 and Latin-1 files, and Windows paths read on macOS/Linux. A CUE sheet opens each audio file, not each track: items have no start and end time until Stage 3. Expands into the main window's list until the queue exists.)*
+- [x] S1.3.5 A recent media list (Media → Recent), with a configurable count, "Clear recent", and the privacy toggle (Stage 7). *(`opening/recent.rs`: what the user opened (a file, folder, playlist or URL) in `local.toml`'s `recent_media`, newest first, at most `privacy.recent_media_count` (default 10). Shown in the `…` menu's Open Recent with Clear Recent; nothing is kept or shown while `privacy.save_recently_played` is off. Its settings rows come with S5.5. Not in the macOS menu bar yet: GPUI menu items need a data-carrying action for that.)*
+- [x] S1.3.6 Probe by content, not extension: files with no or wrong extensions still open, and extensions are matched case-insensitively (`.MKV`). *(`opening/kind.rs`, `opening/sniff.rs`: a known media, playlist or subtitle extension is trusted, so large folders aren't read file by file; any other file is identified by its first 4 KB (containers, MPEG audio and transport streams, playlists, SRT/VTT/ASS). Picked files nothing recognizes still go to libVLC when nothing else was picked, since it probes far more formats.)*
 
 **Edge cases**
-- Dropping video and subtitle files together (`movie.mkv` + `movie.srt`): open the video and attach the subtitle. Dropping only a subtitle file while something is playing adds a subtitle track (S5). Dropping only a subtitle with nothing playing shows "Open a video first".
+- Dropping video and subtitle files together (`movie.mkv` + `movie.srt`): open the video and attach the subtitle. Dropping only a subtitle file while something is playing adds a subtitle track (S5). Dropping only a subtitle with nothing playing shows "Open a video first". *(Done: `Player::add_subtitle`, libVLC `add_slave`.)*
 - Dropping a folder with thousands of files, or nested folders: scan asynchronously, cancellably, with a depth limit, and skip hidden and system files by default.
-- Dropping non-media files (exe, pdf, txt) mixed with media: ignore them and show "3 files skipped".
+- Dropping non-media files (exe, pdf, txt) mixed with media: ignore them and show "3 files skipped". *(Done.)*
 - Dropping onto the onboarding window: ignore or queue (see the S0.2.6 decision).
 - Dropping during fullscreen, while a modal is open, or onto a popover: define which element is the drop target.
 - Dragging a URL or link from a browser: GPUI's `ExternalPaths` carries file paths only, so handle text or URL drag payloads if the platform layer supports them, and fall back to paste.
-- Shortcuts (`.lnk`), aliases and symlinks resolve to their targets, and broken ones show an error.
+- Shortcuts (`.lnk`), aliases and symlinks resolve to their targets, and broken ones show an error. *(Open: symlinks resolve and broken ones fail with "doesn't exist"; `.lnk` files and macOS aliases aren't resolved yet, as in S0.6.)*
 - A file on a slow or sleeping network drive: the dialog returns but opening takes seconds, so show "Opening…" right away and let the user cancel.
-- macOS sandbox or iCloud "Optimize Storage" placeholders (files not downloaded yet), and OneDrive Files On-Demand on Windows: opening triggers a download, so show progress or "Downloading from iCloud".
+- macOS sandbox or iCloud "Optimize Storage" placeholders (files not downloaded yet), and OneDrive Files On-Demand on Windows: opening triggers a download, so show progress or "Downloading from iCloud". *(Open: such files show the generic "Opening …" with Cancel, no download progress.)*
 - Mount points that need permission on macOS (Downloads, Desktop and Documents ask for TCC consent the first time): handle a denial gracefully.
 
 ---
@@ -502,10 +502,10 @@ flowchart LR
 **Depends on:** S1.1, S1.2  **Size:** M  **Design refs:** `docs/ui/player/screens/default/*`, `hide_ui/*`
 
 **Subtasks**
-- [ ] S1.4.1 Video element: fit inside the container keeping the aspect ratio (letterbox and pillarbox are always black, whatever the theme), correct on HiDPI, honors rotation.
-- [ ] S1.4.2 Fullscreen: toggle with F and double-click on the video. Escape exits fullscreen first, before any other Escape meaning. Restore the previous window bounds on exit.
-- [ ] S1.4.3 Keep the display awake while video is playing (Windows `SetThreadExecutionState`, macOS `IOPMAssertion`, Linux `org.freedesktop.ScreenSaver.Inhibit` / systemd-inhibit). Release on pause, stop, minimize and audio-only playback.
-- [ ] S1.4.4 Stop presenting frames while the window is minimized or fully hidden; audio keeps playing.
+- [x] S1.4.1 Video element: fit inside the container keeping the aspect ratio (letterbox and pillarbox are always black, whatever the theme), correct on HiDPI, honors rotation. *(`src/video/`. ADR 0001's paths: libVLC `vmem` (`engine/libvlc/vmem.rs`) writes NV12 into IOSurface `CVPixelBuffer`s on macOS and BGRA `RenderImage`s elsewhere (`RVLC_VIDEO_PATH=bgra` forces BGRA on macOS). A one-frame mailbox wakes the `VideoView`, which paints the picture with a canvas at the display aspect, edges snapped to device pixels (`video/layout.rs`). Local files are parsed before play (`libvlc/prepare.rs`), so libVLC crops coded padding (1920×1088 → 1080) and squares anamorphic pixels itself; a rotated or flipped track turns hardware decoding off so libVLC 3 can rotate it. MPEG-PS/TS reveal their shape only after decoding starts, so the worker re-reads it every 100 ms for up to 3 s (`libvlc/size_watch.rs`). Audio-only media shows a ♪ placeholder. Checked on macOS with the S1.1 corpus; colours still have ADR limit 4.)*
+- [x] S1.4.2 Fullscreen: toggle with F and double-click on the video. Escape exits fullscreen first, before any other Escape meaning. Restore the previous window bounds on exit. *(`main_window/fullscreen.rs`. Keymap actions run before key listeners, so Escape leaves fullscreen before a menu or popover sees it; windowed, it propagates. A held F or Escape acts once. **Exception:** while a modal dialog has focus, player keys are blocked (S0.5.2), so Escape closes the dialog first. macOS uses native fullscreen (own Space); the OS restores the bounds and the saved geometry keeps the windowed ones. The title bar hides in fullscreen.)*
+- [x] S1.4.3 Keep the display awake while video is playing (Windows `SetThreadExecutionState`, macOS `IOPMAssertion`, Linux `org.freedesktop.ScreenSaver.Inhibit` / systemd-inhibit). Release on pause, stop, minimize and audio-only playback. *(`src/power.rs`; held while playing or buffering video in a visible window. Linux holds the D-Bus inhibition (zbus) or a `systemd-inhibit` child on a thread. Seen in `pmset -g assertions` on macOS; Windows and Linux not compiled or run yet.)*
+- [x] S1.4.4 Stop presenting frames while the window is minimized or fully hidden; audio keeps playing. *(GPUI's window visibility: while hidden the mailbox refuses frames, so nothing is uploaded or drawn (libVLC still decodes, for A/V sync), and the view redraws as soon as it shows. Not tried by hand yet.)*
 
 **Edge cases**
 - The window moves between monitors with different DPI or refresh rates (60 to 144 Hz): rescale and re-time presentation.
@@ -523,21 +523,21 @@ flowchart LR
 **Depends on:** S1.2  **Size:** M  **Design refs:** `docs/ui/player/controls/volume/*`, `docs/icons/volume/*`
 
 **Subtasks**
-- [ ] S1.5.1 Volume from 0 to the **Maximum volume** setting (100–300%, default 200%, per Settings → Audio), mute toggle, volume step from settings.
-- [ ] S1.5.2 **Startup volume** as designed: "Remember last volume" or "Always starts at N%". Recommendation: even in "Remember last volume" mode, restore at most 100% on launch, so a 200% boost doesn't blast the next session's first video.
-- [ ] S1.5.3 Choose the output device, or "System default", which follows OS default changes live.
-- [ ] S1.5.4 Hot-plug: when the active device disappears (Bluetooth headphones off, USB DAC unplugged), switch to the system default. Optionally pause on headphone disconnect (a setting, on by default on laptops).
-- [ ] S1.5.5 Downmix multichannel (5.1/7.1) to stereo when the device is stereo ("Speaker setup: Automatic" in Settings → Audio); passthrough (AC3/DTS over HDMI or S/PDIF) is an advanced setting.
-- [ ] S1.5.6 "Pause when another app uses audio" (Settings → Playback): implement where the OS can report it (see the S5.7 edge cases).
+- [x] S1.5.1 Volume from 0 to the **Maximum volume** setting (100–300%, default 125% as VLC's slider (changed from 200% in S2.5), per Settings → Audio), mute toggle, volume step from settings. *(`engine/player/audio.rs`: `set_volume` caps at `max_volume`, lowering the maximum brings a louder volume down at once, `step_volume`, `toggle_mute`, and `PlayerEvent::VolumeChanged`. Settings in `settings/schema/audio.rs` (`prefs.audio`), applied by `main_window/audio.rs`, which follows changes live. Up/Down step by `volume_step_percent` (default 5%) once something was opened. Changing the volume unmutes, as in VLC. libVLC takes up to 300%, checked on macOS.)*
+- [x] S1.5.2 **Startup volume** as designed: "Remember last volume" or "Always starts at N%". Recommendation: even in "Remember last volume" mode, restore at most 100% on launch, so a 200% boost doesn't blast the next session's first video. *(`prefs.audio.startup_volume` (`remember_last` or `fixed`, with `startup_volume_percent`); the last volume is kept in `local.toml` (`audio.last_volume_percent`) and restored at most 100% (D21); either is capped at the maximum.)*
+- [x] S1.5.3 Choose the output device, or "System default", which follows OS default changes live. *(`Player::set_audio_device(OutputDevice)`, `audio_devices()`; the choice is `local.audio.output_device` (empty: system default). On macOS libVLC's "System Sound Output Device" (id `0`) follows the OS default; it is never listed as a device. Windows and Linux pass the empty id, not tried yet. No picker until S5.8.)*
+- [x] S1.5.4 Hot-plug: when the active device disappears (Bluetooth headphones off, USB DAC unplugged), switch to the system default. Optionally pause on headphone disconnect (a setting, on by default on laptops). *(libVLC 3 has no hot-plug event, so the worker reads the device list every 2 s (`libvlc/audio.rs`). `engine/audio/hotplug.rs`: a missing chosen device plays through the default, and is used again when it comes back. `prefs.audio.pause_on_device_disconnect` is on by default everywhere, not only on laptops. Through the system default the backend can't tell which device the OS used, so any device disappearing while playing counts. A toast says which device went. Not tried by unplugging yet.)*
+- [x] S1.5.5 Downmix multichannel (5.1/7.1) to stereo when the device is stereo ("Speaker setup: Automatic" in Settings → Audio); passthrough (AC3/DTS over HDMI or S/PDIF) is an advanced setting. *(`SpeakerSetup::Automatic` leaves the layout to libVLC's output, which mixes for the device; `Stereo` forces it with `libvlc_audio_set_channel`, re-applied to each media. `prefs.audio.passthrough` starts libVLC with `--spdif` (plus `--mmdevice-passthrough=1` on Windows) and applies to the next player; libVLC refuses unknown options, so it retries without them. Not checked with a 5.1 file or a receiver.)*
+- [x] S1.5.6 "Pause when another app uses audio" (Settings → Playback): implement where the OS can report it (see the S5.7 edge cases). *(`prefs.player.pause_when_another_app_uses_audio`, on by default: libVLC's Corked event (PulseAudio cork requests, Windows communications ducking) pauses, and Uncorked resumes unless the user paused or played meanwhile. macOS reports nothing, so it never triggers there.)*
 
 **Edge cases**
-- No audio device at all (VMs, headless, or every device disabled): video plays silently with a "No audio device" indicator, never an error loop.
+- No audio device at all (VMs, headless, or every device disabled): video plays silently with a "No audio device" indicator, never an error loop. *(A toast once per absence; `Player::has_no_audio_device` for S2.5's slider.)*
 - Exclusive mode held by another app (Windows WASAPI exclusive): fall back to another device or play silently, with a notice.
 - Sample rate or channel layout changes mid-stream (TV recordings): no crash or pop, re-open the output.
 - Bluetooth latency of 150–300 ms causes visible lip-sync error: expose audio delay (S6) and, if the backend reports latency, compensate automatically.
 - Volume above 100% clips: show the boost range in a different color as the design does, and consider a limiter.
 - The OS mixer volume differs from the in-app volume: never change the OS volume.
-- Volume changes while muted: unmute (VLC behavior) or keep muted; pick one and match the volume popover design.
+- Volume changes while muted: unmute (VLC behavior) or keep muted; pick one and match the volume popover design. *(Unmutes.)*
 
 ---
 
@@ -546,15 +546,15 @@ flowchart LR
 **Depends on:** S1.2  **Size:** S  **Design refs:** onboarding shortcuts (V and B), `docs/ui/player/panels/subtitles/*`
 
 **Subtasks**
-- [ ] S1.6.1 Enumerate tracks with id, kind, language, title, codec, and default/forced flags. Build display names like "English (SDH) — AC3 5.1" when the container provides no title.
-- [ ] S1.6.2 Select a track, disable subtitles, and cycle audio (B) and subtitles (V) with an on-screen display (OSD) toast showing the new track.
-- [ ] S1.6.3 Auto-select by preferred languages (Stage 7 settings), with forced subtitles shown when the audio language matches.
+- [x] S1.6.1 Enumerate tracks with id, kind, language, title, codec, and default/forced flags. Build display names like "English (SDH) — AC3 5.1" when the container provides no title. *(`engine/tracks.rs`: `Track` and `Tracks`, with `Tracks::label` ("English — AC3 5.1", "Commentary — AAC Stereo", "Track 2") from `tracks/label.rs`; a title that already names the codec stands alone. Languages are normalized (`en` = `eng` = `en-US`, `engine/language.rs`) and named in English; codecs get short names from libVLC's FourCCs (`tracks/codec.rs`). libVLC 3 reports neither flag nor a hearing-impaired one, so there is no "(SDH)": `libvlc/track_list.rs` marks a track forced when its title says "forced", and the default of each kind is what libVLC plays by itself once playback starts. Checked against `tracks.mkv`, added to the S1.1 corpus.)*
+- [x] S1.6.2 Select a track, disable subtitles, and cycle audio (B) and subtitles (V) with an on-screen display (OSD) toast showing the new track. *(`Player::select_track` (shown at once, confirmed by the backend later) and `Player::cycle_track`; subtitles cycle through Off, audio doesn't turn off. Until the OSD exists (Stage 2), `main_window/tracks.rs` says "Audio: English — AC3 5.1", "Subtitles: Off" or "No subtitles" in a toast that replaces the previous one. Tried by hand on macOS with `tracks.mkv`; that found the player keys reaching nothing once the video replaced the focused Open button, so starting playback now focuses the window. libVLC 3 can't blend subtitles onto hardware-decoded frames ("blending YUVA to CVPN failed"), so once a subtitle has shown for 300 ms over hardware-decoded video, the worker reopens the media in software decoding at the same position, paused if it was, with the same tracks and added subtitle files, hiding the reopen from the player (`libvlc/decoding.rs`, ADR 0001 limit 10). It stays in software for the rest of that media. Checked on macOS, playing and paused; Windows and Linux hardware decoding not tried.)*
+- [x] S1.6.3 Auto-select by preferred languages (Stage 7 settings), with forced subtitles shown when the audio language matches. *(`tracks/auto.rs`, run by the player on every track change until the user picks that kind: audio in the first preferred language present (the default track within it); subtitles in a preferred language, else the media's default, else a forced track in the audio's language. "Enable subtitles" off leaves only that forced track. Settings: `prefs.audio.preferred_languages`, `prefs.subtitles.enabled` and `prefs.subtitles.preferred_languages`; their rows come with S5.8 and S7.6. An added subtitle file counts as the user's pick.)*
 
 **Edge cases**
-- Tracks appear or disappear mid-playback (MPEG-TS and HLS add tracks late): update menus live and keep the user's choice when the track ids are stable.
-- Tracks with no language tag or "und": label them "Track N".
+- Tracks appear or disappear mid-playback (MPEG-TS and HLS add tracks late): update menus live and keep the user's choice when the track ids are stable. *(Done in the engine: every change is a `TracksChanged`, ids are libVLC's ES ids, and a kind the user picked is never re-picked.)*
+- Tracks with no language tag or "und": label them "Track N". *(Done.)*
 - Many subtitle tracks (50+ on some anime and Blu-ray rips): the menu scrolls and groups by language.
-- Cycling subtitles includes an "Off" position.
+- Cycling subtitles includes an "Off" position. *(Done.)*
 - Several video tracks (multi-angle): the video track menu appears only when there's more than one.
 
 ---
@@ -565,21 +565,21 @@ flowchart LR
 **Depends on:** S1.2  **Size:** M
 
 **Subtasks**
-- [ ] S1.7.1 Local database (SQLite through `rusqlite`) in the data dir, with migrations. It holds the media table (identity, path, size, mtime, duration, last position, watched flag, play count, last played) and the later library tables (S4).
-- [ ] S1.7.2 Identity is a fast content hash (for example the first and last 64 KB plus the size) combined with the path, so a file that's moved or renamed keeps its history and two copies on different paths are recognized as the same media.
-- [ ] S1.7.3 Save the position every few seconds and on pause, stop, close, quit and crash-safe intervals.
-- [ ] S1.7.4 Resume policy setting: Always, Ask (show a "Resume from 12:34?" toast with a button), or Never. Mark media watched at ≥ 95% or within the last 60 s, whichever comes first, configurable.
-- [ ] S1.7.5 "Mark as watched/unwatched" and "Clear history" commands (the library context menus use them).
+- [x] S1.7.1 Local database (SQLite through `rusqlite`) in the data dir, with migrations. It holds the media table (identity, path, size, mtime, duration, last position, watched flag, play count, last played) and the later library tables (S4). *(`src/db.rs`: `library.db` next to `local.toml`, WAL, `synchronous=NORMAL`, 2 s busy timeout. `db/migrations.rs` numbers migrations with `PRAGMA user_version`, one transaction each; S4 appends its tables there. `db/media.rs` is the `media` table (`location` holds the path or URL). It is only used from the history thread (`history/worker.rs`), so the UI never waits on disk.)*
+- [x] S1.7.2 Identity is a fast content hash (for example the first and last 64 KB plus the size) combined with the path, so a file that's moved or renamed keeps its history and two copies on different paths are recognized as the same media. *(`history/identity.rs`: xxh3-128 of the size, first 64 KB and last 64 KB. `history/resolve.rs`: a path whose size and mtime still match skips hashing; otherwise the hash finds the row and moves it to the new path. A URL is its own identity.)*
+- [x] S1.7.3 Save the position every few seconds and on pause, stop, close, quit and crash-safe intervals. *(`main_window/history.rs`: every 5 s while playing, and on pause, stop, error and end. A `history::Session` saves its last position when dropped (window closed, next media), and quitting waits for the history thread to finish writing. Checked on macOS by killing the app with `kill -9` 14 s in: the position from 4 s earlier was kept.)*
+- [x] S1.7.4 Resume policy setting: Always, Ask (show a "Resume from 12:34?" toast with a button), or Never. Mark media watched at ≥ 95% or within the last 60 s, whichever comes first, configurable. *(`prefs.player.resume` (`always`, `ask` (default), `never`), `watched_percent` and `watched_remaining_seconds`; rows come with S5.7. Rules in `history/policy.rs`, shared with S4.1.2. Media under 2 minutes uses the percentage only, or a 50 s clip would be watched as it starts. Nothing is saved in the first 10 s of a playback, so opening media and closing it while the toast shows keeps the old point. Once watched, media starts from the beginning. Always and Ask (toast shown) checked on macOS; the toast's Resume button not clicked by hand yet.)*
+- [x] S1.7.5 "Mark as watched/unwatched" and "Clear history" commands (the library context menus use them). *(Actions `MarkWatched`, `MarkUnwatched` and `ClearHistory` (no default keys, not in a menu until the library), handled by the main window for the current media; `History::set_watched` and `History::clear` for the library. Marking stops recording the current playback so its position doesn't undo the mark. Clear History also clears Open Recent.)*
 
 **Edge cases**
-- Media shorter than 2 minutes: don't store resume positions, just count plays.
-- A resume position in the last 10 s, or past the new end of a file that was re-encoded or trimmed: start from the beginning.
-- The same file modified in place (size or mtime changed): treat it as new media and keep the old history orphaned for 30 days.
-- Live streams and network URLs without a duration: no resume, but keep them in history.
-- Hard links and the same file reachable through two mount points: the hash identity treats them as one.
-- The database is locked by another instance (shouldn't happen with S0.6), or corrupt: recover with `PRAGMA integrity_check`, back up and recreate it. Losing history is acceptable, crashing is not.
-- The database is on a slow or network home directory: use WAL mode and keep writes off the UI thread.
-- Privacy setting "Don't save history": no positions or recents are written, and switching it on offers to clear existing data.
+- Media shorter than 2 minutes: don't store resume positions, just count plays. *(Done.)*
+- A resume position in the last 10 s, or past the new end of a file that was re-encoded or trimmed: start from the beginning. *(Done, and also in the first 10 s.)*
+- The same file modified in place (size or mtime changed): treat it as new media and keep the old history orphaned for 30 days. *(Done: the hash decides, so a file whose mtime changed but whose head, tail and size didn't (`touch`, restored from backup) stays the same media. Orphans are purged when the history thread starts, and come back if the file returns to its old content.)*
+- Live streams and network URLs without a duration: no resume, but keep them in history. *(Done: plays are counted.)*
+- Hard links and the same file reachable through two mount points: the hash identity treats them as one. *(Done by the hash.)*
+- The database is locked by another instance (shouldn't happen with S0.6), or corrupt: recover with `PRAGMA integrity_check`, back up and recreate it. Losing history is acceptable, crashing is not. *(Done: a damaged file goes to `library.db.corrupt` and a new one starts. A locked or unreadable file, or one from a newer build, is left alone and history is kept in memory for that run.)*
+- The database is on a slow or network home directory: use WAL mode and keep writes off the UI thread. *(Done.)*
+- Privacy setting "Don't save history": no positions or recents are written, and switching it on offers to clear existing data. *(Done with `privacy.save_recently_played` off; switching it off shows a toast with Clear History. `privacy.remember_playback_position` (S5.5.1) off keeps plays and watched but no positions.)*
 
 ---
 
@@ -599,17 +599,17 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S0.3, S0.4, S1.4  **Size:** M  **Design refs:** `player_01.png`, `player_light.png`, `window_chrome.rs`
 
 **Subtasks**
-- [ ] S2.1.1 Extend `window_chrome::title_bar` with the player layout: logo, `…`, sidebar toggle (active and inactive), divider, folder chip, centered title, and Minimize/Maximize/Fullscreen/Close. Keep native hit-testing (`WindowControlArea`) on Windows and the native traffic lights on macOS.
-- [ ] S2.1.2 Title text rule: the media title (from metadata, else the file name with the extension) while media is loaded, otherwise "VLC Media Player". It respects Settings → Interface "Show the file name in the title bar". **The mocks disagree (`player_01` shows "VLC Media Player" while playing); confirm.**
-- [ ] S2.1.3 Folder chip: shows the containing folder's name, and clicking it opens the library at that folder (S4.10). Hidden for URLs and discs.
-- [ ] S2.1.4 Video viewport inset with rounded corners, and letterboxing inside the rounded rectangle.
-- [ ] S2.1.5 The OS window title (taskbar, Alt+Tab, Mission Control) is set through `window.set_window_title`.
+- [x] S2.1.1 Extend `window_chrome::title_bar` with the player layout: logo, `…`, sidebar toggle (active and inactive), divider, folder chip, centered title, and Minimize/Maximize/Fullscreen/Close. Keep native hit-testing (`WindowControlArea`) on Windows and the native traffic lights on macOS. *(`main_window/title_bar.rs`. The sidebar toggle shows its inactive state, disabled, until the library sidebar exists (Stage 4); `IconButton::selected` is its active state.)*
+- [x] S2.1.2 Title text rule: the media title (from metadata, else the file name with the extension) while media is loaded, otherwise "VLC Media Player". It respects Settings → Interface "Show the file name in the title bar". **The mocks disagree (`player_01` shows "VLC Media Player" while playing); confirm.** *(Went with D8's recommendation, which matches `player_light.png` and the setting's default (on, `interface_01.png`). `title_bar/text.rs`; `prefs.interface.show_file_name_in_title_bar`, its row comes with S5.4. "Loaded" is Opening through Paused.)*
+- [x] S2.1.3 Folder chip: shows the containing folder's name, and clicking it opens the library at that folder (S4.10). Hidden for URLs and discs. *(With nothing loaded it shows the first media folder. Until the library exists, clicking opens the folder in the system file manager; S4.10 replaces that. The path is in its tooltip.)*
+- [x] S2.1.4 Video viewport inset with rounded corners, and letterboxing inside the rounded rectangle. *(`main_window/viewport.rs`: 10 px from the sides and bottom, 6 px radius. Frames are images or macOS surfaces that GPUI's content masks don't clip, so the corners are painted over in the frame colour. Fullscreen is edge to edge. Checked on macOS.)*
+- [x] S2.1.5 The OS window title (taskbar, Alt+Tab, Mission Control) is set through `window.set_window_title`. *(Set from the same rule as the title bar, only when it changes, so the title tag, the setting and Stop all reach it.)*
 
 **Edge cases**
-- Long titles: truncate with an ellipsis in the middle region and never overlap the left or right groups. A full-width title on a narrow window collapses the folder chip first.
-- Titles that contain right-to-left text, emoji, newlines or control characters (from bad tags): strip control characters and handle bidi.
-- macOS: the traffic lights sit where the logo is in the design, so the left group shifts right by the traffic-light inset.
-- Linux: client-side decorations on Wayland (GPUI draws them), and server-side decorations on X11 with some window managers produce a double title bar. Respect Settings → Interface "Show window decorations".
+- Long titles: truncate with an ellipsis in the middle region and never overlap the left or right groups. A full-width title on a narrow window collapses the folder chip first. *(Done: `title_bar/fit.rs` measures the title and chip.)*
+- Titles that contain right-to-left text, emoji, newlines or control characters (from bad tags): strip control characters and handle bidi. *(Done: control characters become spaces and explicit bidi formatting characters are dropped; GPUI's shaping orders right-to-left text.)*
+- macOS: the traffic lights sit where the logo is in the design, so the left group shifts right by the traffic-light inset. *(Done.)*
+- Linux: client-side decorations on Wayland (GPUI draws them), and server-side decorations on X11 with some window managers produce a double title bar. Respect Settings → Interface "Show window decorations". *(Not done: deferred to S5.4.1, which adds that setting; not tried on Linux.)*
 - Windows 11 snap layouts appear when hovering Maximize; keep the `WindowControlArea::Max` hit-test.
 - Double-clicking the title bar maximizes; double-clicking the video toggles fullscreen. These are separate hit regions.
 
@@ -620,17 +620,17 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.1, S1.2, S0.5  **Size:** M  **Design refs:** `controls-default.png`, `play_button/*`
 
 **Subtasks**
-- [ ] S2.2.1 Lay out the bar from a **declarative item list** (it's needed for Customize Player in S8.7): the order, groups and spacers come from data, not hard-coded layout.
-- [ ] S2.2.2 Play/Pause: orange ▶ when paused or stopped, grey ❚❚ while playing, and a buffering spinner state (not designed; add one).
-- [ ] S2.2.3 Previous and Next: previous restarts the current item if it's more than 3 s in, otherwise goes to the previous item. Both are disabled at the queue's ends unless Repeat is All.
-- [ ] S2.2.4 Hover, pressed, focused and disabled states for every icon button, with a tooltip showing the action and its shortcut.
-- [ ] S2.2.5 Narrow windows: items drop in a defined priority order (for example Settings and List go into an overflow `…`) instead of overlapping.
+- [x] S2.2.1 Lay out the bar from a **declarative item list** (it's needed for Customize Player in S8.7): the order, groups and spacers come from data, not hard-coded layout. *(`main_window/control_bar/layout.rs`: a list of item and gap slots; gaps split the groups. The time readouts, seek bar and volume level show the player's state but aren't interactive until S2.3–S2.5.)*
+- [x] S2.2.2 Play/Pause: orange ▶ when paused or stopped, grey ❚❚ while playing, and a buffering spinner state (not designed; add one). *(`control_bar/play_button.rs`. The spinner turns on the grey pill while opening or buffering; pressing it pauses. The pill follows `Player::wants_to_play`, so it changes on the click.)*
+- [x] S2.2.3 Previous and Next: previous restarts the current item if it's more than 3 s in, otherwise goes to the previous item. Both are disabled at the queue's ends unless Repeat is All. *(`main_window/transport.rs` and `transport/rules.rs`; P and N do the same. Previous stays enabled on the first item while it would restart it. Repeat All (S3.3) wraps them.)*
+- [x] S2.2.4 Hover, pressed, focused and disabled states for every icon button, with a tooltip showing the action and its shortcut. *(The kit's `IconButton` and the pill; names and shortcuts come from the command table and keymap.)*
+- [x] S2.2.5 Narrow windows: items drop in a defined priority order (for example Settings and List go into an overflow `…`) instead of overlapping. *(`control_bar/fit.rs`: Settings, List, Subtitles, Audio, Volume (as Mute), Duration, Previous/Next, the current time, then the seek bar. Buttons move into the `…` menu; readouts are hidden. Play/Pause always stays.)*
 
 **Edge cases**
-- Rapid clicks on Play/Pause (double-click speed) produce exactly the matching number of toggles, debounced against the engine state, and the icon never desyncs from the real state.
-- Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on).
-- Pressing Play with an empty queue opens the Open File dialog, or does nothing with a tooltip (decide).
-- The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently.
+- Rapid clicks on Play/Pause (double-click speed) produce exactly the matching number of toggles, debounced against the engine state, and the icon never desyncs from the real state. *(Done: each click flips the player's requested state, not its reported one, and clicks skip the held-key gate.)*
+- Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on). *(Replays, or goes on as the item's end would have under Repeat or after Stop after each item (S3.3). Play after an error tries the item again.)*
+- Pressing Play with an empty queue opens the Open File dialog, or does nothing with a tooltip (decide). *(Decided: it opens the Open File dialog, unless an open is still resolving.)*
+- The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently. *(Decided: disabled. Previous and Next fade where they'd do nothing; the gear and List stay disabled until their panels exist (S2.7, Stage 3). S2.7 enabled the gear.)*
 
 ---
 
@@ -639,22 +639,22 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.2, S1.2, S4.4 (thumbnail extraction can start in S1)  **Size:** L  **Design refs:** `controls-default.png`, `seek_thumbnail/thumbnail.png`
 
 **Subtasks**
-- [ ] S2.3.1 Track, fill and handle. Click to jump, drag to scrub with live preview frames while dragging (throttled), and release to commit.
-- [ ] S2.3.2 Hover card: a 16:9 preview frame and the time under it (`00:02:10`), following the cursor and clamped inside the window.
-- [ ] S2.3.3 Preview frames come from a **second, muted decoder instance** or a pre-generated thumbnail strip (trickplay). Never seek the main player to build the preview.
-- [ ] S2.3.4 Keyboard: Left/Right seek by the "Short skip" amount (S5.6); modifiers select the very short, medium and long amounts; Home and End go to the start and end.
-- [ ] S2.3.5 A buffered-range indicator for network streams (not designed; propose a subtle lighter band).
-- [ ] S2.3.6 Accessible as a slider: it announces the current time and the duration.
+- [x] S2.3.1 Track, fill and handle. Click to jump, drag to scrub with live preview frames while dragging (throttled), and release to commit. *(`main_window/seek_bar.rs`: pressing moves the handle there, a drag moves the handle and the hover card only, and the player seeks once on release. Preview frames during a drag come from the preview decoder (S2.3.3), never the main player.)*
+- [x] S2.3.2 Hover card: a 16:9 preview frame and the time under it (`00:02:10`), following the cursor and clamped inside the window. *(`seek_bar/card.rs`: the picture is letterboxed by the player's video aspect; a grey frame shows until it arrives or when none can be made. Audio and network streams show a card with the time alone. Checked on macOS.)*
+- [x] S2.3.3 Preview frames come from a **second, muted decoder instance** or a pre-generated thumbnail strip (trickplay). Never seek the main player to build the preview. *(A second libVLC instance (`engine/libvlc/preview.rs`): no audio or subtitles, software decoding, BGRA at most 480×270, on its own thread, created off the UI thread on the first hover over local video. `engine/preview/flow.rs` runs one request at a time and keeps only the newest waiting one; a picture counts only after the decoder paused and then reported a new time, because a paused libVLC shows its last picture again. Times are rounded to 1/400 of the length.)*
+- [x] S2.3.4 Keyboard: Left/Right seek by the "Short skip" amount (S5.6); modifiers select the very short, medium and long amounts; Home and End go to the start and end. *(`main_window/seeking.rs`. Shift: very short (3 s); alone: short (10 s); Alt/Option: medium (60 s); Ctrl/Cmd: long (300 s). Amounts in `prefs.controls.skip` (`very_short`, `short`, `medium`, `long`, seconds); rows come with S5.6. Navigation keys with modifiers no longer fire while a control has focus, so Alt+Left still moves a text caret.)*
+- [x] S2.3.5 A buffered-range indicator for network streams (not designed; propose a subtle lighter band). *(A slightly lighter band ahead of the handle. libVLC 3 reports only how full its input cache is, not downloaded ranges, so the band covers that share of the 1 s network cache. Not checked against a real stream.)*
+- [x] S2.3.6 Accessible as a slider: it announces the current time and the duration. *(Role slider, "Seek", value in seconds and "00:02:10 of 00:25:40"; a tab stop with a focus ring. Not checked with VoiceOver.)*
 
 **Edge cases**
-- Unknown or zero duration: hide the handle and disable seeking, and show live-stream styling (a "LIVE" chip; not designed).
-- Non-seekable media (some HTTP streams): clicks do nothing and the cursor shows "not allowed".
+- Unknown or zero duration: hide the handle and disable seeking, and show live-stream styling (a "LIVE" chip; not designed). *(Done.)*
+- Non-seekable media (some HTTP streams): clicks do nothing and the cursor shows "not allowed". *(Done.)*
 - Seeking in a file without an index (AVI without an idx1 chunk, broken MKV cues): seeks are slow or inaccurate, so keep the UI responsive and show the position the engine actually reached.
 - The hover preview for audio-only media shows artwork or just the time. For DRM or corrupt regions, show a grey frame.
-- The preview decoder is slow (a 4K HEVC file on a weak CPU): show the time immediately and the frame when it's ready, and drop stale requests.
-- Very long media (10 h+): pixel resolution limits precision, so use fine-scrub (hold Shift while dragging for 1/10 speed).
-- Very short media (< 1 s): the whole bar maps to a few frames, with no division by zero.
-- Dragging the handle outside the window: keep the drag captured and clamp.
+- The preview decoder is slow (a 4K HEVC file on a weak CPU): show the time immediately and the frame when it's ready, and drop stale requests. *(Done; a picture taking over 3 s is given up.)*
+- Very long media (10 h+): pixel resolution limits precision, so use fine-scrub (hold Shift while dragging for 1/10 speed). *(Done.)*
+- Very short media (< 1 s): the whole bar maps to a few frames, with no division by zero. *(Done.)*
+- Dragging the handle outside the window: keep the drag captured and clamp. *(Done; checked on macOS.)*
 - A touch screen or pen on Windows: taps and drags work like mouse input. Hover isn't available, so show the preview while dragging.
 
 ---
@@ -664,18 +664,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.2  **Size:** S  **Design refs:** `current_time/*`, `duration/*`
 
 **Subtasks**
-- [ ] S2.4.1 Current time: hover shows a dark pill; click turns it into an editable field (bright digits, fixed colons, orange caret). Enter jumps, Escape or blur cancels.
-- [ ] S2.4.2 Accepted input: `hh:mm:ss`, `mm:ss`, plain seconds, `1h2m3s`, `+30`/`-30` (relative), and a percentage (`50%`). Show invalid input with an error tint and don't jump.
-- [ ] S2.4.3 Duration: click toggles between total and remaining (`-00:23:30`); the choice persists globally. Remaining time counts down live.
-- [ ] S2.4.4 Format: always `hh:mm:ss` as designed (`00:02:10`), growing to `hhh:mm:ss` beyond 99 h. Use tabular (monospaced) digits so the bar doesn't jitter.
+- [x] S2.4.1 Current time: hover shows a dark pill; click turns it into an editable field (bright digits, fixed colons, orange caret). Enter jumps, Escape or blur cancels. *(`control_bar/readouts.rs`, with the kit's `TextInput` in its new `Look::Bare`. The field opens with the time selected, so typing replaces it; the colons are typed, not a mask, because S2.4.2 accepts forms without them. Media that can't seek gets no pill and no field. Not checked on screen yet.)*
+- [x] S2.4.2 Accepted input: `hh:mm:ss`, `mm:ss`, plain seconds, `1h2m3s`, `+30`/`-30` (relative), and a percentage (`50%`). Show invalid input with an error tint and don't jump. *(`control_bar/time_entry.rs`. `+`/`-` take any of the other forms (`-1:00`, `+2m`); seconds may have a fraction. Invalid text turns red on a red-tinted pill until the next edit.)*
+- [x] S2.4.3 Duration: click toggles between total and remaining (`-00:23:30`); the choice persists globally. Remaining time counts down live. *(`prefs.interface.duration_readout`, `total` or `remaining`. Whole seconds of both readouts add up to the length.)*
+- [x] S2.4.4 Format: always `hh:mm:ss` as designed (`00:02:10`), growing to `hhh:mm:ss` beyond 99 h. Use tabular (monospaced) digits so the bar doesn't jitter. *(`clock.rs`; the `tnum` font feature, and the readouts are a fixed 72 px wide.)*
 
 **Edge cases**
-- Typing a time past the duration: clamp to the end (or reject; decide) and never seek past the end.
-- Typing a negative time: clamp to 0.
-- While editing, playback keeps advancing: freeze the field's text (don't overwrite what the user is typing).
-- Remaining time when the duration is unknown: show `--:--:--`, and the toggle is disabled.
-- At playback rates other than 1×, remaining time can show wall-clock remaining or media remaining (decide; VLC shows media time).
-- Locales with non-Latin digits: keep ASCII digits for time codes.
+- Typing a time past the duration: clamp to the end (or reject; decide) and never seek past the end. *(Decided: clamp; the player already clamps seeks to the length. Percentages over 100 % are the end too.)*
+- Typing a negative time: clamp to 0. *(Done: `-` is a jump back, which stops at the start.)*
+- While editing, playback keeps advancing: freeze the field's text (don't overwrite what the user is typing). *(Done; `+`/`-` jump from where playback is on Enter.)*
+- Remaining time when the duration is unknown: show `--:--:--`, and the toggle is disabled. *(Done.)*
+- At playback rates other than 1×, remaining time can show wall-clock remaining or media remaining (decide; VLC shows media time). *(Decided: media time.)*
+- Locales with non-Latin digits: keep ASCII digits for time codes. *(Done: shown and accepted digits are ASCII only.)*
 
 ---
 
@@ -684,21 +684,21 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S1.5, S0.4.5  **Size:** M  **Design refs:** `volume/volume-*.png`, `volume/audio_value.png`, `docs/icons/volume/*`, `docs/icons/media_controls/volume/*`
 
 **Subtasks**
-- [ ] S2.5.1 The wedge shape (narrow on the left, tall on the right, rounded left end) with a **position-locked gradient** (green `#78A613` → olive → amber `#9A7513` at 100% → orange → red `#C93129` at 200%).
-- [ ] S2.5.2 **Non-linear mapping** measured from the designs: 0–100% fills about 71% of the width and 100–200% the remaining 29%. Implement it as a piecewise-linear function with the breakpoint at 100%, so it extends cleanly when the maximum volume is 100% or 300% (Settings → Audio "Maximum volume").
-- [ ] S2.5.3 Value tooltip ("100 %") while dragging, scrolling or using the keyboard.
-- [ ] S2.5.4 Clicking the speaker toggles mute. The speaker icon changes with the level (none, low, medium, high, from `docs/icons/media_controls/volume/*`); the muted look isn't designed, so design it.
-- [ ] S2.5.5 Scroll wheel over the slider or the video (Settings → Controls mouse mapping), and Up/Down keys, in "Volume step" increments.
-- [ ] S2.5.6 Snap or detent at 100% while dragging (a soft magnet of about ±3%), so users don't drift into the boost range by accident.
-- [ ] S2.5.7 An OSD toast on the video when the volume changes by keyboard or scroll while the bar is hidden.
+- [x] S2.5.1 The wedge shape (narrow on the left, tall on the right, rounded left end) with a **position-locked gradient** (green `#78A613` → olive → amber `#9A7513` at 100% → orange → red `#C93129` at 200%). *(`main_window/volume_slider/wedge.rs`: 89×27.5 px, 10.5 px at the left end with 3 px corners, the fill inset 1.5 px; painted as paths, one two-stop gradient per stretch between stops, so colours belong to levels. A screenshot test compares 0/50/100/150/200% with the designs.)*
+- [x] S2.5.2 **Non-linear mapping** measured from the designs: 0–100% fills about 71% of the width and 100–200% the remaining 29%. Implement it as a piecewise-linear function with the breakpoint at 100%, so it extends cleanly when the maximum volume is 100% or 300% (Settings → Audio "Maximum volume"). *(`volume_slider/scale.rs`: each 100% of boost is 29/71 as long as 0–100%, so 100% sits at 71% of a 200% track, 91% of the default 125% track and 55% of a 300% one.)*
+- [x] S2.5.3 Value tooltip ("100 %") while dragging, scrolling or using the keyboard. *(The `audio_value.png` bubble over the wedge, while dragging and for 1 s after a key or the wheel.)*
+- [x] S2.5.4 Clicking the speaker toggles mute. The speaker icon changes with the level (none, low, medium, high, from `docs/icons/media_controls/volume/*`); the muted look isn't designed, so design it. *(None at 0%, low below 34%, medium below 67%, high above. Muted: the speaker struck through (`volume-muted.svg`) and the fill at a third of its opacity, so the level unmuting restores stays visible.)*
+- [x] S2.5.5 Scroll wheel over the slider or the video (Settings → Controls mouse mapping), and Up/Down keys, in "Volume step" increments. *(`prefs.controls.wheel`, `volume` or `nothing`, for the video; the wedge always takes the wheel. A wheel notch is one step; trackpad scrolling adds up 40 px per step, at most one step per event. With focus the wedge also takes Left/Right, Home (0%) and End (100%, not the boost).)*
+- [x] S2.5.6 Snap or detent at 100% while dragging (a soft magnet of about ±3%), so users don't drift into the boost range by accident. *(Drags set whole percents and hold at 100% from 97% to 103%.)*
+- [x] S2.5.7 An OSD toast on the video when the volume changes by keyboard or scroll while the bar is hidden. *(`main_window/osd.rs`: "Volume 80 %" at the video's top right for 1.5 s, whenever the control bar is hidden (S2.8).)*
 
 **Edge cases**
 - Maximum volume lowered below the current level (S5.8): clamp immediately.
-- Trackpad inertial scrolling sends dozens of events: accumulate deltas into steps (S5.6 edge case).
-- Changing the volume while muted: unmute, matching VLC behavior (decide and document).
+- Trackpad inertial scrolling sends dozens of events: accumulate deltas into steps (S5.6 edge case). *(Done.)*
+- Changing the volume while muted: unmute, matching VLC behavior (decide and document). *(Decided: it unmutes.)*
 - Hardware volume keys change the **OS** volume, not the app's; don't intercept them.
-- Volume at 0% isn't the same as muted: unmuting restores the previous level, and dragging up from 0 doesn't change the mute flag.
-- No audio device (S1.5): the slider is disabled and its tooltip explains why.
+- Volume at 0% isn't the same as muted: unmuting restores the previous level, and dragging up from 0 doesn't change the mute flag. *(Done.)*
+- No audio device (S1.5): the slider is disabled and its tooltip explains why. *(Done.)*
 
 ---
 
@@ -707,19 +707,19 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S1.6, S1.5, S0.4.6  **Size:** M  **Design refs:** `controls-video.png`, `controls-audio.png`, `controls-subtitles.png`
 
 **Subtasks**
-- [ ] S2.6.1 One popover with three tabs. The Audio button opens the Audio tab and the Subtitles button opens the Subtitles tab. **No bar button opens the Video tab in the design (nothing is highlighted in `controls-video.png`); decide on the entry point** (the recommendation: the tab is reachable from inside the popover and appears only when there are 2+ video tracks).
-- [ ] S2.6.2 **Embedded Tracks:** "None" plus each track, with a check on the selected one.
-- [ ] S2.6.3 Audio tab, **Output Device:** device list with a check, and a refresh icon to re-enumerate.
-- [ ] S2.6.4 Subtitles tab, **External Tracks:** loaded subtitle files with a pencil (edit: opens the Add Subtitles dialog, S6.4) and "+" (add from a file).
-- [ ] S2.6.5 The **Show Preferences** footer opens the matching tab of the settings panel (S2.7). **Write down the difference from "Open Advanced Settings"** (proposal: Show Preferences opens the in-player panel; Open Advanced Settings opens the Settings window category).
-- [ ] S2.6.6 Close on outside click, Escape, clicking the same button again, or opening another popover. Only one popover is open at a time.
+- [x] S2.6.1 One popover with three tabs. The Audio button opens the Audio tab and the Subtitles button opens the Subtitles tab. **No bar button opens the Video tab in the design (nothing is highlighted in `controls-video.png`); decide on the entry point** (the recommendation: the tab is reachable from inside the popover and appears only when there are 2+ video tracks). *(`main_window/track_popover.rs`. Decided as recommended (D22). 400×524 px, 20 px from the window's right edge and above the bar, shorter in a short window. The buttons show as on while their tab is open; from the overflow `…` menu the entries open the same popover. B and V still cycle tracks. Not checked on screen yet.)*
+- [x] S2.6.2 **Embedded Tracks:** "None" plus each track, with a check on the selected one. *(`track_popover/sections.rs`. Names are the S1.6 labels ("English — AC3 5.1"). Picking one counts as the user's pick, so auto-selection leaves that kind alone; the popover stays open. Subtitle files the user added are listed under External Tracks instead.)*
+- [x] S2.6.3 Audio tab, **Output Device:** device list with a check, and a refresh icon to re-enumerate. *("System default" first, then the devices; the check is on the device sound goes to. Picking one sets `local.audio.output_device`. Refresh asks the backend to list devices now (`Backend::refresh_audio_devices`) instead of at the next poll.)*
+- [x] S2.6.4 Subtitles tab, **External Tracks:** loaded subtitle files with a pencil (edit: opens the Add Subtitles dialog, S6.4) and "+" (add from a file). *(`Player::subtitle_files`: each file added to the media (a drop, "+") and the track it became; libVLC lists an added file after the media's own streams, so a file takes the last new subtitle track. "+" asks for files and adds the subtitle ones, naming the first that isn't. The pencil stays disabled until the Add Subtitles dialog exists (S6.4).)*
+- [x] S2.6.5 The **Show Preferences** footer opens the matching tab of the settings panel (S2.7). **Write down the difference from "Open Advanced Settings"** (proposal: Show Preferences opens the in-player panel; Open Advanced Settings opens the Settings window category). *(Decided as proposed: Show Preferences opens the in-player panel, which changes the playing media; Open Advanced Settings opens the Settings window's category, which holds the defaults. Show Preferences was disabled until S2.7 added the panel.)*
+- [x] S2.6.6 Close on outside click, Escape, clicking the same button again, or opening another popover. Only one popover is open at a time. *(The other button switches tabs. Opening either `…` menu closes the popover and the other way round. It also closes when the window loses focus (so the "+" file dialog closes it), when the media stops, and in fullscreen, which hides the bar until S2.8.)*
 
 **Edge cases**
-- The track list changes while the popover is open (S1.6 late tracks): update in place and keep the scroll position.
-- The selected output device disappears while the popover is open: move the check to the system default and show a note.
-- 50+ tracks: the list scrolls inside the popover with a maximum height that fits the window.
-- A small window height: the popover never extends above the title bar; it becomes scrollable instead.
-- Fullscreen with auto-hide: an open popover keeps the controls visible until it closes.
+- The track list changes while the popover is open (S1.6 late tracks): update in place and keep the scroll position. *(Done: drawn from the player every frame; each tab scrolls on its own.)*
+- The selected output device disappears while the popover is open: move the check to the system default and show a note. *(Done: "The chosen device isn't connected. Sound plays through the system default.")*
+- 50+ tracks: the list scrolls inside the popover with a maximum height that fits the window. *(Done.)*
+- A small window height: the popover never extends above the title bar; it becomes scrollable instead. *(Done.)*
+- Fullscreen with auto-hide: an open popover keeps the controls visible until it closes. *(Done in S2.8.)*
 
 ---
 
@@ -728,16 +728,16 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.6  **Size:** M  **Design refs:** `controls-playback.png`, and the Video, Audio and Subtitle settings screenshots (their content lands in Stages 6 and 7)
 
 **Subtasks**
-- [ ] S2.7.1 The panel opens from the gear button with tabs **Playback | Video | Audio | Subtitles**. It's taller than the track popover (945 px in the design), scrolls, and has a sticky footer on the Video, Audio and Subtitles tabs (**Default Preset ^** and **⚙ Open Advanced Settings**).
-- [ ] S2.7.2 Playback tab: **Speed**, a text field ("1x") plus a slider from 0.25 to 2 with ticks every 0.25 and labels. The tab also has these rows, implemented in later stories: **Show Subtitle Timeline on Seekbar** (S6.6), **Show Statistics** (S8.13), **Reverse** (S8.13), **Sleep Timer** (S8.13) and **Audio Visualizer** (S7.8). Until each story ships, its row is hidden, never a dead toggle.
-- [ ] S2.7.3 Speed shortcuts (VLC uses `[`/`]` and `=` to reset) and an OSD toast "Speed 1.25×".
-- [ ] S2.7.4 Speed persists for the session only by default. Settings → Playback "Default playback speed" (S5.7) is the default for each new item.
+- [x] S2.7.1 The panel opens from the gear button with tabs **Playback | Video | Audio | Subtitles**. It's taller than the track popover (945 px in the design), scrolls, and has a sticky footer on the Video, Audio and Subtitles tabs (**Default Preset ^** and **⚙ Open Advanced Settings**). *(`main_window/settings_panel.rs`; placement and surface shared with the track popover in `bar_panel.rs`. It closes like the popover, and only one of the two is open at a time; the popover's Show Preferences now opens the matching tab. Video, Audio and Subtitles say "Nothing to adjust here yet." until Stages 6 and 7. Default Preset waits for presets (S5.11) and Open Advanced Settings for the Settings window (S5.2), both disabled. Not checked on screen yet.)*
+- [x] S2.7.2 Playback tab: **Speed**, a text field ("1x") plus a slider from 0.25 to 2 with ticks every 0.25 and labels. The tab also has these rows, implemented in later stories: **Show Subtitle Timeline on Seekbar** (S6.6), **Show Statistics** (S8.13), **Reverse** (S8.13), **Sleep Timer** (S8.13) and **Audio Visualizer** (S7.8). Until each story ships, its row is hidden, never a dead toggle. *(`settings_panel/playback.rs`. The kit slider gained marks (ticks and labels) and a disabled state; it moves in 0.05 steps, Shift and PageUp/PageDown by 0.25.)*
+- [x] S2.7.3 Speed shortcuts (VLC uses `[`/`]` and `=` to reset) and an OSD toast "Speed 1.25×". *(`main_window/speed.rs`: `]` Faster and `[` Slower step to the next quarter (a typed 1.1 goes to 1.25 or 1); held, they repeat throttled. `=` is Normal speed.)*
+- [x] S2.7.4 Speed persists for the session only by default. Settings → Playback "Default playback speed" (S5.7) is the default for each new item. *(Decided: a launch starts at `prefs.player.default_speed` (1 by default; its row comes with S5.7); a picked speed carries from item to item for the rest of the session and is never saved, as in VLC.)*
 
 **Edge cases**
-- Speed typed outside the slider's range (0.1×, 8×): allow 0.25–4× in the field (the backend's sane range), keep the slider clamped, and show the value.
-- Speed typed as "1.5", "1,5" (a decimal comma), "1.5x" or "150%": accept them all.
-- A non-seekable live stream: speed is disabled (you can't fast-forward live).
-- Audio pitch correction at non-1× speeds is on (scaletempo); above 4× audio is muted.
+- Speed typed outside the slider's range (0.1×, 8×): allow 0.25–4× in the field (the backend's sane range), keep the slider clamped, and show the value. *(Done: `MAX_RATE` is now 4; typed values are clamped to 0.25–4.)*
+- Speed typed as "1.5", "1,5" (a decimal comma), "1.5x" or "150%": accept them all. *(Done, and `1.5×`; anything else turns the field red.)*
+- A non-seekable live stream: speed is disabled (you can't fast-forward live). *(Done: the controls are disabled and the keys do nothing.)*
+- Audio pitch correction at non-1× speeds is on (scaletempo); above 4× audio is muted. *(libVLC's time-stretch is on by default; speed stops at 4×.)*
 
 ---
 
@@ -746,18 +746,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S2.1, S1.4  **Size:** M  **Design refs:** `hide_ui/player_hide_ui.png`, Settings → Interface "Playback Controls"
 
 **Subtasks**
-- [ ] S2.8.1 Auto-hide after the "Hide after" delay (Settings → Interface, default 3 s, see S5.4) following the "Auto-hide the controls" mode (In fullscreen only, Always, Never). Mouse movement over the window shows the controls; the cursor hides along with them.
-- [ ] S2.8.2 **Hide UI** (Ctrl+\ and right-click → Hide UI): only the rounded video viewport with its 10 px margin remains (as designed). Exit with the same shortcut, Escape, or the right-click menu.
-- [ ] S2.8.3 The controls stay visible while: paused (configurable), the pointer is over the bar or a popover, a popover or menu is open, the seek bar is being dragged, or keyboard focus is in the bar.
-- [ ] S2.8.4 Fullscreen hides the title bar and keeps the control bar (subject to auto-hide). "Show controls in fullscreen" off means they never show in fullscreen, except on Escape or with the "Show interface controls in fullscreen" key (I).
+- [x] S2.8.1 Auto-hide after the "Hide after" delay (Settings → Interface, default 3 s, see S5.4) following the "Auto-hide the controls" mode (In fullscreen only, Always, Never). Mouse movement over the window shows the controls; the cursor hides along with them. *(`main_window/auto_hide.rs`, rules in `auto_hide/rules.rs`; `prefs.interface.auto_hide_controls` and `hide_controls_after_ms`, rows with S5.4. Decided: "Hide after" is clamped to 0.5–10 s, so 0 isn't allowed. Only video hides anything; the empty state keeps its bars. "Always" in a window floats both bars over the video, inset all round as in Hide UI, so showing them never resizes the video. One timer task on the monotonic clock. The cursor hides through the OS (`cursor.rs`: macOS and Windows; Linux keeps it, as GPUI can't hide it there) and only while the pointer is over the active window.)*
+- [x] S2.8.2 **Hide UI** (Ctrl+\ and right-click → Hide UI): only the rounded video viewport with its 10 px margin remains (as designed). Exit with the same shortcut, Escape, or the right-click menu. *(`main_window/hide_ui.rs`. The right-click menu on the video held only Hide UI / Show UI until S2.9.2. The macOS traffic lights hide with the title bar. Escape leaves Hide UI before fullscreen.)*
+- [x] S2.8.3 The controls stay visible while: paused (configurable), the pointer is over the bar or a popover, a popover or menu is open, the seek bar is being dragged, or keyboard focus is in the bar. *(Also while stopped or opening, and while the volume wedge is dragged. `prefs.interface.keep_controls_while_paused` (on by default) is the "configurable"; its row comes with S5.4. Keyboard focus counts while the last input was a key, so Tab brings the bars back; a mouse move ends it. When a hold ends the delay starts over; a button clicked before the bars hide hands the keyboard back to the player.)*
+- [x] S2.8.4 Fullscreen hides the title bar and keeps the control bar (subject to auto-hide). "Show controls in fullscreen" off means they never show in fullscreen, except on Escape or with the "Show interface controls in fullscreen" key (I). *(`prefs.interface.show_controls_in_fullscreen`, row with S5.4. The control bar floats over the edge-to-edge video. Escape leaves fullscreen, which brings them back; I shows them until the pointer next rests, and also wakes auto-hidden controls in a window. The track popover and settings panel now work in fullscreen. Held keys are forgotten when fullscreen switches, as macOS drops the key-up of the key that switched it, which made the next Escape or F do nothing. Checked on macOS: fullscreen shows the bar for the delay then hides it, a mouse move and I bring it back, Cmd+\ and Escape enter and leave Hide UI. The right-click menu, drag-to-move and the held-bar cases were not driven on screen.)*
 
 **Edge cases**
-- The mouse rests over the hidden control bar area: it doesn't flicker (hysteresis on show and hide).
-- A second monitor: moving the mouse on another screen doesn't wake the controls.
-- Hide UI mode while a modal or the Settings window is open: the modals still show.
-- In Hide UI mode the window has no title bar to drag, so dragging the video moves the window (Windows and Linux) and the OS still allows resizing at the edges.
-- Fullscreen plus Hide UI plus a keyboard-only user: there must always be a keyboard way back (Escape).
-- A trackpad tap-to-click on the video when single click = Play/Pause: don't also wake the controls in a way that eats the click.
+- The mouse rests over the hidden control bar area: it doesn't flicker (hysteresis on show and hide). *(Moves under 4 px don't count, and the pointer over a bar holds it up.)*
+- A second monitor: moving the mouse on another screen doesn't wake the controls. *(Moves outside the window are ignored, and the cursor is only hidden while over the window.)*
+- Hide UI mode while a modal or the Settings window is open: the modals still show. *(Only the bars and what hangs off them hide; toasts and modals stay.)*
+- In Hide UI mode the window has no title bar to drag, so dragging the video moves the window (Windows and Linux) and the OS still allows resizing at the edges. *(Done on macOS and Linux; GPUI can't start a window move on Windows, so there it doesn't drag yet.)*
+- Fullscreen plus Hide UI plus a keyboard-only user: there must always be a keyboard way back (Escape). *(Escape leaves Hide UI, then fullscreen.)*
+- A trackpad tap-to-click on the video when single click = Play/Pause: don't also wake the controls in a way that eats the click. *(Only moves wake them, never a press, and they show at the edges, not over the video's middle.)*
 
 ---
 
@@ -766,18 +766,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S0.4.7, S0.5  **Size:** M  **Design refs:** `menus/main_menu/menu.png`, `menus/right_click_menu/right_click_menu.png`, `menus/profiles/profiles.png`
 
 **Subtasks**
-- [ ] S2.9.1 Main menu (from `…`): Open File(s) · Open Folder · Open Network Stream · Open Disc · Open Capture Device · Convert · Open Recent ▸ · Profile (*current*) ▸ · Keyboard Shortcuts · Customize Player · Settings · About VLC, with the shortcuts shown in the design.
-- [ ] S2.9.2 Right-click on the video: Play · Stop · Previous Item · Next Item · Record · Hide UI · Playback ▸ · Video ▸ · Audio ▸ · Subtitle ▸ · More Settings ▸ · Playlist ▸ · Open Media ▸ · Quit VLC.
-- [ ] S2.9.3 **Write the submenu contents** (none are designed): Open Recent (last N items plus "Clear"), Playback (speed, jump to time, chapters, A-B loop?), Video (track, aspect, crop, zoom, fullscreen, snapshot), Audio (track, device, stereo mode, visualizer), Subtitle (track, add file, delay), Playlist (repeat, shuffle, show queue), Open Media (the open actions).
-- [ ] S2.9.4 Items not implemented yet (Convert, Disc, Capture, Profiles, Customize, Record) are **hidden**, not shown disabled, until their stories ship.
-- [ ] S2.9.5 On macOS the same commands also appear in the native menu bar (S0.5.4).
-- [ ] S2.9.6 **About VLC** dialog (not designed): version, backend and libVLC version, licenses, credits (see S9.9).
+- [x] S2.9.1 Main menu (from `…`): Open File(s) · Open Folder · Open Network Stream · Open Disc · Open Capture Device · Convert · Open Recent ▸ · Profile (*current*) ▸ · Keyboard Shortcuts · Customize Player · Settings · About VLC, with the shortcuts shown in the design. *(`main_window/main_menu.rs` from `keymap::menus::MAIN_MENU`. Shortcuts are the D3 keymap's, not the design's Ctrl+F/Ctrl+C. For now it shows Open File(s), Open Folder, Open Recent, Run Setup Again, About VLC and Copy Debug Info; the rest are pending (S2.9.4).)*
+- [x] S2.9.2 Right-click on the video: Play · Stop · Previous Item · Next Item · Record · Hide UI · Playback ▸ · Video ▸ · Audio ▸ · Subtitle ▸ · More Settings ▸ · Playlist ▸ · Open Media ▸ · Quit VLC. *(`main_window/video_menu.rs`. Play reads Pause while playing, Hide UI reads Show UI in Hide UI mode. Items run the command as its key does, without the held-key gate. Record (S8.6) is hidden until its story ships; Playlist came with S3.2; Repeat, Shuffle, Stop After Each Item and When Playback Finishes joined it with S3.3. New icons: stop, playback, quit, and a drawn Hide UI icon.)*
+- [x] S2.9.3 **Write the submenu contents** (none are designed): Open Recent (last N items plus "Clear"), Playback (speed, jump to time, chapters, A-B loop?), Video (track, aspect, crop, zoom, fullscreen, snapshot), Audio (track, device, stereo mode, visualizer), Subtitle (track, add file, delay), Playlist (repeat, shuffle, show queue), Open Media (the open actions). *(`video_menu/playback.rs` and `video_menu/media.rs`. Decided: **Playback:** Speed ▸ (0.25× to 2× in quarters, then Faster, Slower, Normal Speed), Chapter ▸ when there are chapters, Jump Forward, Jump Backward, Jump to Time… (opens the current-time field, S2.4). **Video:** Video Track ▸, Fullscreen. **Audio:** Audio Track ▸, Audio Device ▸, Stereo Mode ▸ (Automatic or Stereo, the "Speaker setup" setting), Mute, Increase/Decrease Volume. **Subtitle:** Subtitle Track ▸, Add Subtitle File…, Increase/Decrease Delay (50 ms, said over the video), Reset Delay. **More Settings:** the settings panel's four tabs (S2.7). **Open Media:** Open File(s), Open Folder, Open from Clipboard, Open Recent ▸. Open Recent lists the recent media and Clear Recent (S1.3.5). Left out until the engine or their stories have them: A-B loop, aspect, crop, zoom, snapshot (S8.4), visualizer (S7.8), Playlist (S3).)*
+- [x] S2.9.4 Items not implemented yet (Convert, Disc, Capture, Profiles, Customize, Record) are **hidden**, not shown disabled, until their stories ship. *(`keymap::menus::PENDING` lists them, plus Open Network Stream (S4.11), Settings (S5.2), Snapshot (S8.4) and the queue (S3.2, since shipped); S2.10 added the file browser (S4.10) and Next program (S8.9) and shipped Keyboard Shortcuts. Remove a command there when it ships. Both menus and the macOS bar filter by it.)*
+- [x] S2.9.5 On macOS the same commands also appear in the native menu bar (S0.5.4). *(New Playback, Audio, Subtitle and View menus. Commands with plain-key shortcuts (Space, S, F, …) go through the `FromMenuBar` action and show no shortcut there, because macOS would fire a plain key equivalent inside text fields. The bar is static, so it says "Play / Pause" and has no track or recent lists. Not checked on macOS yet.)*
+- [x] S2.9.6 **About VLC** dialog (not designed): version, backend and libVLC version, licenses, credits (see S9.9). *(`main_window/about.rs`: a kit dialog with the version, "Playback engine: libVLC 3.0.x", the MIT and LGPL notes, credits, and Copy Debug Info. Shift+F1, the `…` menu and the macOS VLC menu open it. Debug info now reports the real libVLC version; crash reports report it only if libVLC was already loaded.)*
 
 **Edge cases**
-- The shortcut labels in the menus come from the keymap (S0.5.3), so they're never stale and show ⌘ on macOS.
-- A menu opened with the keyboard (Shift+F10 or the context-menu key) appears at the focused element, not at the mouse.
-- A right-click while a popover is open closes the popover first.
-- Disabled items explain why on hover ("No media playing").
+- The shortcut labels in the menus come from the keymap (S0.5.3), so they're never stale and show ⌘ on macOS. *(Done.)*
+- A menu opened with the keyboard (Shift+F10 or the context-menu key) appears at the focused element, not at the mouse. *(Done: the new Show context menu command opens the video menu inside the video's top-left corner with its first item highlighted. GPUI reports the context-menu key only on Windows.)*
+- A right-click while a popover is open closes the popover first. *(Done: popovers and the other menus close, then the menu opens.)*
+- Disabled items explain why on hover ("No media playing"). *(Done: the kit menu's `why_disabled` shows a tooltip on a disabled item or empty submenu.)*
 
 ---
 
@@ -786,16 +786,16 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S0.5, S2.2  **Size:** M  **Design refs:** onboarding step 3, `dialogs/keyboard_shortcuts/keyboard_shortcuts.png`
 
 **Subtasks**
-- [ ] S2.10.1 Defaults from Settings → Controls: single click = Play/Pause, double click = Toggle fullscreen, wheel = Volume, horizontal wheel = Seek.
-- [ ] S2.10.2 OSD (on-screen display) toasts in the top-left of the video for volume, seek target, speed, track changes and "T" (Show playback position and time). Not designed; design them and respect "reduce motion".
-- [ ] S2.10.3 Wire every onboarding shortcut: Space, ←/→, `<`/`>` (or N/P, see D3), `,`/`.` (frame step), V, B, F, ↑/↓, Q, L, Shift+S, Shift+R. Each one works or, until its feature lands, shows "Coming soon" in debug builds only.
-- [ ] S2.10.4 The Keyboard Shortcuts dialog, read-only in this stage (editing is S5.6): search, sections, Action | Hotkey | Global Hotkey columns. It's the "full list in the menu" that onboarding promises.
+- [x] S2.10.1 Defaults from Settings → Controls: single click = Play/Pause, double click = Toggle fullscreen, wheel = Volume, horizontal wheel = Seek. *(`main_window/video_mouse.rs`; `prefs.controls.click`, `double_click` and `horizontal_wheel`, rows with S5.6. Sideways scrolling seeks by the very short skip per step, left is back; a scroll goes to the axis it mostly moves along (`main_window/wheel.rs`). A click that closes a popover or menu, activates the window, or lands on a bar floating over the video does nothing to playback. Not checked on screen yet.)*
+- [x] S2.10.2 OSD (on-screen display) toasts in the top-left of the video for volume, seek target, speed, track changes and "T" (Show playback position and time). Not designed; design them and respect "reduce motion". *(`main_window/osd.rs`: the volume bubble's look in the video's top-left corner, fading in over 120 ms unless motion is reduced. Seeks say how far and where they landed ("+10 s · 00:01:23 / 00:45:00"), T the position and length; B and V now name the track here instead of in a toast. The volume still shows in its bubble while the control bar is up.)*
+- [x] S2.10.3 Wire every onboarding shortcut: Space, ←/→, `<`/`>` (or N/P, see D3), `,`/`.` (frame step), V, B, F, ↑/↓, Q, L, Shift+S, Shift+R. Each one works or, until its feature lands, shows "Coming soon" in debug builds only. *(`,` and `.` step frames (`main_window/frame_step.rs`); L (S4.10), Shift+S (S8.4), Shift+R (S8.6) and X (S8.9) are in `keymap::menus::PENDING` and say "Coming soon: …" over the video in debug builds; Q shows the queue since S3.2. A test checks every onboarding key either works or is pending.)*
+- [x] S2.10.4 The Keyboard Shortcuts dialog, read-only in this stage (editing is S5.6): search, sections, Action | Hotkey | Global Hotkey columns. It's the "full list in the menu" that onboarding promises. *(`main_window/shortcuts_dialog.rs`, sections in `keymap::sections`. The search finds every word in the names, the keys or both (All Fields, Action, Hotkey); keys match however they're spaced. No pencils or Save; Close only. Global Hotkey is empty, as there are none yet. Pending commands are left out. Opens from the `…` menu and the macOS app menu. The kit dialog gained a width and a toolbar that doesn't scroll.)*
 
 **Edge cases**
-- Frame stepping (`,`/`.`): stepping backwards needs a seek to the previous keyframe and decoding forward (slow on long GOPs), so show a spinner if it takes more than 200 ms. Frame step pauses playback.
-- Double-click timing between the single-click and double-click actions (S5.6 edge case).
-- Seeking with the arrow keys past the end goes to the end and fires `Ended` once. Past the start clamps to 0.
-- Caps Lock is on: `S` must not become Shift+S (Snapshot) instead of Stop. Match on the shift modifier, not letter case.
+- Frame stepping (`,`/`.`): stepping backwards needs a seek to the previous keyframe and decoding forward (slow on long GOPs), so show a spinner if it takes more than 200 ms. Frame step pauses playback. *(Done: "Stepping…" with a spinner in the OSD's place, still when motion is reduced.)*
+- Double-click timing between the single-click and double-click actions (S5.6 edge case). *(While a double click means something, a single click waits 300 ms and a second click cancels it; with double click set to nothing it acts at once.)*
+- Seeking with the arrow keys past the end goes to the end and fires `Ended` once. Past the start clamps to 0. *(The player clamps jumps (S2.3.4).)*
+- Caps Lock is on: `S` must not become Shift+S (Snapshot) instead of Stop. Match on the shift modifier, not letter case. *(Covered by `keymap/tests/layouts.rs`.)*
 
 ---
 
@@ -826,18 +826,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S1.2  **Size:** M
 
 **Subtasks**
-- [ ] S3.1.1 A `Queue` entity: an ordered list of items (local file, URL, disc), the current index, and play history (for Previous under shuffle).
-- [ ] S3.1.2 Opening media **replaces** the queue by default; "Enqueue" (Add to Queue, `--enqueue`, Shift+drop) **appends**; "Play next" inserts after the current item.
-- [ ] S3.1.3 Opening one file from a folder optionally queues its siblings in natural order (a setting, on for TV episodes). Settings → Library "When opening a folder: Include subfolders" (S5.9) controls recursion.
-- [ ] S3.1.4 Auto-advance on `Ended`; on `Error`, skip to the next item with a toast ("Couldn't play X, skipped"), and stop after N consecutive failures (for example 5) to avoid spinning through a broken list.
+- [x] S3.1.1 A `Queue` entity: an ordered list of items (local file, URL, disc), the current index, and play history (for Previous under shuffle). *(`src/queue.rs`, without GPUI; the main window owns one. Entries carry ids, so history and duplicates survive moves. Discs join `Media` with S8.9. The play history became shuffle's (S3.3).)*
+- [x] S3.1.2 Opening media **replaces** the queue by default; "Enqueue" (Add to Queue, `--enqueue`, Shift+drop) **appends**; "Play next" inserts after the current item. *(`Placement::PlayNext` joins `Replace` and `Enqueue`. Add to Queue… and Play Next… are in the video menu's Open Media ▸ and pick files; added items start only when nothing is playing.)*
+- [x] S3.1.3 Opening one file from a folder optionally queues its siblings in natural order (a setting, on for TV episodes). Settings → Library "When opening a folder: Include subfolders" (S5.9) controls recursion. *(`opening/siblings.rs`. `prefs.player.queue_siblings`: `never`, `episodes` (default: a file named `S01E02` or `1x02` queues the folder's other episodes, nothing else) or `always`. `prefs.library.include_subfolders` (default on) applies to opened folders too. Only a single file opened in place of the queue does this; its row comes with S5.7 and S5.9.)*
+- [x] S3.1.4 Auto-advance on `Ended`; on `Error`, skip to the next item with a toast ("Couldn't play X, skipped"), and stop after N consecutive failures (for example 5) to avoid spinning through a broken list. *(`main_window/queue_play.rs` and `queue/skips.rs`: 5 in a row, counted until something reaches Playing. The last item's error stays on screen with no skip.)*
 
 **Edge cases**
-- The queue contains the same file twice: allowed, and each entry is independent.
-- The currently playing item is removed from the queue: playback continues and the item stays in history (decide); or stop (VLC behavior).
-- The queue is replaced while the current item is buffering: cancel cleanly (S1.2 generation id).
-- An item's file is deleted before it's reached: skip it with a toast.
-- 10,000 items (a dropped music folder): operations are O(1) or O(log n) where possible, and the UI is virtualized.
-- Queue items that are playlist files (`.m3u`): expand them (S1.3.4), with cycle detection (A includes B includes A) and a depth limit.
+- The queue contains the same file twice: allowed, and each entry is independent. *(Done.)*
+- The currently playing item is removed from the queue: playback continues and the item stays in history (decide); or stop (VLC behavior). *(Decided: playback continues, and Next plays the item that took its place. The panel's Delete does this (S3.2).)*
+- The queue is replaced while the current item is buffering: cancel cleanly (S1.2 generation id). *(Done: the new open takes a new generation.)*
+- An item's file is deleted before it's reached: skip it with a toast. *(Done: the engine's preflight fails it and the queue skips it.)*
+- 10,000 items (a dropped music folder): operations are O(1) or O(log n) where possible, and the UI is virtualized. *(Lookups and Next/Previous are O(1); insert and remove move the items after them. The queue panel's list is virtualized (S3.2).)*
+- Queue items that are playlist files (`.m3u`): expand them (S1.3.4), with cycle detection (A includes B includes A) and a depth limit. *(Done in S1.3.4; every placement resolves the same way.)*
 
 ---
 
@@ -846,18 +846,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1, S0.4.11  **Size:** M  **Design refs:** `controls-queue.png`, `miniplayer-variant2.png`
 
 **Subtasks**
-- [ ] S3.2.1 The List panel (tabs **Queue | Bookmarks | Chapters**) opens from the List button and **Q**.
-- [ ] S3.2.2 Header: "N items - Xh Ym" (count and total duration) · sort · repeat · shuffle · "−" (remove selected) · "+" (add files).
-- [ ] S3.2.3 Rows: drag handle, name and duration. Drag to reorder; double-click to play; Delete removes; multi-select. **The current-item highlight isn't designed; add one.**
-- [ ] S3.2.4 Drop files from the OS or library onto the panel to insert them at the drop position.
-- [ ] S3.2.5 Sort the queue (by name, duration, date added, shuffle once) as a one-time reorder, not a persistent sort mode.
+- [x] S3.2.1 The List panel (tabs **Queue | Bookmarks | Chapters**) opens from the List button and **Q**. *(`main_window/queue_panel.rs`, in the settings panel's place: opening one closes the other. It stays open while the video is used; the List button, Q and Escape close it, and it keeps the bar up. Bookmarks (S8.3) and Chapters (S8.2) say they come later. The video menu's Playlist ▸ has Show/Hide Queue and Clear Queue.)*
+- [x] S3.2.2 Header: "N items - Xh Ym" (count and total duration) · sort · repeat · shuffle · "−" (remove selected) · "+" (add files). *(`queue_panel/header.rs`, `queue/lengths.rs`. Lengths come from a background libVLC probe of local files' headers (`engine/lengths.rs`), started when the panel first opens, and from the player for what plays. Repeat and Shuffle came with S3.3. "+" is Add to Queue.)*
+- [x] S3.2.3 Rows: drag handle, name and duration. Drag to reorder; double-click to play; Delete removes; multi-select. **The current-item highlight isn't designed; add one.** *(`queue_panel/rows.rs` on `uniform_list`; the current item's name is in the accent with an accent bar at its left. Click, Ctrl/Cmd+click, Shift+click; arrows, Home/End, PageUp/PageDown (Shift extends), Ctrl/Cmd+A, Enter plays, Delete/Backspace remove. Dragging a selected row moves the whole selection.)*
+- [x] S3.2.4 Drop files from the OS or library onto the panel to insert them at the drop position. *(OS drops are resolved like any open (folders, playlists) and inserted before the row under the gap; a line shows the gap. Library drops come with Stage 4.)*
+- [x] S3.2.5 Sort the queue (by name, duration, date added, shuffle once) as a one-time reorder, not a persistent sort mode. *(`queue/order.rs`: natural name order, unknown durations last, stable.)*
 
 **Edge cases**
-- The total duration with unknown durations: show the known sum plus "+" and compute the rest lazily. **The mock "2h 3m" disagrees with its rows (1h 35m); always compute it.**
-- "−" with nothing selected: disabled.
-- Reordering the currently playing item: playback continues.
-- Dragging a row out of the panel: cancel the drag, never delete silently.
-- Removing all items while one is playing: decide whether playback stops (recommended: playback continues until the current item ends).
+- The total duration with unknown durations: show the known sum plus "+" and compute the rest lazily. **The mock "2h 3m" disagrees with its rows (1h 35m); always compute it.** *(Done: "4 items - 1h 12m+"; the mock's rows add up to 1h 34m.)*
+- "−" with nothing selected: disabled. *(Done; Sort is disabled below two items.)*
+- Reordering the currently playing item: playback continues. *(Done: the current entry is followed by id.)*
+- Dragging a row out of the panel: cancel the drag, never delete silently. *(Done.)*
+- Removing all items while one is playing: decide whether playback stops (recommended: playback continues until the current item ends). *(Decided as recommended.)*
 
 ---
 
@@ -866,17 +866,17 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1  **Size:** S  **Design refs:** queue header icons, `docs/icons/media_controls/repeat/*` and `shuffle/*`, Settings → Playback "Order"
 
 **Subtasks**
-- [ ] S3.3.1 Repeat: Off → All → One (a cycling button with three visible states; the ON states aren't designed).
-- [ ] S3.3.2 Shuffle: a random permutation without repeats until every item has played, then a fresh permutation (avoid playing the same item twice across the boundary). Previous under shuffle follows the history.
-- [ ] S3.3.3 Stop after each item (Settings → Playback), and "When playback finishes" (Stop, Close the player, Quit, …).
-- [ ] S3.3.4 The queue buttons and Settings → Playback write the **same** state.
+- [x] S3.3.1 Repeat: Off → All → One (a cycling button with three visible states; the ON states aren't designed). *(`queue/repeat.rs`. The queue header's button shows All and One as on, One with a drawn 1 inside the arrows (`repeat-one.svg`); its tooltip and an OSD message name the mode. Repeat All wraps Next and Previous; Repeat One replays at an item's natural end. Also a command (no default key) and Playlist ▸ Repeat ▸ in the video menu.)*
+- [x] S3.3.2 Shuffle: a random permutation without repeats until every item has played, then a fresh permutation (avoid playing the same item twice across the boundary). Previous under shuffle follows the history. *(`queue/shuffle.rs`, kept by entry id so moving and sorting rows don't disturb it. Previous goes back through what played and Next then returns. Without Repeat All, the queue stops once every item has played. Opening media plays what was opened; the rest is shuffled. The queue's history moved here from S3.1.)*
+- [x] S3.3.3 Stop after each item (Settings → Playback), and "When playback finishes" (Stop, Close the player, Quit, …). *(`prefs.player.stop_after_each_item` and `prefs.player.when_finished` (`stop` or `quit`), in Playlist ▸ until Settings → Playback (S5.7). After a stop, Play goes on to the next item. Decided: "Close the player" joins with the library (Stage 4), the place it would close to; sleep and shut down aren't offered.)*
+- [x] S3.3.4 The queue buttons and Settings → Playback write the **same** state. *(Repeat and Shuffle live in `Queue`; the header buttons, the commands and the video menu all change them through `main_window/play_order.rs`, which Settings → Playback (S5.7) uses too. They persist with the session (S3.4, since shipped).)*
 
 **Edge cases**
-- Shuffle switched on mid-queue: the current item stays current and the rest is shuffled.
-- Items added during shuffle: insert them at random positions in the remaining permutation.
-- Repeat One plus Next: Next still moves to the next item (Repeat One only applies to natural end).
-- A one-item queue with Repeat All behaves like Repeat One.
-- A queue where every item fails while Repeat All is on: stop after N failures (S3.1.4), never loop forever.
+- Shuffle switched on mid-queue: the current item stays current and the rest is shuffled. *(Done.)*
+- Items added during shuffle: insert them at random positions in the remaining permutation. *(Done.)*
+- Repeat One plus Next: Next still moves to the next item (Repeat One only applies to natural end). *(Done; a failed item is skipped, not retried.)*
+- A one-item queue with Repeat All behaves like Repeat One. *(Done, shuffled or not.)*
+- A queue where every item fails while Repeat All is on: stop after N failures (S3.1.4), never loop forever. *(Done: the skip count doesn't care about Repeat.)*
 
 ---
 
@@ -885,13 +885,13 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1, S1.7  **Size:** S
 
 **Subtasks**
-- [ ] S3.4.1 Persist the queue, the current item and its position, repeat and shuffle state on change (debounced) and on quit.
-- [ ] S3.4.2 On launch, restore the queue paused at the saved position (don't autoplay); it's controlled by a setting.
+- [x] S3.4.1 Persist the queue, the current item and its position, repeat and shuffle state on change (debounced) and on quit. *(`src/session.rs`: `session.toml` next to `local.toml`, written atomically like the settings on a `session` thread that keeps only the newest snapshot; quitting waits for it. `main_window/session.rs` watches the window: a change is written after 1 s, the playing position every 15 s, and starting to play an item at once (`session/cadence.rs`). Not saved, and forgotten, while "Save recently played items" is off.)*
+- [x] S3.4.2 On launch, restore the queue paused at the saved position (don't autoplay); it's controlled by a setting. *(`prefs.player.restore_session` ("Continue where you left off", default on; its row comes with S5.7). The engine gained `Player::open_at` with libVLC's `start-time` and `start-paused`, so nothing plays or sounds before the position; no resume toast for it. Files opened at launch replace the session; `--enqueue` adds to it. Play with nothing loaded plays the current item. Rules in `session/restore.rs`.)*
 
 **Edge cases**
-- Restored items that are offline or missing are kept but greyed.
-- A crash loop caused by a restored item (the file crashes the decoder): if the last session ended in a crash while playing item X, don't auto-load X, and show "VLC closed unexpectedly while playing X".
-- A restored URL has expired: the error appears only when the user plays it.
+- Restored items that are offline or missing are kept but greyed. *(Done: checked in the background at launch; one that plays later stops being greyed. A missing current item waits for Play instead of showing an error.)*
+- A crash loop caused by a restored item (the file crashes the decoder): if the last session ended in a crash while playing item X, don't auto-load X, and show "VLC closed unexpectedly while playing X". *(Done: the snapshot says whether an item was playing, written the moment it starts and cleared by pause, stop and quit; a launch that finds it set leaves X current but unloaded, with that toast. A `kill -9` while playing counts too. With multiple instances allowed, the last to save wins.)*
+- A restored URL has expired: the error appears only when the user plays it. *(Done: URLs are never loaded on restore.)*
 
 ---
 
@@ -900,21 +900,21 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1, S4.1  **Size:** M  **Design refs:** `docs/ui/dialogs/new_playlist/new_playlist.png`, `sidebar-playlists.png`, `media_cards/playlist-*`
 
 **Subtasks**
-- [ ] S3.5.1 The New Playlist dialog: **Playlist Details** (title field, placeholder "e.g., Favorite Videos", and a thumbnail picker "+"), **Select Files** (a dashed drop zone "Drag files into the box or click here to select files." plus "+"), Cancel and Save. Save is enabled once the title is non-empty.
-- [ ] S3.5.2 Playlists in the library (Playlists section): "+ Create playlist", rows with the playlist glyph, hover `•••` and the playlist context menu (S4.8.3).
-- [ ] S3.5.3 Open a playlist: a list view with reordering, removing, and adding items (not designed; reuse the queue row style).
-- [ ] S3.5.4 Rename, delete (with confirmation and undo), and duplicate.
-- [ ] S3.5.5 "Add to Playlist" from the file menu and the queue ("Save queue as playlist").
-- [ ] S3.5.6 The playlist thumbnail is a custom image, or an automatic 2×2 collage of its first items' thumbnails.
+- [x] S3.5.1 The New Playlist dialog: **Playlist Details** (title field, placeholder "e.g., Favorite Videos", and a thumbnail picker "+"), **Select Files** (a dashed drop zone "Drag files into the box or click here to select files." plus "+"), Cancel and Save. Save is enabled once the title is non-empty. *(`main_window/new_playlist.rs`, with a screenshot test against the design. The whole drop zone is the "+": click it, or Enter on it, to pick files. Playlists are rows in `library.db` (migration 2, `db/playlists.rs`), kept by location like the session's queue, and written on the history thread, which owns the database (`src/playlists.rs`). New Playlist and Save Queue as Playlist are commands (no default keys), in the macOS File menu and the video menu's Playlist ▸.)*
+- [ ] S3.5.2 Playlists in the library (Playlists section): "+ Create playlist", rows with the playlist glyph, hover `•••` and the playlist context menu (S4.8.3). *(Comes with Stage 4, which builds the library. Until then the video menu's Playlist ▸ Saved Playlists ▸ lists each playlist with Play, Add to Queue, Rename…, Duplicate and Delete….)*
+- [ ] S3.5.3 Open a playlist: a list view with reordering, removing, and adding items (not designed; reuse the queue row style). *(Comes with the library's Playlists section (S3.5.2). Adding items works now: Add to Playlist ▸.)*
+- [x] S3.5.4 Rename, delete (with confirmation and undo), and duplicate. *(`main_window/saved_playlists.rs`. Delete asks first, then its toast has Undo, which puts the playlist back with the same id. A duplicate is numbered like a taken title.)*
+- [x] S3.5.5 "Add to Playlist" from the file menu and the queue ("Save queue as playlist"). *(Until the library's file menu (S4.8.1) exists, the video menu's Playlist ▸ has Add to Playlist ▸ for the playing item (a saved playlist, or New Playlist… holding it) and Save Queue as Playlist…, which opens the dialog with the queue's items. S4.8.1 reuses `MainWindow::add_to_playlist`.)*
+- [ ] S3.5.6 The playlist thumbnail is a custom image, or an automatic 2×2 collage of its first items' thumbnails. *(The custom image is picked, checked and saved with the playlist; showing it, and the collage, need the thumbnail cache (S4.4) and a place that shows playlists (S3.5.2).)*
 
 **Edge cases**
-- Duplicate playlist names: allowed but warned, or auto-suffixed (decide).
-- A title with leading or trailing spaces, only whitespace, or 500 characters: trim it, require at least one visible character, cap at about 100 characters.
-- A thumbnail image that is huge, animated (GIF or WebP), corrupt, or not an image: validate it, take the first frame, and downscale.
-- A playlist item whose file is moved: resolve it by content hash (S1.7.2), otherwise show it as missing with "Locate…".
-- An empty playlist: allowed, with an empty state.
-- Dropping 1,000 files into the dialog's drop zone: add them asynchronously with a progress indicator; Save stays disabled until adding is finished.
-- Cancel with unsaved changes: confirm discarding when files were added.
+- Duplicate playlist names: allowed but warned, or auto-suffixed (decide). *(Decided: auto-suffixed, "Mix (2)", ignoring case, for new, renamed and duplicated playlists (`playlists/title.rs`).)*
+- A title with leading or trailing spaces, only whitespace, or 500 characters: trim it, require at least one visible character, cap at about 100 characters. *(Done: zero-width characters don't count as visible; the field stops at 100.)*
+- A thumbnail image that is huge, animated (GIF or WebP), corrupt, or not an image: validate it, take the first frame, and downscale. *(Validated now, by content and under 25 MB (`playlists/thumbnail.rs`); the first frame and downscaling come with the thumbnail cache (S3.5.6).)*
+- A playlist item whose file is moved: resolve it by content hash (S1.7.2), otherwise show it as missing with "Locate…". *(Comes with the playlist view (S3.5.3); a missing item fails and is skipped like any queued file (S3.1.4).)*
+- An empty playlist: allowed, with an empty state. *(Allowed; its menu says it is empty and disables Play and Add to Queue. The view's empty state comes with S3.5.3.)*
+- Dropping 1,000 files into the dialog's drop zone: add them asynchronously with a progress indicator; Save stays disabled until adding is finished. *(Done: they resolve in the background like any open (folders, playlist files); the zone says "Adding files…" and then how many will be added.)*
+- Cancel with unsaved changes: confirm discarding when files were added. *(Done for Cancel, ✕ and Escape; files that came from the queue don't count as added.)*
 
 ---
 
@@ -923,15 +923,15 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.5  **Size:** S  **Design refs:** playlist context menu "Export Playlist"
 
 **Subtasks**
-- [ ] S3.6.1 Export to `.m3u8` (UTF-8, `#EXTINF` with duration and title) and `.xspf`, with relative or absolute paths (an option in the save dialog).
-- [ ] S3.6.2 Import `.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue` and `.asx` by drag, open, or library "Add".
+- [x] S3.6.1 Export to `.m3u8` (UTF-8, `#EXTINF` with duration and title) and `.xspf`, with relative or absolute paths (an option in the save dialog). *(`playlists/export.rs`; Saved Playlists ▸ each playlist ▸ Export… until the playlist context menu (S4.8.3). The native save dialog can't hold options, so a small dialog asks for the format (M3U8 | XSPF) and "Relative paths" (default on) first; a name typed with the other extension gets that format. Durations come from the history (unknown is `-1` / no `<duration>`); titles are file names. A file with no relative path (another Windows drive) is written absolute; an M3U path starting with `#` gets `./`. Round-trip tests read every export back with the importer.)*
+- [x] S3.6.2 Import `.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue` and `.asx` by drag, open, or library "Add". *(Drag and open already expand them into the queue (S1.3.4), and into the New Playlist dialog's drop zone. New: Import Playlist… (a command, no default key, in the macOS File menu and the video menu's Playlist ▸) saves each picked file as a saved playlist under its file name (`playlists/import.rs`). The library's "Add" comes with Stage 4 and reuses `playlists::import`.)*
 
 **Edge cases**
-- `.m3u` files in legacy encodings (Windows-1252 and others): detect the encoding (BOM, then heuristics).
-- Relative paths resolve against the playlist file's folder, not the working directory. Windows backslash paths in a playlist opened on macOS or Linux must be normalized.
-- Entries that are URLs, missing files, nested playlists or duplicates: import with markers and never fail the whole import because of one bad line.
-- An extremely large playlist (100k lines) or a malformed one: parse with streaming, a size cap and a time cap.
-- Exporting to a read-only location or a full disk: show the error, and never leave a half-written file (atomic write).
+- `.m3u` files in legacy encodings (Windows-1252 and others): detect the encoding (BOM, then heuristics). *(Done: BOM, then BOM-less UTF-16 (zeros in every other byte), then UTF-8, then Windows-1252, which is Latin-1 for every letter. Other code pages (Cyrillic, Shift-JIS) read as Windows-1252.)*
+- Relative paths resolve against the playlist file's folder, not the working directory. Windows backslash paths in a playlist opened on macOS or Linux must be normalized. *(Done in S1.3.4.)*
+- Entries that are URLs, missing files, nested playlists or duplicates: import with markers and never fail the whole import because of one bad line. *(Done: URLs and duplicates are kept, nested local playlists expanded, missing files kept and counted in the toast ("Imported “Mix” (120 items). 3 files are missing."). Per-item markers come with the playlist view (S3.5.3). An empty playlist imports empty.)*
+- An extremely large playlist (100k lines) or a malformed one: parse with streaming, a size cap and a time cap. *(Done: 16 MB per file, 100,000 items and 10 s per expansion; what was read by then is kept. Lines that aren't entries are skipped.)*
+- Exporting to a read-only location or a full disk: show the error, and never leave a half-written file (atomic write). *(Done: written beside the target, flushed, then renamed over it; on failure the temporary file is removed and the toast says why.)*
 
 ---
 
@@ -953,14 +953,14 @@ Design facts the stories rely on:
 **Depends on:** S1.7  **Size:** M
 
 **Subtasks**
-- [ ] S4.1.1 Tables: `roots` (media folders, kind video/music/mixed, status), `folders`, `media` (from S1.7 plus kind, title, artist, album, album artist, track no., disc no., genre, year, date added, codec summary, resolution, has-artwork), `artwork`/`thumbnails` (cache keys), `favorites`, `playlists`/`playlist_items`, `network_streams` (with category Podcasts/Radio/…), `visits` (folder and playlist visit counts for Home), `plays` (for Listen Again and Frequently Listened Artists).
-- [ ] S4.1.2 Watch state per media: `unwatched | in_progress(fraction) | watched`, derived from S1.7. Define the "watched" threshold once (S1.7.4) and reuse it.
-- [ ] S4.1.3 Migrations are tested from every released schema version.
+- [x] S4.1.1 Tables: `roots` (media folders, kind video/music/mixed, status), `folders`, `media` (from S1.7 plus kind, title, artist, album, album artist, track no., disc no., genre, year, date added, codec summary, resolution, has-artwork), `artwork`/`thumbnails` (cache keys), `favorites`, `playlists`/`playlist_items`, `network_streams` (with category Podcasts/Radio/…), `visits` (folder and playlist visit counts for Home), `plays` (for Listen Again and Frequently Listened Artists). *(Migration 3 in `db/migrations.rs`, with foreign keys now enforced. A `files` table joins folders to media, so one media row can have several paths. Table modules: `db/roots.rs`, `db/folders.rs`, `db/files.rs`, `db/metadata.rs` and `db/activity.rs` (plays, visits, favorites, and the Home queries). Has-artwork is `media.artwork_id`. `media::record_play` now also writes a `plays` row, and existing play counts become one play each at their last play. Clear History now resets history and deletes plays and visits, but keeps media rows that the library or a favorite uses, along with their tags. `network_streams.category` is free text until S4.11.3 decides the categories. Nothing calls the table modules yet. The indexer (S4.2) is the first caller.)*
+- [x] S4.1.2 Watch state per media: `unwatched | in_progress(fraction) | watched`, derived from S1.7. Define the "watched" threshold once (S1.7.4) and reuse it. *(`library/watch_state.rs`: `WatchState::of(&Saved, WatchedRule)`, derived and never stored. A saved position that the current rule counts as watched (the setting was lowered after the save) shows as watched.)*
+- [x] S4.1.3 Migrations are tested from every released schema version. *(`db/tests.rs` builds every older schema with a row in it, opens it, and checks that the row, its play count and the new tables survive; migrating from before version 3 also checks the added date and the plays it backfills. No version has shipped yet, so this covers every version.)*
 
 **Edge cases**
-- The same file is under two roots (nested roots, a symlink into another root): store one media row and show it in both trees.
-- Case-insensitive filesystems (Windows, default macOS) versus case-sensitive ones (Linux, or case-sensitive APFS): path comparisons must follow the filesystem, not a global rule.
-- Unicode normalization: macOS stores file names in NFD, the user types NFC. Normalize for search and comparison, but keep the original bytes for opening.
+- The same file is under two roots (nested roots, a symlink into another root): store one media row and show it in both trees. *(Done: nested roots share their folder rows. Removing a root deletes only the folders that no other root reaches. Files under any root point at one media row by identity.)*
+- Case-insensitive filesystems (Windows, default macOS) versus case-sensitive ones (Linux, or case-sensitive APFS): path comparisons must follow the filesystem, not a global rule. *(Done: `library/path_key.rs`. `Case::detect` checks whether the folder's name with its letters' case swapped finds the same folder, and the result is stored per root. Folders and files are looked up by a `key` that folds case only on case-insensitive roots.)*
+- Unicode normalization: macOS stores file names in NFD, the user types NFC. Normalize for search and comparison, but keep the original bytes for opening. *(Done for comparison: keys are NFC on macOS, whose file systems fold normalization. NTFS and Linux file systems keep the two forms as different names, so keys there don't fold them. `path` and `name` keep the original, which `stored_path` encodes losslessly. Search normalization comes with FTS5 in S4.7.5.)*
 
 ---
 
@@ -970,29 +970,29 @@ Design facts the stories rely on:
 **Depends on:** S4.1, S0.1  **Size:** L
 
 **Subtasks**
-- [ ] S4.2.1 On first launch after onboarding, register the onboarding folder as the first root and start a background scan that shows progress ("Indexing 1,234 of ~5,000"). The UI is usable during the scan.
-- [ ] S4.2.2 Scanner: walk the tree on a background thread pool, recognize media by extension and then a content probe for ambiguous files, skip hidden and system files (setting S5.9), and insert in batches.
-- [ ] S4.2.3 Incremental rescans compare size and mtime, so unchanged files aren't re-probed.
-- [ ] S4.2.4 Live updates through a filesystem watcher (the `notify` crate: ReadDirectoryChangesW, FSEvents, inotify) with debouncing (about 2 s), plus a periodic reconcile because watchers drop events.
-- [ ] S4.2.5 **Resync** (folder context menu) forces a rescan of that subtree.
-- [ ] S4.2.6 Root status: OK, Missing (drive unplugged or folder deleted), Permission denied, Slow (network). Show it in the folder row and in Settings → Library.
-- [ ] S4.2.7 Music sources: onboarding asks for one folder (default `~/Videos`). **Decision:** auto-add the OS Music folder (`~/Music`) as a music root when it exists (recommended), or ask the first time the Music section opens. The Music section must not be empty just because onboarding only asked about videos.
+- [x] S4.2.1 On first launch after onboarding, register the onboarding folder as the first root and start a background scan that shows progress ("Indexing 1,234 of ~5,000"). The UI is usable during the scan. *(`library.rs`: the `Library` global starts the indexer thread (`library/indexer/`) and follows the settings: `local.media_folders` are video roots, `local.music_folders` music roots; roots no longer in the settings are removed. The indexer reaches the database through the history thread (`History::database`). Until the library views (S4.5, S4.6) exist, the main window's empty state lists each media folder with its status or progress (`main_window/library_status.rs`). The estimate is the last scan's count, or on a first scan the files found scaled by the folders still to list.)*
+- [x] S4.2.2 Scanner: walk the tree on a background thread pool, recognize media by extension and then a content probe for ambiguous files, skip hidden and system files (setting S5.9), and insert in batches. *(`library/walk.rs` (up to 4 threads, a bounded channel), `library/recognize.rs` (known non-media extensions such as pictures, documents and `.part` are never opened), `library/apply.rs` (500 files per transaction). `prefs.library.show_hidden_files` (default off); its row comes with S5.9.1. A second pass (`library/identify.rs`) hashes new and changed files (S1.7.2) and links them to media rows, so moved files keep their history and copies share a row.)*
+- [x] S4.2.3 Incremental rescans compare size and mtime, so unchanged files aren't re-probed. *(Every launch rescans every root this way, which also resumes a scan an earlier run didn't finish: files already written aren't read again.)*
+- [x] S4.2.4 Live updates through a filesystem watcher (the `notify` crate: ReadDirectoryChangesW, FSEvents, inotify) with debouncing (about 2 s), plus a periodic reconcile because watchers drop events. *(`library/watch.rs`, `library/indexer/targets.rs`: a changed file relists its folder, a changed folder is walked whole. Reconcile every 15 minutes; missing or unanswering roots are checked every 30 s.)*
+- [x] S4.2.5 **Resync** (folder context menu) forces a rescan of that subtree. *(`library::resync`, which reads every file again. Until the folder menu (S4.8.2) exists, each media folder's row in the empty state has a Resync button.)*
+- [ ] S4.2.6 Root status: OK, Missing (drive unplugged or folder deleted), Permission denied, Slow (network). Show it in the folder row and in Settings → Library. *(Detected and stored (`library/root_check.rs`: a read that takes over 2 s is Slow, over 10 s is skipped until the next check) and shown in the empty state's rows, with the count of unreadable subfolders. Showing it in the library's folder rows (S4.6) and Settings → Library (S5.9.3) waits for those screens.)*
+- [x] S4.2.7 Music sources: onboarding asks for one folder (default `~/Videos`). **Decision:** auto-add the OS Music folder (`~/Music`) as a music root when it exists (recommended), or ask the first time the Music section opens. The Music section must not be empty just because onboarding only asked about videos. *(Auto-added (D7), once: `local.music_folder_added` remembers it, so removing it in Settings (S5.9.3) sticks. `library/sources.rs`.)*
 
 **Edge cases**
-- The onboarding folder doesn't exist (the default `~/Videos` was never created, or Windows redirected Videos to OneDrive and `USERPROFILE\Videos` is empty): show an empty state with "Choose another folder" and "Create this folder". Use the Windows Known Folder API (FOLDERID_Videos) instead of `USERPROFILE\Videos`.
-- The root is on a removable drive that's unplugged: keep its items in the DB marked offline, greyed in the UI with "Drive not connected", and don't delete history. Re-attach when the drive returns, even if it gets a different drive letter (match by volume ID or serial number when possible).
-- The root is on a network share (SMB or NFS) that's slow or disconnects mid-scan: use timeouts, skip and retry later, and don't freeze. Watchers on network shares are unreliable, so rely on periodic reconcile.
-- Very large trees (100k+ files, a whole-drive root): stream results, cap memory, show progress, make it cancellable, and persist scan progress so a restart resumes.
-- Symlink and junction loops: track visited inodes or file IDs.
-- Permission-denied subfolders (`System Volume Information`, macOS TCC-protected folders): skip them silently and record them in the root status details.
-- Files still being written (a download in progress or a recording): wait until size and mtime are stable before probing, and re-probe when they change.
+- The onboarding folder doesn't exist (the default `~/Videos` was never created, or Windows redirected Videos to OneDrive and `USERPROFILE\Videos` is empty): show an empty state with "Choose another folder" and "Create this folder". Use the Windows Known Folder API (FOLDERID_Videos) instead of `USERPROFILE\Videos`. *(Done: the folder's row offers both buttons; the default already comes from the Known Folder API (S0.1).)*
+- The root is on a removable drive that's unplugged: keep its items in the DB marked offline, greyed in the UI with "Drive not connected", and don't delete history. Re-attach when the drive returns, even if it gets a different drive letter (match by volume ID or serial number when possible). *(Partly: a missing root keeps its files and is rechecked every 30 s, and only a folder that was listed loses rows, so a drive pulled mid-scan deletes nothing. Matching a drive that comes back under another letter isn't done.)*
+- The root is on a network share (SMB or NFS) that's slow or disconnects mid-scan: use timeouts, skip and retry later, and don't freeze. Watchers on network shares are unreliable, so rely on periodic reconcile. *(Partly: the root check times out and retries; a read that hangs in the middle of a walk still holds that scan until the OS gives up. The UI never waits on it.)*
+- Very large trees (100k+ files, a whole-drive root): stream results, cap memory, show progress, make it cancellable, and persist scan progress so a restart resumes. *(Done: streamed through a bounded channel, cancelled on quit, resumed through S4.2.3.)*
+- Symlink and junction loops: track visited inodes or file IDs. *(Done: device and inode on Unix, the resolved path on Windows.)*
+- Permission-denied subfolders (`System Volume Information`, macOS TCC-protected folders): skip them silently and record them in the root status details. *(Done: `unreadable_folders` (migration 4).)*
+- Files still being written (a download in progress or a recording): wait until size and mtime are stable before probing, and re-probe when they change. *(Done: a file is hashed once unchanged for 3 s; the indexer comes back for it.)*
 - Files deleted while the scan is running: handle "not found" gracefully.
-- Path length above 260 characters on Windows: use `\\?\` paths.
-- File names with invalid UTF-8 or UTF-16: keep raw `OsString`s, display them lossily, and open them with the raw path.
-- Cloud placeholders (OneDrive Files On-Demand, iCloud Drive, Dropbox online-only): **don't** read their content during scans, because that triggers mass downloads. Index metadata only and mark them "cloud".
+- Path length above 260 characters on Windows: use `\\?\` paths. *(Rust's `std` adds the prefix for long paths itself.)*
+- File names with invalid UTF-8 or UTF-16: keep raw `OsString`s, display them lossily, and open them with the raw path. *(Done: names stay `OsString`s and are stored with `stored_path`.)*
+- Cloud placeholders (OneDrive Files On-Demand, iCloud Drive, Dropbox online-only): **don't** read their content during scans, because that triggers mass downloads. Index metadata only and mark them "cloud". *(Done: `library/placeholder.rs` (`SF_DATALESS` on macOS, the cloud attributes on Windows); `files.cloud`.)*
 - Antivirus scanning slows every file open: use a bounded thread pool so the machine isn't hammered.
-- The user moves a whole folder inside the root: the watcher sees deletes and creates, so match by content hash (S1.7.2) and keep watch history.
-- Laptop on battery: lower scan priority; pause thumbnailing on battery-saver.
+- The user moves a whole folder inside the root: the watcher sees deletes and creates, so match by content hash (S1.7.2) and keep watch history. *(Done: a media row no file points at any more moves to the new file.)*
+- Laptop on battery: lower scan priority; pause thumbnailing on battery-saver. *(Not done: scans aren't throttled on battery yet.)*
 
 ---
 
@@ -2159,7 +2159,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D19 | Extensions and skins scope | S8.14, S5.4.4, S5.10.4 | Defer past 1.0; hide the rows |
 | D20 | Product name and logo (VideoLAN trademarks) | S9.9.1 — **before any public build** | Get permission, or rebrand |
 | D21 | Restoring volume above 100% at launch | S1.5.2 | Cap the restored value at 100% |
-| D22 | How the Video tab of the track popover is opened | S2.6.1 | Reachable inside the popover; shown only with 2+ video tracks |
+| D22 | How the Video tab of the track popover is opened | S2.6.1 | **Decided (S2.6):** reachable inside the popover; shown only with 2+ video tracks |
 | D23 | Effect sections have no title or enable toggle in the design | S7.1.3 | Add a title and toggle to each section header |
 
 ### D3 — shortcut conflicts found in the designs

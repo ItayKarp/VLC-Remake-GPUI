@@ -21,11 +21,14 @@ mod welcome;
 
 use std::path::PathBuf;
 
-use gpui::{App, Context, FocusHandle, KeyDownEvent, Window, div, prelude::*, px};
+use gpui::{App, Context, ExternalPaths, FocusHandle, KeyDownEvent, Window, div, prelude::*, px};
 
+use crate::app;
+use crate::app::media::Media;
+use crate::app::request::OpenRequest;
 use crate::settings;
 use crate::theme::{self, Accent, Palette, Theme, ThemeMode};
-use crate::ui::focus;
+use crate::ui::{drop_target, focus};
 use crate::window_chrome::{self, TITLE_BAR_HEIGHT};
 
 use dev_overrides::DevOverrides;
@@ -151,12 +154,19 @@ impl Render for Onboarding {
             .id("onboarding")
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(Self::on_key_down))
+            // Files dropped here open once onboarding hands off (S1.3.2, D4).
+            .group(drop_target::GROUP)
+            .on_drop(|paths: &ExternalPaths, _, cx| {
+                let items = paths.paths().iter().cloned().map(Media::from).collect();
+                app::open::queue(OpenRequest::replace(items), cx);
+            })
             .relative()
             .size_full()
             .bg(palette.background)
             .text_color(palette.text)
             .child(scroll_body(content))
             .child(window_chrome::title_bar(&palette))
+            .child(drop_target::highlight(&palette))
     }
 }
 

@@ -42,8 +42,9 @@ pub fn title_bar(palette: &Palette) -> Stateful<Div> {
 }
 
 thread_local! {
-    /// Set on mouse down on a drag bar, cleared on mouse up. The move starts on the
-    /// first mouse move, so a double-click still reaches us on macOS and Linux.
+    /// Set on a single press on an element that drags the window, cleared on mouse up. The
+    /// move starts on the first mouse move, so a double-click still reaches us on macOS and
+    /// Linux.
     static SHOULD_MOVE: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -64,21 +65,26 @@ pub fn drag_bar(id: &'static str, height: f32) -> Stateful<Div> {
         // Windows drags, double-clicks and snaps natively through this area.
         .window_control_area(WindowControlArea::Drag)
         .when(!cfg!(target_os = "windows"), |bar| {
-            bar.on_mouse_down(MouseButton::Left, |event, window, _| {
+            drags_window(bar).on_mouse_down(MouseButton::Left, |event, window, _| {
                 if event.click_count >= 2 {
-                    SHOULD_MOVE.set(false);
                     double_click(window);
-                } else {
-                    SHOULD_MOVE.set(true);
                 }
             })
-            .on_mouse_up(MouseButton::Left, |_, _, _| SHOULD_MOVE.set(false))
-            .on_mouse_up_out(MouseButton::Left, |_, _, _| SHOULD_MOVE.set(false))
-            .on_mouse_move(|_, window, _| {
-                if SHOULD_MOVE.replace(false) {
-                    window.start_window_move();
-                }
-            })
+        })
+}
+
+/// Makes dragging `element` move the window (macOS and Linux; GPUI can't start a move on
+/// Windows). The move starts on the first mouse move after a single press, so clicks and
+/// double-clicks still reach the element. Children that should be clickable must `.occlude()`.
+pub fn drags_window(element: Stateful<Div>) -> Stateful<Div> {
+    element
+        .on_mouse_down(MouseButton::Left, |event, _, _| SHOULD_MOVE.set(event.click_count < 2))
+        .on_mouse_up(MouseButton::Left, |_, _, _| SHOULD_MOVE.set(false))
+        .on_mouse_up_out(MouseButton::Left, |_, _, _| SHOULD_MOVE.set(false))
+        .on_mouse_move(|_, window, _| {
+            if SHOULD_MOVE.replace(false) {
+                window.start_window_move();
+            }
         })
 }
 

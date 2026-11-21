@@ -59,6 +59,7 @@ fn encode(launch: &Launch) -> Vec<u8> {
     out.push(match launch.open.placement {
         Placement::Replace => 0,
         Placement::Enqueue => 1,
+        Placement::PlayNext => 2,
     });
     out.push(u8::from(launch.open.fullscreen));
     put_len(&mut out, launch.open.items.len());
@@ -88,6 +89,7 @@ fn decode(body: &[u8]) -> io::Result<Launch> {
     let placement = match cursor.byte()? {
         0 => Placement::Replace,
         1 => Placement::Enqueue,
+        2 => Placement::PlayNext,
         _ => return Err(invalid("unknown placement")),
     };
     let fullscreen = cursor.byte()? != 0;

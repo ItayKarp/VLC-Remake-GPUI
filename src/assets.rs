@@ -54,17 +54,31 @@ icons! {
     LOGO => "vlc-logo.svg",
     LOGO_SMALL => "vlc-small.svg",
     PLAY => "play.svg",
+    PAUSE => "pause.svg",
+    /// The Play/Pause button while opening or buffering (S2.2.2; not in the designs).
+    SPINNER => "spinner.svg",
     PREVIOUS => "previous.svg",
     NEXT => "next.svg",
     MINIMIZE => "minimize.svg",
     MAXIMIZE => "maximize.svg",
     FULLSCREEN => "fullscreen.svg",
     CLOSE => "close.svg",
+    /// The speaker at a high level; the lower levels and mute follow (S2.5.4).
     VOLUME => "volume.svg",
+    VOLUME_MEDIUM => "volume-medium.svg",
+    VOLUME_LOW => "volume-low.svg",
+    VOLUME_NONE => "volume-none.svg",
+    /// Muted (not in the designs): the speaker struck through.
+    VOLUME_MUTED => "volume-muted.svg",
     AUDIO => "audio.svg",
     SUBTITLES => "subtitles.svg",
     SETTINGS => "settings.svg",
     LIST => "list.svg",
+    // The track popover (S2.6).
+    VIDEO => "video.svg",
+    REFRESH => "refresh.svg",
+    EDIT => "edit.svg",
+    ADD => "add.svg",
     ARROW_LEFT => "arrow-left.svg",
     ARROW_RIGHT => "arrow-right.svg",
     ARROW_UP => "arrow-up.svg",
@@ -93,9 +107,34 @@ icons! {
     CAPTURE_DEVICE => "capture-device.svg",
     CONVERT => "convert.svg",
     RECENT => "recent.svg",
+    #[allow(dead_code, reason = "the main menu's Profile submenu arrives with profiles (S8.8)")]
     PROFILE => "profile.svg",
     HOTKEYS => "hotkeys.svg",
     PAINT => "paint.svg",
+    // The video's right-click menu (S2.9.2).
+    STOP => "stop.svg",
+    PLAYBACK => "playback.svg",
+    /// Hide UI (not in the icon set): the video's frame struck through, as the menu design
+    /// draws it.
+    HIDE_UI => "hide-ui.svg",
+    QUIT => "quit.svg",
+    // The Keyboard Shortcuts dialog (S2.10.4).
+    SEARCH => "search.svg",
+    // The List panel (S3.2).
+    QUEUE => "queue.svg",
+    BOOKMARKS => "bookmarks.svg",
+    CHAPTERS => "chapters.svg",
+    SORT => "sort.svg",
+    REMOVE => "remove.svg",
+    // Repeat and Shuffle (S3.3).
+    REPEAT => "repeat.svg",
+    /// Repeat One (not in the icon set): the repeat arrows around a 1.
+    REPEAT_ONE => "repeat-one.svg",
+    SHUFFLE => "shuffle.svg",
+    /// A queue row's drag handle (`move` in the icon set).
+    DRAG_HANDLE => "drag-handle.svg",
+    // Saved playlists (S3.5).
+    PLAYLIST => "playlist.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.
