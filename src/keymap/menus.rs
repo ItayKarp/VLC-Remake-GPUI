@@ -144,6 +144,7 @@ fn file_menu() -> Menu {
             SEPARATOR,
             item(&act::NewPlaylist, "New Playlist…"),
             item(&act::SaveQueueAsPlaylist, "Save Queue as Playlist…"),
+            item(&act::ImportPlaylist, "Import Playlist…"),
             SEPARATOR,
             item(&act::Convert, "Convert…"),
         ],

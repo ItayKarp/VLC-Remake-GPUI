@@ -1,6 +1,7 @@
 //! The saved-playlist items of the video menu's Playlist ▸: New Playlist…, Save Queue as
-//! Playlist…, Add to Playlist ▸ (the current item, to a saved playlist or a new one) and Saved
-//! Playlists ▸, where each playlist has Play, Add to Queue, Rename…, Duplicate and Delete….
+//! Playlist…, Import Playlist…, Add to Playlist ▸ (the current item, to a saved playlist or a new
+//! one) and Saved Playlists ▸, where each playlist has Play, Add to Queue, Rename…, Duplicate,
+//! Export… and Delete….
 
 use gpui::{App, WeakEntity};
 
@@ -28,6 +29,7 @@ impl MainWindow {
         vec![
             main_menu::dispatching(&act::NewPlaylist, "New Playlist…", cx).icon(icons::PLAYLIST),
             save_queue,
+            main_menu::dispatching(&act::ImportPlaylist, "Import Playlist…", cx),
             self.add_to_playlist_menu(main, cx),
             saved_playlists_menu(main, cx),
         ]
@@ -94,6 +96,7 @@ fn playlist_menu(main: &WeakEntity<MainWindow>, summary: &Summary) -> MenuItem {
         on_playlist(main, summary, "Duplicate", |_, summary, window, cx| {
             MainWindow::duplicate_playlist(summary, window, cx);
         }),
+        on_playlist(main, summary, "Export…", MainWindow::show_export_playlist),
         on_playlist(main, summary, "Delete…", MainWindow::confirm_delete_playlist)
             .icon(icons::REMOVE),
     ];

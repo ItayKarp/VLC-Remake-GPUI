@@ -1,11 +1,13 @@
 //! Saved playlists in the main window (S3.5): New Playlist and Save Queue as Playlist open the
 //! New Playlist dialog ([`super::new_playlist`]), and the video menu's Playlist ▸ adds the current
 //! item to a playlist and lists the saved ones ([`menu`]) to play, queue, rename, duplicate or
-//! delete.
+//! delete, and export to a file ([`export`]). Import Playlist… saves playlist files ([`import`]).
 //!
 //! The library's Playlists section (S3.5.2), the playlist view (S3.5.3) and the playlist context
 //! menu (S4.8.3) come with Stage 4; until then these menus are the way to the saved playlists.
 
+mod export;
+mod import;
 mod menu;
 
 use gpui::{App, Context, Div, Task, WeakEntity, Window, prelude::*};
@@ -15,14 +17,14 @@ use super::new_playlist::NewPlaylistDialog;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
 use crate::db::playlists::{PlaylistId, Summary};
-use crate::keymap::actions::{NewPlaylist, SaveQueueAsPlaylist};
+use crate::keymap::actions::{ImportPlaylist, NewPlaylist, SaveQueueAsPlaylist};
 use crate::playlists::{self, Deleted};
 use crate::ui::modal::{Dialog, DialogButton};
 use crate::ui::text_input::TextInput;
 use crate::ui::toast::{Level, Toast};
 
 impl MainWindow {
-    /// Adds the handlers for New Playlist and Save Queue as Playlist.
+    /// Adds the handlers for New Playlist, Save Queue as Playlist and Import Playlist.
     pub(super) fn playlist_actions(root: Div, cx: &mut Context<Self>) -> Div {
         root.on_action(cx.listener(|this, _: &NewPlaylist, window, cx| {
             this.show_new_playlist(Vec::new(), window, cx);
@@ -30,6 +32,9 @@ impl MainWindow {
         .on_action(cx.listener(|this, _: &SaveQueueAsPlaylist, window, cx| {
             let files = this.queue.entries().iter().map(|entry| entry.media.clone()).collect();
             this.show_new_playlist(files, window, cx);
+        }))
+        .on_action(cx.listener(|_, _: &ImportPlaylist, window, cx| {
+            Self::import_playlists(window, cx);
         }))
     }
 

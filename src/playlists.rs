@@ -8,7 +8,11 @@
 //!
 //! - [`title`]: what a title may be, and numbering taken ones.
 //! - [`thumbnail`]: checking a picked custom thumbnail.
+//! - [`export`]: writing a playlist to an `.m3u8` or `.xspf` file (S3.6.1).
+//! - [`import`]: reading a playlist file to save it (S3.6.2).
 
+pub mod export;
+pub mod import;
 pub mod thumbnail;
 pub mod title;
 
@@ -19,6 +23,7 @@ use gpui::{App, Global, Task};
 use rusqlite::Connection;
 
 use crate::app::media::Media;
+use crate::db::media as media_rows;
 use crate::db::now_ms;
 use crate::db::playlists::{self, PlaylistId, Stored, Summary};
 use crate::history::History;
@@ -131,6 +136,28 @@ pub fn items(id: PlaylistId, cx: &mut App) -> Task<Option<Vec<Media>>> {
         let stored = playlists::load(connection, id)?.unwrap_or_default();
         Ok(stored.locations.iter().filter_map(|location| Media::from_stored(location)).collect())
     })
+}
+
+/// Playlist `id`'s items with the lengths the history knows, for exporting it.
+pub fn export_items(id: PlaylistId, cx: &mut App) -> Task<Option<Vec<export::Item>>> {
+    run(cx, move |connection, _| {
+        let stored = playlists::load(connection, id)?.unwrap_or_default();
+        let mut items = Vec::with_capacity(stored.locations.len());
+        for location in &stored.locations {
+            let Some(media) = Media::from_stored(location) else { continue };
+            items.push(export::Item { media, duration: known_duration(connection, location)? });
+        }
+        Ok(items)
+    })
+}
+
+/// The length the history remembers for the media at `location`.
+fn known_duration(
+    connection: &Connection,
+    location: &str,
+) -> rusqlite::Result<Option<std::time::Duration>> {
+    let Some(row) = media_rows::find_at(connection, location)? else { return Ok(None) };
+    Ok(media_rows::saved(connection, row.id)?.duration)
 }
 
 /// `wanted`, numbered when another playlist than `except` has it.

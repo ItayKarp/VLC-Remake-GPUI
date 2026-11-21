@@ -15,6 +15,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use super::Cancel;
 use super::kind::{self, Kind, PlaylistFormat};
@@ -27,6 +28,9 @@ pub const MAX_DEPTH: usize = 8;
 const MAX_FILE_SIZE: u64 = 16 * 1024 * 1024;
 /// The most items one expansion produces, however the playlists nest.
 const MAX_ITEMS: usize = 100_000;
+/// The longest one expansion runs: past it, what was read so far opens. Many nested playlists
+/// on a slow network drive must not keep "Opening …" up forever.
+const MAX_TIME: Duration = Duration::from_secs(10);
 
 /// What a playlist file turned out to hold.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -66,7 +70,8 @@ pub fn expand(
     format: PlaylistFormat,
     cancel: &Cancel,
 ) -> Result<Vec<Media>, PlaylistError> {
-    let mut expander = Expander { visited: HashSet::new(), items: Vec::new(), cancel };
+    let deadline = Instant::now() + MAX_TIME;
+    let mut expander = Expander { visited: HashSet::new(), items: Vec::new(), cancel, deadline };
     expander.expand(path, format, 0)?;
     if expander.items.is_empty() {
         return Err(PlaylistError::Empty);
@@ -79,6 +84,8 @@ struct Expander<'a> {
     visited: HashSet<PathBuf>,
     items: Vec<Media>,
     cancel: &'a Cancel,
+    /// When to stop reading and keep what was read.
+    deadline: Instant,
 }
 
 impl Expander<'_> {
@@ -101,12 +108,28 @@ impl Expander<'_> {
             Parsed::Entries(entries) => entries,
         };
         for item in entries.iter().filter_map(|entry| text::resolve(entry, path)) {
-            if self.cancel.is_cancelled() || self.items.len() >= MAX_ITEMS {
+            if self.should_stop() {
                 break;
             }
             self.add(item, depth);
         }
         Ok(())
+    }
+
+    /// Whether to stop: cancelled, or past the item or time limit (logged).
+    fn should_stop(&self) -> bool {
+        if self.cancel.is_cancelled() {
+            return true;
+        }
+        let full = self.items.len() >= MAX_ITEMS;
+        let late = Instant::now() >= self.deadline;
+        if full || late {
+            tracing::warn!(
+                "playlist: stopped at {} items (full: {full}, late: {late})",
+                self.items.len()
+            );
+        }
+        full || late
     }
 
     /// Adds `item`, expanding it first if it is a local playlist and the nesting allows.

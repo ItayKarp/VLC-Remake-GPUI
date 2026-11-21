@@ -9,17 +9,49 @@ use url::Url;
 
 use crate::app::media::{Media, has_url_scheme};
 
-/// Decodes a playlist file: by its BOM if it has one, as UTF-8 if it is valid, otherwise as
-/// Latin-1 (old `.m3u` files), which can decode any byte.
+/// The characters Windows-1252 puts at 0x80 to 0x9F, where Latin-1 has control codes. The
+/// five unassigned bytes keep their Latin-1 meaning.
+const WINDOWS_1252_HIGH: [char; 32] = [
+    '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8D}', 'Ž', '\u{8F}',
+    '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9D}', 'ž', 'Ÿ',
+];
+
+/// Decodes a playlist file: by its BOM if it has one; as UTF-16 when every other byte is zero
+/// (a BOM-less Windows export); as UTF-8 if it is valid; otherwise as Windows-1252, the legacy
+/// encoding of old `.m3u` files, which can decode any byte and is Latin-1 for every letter.
 pub fn decode(bytes: &[u8]) -> String {
     match bytes {
         [0xEF, 0xBB, 0xBF, rest @ ..] => String::from_utf8_lossy(rest).into_owned(),
         [0xFF, 0xFE, rest @ ..] => utf16(rest, u16::from_le_bytes),
         [0xFE, 0xFF, rest @ ..] => utf16(rest, u16::from_be_bytes),
-        _ => match std::str::from_utf8(bytes) {
-            Ok(text) => text.to_owned(),
-            Err(_) => bytes.iter().copied().map(char::from).collect(),
+        _ => match (bom_less_utf16(bytes), std::str::from_utf8(bytes)) {
+            (Some(unit), _) => utf16(bytes, unit),
+            (None, Ok(text)) => text.to_owned(),
+            (None, Err(_)) => bytes.iter().copied().map(windows_1252).collect(),
         },
+    }
+}
+
+/// How to read UTF-16 without a BOM, when the text looks like it: ASCII text in UTF-16 has a
+/// zero in every other byte, which no 8-bit text has.
+fn bom_less_utf16(bytes: &[u8]) -> Option<fn([u8; 2]) -> u16> {
+    let pairs = bytes.as_chunks::<2>().0;
+    if pairs.len() < 2 {
+        return None;
+    }
+    let mostly = |zero: fn(&[u8; 2]) -> bool| {
+        pairs.iter().filter(|pair| zero(pair)).count() * 10 >= pairs.len() * 9
+    };
+    if mostly(|pair| pair[1] == 0 && pair[0] != 0) {
+        return Some(u16::from_le_bytes);
+    }
+    mostly(|pair| pair[0] == 0 && pair[1] != 0).then_some(u16::from_be_bytes as fn([u8; 2]) -> u16)
+}
+
+fn windows_1252(byte: u8) -> char {
+    match byte {
+        0x80..=0x9F => WINDOWS_1252_HIGH[usize::from(byte - 0x80)],
+        _ => char::from(byte),
     }
 }
 
@@ -97,6 +129,16 @@ mod tests {
         let utf16: Vec<u8> =
             [0xFF, 0xFE].into_iter().chain("é".encode_utf16().flat_map(u16::to_le_bytes)).collect();
         assert_eq!(decode(&utf16), "é");
+    }
+
+    #[test]
+    fn detects_windows_1252_and_bom_less_utf16() {
+        assert_eq!(decode(b"\x93Caf\xE9\x94 \x96 \x80"), "“Café” – €");
+        let le: Vec<u8> = "a.mp3\n".encode_utf16().flat_map(u16::to_le_bytes).collect();
+        assert_eq!(decode(&le), "a.mp3\n");
+        let be: Vec<u8> = "b.mp3\n".encode_utf16().flat_map(u16::to_be_bytes).collect();
+        assert_eq!(decode(&be), "b.mp3\n");
+        assert_eq!(decode(b"ab"), "ab");
     }
 
     #[test]

@@ -923,15 +923,15 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.5  **Size:** S  **Design refs:** playlist context menu "Export Playlist"
 
 **Subtasks**
-- [ ] S3.6.1 Export to `.m3u8` (UTF-8, `#EXTINF` with duration and title) and `.xspf`, with relative or absolute paths (an option in the save dialog).
-- [ ] S3.6.2 Import `.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue` and `.asx` by drag, open, or library "Add".
+- [x] S3.6.1 Export to `.m3u8` (UTF-8, `#EXTINF` with duration and title) and `.xspf`, with relative or absolute paths (an option in the save dialog). *(`playlists/export.rs`; Saved Playlists ▸ each playlist ▸ Export… until the playlist context menu (S4.8.3). The native save dialog can't hold options, so a small dialog asks for the format (M3U8 | XSPF) and "Relative paths" (default on) first; a name typed with the other extension gets that format. Durations come from the history (unknown is `-1` / no `<duration>`); titles are file names. A file with no relative path (another Windows drive) is written absolute; an M3U path starting with `#` gets `./`. Round-trip tests read every export back with the importer.)*
+- [x] S3.6.2 Import `.m3u`, `.m3u8`, `.pls`, `.xspf`, `.cue` and `.asx` by drag, open, or library "Add". *(Drag and open already expand them into the queue (S1.3.4), and into the New Playlist dialog's drop zone. New: Import Playlist… (a command, no default key, in the macOS File menu and the video menu's Playlist ▸) saves each picked file as a saved playlist under its file name (`playlists/import.rs`). The library's "Add" comes with Stage 4 and reuses `playlists::import`.)*
 
 **Edge cases**
-- `.m3u` files in legacy encodings (Windows-1252 and others): detect the encoding (BOM, then heuristics).
-- Relative paths resolve against the playlist file's folder, not the working directory. Windows backslash paths in a playlist opened on macOS or Linux must be normalized.
-- Entries that are URLs, missing files, nested playlists or duplicates: import with markers and never fail the whole import because of one bad line.
-- An extremely large playlist (100k lines) or a malformed one: parse with streaming, a size cap and a time cap.
-- Exporting to a read-only location or a full disk: show the error, and never leave a half-written file (atomic write).
+- `.m3u` files in legacy encodings (Windows-1252 and others): detect the encoding (BOM, then heuristics). *(Done: BOM, then BOM-less UTF-16 (zeros in every other byte), then UTF-8, then Windows-1252, which is Latin-1 for every letter. Other code pages (Cyrillic, Shift-JIS) read as Windows-1252.)*
+- Relative paths resolve against the playlist file's folder, not the working directory. Windows backslash paths in a playlist opened on macOS or Linux must be normalized. *(Done in S1.3.4.)*
+- Entries that are URLs, missing files, nested playlists or duplicates: import with markers and never fail the whole import because of one bad line. *(Done: URLs and duplicates are kept, nested local playlists expanded, missing files kept and counted in the toast ("Imported “Mix” (120 items). 3 files are missing."). Per-item markers come with the playlist view (S3.5.3). An empty playlist imports empty.)*
+- An extremely large playlist (100k lines) or a malformed one: parse with streaming, a size cap and a time cap. *(Done: 16 MB per file, 100,000 items and 10 s per expansion; what was read by then is kept. Lines that aren't entries are skipped.)*
+- Exporting to a read-only location or a full disk: show the error, and never leave a half-written file (atomic write). *(Done: written beside the target, flushed, then renamed over it; on failure the temporary file is removed and the toast says why.)*
 
 ---
 

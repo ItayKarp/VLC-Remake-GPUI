@@ -92,6 +92,7 @@ pub const SECTIONS: &[Section] = &[
             &act::ClearHistory,
             &act::NewPlaylist,
             &act::SaveQueueAsPlaylist,
+            &act::ImportPlaylist,
         ],
     },
     Section {

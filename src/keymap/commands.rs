@@ -158,6 +158,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("Clear History", AppArea, NONE, &act::ClearHistory),
     cmd("New Playlist", AppArea, NONE, &act::NewPlaylist),
     cmd("Save Queue as Playlist", AppArea, NONE, &act::SaveQueueAsPlaylist),
+    cmd("Import Playlist", AppArea, NONE, &act::ImportPlaylist),
     cmd(
         "Close Window",
         Global,

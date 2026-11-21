@@ -59,6 +59,8 @@ actions!(
         NewPlaylist,
         /// Open the New Playlist dialog holding the queue's items (S3.5.5).
         SaveQueueAsPlaylist,
+        /// Save playlist files (`.m3u`, `.pls`, `.xspf`, …) as saved playlists (S3.6.2).
+        ImportPlaylist,
     ]
 );
 
