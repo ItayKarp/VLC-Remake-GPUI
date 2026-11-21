@@ -7,12 +7,14 @@ mod audio;
 mod control_bar;
 mod diagnostics;
 mod empty_state;
+mod flash;
 mod fullscreen;
 mod history;
 mod main_menu;
 mod notice;
 mod now_playing;
 mod opening;
+mod osd;
 mod player_keys;
 mod seek_bar;
 mod seeking;
@@ -22,10 +24,11 @@ mod title_bar;
 mod tracks;
 mod transport;
 mod viewport;
+mod volume_slider;
 
 use gpui::{
-    App, Context, DismissEvent, Div, Entity, FocusHandle, SharedString, Subscription, Window, div,
-    prelude::*, px,
+    App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription,
+    Window, div, prelude::*, px,
 };
 
 use crate::app;
@@ -85,6 +88,10 @@ pub struct MainWindow {
     control_bar: control_bar::ControlBar,
     /// The seek bar's drag, hover and previews (S2.3).
     seek_bar: seek_bar::SeekBar,
+    /// The volume wedge's drag, wheel and value bubble (S2.5).
+    volume_slider: volume_slider::VolumeSlider,
+    /// The message over the video (S2.5.7).
+    osd: osd::Osd,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
 }
@@ -105,10 +112,6 @@ impl MainWindow {
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
         open_button.focus(window, cx);
 
-        let notices = settings::take_notices(cx)
-            .into_iter()
-            .map(|notice| notice::text(&notice).into())
-            .collect();
         let mut this = Self {
             files: Vec::new(),
             current: None,
@@ -121,7 +124,7 @@ impl MainWindow {
             history: history::HistoryWatch::default(),
             display_sleep: DisplaySleep::default(),
             _visibility: Self::follow_visibility(window, cx),
-            notices,
+            notices: Self::take_notices(cx),
             focus_handle: cx.focus_handle(),
             open_button,
             menu: None,
@@ -130,12 +133,20 @@ impl MainWindow {
             toasts: cx.new(|_| Toasts::new()),
             control_bar: control_bar::ControlBar::default(),
             seek_bar: seek_bar::SeekBar::new(cx),
+            volume_slider: volume_slider::VolumeSlider::new(cx),
+            osd: osd::Osd::default(),
             os_title: String::new(),
         };
         this.set_up_history(cx);
         this.open(request, window, cx);
         this.show_pending_crash(cx);
         this
+    }
+
+    /// The settings notices waiting to be shown, as text.
+    fn take_notices(cx: &mut Context<Self>) -> Vec<SharedString> {
+        let notices = settings::take_notices(cx).into_iter();
+        notices.map(|notice| notice::text(&notice).into()).collect()
     }
 
     /// Shows `toast` at the bottom right of the window.
@@ -176,7 +187,12 @@ impl MainWindow {
             if fullscreen { (0., 0.) } else { (TITLE_BAR_HEIGHT, control_bar::CONTROL_BAR_HEIGHT) };
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
-            Some(video) => area.child(viewport::framed(video, p, fullscreen)),
+            Some(video) => area
+                .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
+                    this.scroll_on_video(event, window, cx);
+                }))
+                .child(viewport::framed(video, p, fullscreen))
+                .children(self.render_osd(p)),
             None => area.child(
                 div()
                     .id("content")

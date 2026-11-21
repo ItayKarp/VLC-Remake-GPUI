@@ -47,8 +47,8 @@ impl Default for Rate {
 
 /// The loudest volume the "Maximum volume" setting can allow: 300%.
 pub const MAX_VOLUME: f32 = 3.0;
-/// The "Maximum volume" setting's default: 200%, as in VLC.
-pub const DEFAULT_MAX_VOLUME: Volume = Volume(2.0);
+/// The "Maximum volume" setting's default: 125%, as VLC's volume slider.
+pub const DEFAULT_MAX_VOLUME: Volume = Volume(1.25);
 /// The lowest "Maximum volume" setting: 100%, the media's own level.
 pub const MIN_MAX_VOLUME: Volume = Volume::FULL;
 

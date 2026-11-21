@@ -20,7 +20,7 @@ pub enum Item {
     SeekBar,
     /// The media's length (`00:25:40`).
     Duration,
-    /// The speaker (mute) and the volume level.
+    /// The speaker (mute) and the volume wedge.
     Volume,
     /// The audio tracks.
     Audio,
@@ -73,9 +73,11 @@ pub const PILL_HEIGHT: f32 = 26.;
 pub const TIME_WIDTH: f32 = 72.;
 /// The narrowest the seek bar gets before it gives way.
 pub const SEEK_MIN: f32 = 120.;
-/// The volume level's width, after the speaker.
-pub const LEVEL_WIDTH: f32 = 90.;
-/// The space between the speaker and the volume level.
+/// The icons' size inside the bar's buttons.
+pub const ICON: f32 = 20.;
+/// The volume wedge's width after the speaker, with room for its focus ring (S2.5.1).
+pub const LEVEL_WIDTH: f32 = 93.;
+/// The space between the speaker and the volume wedge.
 pub const LEVEL_GAP: f32 = 6.;
 
 impl Item {

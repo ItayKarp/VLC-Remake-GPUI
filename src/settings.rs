@@ -30,7 +30,7 @@ pub use paths::{Locations, default_media_folder, display_path};
 )]
 pub use schema::{
     AudioSettings, ControlsSettings, DurationReadout, LocalState, PlayerSettings, Preferences,
-    ResumePolicy, Settings, SkipLength, StartupVolume, WindowGeometry, WindowMode,
+    ResumePolicy, Settings, SkipLength, StartupVolume, WheelAction, WindowGeometry, WindowMode,
 };
 pub use store::Notice;
 use store::SettingsState;

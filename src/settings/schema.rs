@@ -25,7 +25,7 @@ use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
-pub use controls::{ControlsSettings, SkipLength};
+pub use controls::{ControlsSettings, SkipLength, WheelAction};
 pub use interface::{DurationReadout, InterfaceSettings};
 pub use playback::{PlayerSettings, ResumePolicy};
 pub use subtitles::SubtitleSettings;
@@ -55,7 +55,7 @@ pub struct Preferences {
     /// Player behavior.
     #[serde(deserialize_with = "lenient")]
     pub player: PlayerSettings,
-    /// The seek keys' skip amounts (S5.6).
+    /// The seek keys' skip amounts and the wheel over the video (S5.6).
     #[serde(deserialize_with = "lenient")]
     pub controls: ControlsSettings,
     /// Audio preferences.

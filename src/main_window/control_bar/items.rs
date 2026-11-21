@@ -1,16 +1,12 @@
 //! Each control bar item drawn, and its entry in the overflow menu once it gives way.
 //!
-//! The seek bar (`seek_bar.rs`, S2.3) and the time readouts (`readouts.rs`, S2.4) are their own
-//! modules. The volume level shows the player's state but can't be used yet: S2.5 (the wedge
-//! slider) makes it interactive. The Settings and List buttons are disabled until their panels
+//! The seek bar (`seek_bar.rs`, S2.3), the time readouts (`readouts.rs`, S2.4) and the volume
+//! control (`volume_slider.rs`, S2.5) are their own modules. The Settings and List buttons are disabled until their panels
 //! exist (S2.7, Stage 3): the light theme's faded gear means exactly that.
 
-use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, Div, Entity, SharedString, div, prelude::*, px,
-    relative,
-};
+use gpui::{Action, AnyElement, App, ClickEvent, Context, Entity, SharedString, prelude::*};
 
-use super::layout::{BUTTON, Item, LEVEL_GAP, LEVEL_WIDTH};
+use super::layout::{BUTTON, ICON, Item};
 use super::play_button::{Face, PlayButton};
 use crate::assets::icons;
 use crate::engine::player::Player;
@@ -21,11 +17,6 @@ use crate::main_window::MainWindow;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
 use crate::ui::menu::MenuItem;
-
-/// The icons' size inside the bar's buttons.
-const ICON: f32 = 20.;
-/// The volume level's height.
-const LEVEL_HEIGHT: f32 = 10.;
 
 /// An icon button's look and what it runs.
 #[derive(Clone, Copy)]
@@ -118,45 +109,8 @@ impl MainWindow {
         let on_click = cx.listener(|this, _: &ClickEvent, window, cx| this.play_pause(window, cx));
         PlayButton::new(face, shortcut, on_click).into_any_element()
     }
-
-    /// The speaker, which mutes, and the volume level.
-    fn render_volume(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
-        let player = self.loaded_player(cx);
-        let label = player.as_ref().map_or("Mute", |player| mute_label(player, cx));
-        let level = player.as_ref().map_or(0., |player| {
-            let player = player.read(cx);
-            if player.is_muted() { 0. } else { player.volume().get() / player.max_volume().get() }
-        });
-        let speaker = IconButton::new("speaker", icons::VOLUME, label)
-            .size(BUTTON, ICON)
-            .disabled(player.is_none())
-            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                if let Some(player) = this.loaded_player(cx) {
-                    player.update(cx, Player::toggle_mute);
-                }
-            }));
-        div()
-            .flex()
-            .flex_row()
-            .flex_none()
-            .items_center()
-            .gap(px(LEVEL_GAP))
-            .child(speaker)
-            .child(volume_level(p, level))
-            .into_any_element()
-    }
 }
 
 fn mute_label(player: &Entity<Player>, cx: &App) -> &'static str {
     if player.read(cx).is_muted() { "Unmute" } else { "Mute" }
-}
-
-fn volume_level(p: &Palette, level: f32) -> Div {
-    div()
-        .w(px(LEVEL_WIDTH))
-        .h(px(LEVEL_HEIGHT))
-        .flex_none()
-        .rounded(px(2.))
-        .bg(p.sunken)
-        .child(div().w(relative(level.clamp(0., 1.))).h_full().rounded(px(2.)).bg(p.volume))
 }

@@ -78,7 +78,8 @@ impl MainWindow {
         .detach();
     }
 
-    fn run_player_command(
+    /// Runs `action` as its key does: through the held-key gate.
+    pub(super) fn run_player_command(
         &mut self,
         action: &dyn Action,
         window: &mut Window,
@@ -133,8 +134,8 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::SeekForwardLong, |this, _, cx| this.skip(Way::Forward, SkipLength::Long, cx)),
     (&act::SeekToStart, |this, _, cx| this.seek_to(Edge::Start, cx)),
     (&act::SeekToEnd, |this, _, cx| this.seek_to(Edge::End, cx)),
-    (&act::VolumeUp, |this, _, cx| this.step_volume(VolumeChange::Up, cx)),
-    (&act::VolumeDown, |this, _, cx| this.step_volume(VolumeChange::Down, cx)),
+    (&act::VolumeUp, |this, window, cx| this.step_volume(VolumeChange::Up, window, cx)),
+    (&act::VolumeDown, |this, window, cx| this.step_volume(VolumeChange::Down, window, cx)),
     (&act::CycleAudioTrack, |this, _, cx| this.cycle_track(TrackKind::Audio, cx)),
     (&act::CycleSubtitleTrack, |this, _, cx| this.cycle_track(TrackKind::Subtitle, cx)),
 ];

@@ -28,7 +28,10 @@ fn volume(rig: &Rig, cx: &mut TestAppContext) -> Volume {
 fn the_volume_stays_under_the_maximum(cx: &mut TestAppContext) {
     let rig = Rig::new(cx, MockMedia::default());
     rig.run(cx, |player, cx| player.set_volume(Volume::from_percent(290), cx));
-    assert_eq!(volume(&rig, cx), Volume::from_percent(200));
+    assert_eq!(volume(&rig, cx), Volume::from_percent(125));
+    rig.run(cx, |player, cx| player.set_max_volume(Volume::from_percent(300), cx));
+    rig.run(cx, |player, cx| player.set_volume(Volume::from_percent(290), cx));
+    assert_eq!(volume(&rig, cx), Volume::from_percent(290));
     rig.run(cx, |player, cx| player.set_max_volume(Volume::from_percent(150), cx));
     assert_eq!(volume(&rig, cx), Volume::from_percent(150));
     rig.run(cx, |player, cx| player.set_max_volume(Volume::from_percent(300), cx));

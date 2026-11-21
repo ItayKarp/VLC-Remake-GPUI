@@ -1,5 +1,5 @@
 //! Controls preferences (Settings → Controls; its rows come with S5.6): how far the seek keys
-//! jump (S2.3.4, S5.6.1).
+//! jump (S2.3.4, S5.6.1) and what the scroll wheel does over the video (S2.5.5, S5.6.2).
 
 use std::time::Duration;
 
@@ -27,6 +27,20 @@ pub struct ControlsSettings {
     /// How far the seek keys jump.
     #[serde(deserialize_with = "lenient")]
     pub skip: SkipSeconds,
+    /// What the scroll wheel does over the video.
+    #[serde(deserialize_with = "lenient")]
+    pub wheel: WheelAction,
+}
+
+/// What the scroll wheel does over the video ("Mouse → Scroll wheel").
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WheelAction {
+    /// Steps the volume by the "Volume step", as in VLC.
+    #[default]
+    Volume,
+    /// Nothing.
+    Nothing,
 }
 
 /// The four skip amounts, in seconds.
@@ -82,7 +96,7 @@ mod tests {
     #[test]
     fn a_zero_skip_still_moves() {
         let skip = SkipSeconds { short: 0, ..SkipSeconds::default() };
-        let controls = ControlsSettings { skip };
+        let controls = ControlsSettings { skip, ..ControlsSettings::default() };
         assert_eq!(controls.skip(SkipLength::Short), Duration::from_secs(1));
     }
 }

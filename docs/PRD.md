@@ -523,7 +523,7 @@ flowchart LR
 **Depends on:** S1.2  **Size:** M  **Design refs:** `docs/ui/player/controls/volume/*`, `docs/icons/volume/*`
 
 **Subtasks**
-- [x] S1.5.1 Volume from 0 to the **Maximum volume** setting (100–300%, default 200%, per Settings → Audio), mute toggle, volume step from settings. *(`engine/player/audio.rs`: `set_volume` caps at `max_volume`, lowering the maximum brings a louder volume down at once, `step_volume`, `toggle_mute`, and `PlayerEvent::VolumeChanged`. Settings in `settings/schema/audio.rs` (`prefs.audio`), applied by `main_window/audio.rs`, which follows changes live. Up/Down step by `volume_step_percent` (default 5%) once something was opened. Changing the volume unmutes, as in VLC. libVLC takes up to 300%, checked on macOS.)*
+- [x] S1.5.1 Volume from 0 to the **Maximum volume** setting (100–300%, default 125% as VLC's slider (changed from 200% in S2.5), per Settings → Audio), mute toggle, volume step from settings. *(`engine/player/audio.rs`: `set_volume` caps at `max_volume`, lowering the maximum brings a louder volume down at once, `step_volume`, `toggle_mute`, and `PlayerEvent::VolumeChanged`. Settings in `settings/schema/audio.rs` (`prefs.audio`), applied by `main_window/audio.rs`, which follows changes live. Up/Down step by `volume_step_percent` (default 5%) once something was opened. Changing the volume unmutes, as in VLC. libVLC takes up to 300%, checked on macOS.)*
 - [x] S1.5.2 **Startup volume** as designed: "Remember last volume" or "Always starts at N%". Recommendation: even in "Remember last volume" mode, restore at most 100% on launch, so a 200% boost doesn't blast the next session's first video. *(`prefs.audio.startup_volume` (`remember_last` or `fixed`, with `startup_volume_percent`); the last volume is kept in `local.toml` (`audio.last_volume_percent`) and restored at most 100% (D21); either is capped at the maximum.)*
 - [x] S1.5.3 Choose the output device, or "System default", which follows OS default changes live. *(`Player::set_audio_device(OutputDevice)`, `audio_devices()`; the choice is `local.audio.output_device` (empty: system default). On macOS libVLC's "System Sound Output Device" (id `0`) follows the OS default; it is never listed as a device. Windows and Linux pass the empty id, not tried yet. No picker until S5.8.)*
 - [x] S1.5.4 Hot-plug: when the active device disappears (Bluetooth headphones off, USB DAC unplugged), switch to the system default. Optionally pause on headphone disconnect (a setting, on by default on laptops). *(libVLC 3 has no hot-plug event, so the worker reads the device list every 2 s (`libvlc/audio.rs`). `engine/audio/hotplug.rs`: a missing chosen device plays through the default, and is used again when it comes back. `prefs.audio.pause_on_device_disconnect` is on by default everywhere, not only on laptops. Through the system default the backend can't tell which device the OS used, so any device disappearing while playing counts. A toast says which device went. Not tried by unplugging yet.)*
@@ -684,21 +684,21 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S1.5, S0.4.5  **Size:** M  **Design refs:** `volume/volume-*.png`, `volume/audio_value.png`, `docs/icons/volume/*`, `docs/icons/media_controls/volume/*`
 
 **Subtasks**
-- [ ] S2.5.1 The wedge shape (narrow on the left, tall on the right, rounded left end) with a **position-locked gradient** (green `#78A613` → olive → amber `#9A7513` at 100% → orange → red `#C93129` at 200%).
-- [ ] S2.5.2 **Non-linear mapping** measured from the designs: 0–100% fills about 71% of the width and 100–200% the remaining 29%. Implement it as a piecewise-linear function with the breakpoint at 100%, so it extends cleanly when the maximum volume is 100% or 300% (Settings → Audio "Maximum volume").
-- [ ] S2.5.3 Value tooltip ("100 %") while dragging, scrolling or using the keyboard.
-- [ ] S2.5.4 Clicking the speaker toggles mute. The speaker icon changes with the level (none, low, medium, high, from `docs/icons/media_controls/volume/*`); the muted look isn't designed, so design it.
-- [ ] S2.5.5 Scroll wheel over the slider or the video (Settings → Controls mouse mapping), and Up/Down keys, in "Volume step" increments.
-- [ ] S2.5.6 Snap or detent at 100% while dragging (a soft magnet of about ±3%), so users don't drift into the boost range by accident.
-- [ ] S2.5.7 An OSD toast on the video when the volume changes by keyboard or scroll while the bar is hidden.
+- [x] S2.5.1 The wedge shape (narrow on the left, tall on the right, rounded left end) with a **position-locked gradient** (green `#78A613` → olive → amber `#9A7513` at 100% → orange → red `#C93129` at 200%). *(`main_window/volume_slider/wedge.rs`: 89×27.5 px, 10.5 px at the left end with 3 px corners, the fill inset 1.5 px; painted as paths, one two-stop gradient per stretch between stops, so colours belong to levels. A screenshot test compares 0/50/100/150/200% with the designs.)*
+- [x] S2.5.2 **Non-linear mapping** measured from the designs: 0–100% fills about 71% of the width and 100–200% the remaining 29%. Implement it as a piecewise-linear function with the breakpoint at 100%, so it extends cleanly when the maximum volume is 100% or 300% (Settings → Audio "Maximum volume"). *(`volume_slider/scale.rs`: each 100% of boost is 29/71 as long as 0–100%, so 100% sits at 71% of a 200% track, 91% of the default 125% track and 55% of a 300% one.)*
+- [x] S2.5.3 Value tooltip ("100 %") while dragging, scrolling or using the keyboard. *(The `audio_value.png` bubble over the wedge, while dragging and for 1 s after a key or the wheel.)*
+- [x] S2.5.4 Clicking the speaker toggles mute. The speaker icon changes with the level (none, low, medium, high, from `docs/icons/media_controls/volume/*`); the muted look isn't designed, so design it. *(None at 0%, low below 34%, medium below 67%, high above. Muted: the speaker struck through (`volume-muted.svg`) and the fill at a third of its opacity, so the level unmuting restores stays visible.)*
+- [x] S2.5.5 Scroll wheel over the slider or the video (Settings → Controls mouse mapping), and Up/Down keys, in "Volume step" increments. *(`prefs.controls.wheel`, `volume` or `nothing`, for the video; the wedge always takes the wheel. A wheel notch is one step; trackpad scrolling adds up 40 px per step, at most one step per event. With focus the wedge also takes Left/Right, Home (0%) and End (100%, not the boost).)*
+- [x] S2.5.6 Snap or detent at 100% while dragging (a soft magnet of about ±3%), so users don't drift into the boost range by accident. *(Drags set whole percents and hold at 100% from 97% to 103%.)*
+- [x] S2.5.7 An OSD toast on the video when the volume changes by keyboard or scroll while the bar is hidden. *(`main_window/osd.rs`: "Volume 80 %" at the video's top right for 1.5 s. The bar is hidden only in fullscreen until S2.8.)*
 
 **Edge cases**
 - Maximum volume lowered below the current level (S5.8): clamp immediately.
-- Trackpad inertial scrolling sends dozens of events: accumulate deltas into steps (S5.6 edge case).
-- Changing the volume while muted: unmute, matching VLC behavior (decide and document).
+- Trackpad inertial scrolling sends dozens of events: accumulate deltas into steps (S5.6 edge case). *(Done.)*
+- Changing the volume while muted: unmute, matching VLC behavior (decide and document). *(Decided: it unmutes.)*
 - Hardware volume keys change the **OS** volume, not the app's; don't intercept them.
-- Volume at 0% isn't the same as muted: unmuting restores the previous level, and dragging up from 0 doesn't change the mute flag.
-- No audio device (S1.5): the slider is disabled and its tooltip explains why.
+- Volume at 0% isn't the same as muted: unmuting restores the previous level, and dragging up from 0 doesn't change the mute flag. *(Done.)*
+- No audio device (S1.5): the slider is disabled and its tooltip explains why. *(Done.)*
 
 ---
 

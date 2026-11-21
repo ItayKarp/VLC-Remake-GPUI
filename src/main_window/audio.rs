@@ -1,5 +1,5 @@
 //! The main window's side of audio (S1.5): it sets a new player up from the audio settings,
-//! follows changes to them, remembers the volume, runs the volume keys, and tells the user when
+//! follows changes to them, remembers the volume, and tells the user when
 //! the device that played disappears or there is no device at all.
 
 use gpui::{Context, Entity, Subscription};
@@ -7,7 +7,7 @@ use gpui::{Context, Entity, Subscription};
 use super::MainWindow;
 use crate::engine::audio::{AudioConfig, AudioPolicy, OutputDevice};
 use crate::engine::player::{Player, PlayerEvent};
-use crate::engine::values::{MAX_VOLUME, MIN_MAX_VOLUME, Volume, VolumeChange};
+use crate::engine::values::{MAX_VOLUME, MIN_MAX_VOLUME, Volume};
 use crate::settings::{self, Settings, SettingsStore, StartupVolume};
 use crate::ui::toast::{Level, Toast};
 
@@ -43,13 +43,6 @@ impl MainWindow {
             // The player lives as long as the window that owns this subscription.
             let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
         }));
-    }
-
-    /// Raises or lowers the volume by the "Volume step".
-    pub(super) fn step_volume(&mut self, change: VolumeChange, cx: &mut Context<Self>) {
-        let Some((player, _)) = &self.player else { return };
-        let step = volume_step(settings::get(cx));
-        player.update(cx, |player, cx| player.step_volume(change, step, cx));
     }
 
     /// Handles the player's audio events.
@@ -111,7 +104,7 @@ fn startup_volume(settings: &Settings) -> Volume {
 }
 
 /// "Volume step", kept within 1% to 100%.
-fn volume_step(settings: &Settings) -> Volume {
+pub(super) fn volume_step(settings: &Settings) -> Volume {
     let (low, high) = VOLUME_STEP_RANGE;
     Volume::from_percent(settings.prefs.audio.volume_step_percent.clamp(low, high))
 }
@@ -140,7 +133,7 @@ mod tests {
             s.prefs.audio.startup_volume = StartupVolume::Fixed;
             s.prefs.audio.startup_volume_percent = 250;
         });
-        assert_eq!(startup_volume(&fixed), Volume::from_percent(200));
+        assert_eq!(startup_volume(&fixed), Volume::from_percent(125));
     }
 
     #[test]

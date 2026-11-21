@@ -20,8 +20,8 @@ use gpui::{
 };
 
 use self::fit::{ITEM_GAP, PADDING};
-pub(super) use self::layout::SEEK_MIN;
-use self::layout::{BUTTON, Item, Slot};
+pub(super) use self::layout::{BUTTON, ICON, LEVEL_GAP, SEEK_MIN};
+use self::layout::{Item, Slot};
 use super::MainWindow;
 use crate::assets::icons;
 use crate::theme::Palette;

@@ -8,7 +8,7 @@ use super::super::lenient::lenient;
 use crate::engine::audio::SpeakerSetup;
 
 /// "Maximum volume" by default, in percent.
-pub const DEFAULT_MAX_VOLUME_PERCENT: u32 = 200;
+pub const DEFAULT_MAX_VOLUME_PERCENT: u32 = 125;
 /// The "Always starts at" volume by default, in percent.
 pub const DEFAULT_STARTUP_VOLUME_PERCENT: u32 = 100;
 /// "Volume step" by default, in percent.

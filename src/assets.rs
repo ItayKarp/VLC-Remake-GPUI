@@ -63,7 +63,13 @@ icons! {
     MAXIMIZE => "maximize.svg",
     FULLSCREEN => "fullscreen.svg",
     CLOSE => "close.svg",
+    /// The speaker at a high level; the lower levels and mute follow (S2.5.4).
     VOLUME => "volume.svg",
+    VOLUME_MEDIUM => "volume-medium.svg",
+    VOLUME_LOW => "volume-low.svg",
+    VOLUME_NONE => "volume-none.svg",
+    /// Muted (not in the designs): the speaker struck through.
+    VOLUME_MUTED => "volume-muted.svg",
     AUDIO => "audio.svg",
     SUBTITLES => "subtitles.svg",
     SETTINGS => "settings.svg",
