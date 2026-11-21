@@ -92,9 +92,17 @@ pub struct LocalState {
     /// machine-specific, so a new machine should run onboarding again.
     #[serde(deserialize_with = "lenient")]
     pub onboarding_complete: bool,
-    /// Onboarding writes one; the Library settings screen can manage several.
+    /// Onboarding writes one; the Library settings screen can manage several. The library
+    /// indexes each as a video folder (S4.2.1).
     #[serde(with = "stored_path::list")]
     pub media_folders: Vec<PathBuf>,
+    /// Folders the library indexes as music (S4.2.7): the OS Music folder, added once.
+    #[serde(with = "stored_path::list")]
+    pub music_folders: Vec<PathBuf>,
+    /// Whether the OS Music folder was offered to the library (S4.2.7, D7), so removing it
+    /// later sticks.
+    #[serde(deserialize_with = "lenient")]
+    pub music_folder_added: bool,
     /// Where each window was last placed.
     #[serde(deserialize_with = "lenient")]
     pub window: WindowState,
@@ -124,6 +132,10 @@ empty_sections! {
 }
 
 /// Library preferences (Stage 4, S5.9).
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "independent switches, each its own row in Settings → Library"
+)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LibrarySettings {
@@ -135,11 +147,15 @@ pub struct LibrarySettings {
     /// file's folder (S3.1.3), takes the media in its subfolders too.
     #[serde(deserialize_with = "lenient")]
     pub include_subfolders: bool,
+    /// "Show hidden files" (S5.9.1): whether the library indexes dot files and files the OS
+    /// marks hidden or system (S4.2.2).
+    #[serde(deserialize_with = "lenient")]
+    pub show_hidden_files: bool,
 }
 
 impl Default for LibrarySettings {
     fn default() -> Self {
-        Self { allow_multiple_instances: false, include_subfolders: true }
+        Self { allow_multiple_instances: false, include_subfolders: true, show_hidden_files: false }
     }
 }
 

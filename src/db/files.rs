@@ -25,6 +25,8 @@ pub struct Scanned<'a> {
     pub stamp: FileStamp,
     /// The media its content is, once identified.
     pub media: Option<MediaId>,
+    /// Whether it is an online-only placeholder, whose content mustn't be read.
+    pub cloud: bool,
 }
 
 /// A file in the library.
@@ -38,6 +40,19 @@ pub struct File {
     pub stamp: FileStamp,
     /// The media its content is; `None` until identified.
     pub media: Option<MediaId>,
+    /// Whether it is an online-only placeholder.
+    pub cloud: bool,
+}
+
+/// A file waiting to be identified.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unidentified {
+    /// The row.
+    pub id: FileId,
+    /// Where it is.
+    pub path: PathBuf,
+    /// Its size and modification time when last scanned.
+    pub stamp: FileStamp,
 }
 
 /// Writes what a scan saw of a file in `folder`, adding it or updating the one there.
@@ -49,10 +64,11 @@ pub fn put(
 ) -> rusqlite::Result<FileId> {
     let name = Path::new(file.name);
     connection.query_row(
-        "INSERT INTO files (folder_id, name, key, media_id, size, modified_ms)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        "INSERT INTO files (folder_id, name, key, media_id, size, modified_ms, cloud)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT (folder_id, key) DO UPDATE SET name = excluded.name,
-             media_id = excluded.media_id, size = excluded.size, modified_ms = excluded.modified_ms
+             media_id = excluded.media_id, size = excluded.size,
+             modified_ms = excluded.modified_ms, cloud = excluded.cloud
          RETURNING id",
         params![
             folder.0,
@@ -60,7 +76,8 @@ pub fn put(
             PathKey::new(name, case).as_str(),
             file.media.map(|media| media.0),
             file.stamp.size as i64,
-            file.stamp.modified_ms
+            file.stamp.modified_ms,
+            file.cloud
         ],
         |row| row.get(0).map(FileId),
     )
@@ -82,9 +99,65 @@ pub fn remove(connection: &Connection, id: FileId) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Records that file `id`'s content is `media`, as identified when the file had `stamp`. A file
+/// that changed since (a later scan saw another stamp) is left for identifying again.
+pub fn set_media(
+    connection: &Connection,
+    id: FileId,
+    media: MediaId,
+    stamp: FileStamp,
+) -> rusqlite::Result<()> {
+    connection.execute(
+        "UPDATE files SET media_id = ?2 WHERE id = ?1 AND size = ?3 AND modified_ms IS ?4",
+        params![id.0, media.0, stamp.size as i64, stamp.modified_ms],
+    )?;
+    Ok(())
+}
+
+/// Up to `limit` files after `after` (by row) whose content hasn't been identified, leaving out
+/// online-only ones: the identifier's next batch.
+pub fn unidentified(
+    connection: &Connection,
+    after: FileId,
+    limit: usize,
+) -> rusqlite::Result<Vec<Unidentified>> {
+    let mut statement = connection.prepare(
+        "SELECT files.id, folders.path, files.name, files.size, files.modified_ms
+         FROM files JOIN folders ON folders.id = files.folder_id
+         WHERE files.media_id IS NULL AND files.cloud = 0 AND files.id > ?1
+         ORDER BY files.id LIMIT ?2",
+    )?;
+    let rows = statement.query_map(params![after.0, limit as i64], |row| {
+        let (folder, name): (String, String) = (row.get(1)?, row.get(2)?);
+        let size: i64 = row.get(3)?;
+        let stamp = FileStamp { size: size as u64, modified_ms: row.get(4)? };
+        Ok((FileId(row.get(0)?), folders::decode(&folder).zip(stored_path::decode(&name)), stamp))
+    })?;
+    let rows: Vec<_> = rows.collect::<Result<_, _>>()?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, path, stamp)| {
+            path.map(|(folder, name)| Unidentified { id, path: folder.join(name), stamp })
+        })
+        .collect())
+}
+
+/// How many files are in folder `top` and every folder below it.
+pub fn count_below(connection: &Connection, top: FolderId) -> rusqlite::Result<usize> {
+    connection.query_row(
+        "WITH RECURSIVE tree (id) AS (
+             SELECT ?1 UNION SELECT folders.id FROM folders JOIN tree ON folders.parent_id = tree.id
+         )
+         SELECT COUNT(*) FROM files WHERE folder_id IN tree",
+        [top.0],
+        |row| row.get::<_, i64>(0).map(|count| count as usize),
+    )
+}
+
 fn select(connection: &Connection, filter: &str, value: i64) -> rusqlite::Result<Vec<File>> {
     let mut statement = connection.prepare(&format!(
-        "SELECT files.id, folders.path, files.name, files.size, files.modified_ms, files.media_id
+        "SELECT files.id, folders.path, files.name, files.size, files.modified_ms, files.media_id,
+             files.cloud
          FROM files JOIN folders ON folders.id = files.folder_id WHERE {filter}"
     ))?;
     let rows = statement.query_map(params![value], read)?;
@@ -99,6 +172,7 @@ fn read(row: &Row<'_>) -> rusqlite::Result<Option<File>> {
     let size: i64 = row.get(3)?;
     let stamp = FileStamp { size: size as u64, modified_ms: row.get(4)? };
     let media = row.get::<_, Option<i64>>(5)?.map(MediaId);
+    let cloud = row.get(6)?;
     let path = folders::decode(&folder).zip(stored_path::decode(&name));
-    Ok(path.map(|(folder, name)| File { id, path: folder.join(name), stamp, media }))
+    Ok(path.map(|(folder, name)| File { id, path: folder.join(name), stamp, media, cloud }))
 }

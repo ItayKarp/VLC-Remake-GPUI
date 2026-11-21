@@ -14,16 +14,13 @@
 
 #[allow(dead_code, reason = "the library's tables (S4.1); Home (S4.9) and the views use them")]
 pub mod activity;
-#[allow(dead_code, reason = "the library's tables (S4.1); the indexer (S4.2) fills them")]
 pub mod files;
-#[allow(dead_code, reason = "the library's tables (S4.1); the indexer (S4.2) fills them")]
 pub mod folders;
 pub mod media;
 #[allow(dead_code, reason = "the library's tables (S4.1); metadata extraction (S4.3) fills it")]
 pub mod metadata;
 mod migrations;
 pub mod playlists;
-#[allow(dead_code, reason = "the library's tables (S4.1); the indexer (S4.2) fills them")]
 pub mod roots;
 #[cfg(test)]
 mod tests;

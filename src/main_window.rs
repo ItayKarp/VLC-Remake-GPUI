@@ -19,6 +19,7 @@ mod frame_step;
 mod fullscreen;
 mod hide_ui;
 mod history;
+mod library_status;
 mod main_menu;
 mod new_playlist;
 mod notice;
@@ -206,6 +207,7 @@ impl MainWindow {
     /// layout).
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_global::<settings::SettingsStore>(|_, cx| cx.notify()).detach();
+        cx.observe_global::<crate::library::Library>(|_, cx| cx.notify()).detach();
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
     }
 

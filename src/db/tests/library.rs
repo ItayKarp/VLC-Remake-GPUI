@@ -25,7 +25,7 @@ fn media_row(connection: &Connection, identity: &str) -> MediaId {
 }
 
 fn put(connection: &Connection, folder: FolderId, name: &str, media: MediaId, case: Case) {
-    let file = Scanned { name: OsStr::new(name), stamp: STAMP, media: Some(media) };
+    let file = Scanned { name: OsStr::new(name), stamp: STAMP, media: Some(media), cloud: false };
     files::put(connection, folder, &file, case).expect("put file");
 }
 

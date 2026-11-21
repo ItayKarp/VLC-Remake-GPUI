@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
-pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS, LIBRARY];
+pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS, LIBRARY, INDEXING];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "
@@ -160,6 +160,23 @@ const LIBRARY: &str = "
         added_ms INTEGER NOT NULL,
         last_played_ms INTEGER,
         UNIQUE (category, url)
+    );
+";
+
+/// Version 4 (S4.2): what the indexer learns besides the files themselves.
+///
+/// - `files.cloud` marks an online-only file (OneDrive Files On-Demand, iCloud Drive, Dropbox):
+///   its content is never read during a scan, since that would download it, so it has no media
+///   row until it is on the disk.
+/// - `unreadable_folders` lists the folders a scan of a root couldn't read (permission denied),
+///   for the root's status details. A scan replaces its root's list.
+const INDEXING: &str = "
+    ALTER TABLE files ADD COLUMN cloud INTEGER NOT NULL DEFAULT 0;
+    CREATE INDEX files_unidentified ON files (id) WHERE media_id IS NULL;
+    CREATE TABLE unreadable_folders (
+        root_id INTEGER NOT NULL REFERENCES roots (id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        PRIMARY KEY (root_id, path)
     );
 ";
 

@@ -31,6 +31,7 @@ impl MainWindow {
                 self.notices.iter().enumerate().map(|(i, notice)| notice_banner(i, notice, cx)),
             )
             .child(self.render_drop_zone(p, cx))
+            .children(super::library_status::render(p, cx))
             .children(self.render_status(p, cx))
             .children(self.render_list(p))
             .into_any_element()

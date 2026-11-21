@@ -141,6 +141,8 @@ fn a_database_from_every_older_version_is_brought_up_to_date() {
         }
         let playlist = Stored { title: "Mix".into(), ..Stored::default() };
         playlists::insert(database.connection(), None, &playlist, 1).expect("the new tables");
+        let pending = super::files::unidentified(database.connection(), super::files::FileId(0), 1);
+        assert_eq!(pending.expect("the indexing columns"), []);
     }
 }
 

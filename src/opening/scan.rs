@@ -128,8 +128,9 @@ fn read_sorted(folder: &Path) -> io::Result<Vec<DirEntry>> {
     Ok(entries)
 }
 
-/// Dot files everywhere, and files Windows marks hidden or system.
-fn is_hidden(entry: &DirEntry) -> bool {
+/// Dot files everywhere, and files Windows marks hidden or system. The library's scans skip
+/// them too (S4.2.2).
+pub(crate) fn is_hidden(entry: &DirEntry) -> bool {
     if entry.file_name().to_string_lossy().starts_with('.') {
         return true;
     }

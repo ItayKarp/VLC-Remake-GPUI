@@ -75,11 +75,24 @@ pub fn children(connection: &Connection, id: FolderId) -> rusqlite::Result<Vec<F
 }
 
 /// Where folder `id` is, if it exists (and was stored on this OS family).
+#[allow(dead_code, reason = "the library views (S4.6) open folders by id")]
 pub fn path(connection: &Connection, id: FolderId) -> rusqlite::Result<Option<PathBuf>> {
     let stored: Option<String> = connection
         .query_row("SELECT path FROM folders WHERE id = ?1", [id.0], |row| row.get(0))
         .optional()?;
     Ok(stored.as_deref().and_then(decode))
+}
+
+/// Deletes folder `id` and everything below it, with their files: it is gone from the disk. A
+/// root's top folder stays, with its files, since the root's own scans decide about it (a root
+/// that went missing is marked so, not forgotten).
+pub fn remove(connection: &Connection, id: FolderId) -> rusqlite::Result<()> {
+    connection.execute(
+        "DELETE FROM folders WHERE id = ?1 AND id NOT IN (SELECT folder_id FROM roots)",
+        [id.0],
+    )?;
+    prune_unreachable(connection)?;
+    Ok(())
 }
 
 /// Deletes the folders no root reaches any more, with their files.

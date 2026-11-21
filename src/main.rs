@@ -10,7 +10,6 @@ mod diagnostics;
 mod engine;
 mod history;
 mod keymap;
-#[allow(dead_code, reason = "the library's model (S4.1); the indexer (S4.2) is its first caller")]
 mod library;
 mod logging;
 mod main_window;
@@ -51,6 +50,7 @@ fn main() {
     application.run(move |cx: &mut App| {
         settings::init(cx);
         history::init(cx);
+        library::init(cx);
         playlists::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);

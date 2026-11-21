@@ -105,10 +105,27 @@ impl History {
         self.send(Job::Database(Box::new(work)));
     }
 
+    /// A handle that runs work on the database from any thread, for the library's indexer.
+    pub(crate) fn database(&self) -> DatabaseHandle {
+        DatabaseHandle(self.jobs.clone())
+    }
+
     fn send(&self, job: Job) {
         if self.jobs.send(job).is_err() {
             tracing::warn!("history: the history thread is gone");
         }
+    }
+}
+
+/// Runs work on the history thread's database from another thread (the library's indexer),
+/// after the jobs sent before it.
+#[derive(Clone)]
+pub(crate) struct DatabaseHandle(Sender<Job>);
+
+impl DatabaseHandle {
+    /// Sends `work`; `false` when the history thread is gone.
+    pub(crate) fn run(&self, work: DatabaseWork) -> bool {
+        self.0.send(Job::Database(work)).is_ok()
     }
 }
 

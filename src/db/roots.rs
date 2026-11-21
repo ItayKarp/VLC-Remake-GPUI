@@ -9,6 +9,7 @@ use rusqlite::{Connection, Row, params};
 use super::folders::{self, FolderId};
 use super::text_enum::text_enum;
 use crate::library::path_key::Case;
+use crate::settings::stored_path;
 
 /// A row of the `roots` table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -112,6 +113,32 @@ pub fn set_status(connection: &Connection, id: RootId, status: RootStatus) -> ru
 pub fn set_scanned(connection: &Connection, id: RootId, now_ms: i64) -> rusqlite::Result<()> {
     connection.execute("UPDATE roots SET scanned_ms = ?2 WHERE id = ?1", params![id.0, now_ms])?;
     Ok(())
+}
+
+/// Replaces the folders a scan of root `id` couldn't read.
+pub fn set_unreadable(
+    connection: &mut Connection,
+    id: RootId,
+    paths: &[PathBuf],
+) -> rusqlite::Result<()> {
+    let transaction = connection.transaction()?;
+    transaction.execute("DELETE FROM unreadable_folders WHERE root_id = ?1", [id.0])?;
+    for path in paths {
+        transaction.execute(
+            "INSERT OR IGNORE INTO unreadable_folders (root_id, path) VALUES (?1, ?2)",
+            params![id.0, stored_path::encode(path)],
+        )?;
+    }
+    transaction.commit()
+}
+
+/// The folders the last scan of root `id` couldn't read, in path order.
+pub fn unreadable(connection: &Connection, id: RootId) -> rusqlite::Result<Vec<PathBuf>> {
+    let mut statement = connection
+        .prepare("SELECT path FROM unreadable_folders WHERE root_id = ?1 ORDER BY path")?;
+    let rows = statement.query_map([id.0], |row| row.get::<_, String>(0))?;
+    let rows: Vec<String> = rows.collect::<Result<_, _>>()?;
+    Ok(rows.iter().filter_map(|path| folders::decode(path)).collect())
 }
 
 /// Removes root `id`, and the folders and files no other root reaches. The media rows stay:
