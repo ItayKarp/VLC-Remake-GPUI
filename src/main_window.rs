@@ -15,6 +15,7 @@ mod player_keys;
 #[cfg(test)]
 mod tests;
 mod title_bar;
+mod tracks;
 
 use gpui::{
     Context, DismissEvent, Div, Entity, FocusHandle, SharedString, Subscription, Window, div,
@@ -58,6 +59,8 @@ pub struct MainWindow {
     video: Option<Entity<VideoView>>,
     /// The audio settings subscription and what was said about devices (S1.5).
     audio: audio::AudioWatch,
+    /// The track settings subscription and the last track toast (S1.6).
+    tracks: tracks::TrackWatch,
     /// Keeps the display awake while video plays where it shows (S1.4.3).
     display_sleep: DisplaySleep,
     _visibility: Subscription,
@@ -100,6 +103,7 @@ impl MainWindow {
             player: None,
             video: None,
             audio: audio::AudioWatch::default(),
+            tracks: tracks::TrackWatch::default(),
             display_sleep: DisplaySleep::default(),
             _visibility: Self::follow_visibility(window, cx),
             notices,

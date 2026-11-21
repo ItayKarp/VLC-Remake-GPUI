@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
-use super::media_info::{TrackId, TrackKind, Tracks};
 use super::state::PlaybackState;
+use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
 use crate::app::media::Media;
 

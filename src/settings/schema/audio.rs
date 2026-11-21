@@ -1,5 +1,6 @@
 //! Audio settings (S1.5, Settings → Audio): the volume range, startup volume and step, the
-//! speaker setup and passthrough, and the machine-local output device and last volume.
+//! speaker setup and passthrough, the preferred languages (S1.6.3), and the machine-local output
+//! device and last volume.
 
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +40,10 @@ pub struct AudioSettings {
     /// Pauses when the device that was playing disappears (headphones unplugged).
     #[serde(deserialize_with = "lenient")]
     pub pause_on_device_disconnect: bool,
+    /// "Audio Language" (S7.6.1): language codes (`en`, `jpn`), most preferred first. New
+    /// media plays the first one it has; empty keeps the media's own default.
+    #[serde(deserialize_with = "lenient")]
+    pub preferred_languages: Vec<String>,
 }
 
 impl Default for AudioSettings {
@@ -51,6 +56,7 @@ impl Default for AudioSettings {
             speaker_setup: SpeakerSetup::default(),
             passthrough: false,
             pause_on_device_disconnect: true,
+            preferred_languages: Vec::new(),
         }
     }
 }

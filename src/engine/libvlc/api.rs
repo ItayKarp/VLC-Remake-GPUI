@@ -83,11 +83,31 @@ pub struct MediaTrack {
     pub kind: c_int,
     pub profile: c_int,
     pub level: c_int,
-    /// Points to a [`VideoTrack`] when `kind` is video.
-    pub detail: *mut VideoTrack,
+    /// The kind's details; which member is valid depends on `kind`.
+    pub detail: TrackDetail,
     pub bitrate: c_uint,
     pub language: *mut c_char,
     pub description: *mut c_char,
+}
+
+/// The anonymous union in `libvlc_media_track_t`: one pointer, to the details of the track's
+/// kind. Each may be NULL.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union TrackDetail {
+    /// `libvlc_audio_track_t`, when the track is audio.
+    pub audio: *mut AudioTrack,
+    /// `libvlc_video_track_t`, when the track is video.
+    pub video: *mut VideoTrack,
+    /// `libvlc_subtitle_track_t`, when the track is text; unread.
+    pub subtitle: *mut c_void,
+}
+
+/// `libvlc_audio_track_t` from libVLC 3, field for field.
+#[repr(C)]
+pub struct AudioTrack {
+    pub channels: c_uint,
+    pub rate: c_uint,
 }
 
 /// `libvlc_video_track_t` from libVLC 3, field for field.
@@ -174,6 +194,7 @@ libvlc_api! {
     libvlc_media_get_meta: fn(*mut Media, c_int) -> *mut c_char;
     libvlc_media_tracks_get: fn(*mut Media, *mut *mut *mut MediaTrack) -> c_uint;
     libvlc_media_tracks_release: fn(*mut *mut MediaTrack, c_uint);
+    libvlc_media_slaves_add: fn(*mut Media, c_int, c_uint, *const c_char) -> c_int;
     libvlc_media_player_new: fn(*mut Instance) -> Player;
     libvlc_media_player_release: fn(Player);
     libvlc_media_player_set_media: fn(Player, *mut Media);

@@ -11,12 +11,15 @@
 //!   [`ErrorKind::BackendUnavailable`](state::ErrorKind::BackendUnavailable) when libVLC is
 //!   missing.
 //! - [`mock`]: a backend without media, for tests and for building UI without libVLC.
+//! - [`tracks`]: the audio, video and subtitle tracks, their names, cycling them and picking
+//!   them by the preferred [`language`]s (S1.6).
 //! - [`audio`]: output devices, speaker setup and hot-plug routing (S1.5).
 //! - [`video`]: the sink interface decoded pictures are delivered through (S1.4).
 
 pub mod audio;
 pub mod backend;
 mod coalesce;
+pub mod language;
 pub mod libvlc;
 pub mod media_info;
 pub mod mock;
@@ -27,6 +30,7 @@ pub mod shutdown;
 pub mod state;
 #[cfg(test)]
 mod tests;
+pub mod tracks;
 mod unavailable;
 pub mod values;
 pub mod video;

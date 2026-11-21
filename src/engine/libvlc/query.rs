@@ -2,12 +2,15 @@
 //! worker thread, and sends it to the player.
 
 use std::ffi::c_int;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use super::api::{MediaTrack, TrackDescription, VideoTrack, borrowed_string};
+use super::track_list::{self, Stream};
 use super::worker::{Refresh, Worker};
 use crate::engine::backend::BackendEvent;
-use crate::engine::media_info::{Chapter, Metadata, Track, TrackId, TrackKind, Tracks, VideoSize};
+use crate::engine::media_info::{Chapter, Metadata, VideoSize};
+use crate::engine::tracks::{TrackId, TrackKind, Tracks};
 
 /// `libvlc_meta_Title`, `libvlc_meta_Artist` and `libvlc_meta_Album`.
 const META_TITLE: c_int = 0;
@@ -21,15 +24,6 @@ const SQUARE_TOLERANCE: f64 = 0.01;
 /// The chapters of the current title, for `libvlc_media_player_get_full_chapter_descriptions`.
 const CURRENT_TITLE: c_int = -1;
 
-/// One elementary stream as `libvlc_media_tracks_get` describes it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct Stream {
-    id: TrackId,
-    kind: Option<TrackKind>,
-    language: Option<String>,
-    size: Option<VideoSize>,
-}
-
 impl Worker {
     /// Reads `what` again and sends it to the player.
     pub(super) fn refresh(&mut self, what: Refresh) {
@@ -39,6 +33,7 @@ impl Worker {
             Refresh::Metadata => self.send_metadata(),
             Refresh::AudioDevices => self.poll_devices(),
             Refresh::Everything => {
+                self.restore_tracks();
                 self.apply_delays();
                 self.apply_speaker_setup();
                 self.send_tracks();
@@ -53,13 +48,22 @@ impl Worker {
         self.streams().len()
     }
 
-    fn send_tracks(&self) {
+    fn send_tracks(&mut self) {
+        // The reopened media's tracks show once its selection is restored.
+        if self.shared.switching.load(Ordering::Relaxed) {
+            return;
+        }
         let streams = self.streams();
         let mut tracks = Tracks::default();
         for kind in [TrackKind::Audio, TrackKind::Video, TrackKind::Subtitle] {
-            tracks.all.extend(merge(kind, &self.names(kind), &streams));
+            tracks.all.extend(track_list::merge(kind, &self.listed(kind), &streams));
             tracks.select(kind, self.selected(kind));
         }
+        if self.shared.started.load(Ordering::Relaxed) {
+            self.defaults.learn(&tracks);
+        }
+        self.defaults.mark(&mut tracks);
+        self.watch_subtitles(&tracks, Instant::now());
         self.shared.send(BackendEvent::Tracks(tracks));
         self.send_size_of(&streams);
     }
@@ -131,15 +135,15 @@ impl Worker {
         unsafe {
             let streams = std::slice::from_raw_parts(list, count as usize)
                 .iter()
-                .map(|&track| stream(&*track))
+                .map(|&track| track_list::stream(&*track))
                 .collect();
             (api.libvlc_media_tracks_release)(list, count);
             streams
         }
     }
 
-    /// The player's names for the tracks of `kind`, as VLC shows them ("Track 1 - [English]").
-    fn names(&self, kind: TrackKind) -> Vec<(TrackId, Option<String>)> {
+    /// The ids of the player's tracks of `kind`, with -1 for "Disable".
+    fn listed(&self, kind: TrackKind) -> Vec<TrackId> {
         let api = &self.vlc.api;
         let describe = match kind {
             TrackKind::Audio => api.libvlc_audio_get_track_description,
@@ -149,20 +153,20 @@ impl Worker {
         // SAFETY: the player is live; the list is NULL or a chain we release once.
         unsafe {
             let first = describe(self.handles.player);
-            let mut names = Vec::new();
+            let mut ids = Vec::new();
             let mut node: *const TrackDescription = first;
             while let Some(entry) = node.as_ref() {
-                names.push((TrackId(entry.id), borrowed_string(entry.name)));
+                ids.push(TrackId(entry.id));
                 node = entry.next;
             }
             if !first.is_null() {
                 (api.libvlc_track_description_list_release)(first);
             }
-            names
+            ids
         }
     }
 
-    fn selected(&self, kind: TrackKind) -> Option<TrackId> {
+    pub(super) fn selected(&self, kind: TrackKind) -> Option<TrackId> {
         let api = &self.vlc.api;
         let current = match kind {
             TrackKind::Audio => api.libvlc_audio_get_track,
@@ -172,33 +176,6 @@ impl Worker {
         // SAFETY: the player is live.
         let id = unsafe { current(self.handles.player) };
         (id >= 0).then_some(TrackId(id))
-    }
-}
-
-/// Reads one `libvlc_media_track_t`.
-///
-/// # Safety
-///
-/// `track` is live, and its `detail` is NULL or a live video track when it is video.
-unsafe fn stream(track: &MediaTrack) -> Stream {
-    let kind = match track.kind {
-        0 => Some(TrackKind::Audio),
-        1 => Some(TrackKind::Video),
-        2 => Some(TrackKind::Subtitle),
-        _ => None,
-    };
-    let video = if kind == Some(TrackKind::Video) {
-        // SAFETY: a video track's detail is a video track, or NULL.
-        unsafe { track.detail.as_ref() }
-    } else {
-        None
-    };
-    Stream {
-        id: TrackId(track.id),
-        kind,
-        // SAFETY: libVLC's strings are NULL or NUL-terminated.
-        language: unsafe { borrowed_string(track.language) },
-        size: video.and_then(display_size),
     }
 }
 
@@ -218,23 +195,6 @@ pub(super) fn display_size(video: &VideoTrack) -> Option<VideoSize> {
         (width, video.height)
     };
     Some(VideoSize { width, height })
-}
-
-/// The tracks of `kind`: the player's list (with names) once playing, else the media's streams.
-/// Languages come from the streams; the "Disable" entry (id -1) is left out.
-fn merge(kind: TrackKind, names: &[(TrackId, Option<String>)], streams: &[Stream]) -> Vec<Track> {
-    let language = |id| streams.iter().find(|s| s.id == id).and_then(|s| s.language.clone());
-    let listed = names.iter().filter(|(id, _)| id.0 >= 0);
-    if names.iter().any(|(id, _)| id.0 >= 0) {
-        return listed
-            .map(|(id, name)| Track { id: *id, kind, name: name.clone(), language: language(*id) })
-            .collect();
-    }
-    streams
-        .iter()
-        .filter(|stream| stream.kind == Some(kind))
-        .map(|stream| Track { id: stream.id, kind, name: None, language: stream.language.clone() })
-        .collect()
 }
 
 #[cfg(test)]
@@ -263,26 +223,5 @@ mod tests {
         assert_eq!(display_size(&video(1919, 1079, (17264, 17271), 0)), size(1919, 1079));
         assert_eq!(display_size(&video(1920, 1080, (0, 0), 5)), size(1080, 1920));
         assert_eq!(display_size(&video(0, 0, (1, 1), 0)), None);
-    }
-
-    #[test]
-    fn player_names_win_and_streams_fill_in_before_playback() {
-        let stream = |id, language: &str| Stream {
-            id: TrackId(id),
-            kind: Some(TrackKind::Audio),
-            language: Some(language.into()),
-            size: None,
-        };
-        let streams = [stream(1, "en"), stream(2, "fr")];
-        let names = [(TrackId(-1), Some("Disable".into())), (TrackId(2), Some("Track 2".into()))];
-        let from_player = merge(TrackKind::Audio, &names, &streams);
-        assert_eq!(from_player.len(), 1);
-        assert_eq!(
-            (from_player[0].name.as_deref(), from_player[0].language.as_deref()),
-            (Some("Track 2"), Some("fr"))
-        );
-        let unnamed = merge(TrackKind::Audio, &[], &streams);
-        assert_eq!(unnamed.iter().map(|track| track.id.0).collect::<Vec<_>>(), [1, 2]);
-        assert_eq!(merge(TrackKind::Subtitle, &[], &streams), []);
     }
 }

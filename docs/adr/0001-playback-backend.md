@@ -221,6 +221,14 @@ samples (S9.8.1).
 9. **Display-limited frame rates:** on a 60 Hz display, sources above 60 fps lose frames by
    design. Counting those as drops would hide real problems, so report them apart. → S1.2.
 
+10. **Subtitles over hardware frames:** libVLC 3 blends subtitles onto the decoded picture
+    and has no routine for hardware frames (`YUVA -> CVPN`), so with VideoToolbox no subtitle
+    appears on either path, and filters don't help (the blend comes first). Software decoding
+    draws them. → S1.6: media opens in hardware; once a subtitle shows, the worker reopens it
+    in software at the same position (`engine/libvlc/decoding.rs`). Rotated media, already in
+    software, now keeps its subtitle decoder (`--codec=avcodec,any`, not `avcodec,none`).
+    libVLC 4 or path (d) removes this.
+
 **Status after S1.4:** limits 1–3 are handled. The engine parses local files before playing
 and answers `vmem` with the display size. MPEG-PS/TS shapes are re-read once decoding reveals
 them. Rotated tracks are decoded in software. Limit 7 is handled by `Frame::release`. Limit 4

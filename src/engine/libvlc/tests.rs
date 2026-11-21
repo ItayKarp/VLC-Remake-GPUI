@@ -17,6 +17,7 @@ use crate::engine::backend::{self, Backend, BackendEvent, EventReceiver, EventSe
 use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
 use crate::engine::state::{ErrorKind, PlaybackState};
+use crate::engine::tracks::{Track, TrackId, TrackKind, Tracks};
 use crate::engine::values::{BackendSeek, Generation, StepDirection};
 
 /// How long any one expected event may take.
@@ -71,6 +72,21 @@ impl Session {
             Some(event) => event.clone(),
             None => self.wait_for(wanted),
         }
+    }
+
+    /// Every event of this open for `time`.
+    fn collect_for(&mut self, time: Duration) -> Vec<BackendEvent> {
+        let deadline = Instant::now() + time;
+        let mut events = Vec::new();
+        while Instant::now() < deadline {
+            match self.receiver.try_recv() {
+                Ok(tagged) if tagged.generation == self.generation => events.push(tagged.event),
+                Ok(_) => {}
+                Err(_) => thread::sleep(Duration::from_millis(5)),
+            }
+        }
+        self.seen.extend(events.iter().cloned());
+        events
     }
 
     fn wait_for_state(&mut self, state: PlaybackState) {
@@ -187,4 +203,83 @@ fn the_device_list_arrives_without_media_even_with_passthrough() {
     // The system default is a choice of its own, never listed as a device.
     assert!(devices.iter().all(|device| !device.id.is_empty() && device.id != "0"));
     assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn tracks_carry_languages_titles_codecs_and_flags() {
+    let mut session = Session::open("tracks.mkv");
+    session.wait_for_state(PlaybackState::Playing);
+    // Defaults are known once playback started; libVLC plays the flagged Japanese track.
+    let BackendEvent::Tracks(tracks) = session.has_seen(has_default_audio) else { unreachable!() };
+    let of = |kind| tracks.of(kind).cloned().collect::<Vec<Track>>();
+    let audio = of(TrackKind::Audio);
+    let labels: Vec<_> = audio.iter().map(|track| label(&tracks, track)).collect();
+    assert_eq!(labels, ["English — AC3 5.1", "Commentary — AAC Stereo"]);
+    assert!(audio[1].default && !audio[0].default, "{audio:#?}");
+    let subtitles = of(TrackKind::Subtitle);
+    let labels: Vec<_> = subtitles.iter().map(|track| label(&tracks, track)).collect();
+    assert_eq!(labels, ["English Forced — SRT", "French — SRT"]);
+    assert!(subtitles[0].forced && !subtitles[1].forced);
+
+    session.backend.select_track(TrackKind::Subtitle, Some(subtitles[1].id));
+    let french = Some(subtitles[1].id);
+    session.wait_for(|event| matches!(event, BackendEvent::Tracks(t) if t.subtitle == french));
+    // libVLC takes about 6 s to stop this file in its first moments of playback.
+    session.collect_for(Duration::from_secs(1));
+    session.finish();
+}
+
+fn label(tracks: &Tracks, track: &Track) -> String {
+    tracks.label(track.id).unwrap_or_default()
+}
+
+fn has_default_audio(event: &BackendEvent) -> bool {
+    let BackendEvent::Tracks(tracks) = event else { return false };
+    tracks.of(TrackKind::Audio).any(|track| track.default)
+}
+
+/// Shows the French subtitles of `tracks.mkv`, `paused` or playing, and checks that the switch
+/// to software decoding is invisible: no reopening states, no jump back to the start, the
+/// selection kept, and still paused or playing.
+fn show_subtitles_while(paused: bool) {
+    let mut session = Session::open("tracks.mkv");
+    session.wait_for_state(PlaybackState::Playing);
+    session.collect_for(Duration::from_millis(1500));
+    if paused {
+        session.backend.pause();
+        session.wait_for_state(PlaybackState::Paused);
+    }
+    let french = Some(TrackId(4));
+    session.backend.select_track(TrackKind::Subtitle, french);
+    let after = session.collect_for(Duration::from_secs(2));
+    let reopening = [PlaybackState::Opening, PlaybackState::Stopped].map(BackendEvent::State);
+    assert!(!after.iter().any(|event| reopening.contains(event)), "{after:#?}");
+    let restarted =
+        after.iter().any(|e| matches!(e, BackendEvent::Position(t) if *t < Duration::from_secs(1)));
+    assert!(!restarted, "{after:#?}");
+    let last_tracks = after.iter().rev().find_map(|e| match e {
+        BackendEvent::Tracks(tracks) => Some(tracks.subtitle),
+        _ => None,
+    });
+    assert_eq!(last_tracks, Some(french));
+    let state = if paused { PlaybackState::Paused } else { PlaybackState::Playing };
+    let last_state = after.iter().rev().find_map(|e| match e {
+        BackendEvent::State(state) => Some(*state),
+        _ => None,
+    });
+    assert!(last_state.is_none_or(|last| last == state), "{after:#?}");
+    session.finish();
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn subtitles_switch_playing_video_to_software_decoding_unseen() {
+    show_subtitles_while(false);
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn subtitles_switch_paused_video_to_software_decoding_unseen() {
+    show_subtitles_while(true);
 }

@@ -4,6 +4,7 @@
 //! the UI, and nothing calls libVLC from inside its own callbacks.
 
 use std::ffi::CString;
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, PoisonError};
@@ -11,9 +12,11 @@ use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::audio::DeviceWatch;
+use super::decoding::{Decoding, Restore};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
 use super::size_watch::{SIZE_POLL, SizeWatch};
+use super::track_list::Defaults;
 use super::vmem::Vmem;
 use crate::app::media::Media as Source;
 use crate::engine::audio::SpeakerSetup;
@@ -84,6 +87,16 @@ pub struct Worker {
     pub(super) speaker_setup: SpeakerSetup,
     /// When the output device list is read next.
     pub(super) devices: DeviceWatch,
+    /// The open media's default tracks, as libVLC picked them.
+    pub(super) defaults: Defaults,
+    /// How the open media's video is decoded; see [`super::decoding`].
+    pub(super) decoding: Decoding,
+    /// The subtitle files added to the open media, in order.
+    pub(super) slaves: Vec<PathBuf>,
+    /// The tracks to select again after switching to software decoding.
+    pub(super) restore: Option<Restore>,
+    /// When to switch to software decoding for a shown subtitle.
+    pub(super) switch_due: Option<Instant>,
 }
 
 impl Worker {
@@ -106,6 +119,11 @@ impl Worker {
             size_watch: SizeWatch::default(),
             speaker_setup: SpeakerSetup::Automatic,
             devices: DeviceWatch::default(),
+            defaults: Defaults::default(),
+            decoding: Decoding::default(),
+            slaves: Vec::new(),
+            restore: None,
+            switch_due: None,
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -121,8 +139,9 @@ impl Worker {
                 Message::Failed => self.failed(),
                 Message::Shutdown => break,
             }
-            // A steady stream of messages must not starve the device list.
+            // A steady stream of messages must not starve the device list or the switch.
             self.poll_devices_if_due();
+            self.switch_if_due(Instant::now());
         }
         self.release();
     }
@@ -151,26 +170,34 @@ impl Worker {
         if self.shared.seeking.load(Ordering::Relaxed) {
             wait = wait.min(SEEK_SETTLE.saturating_sub(idle_since.elapsed()));
         }
+        if let Some(switch) = self.until_switch(now) {
+            wait = wait.min(switch);
+        }
         wait
     }
 
     /// Replaces the media with `source` and starts playing it as open `generation`.
     pub(super) fn open(&mut self, source: Source, generation: Generation) {
         let media = self.new_media(&source);
-        if !media.is_null() {
-            self.prepare_video(media, &source);
-        }
+        self.decoding =
+            if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
         // `set_media` stops the previous media first; its events still carry the old
         // generation, because the new one is published only afterwards.
-        // SAFETY: the player is live; `media` is NULL or live, and the player takes its own
-        // reference.
-        unsafe { (self.vlc.api.libvlc_media_player_set_media)(self.handles.player, media) };
-        self.release_media();
-        self.media = media;
+        self.replace_media(media);
         self.source = Some(source);
         self.size_watch.stop();
+        self.defaults.reset();
+        self.slaves.clear();
+        self.restore = None;
+        self.switch_due = None;
         *self.shared.generation.lock().unwrap_or_else(PoisonError::into_inner) = generation;
-        for flag in [&self.shared.started, &self.shared.paused, &self.shared.seeking] {
+        let flags = [
+            &self.shared.started,
+            &self.shared.paused,
+            &self.shared.seeking,
+            &self.shared.switching,
+        ];
+        for flag in flags {
             flag.store(false, Ordering::Relaxed);
         }
         if media.is_null() {
@@ -178,6 +205,20 @@ impl Worker {
             self.shared.send(BackendEvent::State(PlaybackState::Error(ErrorKind::OpenFailed)));
             return;
         }
+        self.play_media();
+    }
+
+    /// Gives the player `media` (NULL or live) in place of the current one, which is released.
+    pub(super) fn replace_media(&mut self, media: *mut Media) {
+        // SAFETY: the player is live; `media` is NULL or live, and the player takes its own
+        // reference.
+        unsafe { (self.vlc.api.libvlc_media_player_set_media)(self.handles.player, media) };
+        self.release_media();
+        self.media = media;
+    }
+
+    /// Listens to the media's events and starts playing it.
+    pub(super) fn play_media(&self) {
         self.attach(self.media_events(), &[MEDIA_META_CHANGED]);
         // SAFETY: the player is live.
         if unsafe { (self.vlc.api.libvlc_media_player_play)(self.handles.player) } != 0 {
@@ -186,7 +227,7 @@ impl Worker {
         }
     }
 
-    fn new_media(&self, source: &Source) -> *mut Media {
+    pub(super) fn new_media(&self, source: &Source) -> *mut Media {
         let (text, from_path) = match source {
             Source::File(path) => (path.to_string_lossy().into_owned(), true),
             Source::Url(url) => (url.clone(), false),
@@ -199,10 +240,12 @@ impl Worker {
         unsafe { create(self.handles.instance, text.as_ptr()) }
     }
 
-    /// Nothing arrived since `idle_since`: reads the device list when due, re-reads a
-    /// still-unknown video size, and settles a seek that waited [`SEEK_SETTLE`].
+    /// Nothing arrived since `idle_since`: reads the device list and switches to software
+    /// decoding when due, re-reads a still-unknown video size, and settles a seek that waited
+    /// [`SEEK_SETTLE`].
     fn idle(&mut self, idle_since: Instant) {
         self.poll_devices_if_due();
+        self.switch_if_due(Instant::now());
         if self.size_watch.is_watching(Instant::now()) {
             self.send_video_size();
         }

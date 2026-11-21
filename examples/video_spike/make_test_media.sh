@@ -84,4 +84,22 @@ make 1080i-motion.ts -f lavfi -i "$(card 1920x1080 60000/1001 10)" \
   -vf "scroll=h=0.01,interlace=scan=tff" -c:v libx264 -preset veryfast -flags +ildct+ilme \
   -x264-params tff=1 -pix_fmt yuv420p
 
+# Tracks (S1.6): English AC3 5.1 and Japanese AAC stereo (titled, the default), forced English
+# and plain French subtitles.
+# The subtitle source stays out of the corpus: libVLC would load it next to the video.
+srt="$(mktemp -t tracks).srt"
+# A cue every second, so a subtitle picked mid-playback shows within a second.
+for second in 0 1 2 3 4 5 6 7 8 9; do
+  printf '%d\n00:00:0%d,000 --> 00:00:0%d,900\nSign %d\n\n' $((second + 1)) "$second" "$second" "$second"
+done >"$srt"
+make tracks.mkv -f lavfi -i "$(card 640x360 30 10)" -f lavfi -i "$(tone 10)" \
+  -f lavfi -i "$(tone 10)" -i "$srt" -i "$srt" \
+  -map 0:v -map 1:a -map 2:a -map 3:s -map 4:s -c:v libx264 -preset veryfast -pix_fmt yuv420p \
+  -c:a:0 ac3 -ac:a:0 6 -c:a:1 aac -ac:a:1 2 -c:s srt \
+  -metadata:s:a:0 language=eng -metadata:s:a:1 language=jpn -metadata:s:a:1 title=Commentary \
+  -metadata:s:s:0 language=eng -metadata:s:s:0 "title=English Forced" \
+  -metadata:s:s:1 language=fre -disposition:a:0 0 -disposition:a:1 default \
+  -disposition:s:0 forced -disposition:s:1 0
+rm -f "$srt"
+
 echo "corpus ready in $out"

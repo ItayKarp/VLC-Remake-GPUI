@@ -546,15 +546,15 @@ flowchart LR
 **Depends on:** S1.2  **Size:** S  **Design refs:** onboarding shortcuts (V and B), `docs/ui/player/panels/subtitles/*`
 
 **Subtasks**
-- [ ] S1.6.1 Enumerate tracks with id, kind, language, title, codec, and default/forced flags. Build display names like "English (SDH) — AC3 5.1" when the container provides no title.
-- [ ] S1.6.2 Select a track, disable subtitles, and cycle audio (B) and subtitles (V) with an on-screen display (OSD) toast showing the new track.
-- [ ] S1.6.3 Auto-select by preferred languages (Stage 7 settings), with forced subtitles shown when the audio language matches.
+- [x] S1.6.1 Enumerate tracks with id, kind, language, title, codec, and default/forced flags. Build display names like "English (SDH) — AC3 5.1" when the container provides no title. *(`engine/tracks.rs`: `Track` and `Tracks`, with `Tracks::label` ("English — AC3 5.1", "Commentary — AAC Stereo", "Track 2") from `tracks/label.rs`; a title that already names the codec stands alone. Languages are normalized (`en` = `eng` = `en-US`, `engine/language.rs`) and named in English; codecs get short names from libVLC's FourCCs (`tracks/codec.rs`). libVLC 3 reports neither flag nor a hearing-impaired one, so there is no "(SDH)": `libvlc/track_list.rs` marks a track forced when its title says "forced", and the default of each kind is what libVLC plays by itself once playback starts. Checked against `tracks.mkv`, added to the S1.1 corpus.)*
+- [x] S1.6.2 Select a track, disable subtitles, and cycle audio (B) and subtitles (V) with an on-screen display (OSD) toast showing the new track. *(`Player::select_track` (shown at once, confirmed by the backend later) and `Player::cycle_track`; subtitles cycle through Off, audio doesn't turn off. Until the OSD exists (Stage 2), `main_window/tracks.rs` says "Audio: English — AC3 5.1", "Subtitles: Off" or "No subtitles" in a toast that replaces the previous one. Tried by hand on macOS with `tracks.mkv`; that found the player keys reaching nothing once the video replaced the focused Open button, so starting playback now focuses the window. libVLC 3 can't blend subtitles onto hardware-decoded frames ("blending YUVA to CVPN failed"), so once a subtitle has shown for 300 ms over hardware-decoded video, the worker reopens the media in software decoding at the same position, paused if it was, with the same tracks and added subtitle files, hiding the reopen from the player (`libvlc/decoding.rs`, ADR 0001 limit 10). It stays in software for the rest of that media. Checked on macOS, playing and paused; Windows and Linux hardware decoding not tried.)*
+- [x] S1.6.3 Auto-select by preferred languages (Stage 7 settings), with forced subtitles shown when the audio language matches. *(`tracks/auto.rs`, run by the player on every track change until the user picks that kind: audio in the first preferred language present (the default track within it); subtitles in a preferred language, else the media's default, else a forced track in the audio's language. "Enable subtitles" off leaves only that forced track. Settings: `prefs.audio.preferred_languages`, `prefs.subtitles.enabled` and `prefs.subtitles.preferred_languages`; their rows come with S5.8 and S7.6. An added subtitle file counts as the user's pick.)*
 
 **Edge cases**
-- Tracks appear or disappear mid-playback (MPEG-TS and HLS add tracks late): update menus live and keep the user's choice when the track ids are stable.
-- Tracks with no language tag or "und": label them "Track N".
+- Tracks appear or disappear mid-playback (MPEG-TS and HLS add tracks late): update menus live and keep the user's choice when the track ids are stable. *(Done in the engine: every change is a `TracksChanged`, ids are libVLC's ES ids, and a kind the user picked is never re-picked.)*
+- Tracks with no language tag or "und": label them "Track N". *(Done.)*
 - Many subtitle tracks (50+ on some anime and Blu-ray rips): the menu scrolls and groups by language.
-- Cycling subtitles includes an "Off" position.
+- Cycling subtitles includes an "Off" position. *(Done.)*
 - Several video tracks (multi-angle): the video track menu appears only when there's more than one.
 
 ---

@@ -5,8 +5,8 @@ use std::path::Path;
 
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, EventSender};
-use super::media_info::{TrackId, TrackKind};
 use super::state::{ErrorKind, PlaybackState};
+use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
 use crate::app::media::Media;
 

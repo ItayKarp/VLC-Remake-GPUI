@@ -12,8 +12,9 @@ use std::time::Duration;
 use futures::channel::mpsc;
 
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
-use super::media_info::{Chapter, Metadata, TrackId, TrackKind, Tracks, VideoSize};
+use super::media_info::{Chapter, Metadata, VideoSize};
 use super::state::PlaybackState;
+use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
 use crate::app::media::Media;
 

@@ -14,6 +14,7 @@
 mod api;
 mod audio;
 mod control;
+mod decoding;
 mod events;
 mod failure;
 mod prepare;
@@ -22,6 +23,7 @@ pub mod runtime;
 mod size_watch;
 #[cfg(test)]
 mod tests;
+mod track_list;
 #[cfg(test)]
 mod video_tests;
 mod vmem;
@@ -42,7 +44,7 @@ use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
-use super::media_info::{TrackId, TrackKind};
+use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, StepDirection, Volume};
 use super::video::VideoSink;
 use crate::app::media::Media;
@@ -100,6 +102,7 @@ impl LibVlcBackend {
             started: AtomicBool::new(false),
             paused: AtomicBool::new(false),
             seeking: AtomicBool::new(false),
+            switching: AtomicBool::new(false),
         });
         let thread = thread::Builder::new()
             .name("libvlc-worker".into())

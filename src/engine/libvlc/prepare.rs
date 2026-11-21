@@ -7,11 +7,12 @@
 //!
 //! Network media is not parsed (it could take seconds); it plays at the proposed size.
 
-use std::ffi::{CString, c_int};
+use std::ffi::c_int;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use super::api::{Media, MediaTrack, VideoTrack};
+use super::decoding::{Decoding, SOFTWARE_DECODING};
 use super::query::display_size;
 use super::worker::Worker;
 use crate::app::media::Media as Source;
@@ -32,8 +33,6 @@ const TRACK_VIDEO: c_int = 1;
 /// `libvlc_video_orient_top_left`: stored upright. Every other orientation needs the
 /// `transform` filter (flips, 180°, and the 90° turns that swap width and height).
 const UPRIGHT: c_int = 0;
-/// Media options that decode in software, so libVLC's `transform` filter can rotate.
-const SOFTWARE_DECODING: [&str; 2] = [":codec=avcodec,none", ":avcodec-hw=none"];
 
 /// How the first video track is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,23 +43,21 @@ struct Geometry {
 
 impl Worker {
     /// Tells the video sink the display size of `media` (a local `source` only), and turns
-    /// hardware decoding off when the track is rotated. Blocks the worker for the parse, at
-    /// most [`PARSE_TIMEOUT`].
-    pub(super) fn prepare_video(&self, media: *mut Media, source: &Source) {
-        let Some(video) = &self.video else { return };
+    /// hardware decoding off when the track is rotated; returns how it will be decoded. Blocks
+    /// the worker for the parse, at most [`PARSE_TIMEOUT`].
+    pub(super) fn prepare_video(&self, media: *mut Media, source: &Source) -> Decoding {
+        let Some(video) = &self.video else { return Decoding::Hardware };
         let geometry = match source {
             Source::File(_) if self.parse(media) => self.geometry(media),
             _ => None,
         };
         video.set_display(geometry.map(|geometry| geometry.display));
-        if geometry.is_some_and(|geometry| geometry.rotated) {
-            tracing::info!("libvlc: rotated video; decoding in software so it can be rotated");
-            for option in SOFTWARE_DECODING {
-                let option = CString::new(option).expect("no NUL in constants");
-                // SAFETY: the media is live and the option is NUL-terminated.
-                unsafe { (self.vlc.api.libvlc_media_add_option)(media, option.as_ptr()) };
-            }
+        if !geometry.is_some_and(|geometry| geometry.rotated) {
+            return Decoding::Hardware;
         }
+        tracing::info!("libvlc: rotated video; decoding in software so it can be rotated");
+        self.add_option(media, &SOFTWARE_DECODING);
+        Decoding::Software
     }
 
     /// Parses `media`'s headers, waiting until done; `false` if it failed or took too long.
@@ -115,7 +112,7 @@ unsafe fn video_track(track: &MediaTrack) -> Option<&VideoTrack> {
         return None;
     }
     // SAFETY: the caller's promise.
-    unsafe { track.detail.as_ref() }
+    unsafe { track.detail.video.as_ref() }
 }
 
 fn geometry(video: &VideoTrack) -> Option<Geometry> {

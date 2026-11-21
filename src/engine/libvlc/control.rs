@@ -1,14 +1,15 @@
 //! Carries out the player's commands with libVLC calls, on the worker thread.
 
-use std::ffi::{CString, c_int};
+use std::ffi::c_int;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
+use super::decoding::{SLAVE_SUBTITLE, subtitle_uri};
 use super::worker::{Refresh, Worker};
 use crate::engine::backend::{BackendEvent, Command};
-use crate::engine::media_info::{TrackId, TrackKind};
+use crate::engine::tracks::{TrackId, TrackKind};
 use crate::engine::values::{BackendSeek, Offset, StepDirection};
 
 /// The frame rate assumed for a backward step when libVLC doesn't know the real one.
@@ -17,8 +18,6 @@ const FALLBACK_FPS: f32 = 25.0;
 const NO_TRACK: c_int = -1;
 /// libVLC's volume for 100%.
 const FULL_VOLUME: f32 = 100.0;
-/// `libvlc_media_slave_type_subtitle`.
-const SLAVE_SUBTITLE: c_int = 0;
 
 impl Worker {
     /// Runs one command.
@@ -33,7 +32,11 @@ impl Worker {
                 Command::Open { media, generation } => self.open(media, generation),
                 Command::Play => _ = (api.libvlc_media_player_play)(player),
                 Command::Pause => (api.libvlc_media_player_set_pause)(player, 1),
-                Command::Stop => (api.libvlc_media_player_stop)(player),
+                Command::Stop => {
+                    // A stop during a switch to software decoding must reach the player.
+                    self.shared.switching.store(false, Ordering::Relaxed);
+                    (api.libvlc_media_player_stop)(player);
+                }
                 Command::Seek(to) => self.seek(to),
                 Command::FrameStep(direction) => self.frame_step(direction),
                 Command::SetRate(rate) => {
@@ -112,6 +115,7 @@ impl Worker {
 
     fn select_track(&mut self, kind: TrackKind, track: Option<TrackId>) {
         let api = &self.vlc.api;
+        self.defaults.commanded(kind);
         let id = track.map_or(NO_TRACK, |track| track.0);
         let select = match kind {
             TrackKind::Audio => api.libvlc_audio_set_track,
@@ -129,12 +133,11 @@ impl Worker {
 impl Worker {
     /// Adds a subtitle file as a slave of the open media and selects it. libVLC takes a URI.
     fn add_subtitle(&mut self, path: &Path) {
-        let uri =
-            url::Url::from_file_path(path).ok().and_then(|uri| CString::new(uri.as_str()).ok());
-        let Some(uri) = uri else {
+        let Some(uri) = subtitle_uri(path) else {
             tracing::warn!("libvlc: can't make a subtitle URI from {}", crate::logging::path(path));
             return;
         };
+        self.defaults.commanded(TrackKind::Subtitle);
         let api = &self.vlc.api;
         // SAFETY: the player is live and `uri` is NUL-terminated for the call.
         let added = unsafe {
@@ -145,7 +148,9 @@ impl Worker {
                 true,
             )
         };
-        if added != 0 {
+        if added == 0 {
+            self.slaves.push(path.to_path_buf());
+        } else {
             tracing::warn!("libvlc: couldn't add the subtitle: {}", self.vlc.last_error());
         }
         self.refresh(Refresh::Tracks);

@@ -10,6 +10,7 @@
 //!   everything that should follow the user between machines in [`Preferences`].
 
 mod audio;
+mod subtitles;
 
 use std::path::PathBuf;
 
@@ -21,6 +22,7 @@ use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
+pub use subtitles::SubtitleSettings;
 
 /// Everything the app persists, as one in-memory value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -102,8 +104,6 @@ macro_rules! empty_sections {
 empty_sections! {
     /// Video preferences (Stage 7).
     VideoSettings,
-    /// Subtitle preferences (Stage 6).
-    SubtitleSettings,
     /// Custom key bindings (S0.5).
     KeymapSettings,
 }

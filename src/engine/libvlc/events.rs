@@ -79,6 +79,9 @@ pub struct Shared {
     pub paused: AtomicBool,
     /// Whether a seek waits for libVLC's next time report to complete.
     pub seeking: AtomicBool,
+    /// Whether the worker is reopening the media to decode it in software
+    /// ([`super::decoding`]): its opening and stopping are hidden until it plays again.
+    pub switching: AtomicBool,
 }
 
 impl Shared {
@@ -104,7 +107,9 @@ impl Shared {
     fn handle(&self, event: &Event) {
         // SAFETY (for every union read below): libVLC fills the member that matches `kind`,
         // and each read here matches it (`libvlc_events.h`).
+        let switching = self.switching.load(Ordering::Relaxed);
         match event.kind {
+            OPENING | STOPPED if switching => {}
             OPENING => self.state(PlaybackState::Opening),
             BUFFERING => self.buffering(unsafe { event.data.float }),
             PLAYING => self.playing(),
@@ -147,8 +152,10 @@ impl Shared {
     fn playing(&self) {
         self.paused.store(false, Ordering::Relaxed);
         let first = !self.started.swap(true, Ordering::Relaxed);
+        let switched = self.switching.swap(false, Ordering::Relaxed);
         self.state(PlaybackState::Playing);
-        if first {
+        // Reopened media needs its tracks restored and per-media settings applied again.
+        if first || switched {
             self.ask_worker(Message::Refresh(Refresh::Everything));
         }
     }

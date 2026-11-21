@@ -1,7 +1,7 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
-//! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`) and the volume
-//! keys (S1.5.1) work; until the player exists (Stage 2) any other admitted command is
+//! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
+//! keys (S1.5.1) and track cycling (S1.6.2, B and V) work; until the player exists (Stage 2) any other admitted command is
 //! only logged, and S2.10.3 gives each one its effect.
 
 use std::time::Instant;
@@ -9,6 +9,7 @@ use std::time::Instant;
 use gpui::{Action, Context, Div, Window, prelude::*};
 
 use super::MainWindow;
+use crate::engine::tracks::TrackKind;
 use crate::engine::values::VolumeChange;
 use crate::keymap::actions as act;
 use crate::keymap::commands;
@@ -77,6 +78,10 @@ impl MainWindow {
             self.step_volume(VolumeChange::Up, cx);
         } else if action.partial_eq(&act::VolumeDown) {
             self.step_volume(VolumeChange::Down, cx);
+        } else if action.partial_eq(&act::CycleAudioTrack) {
+            self.cycle_track(TrackKind::Audio, cx);
+        } else if action.partial_eq(&act::CycleSubtitleTrack) {
+            self.cycle_track(TrackKind::Subtitle, cx);
         } else {
             tracing::debug!("{}: no player yet (Stage 2)", command.label);
         }

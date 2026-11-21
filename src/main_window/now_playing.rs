@@ -73,6 +73,11 @@ impl MainWindow {
         window.set_window_title(&media.display_name());
         let player = self.player(window, cx);
         player.update(cx, |player, cx| player.open(media, cx));
+        // The video replaces the empty state and its focused Open button; with nothing focused
+        // the player's keys would reach nothing.
+        if self.open_button.is_focused(window) || window.focused(cx).is_none() {
+            self.focus_handle.focus(window, cx);
+        }
         cx.notify();
     }
 
@@ -92,6 +97,7 @@ impl MainWindow {
         self.video = Some(cx.new(|cx| VideoView::new(output, player.clone(), window, cx)));
         self.player = Some((player.clone(), events));
         self.set_up_audio(&player, cx);
+        self.set_up_tracks(&player, cx);
         player
     }
 

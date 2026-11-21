@@ -7,9 +7,9 @@ use gpui::Context;
 
 use super::{Info, Intent, Player, PlayerEvent};
 use crate::app::media::Media;
-use crate::engine::media_info::{TrackId, TrackKind};
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
+use crate::engine::tracks::TrackKind;
 use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, StepDirection};
 
 impl Player {
@@ -20,6 +20,7 @@ impl Player {
         self.intent = Intent::Play;
         self.audio.user_took_over();
         self.info = Info::default();
+        self.track_choices.forget_media();
         self.position.reset();
         self.seeks.reset();
         self.steps.reset();
@@ -125,12 +126,6 @@ impl Player {
         cx.notify();
     }
 
-    /// Selects `track` for `kind`, or turns that kind off with `None`. The selection shows in
-    /// [`Self::tracks`] once the backend confirms it.
-    pub fn select_track(&mut self, kind: TrackKind, track: Option<TrackId>, _: &mut Context<Self>) {
-        self.with_backend(|backend| backend.select_track(kind, track));
-    }
-
     /// Delays audio against video.
     pub fn set_audio_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
         self.controls.audio_delay = delay;
@@ -151,6 +146,8 @@ impl Player {
         if !self.state.is_active() {
             return false;
         }
+        // The backend shows the added file: auto-selection must not turn it off.
+        self.track_choices.user_picked(TrackKind::Subtitle);
         self.with_backend(|backend| backend.add_subtitle(path));
         cx.notify();
         true

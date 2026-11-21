@@ -27,10 +27,7 @@ impl Player {
                     cx.emit(PlayerEvent::PausableChanged(pausable));
                 }
             }
-            BackendEvent::Tracks(tracks) => {
-                self.info.tracks = tracks;
-                cx.emit(PlayerEvent::TracksChanged);
-            }
+            BackendEvent::Tracks(tracks) => self.tracks_reported(tracks, cx),
             BackendEvent::VideoSize(size) => {
                 if std::mem::replace(&mut self.info.video_size, size) != size {
                     cx.emit(PlayerEvent::VideoSizeChanged(size));
