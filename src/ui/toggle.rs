@@ -98,7 +98,8 @@ impl RenderOnce for Toggle {
         if !enabled {
             return toggle;
         }
-        let toggle = focus::ring(toggle.tab_index(0).cursor_pointer(), &p);
+        let toggle =
+            focus::ring(toggle.tab_index(0).key_context(focus::CONTROL).cursor_pointer(), &p);
         match self.on_change {
             Some(f) => toggle.on_click(move |_, window, cx| f(&!on, window, cx)),
             None => toggle,
@@ -188,7 +189,7 @@ impl RenderOnce for Checkbox {
         if !enabled {
             return row;
         }
-        let row = focus::ring(row.tab_index(0).cursor_pointer(), &p);
+        let row = focus::ring(row.tab_index(0).key_context(focus::CONTROL).cursor_pointer(), &p);
         match self.on_change {
             Some(f) => row.on_click(move |_, window, cx| f(&!checked, window, cx)),
             None => row,

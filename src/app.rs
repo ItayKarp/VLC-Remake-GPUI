@@ -11,10 +11,11 @@ mod geometry;
 use std::path::PathBuf;
 
 use gpui::{
-    App, DisplayId, KeyBinding, Menu, MenuItem, SharedString, TitlebarOptions, WindowBounds,
-    WindowHandle, WindowOptions, actions, point, prelude::*, px, size,
+    App, DisplayId, SharedString, TitlebarOptions, WindowBounds, WindowHandle, WindowOptions,
+    point, prelude::*, px, size,
 };
 
+use crate::keymap::actions::{CloseWindow, Quit, RunSetupAgain};
 use crate::main_window::MainWindow;
 use crate::onboarding::{self, Onboarding};
 use crate::settings;
@@ -22,23 +23,6 @@ use cli::{Launch, Route};
 use geometry::Rect;
 
 pub use display::preferred_display;
-
-actions!(
-    vlc,
-    [
-        /// Quit the app (Cmd+Q). Unsaved onboarding choices are discarded.
-        Quit,
-        /// Close the active window (Cmd+W).
-        CloseWindow,
-        /// Run onboarding again (Help menu).
-        RunSetupAgain,
-        /// Choose media files to open (Ctrl+O / Cmd+O in the main window).
-        OpenFile,
-    ]
-);
-
-/// Key context of the main window, for its bindings.
-pub const MAIN_WINDOW_CONTEXT: &str = "MainWindow";
 
 /// The app id the desktop environment groups our windows by.
 const APP_ID: &str = "org.redesignedvlc.app";
@@ -51,7 +35,8 @@ const MAIN_MIN_SIZE: (f32, f32) = (800., 500.);
 /// body scrolls.
 const ONBOARDING_MIN_SIZE: (f32, f32) = (900., 640.);
 
-/// Registers the app-wide actions, key bindings and (on macOS) the menu bar.
+/// Registers the app-wide action handlers. Key bindings and the macOS menu bar
+/// come from the keymap ([`crate::keymap::init`]).
 pub fn init(cx: &mut App) {
     cx.on_action(|_: &Quit, cx| cx.quit());
     cx.on_action(|_: &CloseWindow, cx| {
@@ -65,21 +50,6 @@ pub fn init(cx: &mut App) {
         let display = preferred_display(cx);
         cx.defer(move |cx| run_setup_again(display, cx));
     });
-
-    let open_file = if cfg!(target_os = "macos") { "cmd-o" } else { "ctrl-o" };
-    cx.bind_keys([KeyBinding::new(open_file, OpenFile, Some(MAIN_WINDOW_CONTEXT))]);
-
-    if cfg!(target_os = "macos") {
-        cx.bind_keys([
-            KeyBinding::new("cmd-q", Quit, None),
-            KeyBinding::new("cmd-w", CloseWindow, None),
-        ]);
-        cx.set_menus([
-            Menu::new("VLC").items([MenuItem::action("Quit VLC", Quit)]),
-            Menu::new("Window").items([MenuItem::action("Close Window", CloseWindow)]),
-            Menu::new("Help").items([MenuItem::action("Run Setup Again…", RunSetupAgain)]),
-        ]);
-    }
 }
 
 /// Opens the first window for this launch.

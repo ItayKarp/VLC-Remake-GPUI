@@ -57,6 +57,7 @@ impl Dropdown {
             .text_size(px(metrics::TEXT))
             .text_color(p.text_muted)
             .track_focus(&self.focus_handle)
+            .key_context(focus::context(&["Dropdown", focus::CONTROL, focus::TYPING]))
             .role(accesskit::Role::ComboBox)
             .aria_label(self.label.clone())
             .aria_expanded(self.open)

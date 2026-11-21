@@ -3,7 +3,9 @@
 //! player (Stage 2) and the library (Stage 4) fill the content area later.
 
 mod empty_state;
+mod main_menu;
 mod notice;
+mod player_keys;
 mod title_bar;
 
 use std::path::{Path, PathBuf};
@@ -13,11 +15,14 @@ use gpui::{
     Subscription, Window, div, prelude::*, px,
 };
 
-use crate::app::{self, MAIN_WINDOW_CONTEXT, OpenFile};
+use crate::app;
+use crate::keymap::actions::OpenFile;
+use crate::keymap::contexts;
+use crate::keymap::repeat::RepeatGate;
 use crate::settings;
 use crate::theme;
 use crate::ui::focus;
-use crate::ui::menu::{ContextMenu, MenuItem};
+use crate::ui::menu::ContextMenu;
 use crate::ui::popover::BoundsTracker;
 
 /// The player title bar's height in the designs (`player/screens/*`).
@@ -37,6 +42,8 @@ pub struct MainWindow {
     /// The `…` menu, while it's open.
     menu: Option<(Entity<ContextMenu>, Subscription)>,
     menu_button: BoundsTracker,
+    /// Player commands whose key may still be held (S0.5.6).
+    repeat: RepeatGate,
 }
 
 impl MainWindow {
@@ -47,6 +54,7 @@ impl MainWindow {
         // Swap the Maximize/Restore icon when the window is maximized or restored.
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
+        Self::release_keys_on_blur(window, cx);
 
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
         open_button.focus(window, cx);
@@ -62,6 +70,7 @@ impl MainWindow {
             open_button,
             menu: None,
             menu_button: BoundsTracker::new(),
+            repeat: RepeatGate::default(),
         };
         this.add_files(files, window);
         this
@@ -111,17 +120,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
-        let this = cx.entity().downgrade();
-        let display = window.display(cx).map(|d| d.id());
-        let items = vec![
-            MenuItem::action("Open file…", move |window, cx| {
-                this.update(cx, |_, cx| Self::prompt_for_files(window, cx)).ok();
-            })
-            .shortcut(open_hint()),
-            MenuItem::action("Run setup again", move |_, cx| {
-                cx.defer(move |cx| app::run_setup_again(display, cx));
-            }),
-        ];
+        let items = main_menu::items(window, cx);
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
             this.menu = None;
@@ -130,11 +129,6 @@ impl MainWindow {
         self.menu = Some((menu, subscription));
         cx.notify();
     }
-}
-
-/// The platform's spelling of the Open shortcut.
-fn open_hint() -> &'static str {
-    if cfg!(target_os = "macos") { "⌘O" } else { "Ctrl+O" }
 }
 
 /// The last component of `file`, for display.
@@ -146,9 +140,10 @@ impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
 
-        focus::tab_navigation(div())
+        Self::player_keys(focus::tab_navigation(div()), cx)
             .id("main-window")
-            .key_context(MAIN_WINDOW_CONTEXT)
+            // The whole window is the player until Stage 2 gives it a view of its own.
+            .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(|_, _: &OpenFile, window, cx| {
                 Self::prompt_for_files(window, cx);

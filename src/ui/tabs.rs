@@ -82,6 +82,7 @@ impl RenderOnce for Tabs {
             .border_2()
             .border_color(gpui::transparent_black())
             .rounded(px(4.))
+            .key_context(focus::CONTROL)
             .tab_index(0)
             .role(accesskit::Role::TabList)
             .children(tabs)

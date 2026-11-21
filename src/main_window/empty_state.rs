@@ -6,8 +6,9 @@ use gpui::{
     px, svg,
 };
 
-use super::{MainWindow, file_name, open_hint};
+use super::{MainWindow, file_name};
 use crate::assets::icons;
+use crate::keymap::{self, actions::OpenFile};
 use crate::theme::Palette;
 use crate::ui::button::Button;
 use crate::ui::toast::{Banner, Level, banner};
@@ -71,7 +72,10 @@ impl MainWindow {
                         Self::prompt_for_files(window, cx);
                     })),
             )
-            .child(div().text_size(px(12.)).text_color(p.text_muted).child(open_hint()))
+            .children(
+                keymap::shortcut(&OpenFile, cx)
+                    .map(|hint| div().text_size(px(12.)).text_color(p.text_muted).child(hint)),
+            )
     }
 
     fn dismiss_notice(&mut self, index: usize, cx: &mut Context<Self>) {

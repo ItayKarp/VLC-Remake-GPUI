@@ -7,6 +7,7 @@ use gpui::{
 
 use super::{ContextMenu, MenuItem};
 use crate::theme::{self, Palette};
+use crate::ui::focus;
 use crate::ui::metrics;
 use crate::ui::option_row::OptionRow;
 use crate::ui::popover::{self, Side};
@@ -28,7 +29,7 @@ impl Render for ContextMenu {
         div()
             .relative()
             .track_focus(&self.focus_handle)
-            .key_context("Menu")
+            .key_context(focus::context(&["Menu", focus::CONTROL, focus::TYPING]))
             .on_key_down(cx.listener(Self::on_key_down))
             .capture_key_down(cx.listener(Self::on_key_down_capture_left))
             .child(self.surface(&p, window, cx))

@@ -1,0 +1,88 @@
+//! One GPUI action per user command (S0.5.1). What each one does, its label and its
+//! default keys live in [`super::commands`].
+
+use gpui::actions;
+
+actions!(
+    vlc,
+    [
+        /// Quit the app. Unsaved onboarding choices are discarded.
+        Quit,
+        /// Close the active window.
+        CloseWindow,
+        /// Run onboarding again (S0.2.5).
+        RunSetupAgain,
+        /// Choose media files to open.
+        OpenFile,
+        /// Choose a folder to open.
+        OpenFolder,
+        /// Open a network stream by URL.
+        OpenNetworkStream,
+        /// Open a DVD, Blu-ray or audio CD.
+        OpenDisc,
+        /// Open a camera or capture card.
+        OpenCaptureDevice,
+        /// Convert or save media to another format.
+        Convert,
+        /// Open the Settings window.
+        OpenSettings,
+        /// Show the Keyboard Shortcuts dialog.
+        ShowKeyboardShortcuts,
+        /// Customize the player layout.
+        CustomizePlayer,
+        /// Show the About dialog.
+        About,
+        /// Search the library.
+        Search,
+    ]
+);
+
+actions!(
+    player,
+    [
+        /// Play or pause.
+        PlayPause,
+        /// Stop playback.
+        Stop,
+        /// Seek backward a few seconds.
+        SeekBackward,
+        /// Seek forward a few seconds.
+        SeekForward,
+        /// Go to the previous item in the queue.
+        PreviousItem,
+        /// Go to the next item in the queue.
+        NextItem,
+        /// Step one frame back.
+        PreviousFrame,
+        /// Step one frame forward.
+        NextFrame,
+        /// Switch to the next program (DVB service).
+        NextProgram,
+        /// Switch to the next subtitle track.
+        CycleSubtitleTrack,
+        /// Switch to the next audio track.
+        CycleAudioTrack,
+        /// Raise the volume.
+        VolumeUp,
+        /// Lower the volume.
+        VolumeDown,
+        /// Enter or leave fullscreen.
+        ToggleFullscreen,
+        /// Leave fullscreen.
+        ExitFullscreen,
+        /// Show the playback position and time.
+        ShowTime,
+        /// Show the controls while in fullscreen.
+        ShowControls,
+        /// Hide or show the whole interface around the video.
+        HideInterface,
+        /// Show or hide the queue.
+        ToggleQueue,
+        /// Show or hide the file browser.
+        ToggleFileBrowser,
+        /// Save the current frame as an image.
+        Snapshot,
+        /// Start or stop recording.
+        Record,
+    ]
+);

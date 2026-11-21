@@ -68,6 +68,7 @@ impl Slider {
             .rounded(px(metrics::RADIUS))
             .border_2()
             .border_color(gpui::transparent_black())
+            .key_context(focus::CONTROL)
             .track_focus(&self.focus_handle)
             .cursor_pointer()
             .on_key_down(cx.listener(Self::on_key_down))

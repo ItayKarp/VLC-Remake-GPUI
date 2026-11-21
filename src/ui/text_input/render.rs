@@ -39,7 +39,7 @@ impl TextInput {
         let enabled = !self.disabled;
         div()
             .id("text-input")
-            .key_context(CONTEXT)
+            .key_context(focus::context(&[CONTEXT, focus::CONTROL, focus::TYPING]))
             .track_focus(&self.focus_handle)
             .role(accesskit::Role::TextInput)
             .aria_label(self.label.clone())
