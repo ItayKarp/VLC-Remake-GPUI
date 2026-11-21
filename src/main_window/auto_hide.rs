@@ -253,6 +253,7 @@ impl MainWindow {
             || self.control_bar.is_overflow_open()
             || self.track_popover.is_open()
             || self.settings_panel.is_open()
+            || self.queue_panel.is_open()
             || self.control_bar.is_editing_time()
     }
 

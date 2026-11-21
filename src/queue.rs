@@ -6,18 +6,25 @@
 //! previous one are O(1); inserting and removing shift the items after them, which is a quick
 //! memory move even for a 10,000-item queue.
 //!
+//! The queue panel (S3.2) edits it: removing, moving and sorting entries (`edit.rs`).
+//!
 //! When the current item is removed (the queue panel's Delete, S3.2), playback goes on and the
 //! item stays in the history: VLC stops instead, but cutting off what the user is watching
 //! because they tidied the list is a surprise. Next then plays the item that took its place.
 //!
 //! Nothing here touches GPUI: the main window owns a [`Queue`] and plays what it says.
 
+mod edit;
+mod lengths;
+mod order;
 mod skips;
 
 use std::collections::VecDeque;
 
 use crate::app::media::Media;
 
+pub use lengths::{Length, Lengths, row_duration};
+pub use order::SortKey;
 pub use skips::{AfterError, MAX_CONSECUTIVE_FAILURES, Skips};
 
 /// How many played entries the history remembers.
@@ -63,6 +70,8 @@ pub struct Queue {
     /// The entries made current, oldest first (for Previous under shuffle, S3.3).
     history: VecDeque<EntryId>,
     next_id: u64,
+    /// Changes whenever the entries do, so views can tell when to look again.
+    revision: u64,
 }
 
 impl Queue {
@@ -74,6 +83,11 @@ impl Queue {
     /// How many entries are queued.
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    /// A number that changes whenever entries are added, removed or moved.
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     /// The index of the current entry; `None` when nothing is current or it was removed.
@@ -94,13 +108,14 @@ impl Queue {
         self.entries.clear();
         self.current = None;
         self.history.clear();
+        self.revision += 1;
         self.append(media);
     }
 
     /// Adds `media` at the end. Returns the index of the first added entry.
     pub fn append(&mut self, media: Vec<Media>) -> usize {
         let first = self.entries.len();
-        self.insert(first, media)
+        self.insert_at(first, media)
     }
 
     /// Adds `media` right after the current entry (Play Next), or at the end when nothing is
@@ -111,23 +126,7 @@ impl Queue {
             Some(Current::Removed { next }) => next,
             None => self.entries.len(),
         };
-        self.insert(at, media)
-    }
-
-    /// Removes the entry at `index`. Removing the current one leaves its place current, so
-    /// Next and Previous carry on from there.
-    #[allow(dead_code, reason = "the queue panel's Delete (S3.2); the tests cover it now")]
-    pub fn remove(&mut self, index: usize) -> Option<Entry> {
-        if index >= self.entries.len() {
-            return None;
-        }
-        self.current = self.current.map(|current| match current {
-            Current::At(at) if at == index => Current::Removed { next: index },
-            Current::At(at) if at > index => Current::At(at - 1),
-            Current::Removed { next } if next > index => Current::Removed { next: next - 1 },
-            unchanged => unchanged,
-        });
-        Some(self.entries.remove(index))
+        self.insert_at(at, media)
     }
 
     /// Makes the entry at `index` current, remembers it in the history, and returns what it
@@ -176,17 +175,21 @@ impl Queue {
         self.entries.iter().position(|entry| entry.id == before)
     }
 
-    fn insert(&mut self, at: usize, media: Vec<Media>) -> usize {
+    /// Adds `media` before the entry at `at` (at the end past the last one). Returns where the
+    /// first added entry went.
+    pub fn insert_at(&mut self, at: usize, media: Vec<Media>) -> usize {
+        let at = at.min(self.entries.len());
         let count = media.len();
         let entries = media.into_iter().map(|media| {
             self.next_id += 1;
             Entry { id: EntryId(self.next_id), media }
         });
         self.entries.splice(at..at, entries);
-        if let Some(Current::At(index)) = &mut self.current
-            && *index >= at
-        {
-            *index += count;
+        self.revision += 1;
+        match &mut self.current {
+            Some(Current::At(index)) if *index >= at => *index += count,
+            Some(Current::Removed { next }) if *next > at => *next += count,
+            _ => {}
         }
         at
     }

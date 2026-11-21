@@ -16,11 +16,13 @@
 //! - [`audio`]: output devices, speaker setup and hot-plug routing (S1.5).
 //! - [`video`]: the sink interface decoded pictures are delivered through (S1.4).
 //! - [`preview`]: seek-bar preview pictures from a second, muted decoder (S2.3.3).
+//! - [`lengths`]: how long queued media is, read without playing it (S3.2.2).
 
 pub mod audio;
 pub mod backend;
 mod coalesce;
 pub mod language;
+pub mod lengths;
 pub mod libvlc;
 pub mod media_info;
 pub mod mock;

@@ -190,6 +190,7 @@ libvlc_api! {
     libvlc_media_add_option: fn(*mut Media, *const c_char);
     libvlc_media_parse_with_options: fn(*mut Media, c_int, c_int) -> c_int;
     libvlc_media_get_parsed_status: fn(*mut Media) -> c_int;
+    libvlc_media_get_duration: fn(*mut Media) -> i64;
     libvlc_media_event_manager: fn(*mut Media) -> *mut EventManager;
     libvlc_media_get_meta: fn(*mut Media, c_int) -> *mut c_char;
     libvlc_media_tracks_get: fn(*mut Media, *mut *mut *mut MediaTrack) -> c_uint;

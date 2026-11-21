@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use url::Url;
 
 /// One item to open.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Media {
     /// A local file or folder, as an absolute path.
     File(PathBuf),

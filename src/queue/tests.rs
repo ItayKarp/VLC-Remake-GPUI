@@ -12,6 +12,12 @@ fn queue(names: &[&str]) -> Queue {
     queue
 }
 
+/// Removes the entry at `index`, as the panel's Delete does; returns how many went.
+fn remove_at(queue: &mut Queue, index: usize) -> usize {
+    let id = queue.entries().get(index).map(|entry| entry.id);
+    queue.remove(&id.into_iter().collect())
+}
+
 fn names(queue: &Queue) -> Vec<String> {
     queue.entries().iter().map(|entry| entry.media.display_name()).collect()
 }
@@ -95,16 +101,17 @@ fn the_same_file_twice_is_two_entries() {
 fn removing_entries_before_the_current_one_keeps_it_current() {
     let mut q = queue(&["a", "b", "c"]);
     q.set_current(2);
-    assert_eq!(q.remove(0).map(|entry| entry.media), Some(file("a")));
+    assert_eq!(remove_at(&mut q, 0), 1);
+    assert_eq!(names(&q), ["b", "c"]);
     assert_eq!(q.current_index(), Some(1));
-    assert_eq!(q.remove(9), None);
+    assert_eq!(remove_at(&mut q, 9), 0);
 }
 
 #[test]
 fn removing_the_current_entry_continues_from_its_place() {
     let mut q = queue(&["a", "b", "c"]);
     q.set_current(1);
-    q.remove(1);
+    remove_at(&mut q, 1);
     assert_eq!(q.current_index(), None);
     assert!(q.has_current());
     assert_eq!(q.next(Ends::Stop), Some(1));
@@ -119,10 +126,10 @@ fn removing_the_current_entry_continues_from_its_place() {
 fn removing_the_last_current_entry_reaches_the_end() {
     let mut q = queue(&["a", "b"]);
     q.set_current(1);
-    q.remove(1);
+    remove_at(&mut q, 1);
     assert_eq!(q.next(Ends::Stop), None);
     assert_eq!(q.next(Ends::Wrap), Some(0));
-    q.remove(0);
+    remove_at(&mut q, 0);
     assert_eq!(q.next(Ends::Wrap), None);
     assert_eq!(q.previous(Ends::Wrap), None);
 }
@@ -135,7 +142,7 @@ fn history_follows_entries_as_they_move() {
     assert_eq!(q.previous_in_history(), Some(2));
     q.insert_next(vec![file("x")]);
     assert_eq!(q.previous_in_history(), Some(3));
-    q.remove(3);
+    remove_at(&mut q, 3);
     assert_eq!(q.previous_in_history(), None);
 }
 

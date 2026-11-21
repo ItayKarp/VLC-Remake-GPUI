@@ -7,7 +7,8 @@ use crate::app::request::OpenRequest;
 use crate::keymap;
 use crate::ui::menu::MenuItem;
 
-fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
+/// The main window with the real keymap, its player keys focused.
+pub(super) fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
     cx.update(|cx| {
         crate::settings::init_in_memory(cx);
         crate::theme::init(cx);
@@ -21,7 +22,8 @@ fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
     cx
 }
 
-fn main_view(cx: &mut VisualTestContext) -> gpui::Entity<MainWindow> {
+/// The window's view.
+pub(super) fn main_view(cx: &mut VisualTestContext) -> gpui::Entity<MainWindow> {
     cx.update(|window, _| window.root::<MainWindow>().flatten().expect("the main window's view"))
 }
 
@@ -30,7 +32,7 @@ fn is_fullscreen(cx: &mut VisualTestContext) -> bool {
 }
 
 /// Presses `key` and releases it, as a person does.
-fn tap(cx: &mut VisualTestContext, key: &'static str) {
+pub(super) fn tap(cx: &mut VisualTestContext, key: &'static str) {
     cx.simulate_keystrokes(key);
     cx.simulate_event(gpui::KeyUpEvent { keystroke: gpui::Keystroke::parse(key).unwrap() });
     cx.run_until_parked();

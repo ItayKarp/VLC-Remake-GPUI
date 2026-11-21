@@ -139,6 +139,7 @@ impl MainWindow {
         self.menu = None;
         self.control_bar.close_overflow();
         self.close_track_popover(window, cx);
+        self.close_queue_panel(window, cx);
         self.settings_panel.open = Some(tab);
         // After the click that opened it, which focuses the clicked button once its handlers ran.
         let handle = self.settings_panel.focus.clone();

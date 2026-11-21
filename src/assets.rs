@@ -120,6 +120,14 @@ icons! {
     QUIT => "quit.svg",
     // The Keyboard Shortcuts dialog (S2.10.4).
     SEARCH => "search.svg",
+    // The List panel (S3.2).
+    QUEUE => "queue.svg",
+    BOOKMARKS => "bookmarks.svg",
+    CHAPTERS => "chapters.svg",
+    SORT => "sort.svg",
+    REMOVE => "remove.svg",
+    /// A queue row's drag handle (`move` in the icon set).
+    DRAG_HANDLE => "drag-handle.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

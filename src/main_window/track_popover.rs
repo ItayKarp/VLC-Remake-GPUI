@@ -106,6 +106,7 @@ impl MainWindow {
         self.menu = None;
         self.control_bar.close_overflow();
         self.close_settings_panel(window, cx);
+        self.close_queue_panel(window, cx);
         self.track_popover.open = Some(kind);
         // After the click that opened it, which focuses the clicked button once its handlers ran.
         let handle = self.track_popover.focus.clone();

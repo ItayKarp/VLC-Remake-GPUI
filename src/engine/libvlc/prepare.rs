@@ -11,7 +11,7 @@ use std::ffi::c_int;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::api::{Media, MediaTrack, VideoTrack};
+use super::api::{LibVlc, Media, MediaTrack, VideoTrack};
 use super::decoding::{Decoding, SOFTWARE_DECODING};
 use super::query::display_size;
 use super::worker::Worker;
@@ -33,6 +33,34 @@ const TRACK_VIDEO: c_int = 1;
 /// `libvlc_video_orient_top_left`: stored upright. Every other orientation needs the
 /// `transform` filter (flips, 180°, and the 90° turns that swap width and height).
 const UPRIGHT: c_int = 0;
+
+/// Parses a local file's headers, waiting until done or `timeout`; `false` if parsing failed or
+/// took too long. Blocks the calling thread.
+///
+/// # Safety
+///
+/// `media` is a live `libvlc_media_t` of `vlc`.
+pub(super) unsafe fn parse_headers(vlc: &LibVlc, media: *mut Media, timeout: Duration) -> bool {
+    let api = &vlc.api;
+    let millis = c_int::try_from(timeout.as_millis()).unwrap_or(c_int::MAX);
+    // SAFETY: the caller's promise.
+    if unsafe { (api.libvlc_media_parse_with_options)(media, PARSE_LOCAL, millis) } != 0 {
+        return false;
+    }
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        // SAFETY: the caller's promise.
+        let status = unsafe { (api.libvlc_media_get_parsed_status)(media) };
+        if status == PARSED_DONE {
+            return true;
+        }
+        if PARSE_GAVE_UP.contains(&status) {
+            return false;
+        }
+        thread::sleep(PARSE_POLL);
+    }
+    false
+}
 
 /// How the first video track is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,25 +90,8 @@ impl Worker {
 
     /// Parses `media`'s headers, waiting until done; `false` if it failed or took too long.
     fn parse(&self, media: *mut Media) -> bool {
-        let api = &self.vlc.api;
-        let timeout = PARSE_TIMEOUT.as_millis() as c_int;
         // SAFETY: the media is live.
-        if unsafe { (api.libvlc_media_parse_with_options)(media, PARSE_LOCAL, timeout) } != 0 {
-            return false;
-        }
-        let deadline = Instant::now() + PARSE_TIMEOUT;
-        while Instant::now() < deadline {
-            // SAFETY: the media is live.
-            let status = unsafe { (api.libvlc_media_get_parsed_status)(media) };
-            if status == PARSED_DONE {
-                return true;
-            }
-            if PARSE_GAVE_UP.contains(&status) {
-                return false;
-            }
-            thread::sleep(PARSE_POLL);
-        }
-        false
+        unsafe { parse_headers(&self.vlc, media, PARSE_TIMEOUT) }
     }
 
     fn geometry(&self, media: *mut Media) -> Option<Geometry> {

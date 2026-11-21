@@ -17,6 +17,7 @@ mod control;
 mod decoding;
 mod events;
 mod failure;
+pub mod lengths;
 mod prepare;
 pub mod preview;
 mod query;

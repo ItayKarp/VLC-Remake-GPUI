@@ -4,7 +4,8 @@
 //!
 //! Shift+F10 or the context-menu key opens it at the video's top-left corner with its first item
 //! highlighted, rather than at the pointer. Opening it closes any popover or other menu first.
-//! Record (S8.6) and Playlist (the queue, S3.2 and S3.3) join with their stories (S2.9.4).
+//! Playlist shows or hides the queue and clears it (S3.2); Repeat and Shuffle join it with S3.3.
+//! Record (S8.6) joins with its story (S2.9.4).
 
 mod media;
 mod playback;
@@ -92,6 +93,7 @@ impl MainWindow {
             self.audio_submenu(&main, cx),
             self.subtitle_submenu(&main, cx),
             self.more_settings_menu(&main, cx),
+            self.playlist_menu(&main, cx),
             open_media_menu(&main, cx),
             main_menu::dispatching(&act::Quit, "Quit VLC", cx).icon(icons::QUIT),
         ]);
@@ -120,6 +122,20 @@ impl MainWindow {
                 .disabled(!self.can_go_next())
                 .why_disabled("No next item"),
         ]
+    }
+}
+
+impl MainWindow {
+    /// Playlist: show or hide the queue, and clear it.
+    fn playlist_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
+        let show = if self.queue_panel.is_open() { "Hide Queue" } else { "Show Queue" };
+        let items = vec![
+            run(main, &act::ToggleQueue, show, cx).icon(icons::QUEUE),
+            on_main(main, "Clear Queue", |this, _, cx| this.clear_queue(cx))
+                .disabled(self.queue.len() == 0)
+                .why_disabled("The queue is empty"),
+        ];
+        MenuItem::submenu("Playlist", items).icon(icons::LIST)
     }
 }
 

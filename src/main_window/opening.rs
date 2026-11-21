@@ -21,13 +21,24 @@ use crate::app::request::{OpenRequest, Placement};
 use crate::opening::resolve::Options;
 use crate::opening::scan::Subfolders;
 use crate::opening::{self, Cancel, Resolved, paste, recent};
+use crate::queue::EntryId;
 use crate::settings::{self, QueueSiblings};
 use crate::ui::toast::{Level, Toast};
+
+/// Where resolved items go in the queue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Target {
+    /// Where an open request says (replace, append, play next).
+    Placed(Placement),
+    /// Before this entry, or at the end when it's `None` or gone: files dropped between the
+    /// queue panel's rows (S3.2.4).
+    Before(Option<EntryId>),
+}
 
 /// Items being resolved before they play.
 pub(super) struct Job {
     id: u64,
-    placement: Placement,
+    target: Target,
     cancel: Cancel,
     /// What is being opened, for "Opening …".
     pub(super) label: SharedString,
@@ -54,32 +65,41 @@ impl MainWindow {
         if request.placement == Placement::Replace {
             self.cancel_opening(cx);
         }
+        self.resolve_into(request.items, Target::Placed(request.placement), window, cx);
+    }
+
+    /// Resolves `items` in the background, then puts them in the queue at `target`.
+    pub(super) fn resolve_into(
+        &mut self,
+        items: Vec<Media>,
+        target: Target,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let cancel = Cancel::default();
         self.next_job += 1;
         let id = self.next_job;
-        let label = job_label(&request.items);
-        let placement = request.placement;
-        let options = Self::resolve_options(placement, cx);
+        let label = job_label(&items);
+        let options = Self::resolve_options(target, cx);
         let job_cancel = cancel.clone();
         let task = cx.spawn_in(window, async move |this, cx| {
-            let items = request.items;
             let resolved = cx.background_spawn(async move {
                 opening::resolve::resolve(items, options, &job_cancel)
             });
             let resolved = resolved.await;
             this.update_in(cx, |this, window, cx| this.finish_job(id, resolved, window, cx)).ok();
         });
-        self.jobs.push(Job { id, placement, cancel, label, _task: task });
+        self.jobs.push(Job { id, target, cancel, label, _task: task });
         cx.notify();
     }
 
     /// How to read folders, from the settings. Only an open that replaces the queue brings a
     /// file's folder along: adding one file to the queue means that file.
-    fn resolve_options(placement: Placement, cx: &Context<Self>) -> Options {
+    fn resolve_options(target: Target, cx: &Context<Self>) -> Options {
         let prefs = &settings::get(cx).prefs;
-        let siblings = match placement {
-            Placement::Replace => prefs.player.queue_siblings,
-            Placement::Enqueue | Placement::PlayNext => QueueSiblings::Never,
+        let siblings = match target {
+            Target::Placed(Placement::Replace) => prefs.player.queue_siblings,
+            _ => QueueSiblings::Never,
         };
         Options { subfolders: Subfolders::from_setting(prefs.library.include_subfolders), siblings }
     }
@@ -105,13 +125,13 @@ impl MainWindow {
         };
         let job = self.jobs.remove(index);
         cx.notify();
-        let (Some(mut resolved), placement) = (resolved, job.placement) else {
+        let (Some(mut resolved), target) = (resolved, job.target) else {
             return;
         };
         self.report(&resolved, cx);
         recent::record(&resolved.opened, cx);
         if !resolved.media.is_empty() {
-            self.play_resolved(&mut resolved, placement, window, cx);
+            self.play_resolved(&mut resolved, target, window, cx);
         }
         self.attach_subtitles(&resolved.subtitles, cx);
     }

@@ -3,6 +3,7 @@
 //! (S1.4). The bars hide by themselves, in Hide UI mode and in fullscreen (S2.8). The `…` menu
 //! and the video's right-click menu hold the commands, and About VLC opens over it (S2.9). Clicks
 //! and scrolling on the video, on-screen messages and the Keyboard Shortcuts dialog are S2.10.
+//! The List button opens the queue (S3.2).
 //! Onboarding hands off to it (S0.2); the library (Stage 4) fills the content area later.
 
 mod about;
@@ -23,6 +24,7 @@ mod now_playing;
 mod opening;
 mod osd;
 mod player_keys;
+mod queue_panel;
 mod queue_play;
 mod seek_bar;
 mod seeking;
@@ -42,8 +44,8 @@ mod volume_slider;
 mod wheel;
 
 use gpui::{
-    App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription,
-    Window, div, prelude::*, px,
+    AnyElement, App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString,
+    Subscription, Window, div, prelude::*, px,
 };
 
 use self::auto_hide::rules::Layout;
@@ -117,6 +119,8 @@ pub struct MainWindow {
     track_popover: track_popover::TrackPopover,
     /// The gear's Playback | Video | Audio | Subtitles panel (S2.7).
     settings_panel: settings_panel::SettingsPanel,
+    /// The List button's Queue | Bookmarks | Chapters panel (S3.2).
+    queue_panel: queue_panel::QueuePanel,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
     /// When the bars hide, Hide UI mode and the video's right-click menu (S2.8).
@@ -160,6 +164,7 @@ impl MainWindow {
             video_mouse: video_mouse::VideoMouse::default(),
             track_popover: track_popover::TrackPopover::new(cx),
             settings_panel: settings_panel::SettingsPanel::new(window, cx),
+            queue_panel: queue_panel::QueuePanel::new(cx),
             os_title: String::new(),
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
@@ -258,6 +263,19 @@ impl MainWindow {
     }
 }
 
+impl MainWindow {
+    /// The menus that are open: `…`, the bar's overflow, the queue's sort and the video's.
+    fn render_menus(&self) -> impl Iterator<Item = AnyElement> {
+        let menus = [
+            self.render_menu(),
+            self.render_overflow_menu(),
+            self.render_sort_menu(),
+            self.render_video_menu(),
+        ];
+        menus.into_iter().flatten()
+    }
+}
+
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
@@ -295,12 +313,11 @@ impl Render for MainWindow {
             .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
+            .children(self.render_queue_panel(&p, window, cx))
             .children(chrome.controls.then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(Self::pointer_watcher(cx))
             .child(self.toasts.clone())
-            .children(self.render_menu())
-            .children(self.render_overflow_menu())
-            .children(self.render_video_menu())
+            .children(self.render_menus())
             .child(self.modals.clone())
             .child(drop_target::highlight(&p))
     }

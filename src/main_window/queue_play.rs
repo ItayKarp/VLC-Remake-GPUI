@@ -8,6 +8,7 @@
 use gpui::{Context, Window};
 
 use super::MainWindow;
+use super::opening::Target;
 use crate::app::media::Media;
 use crate::app::request::Placement;
 use crate::opening::Resolved;
@@ -15,26 +16,31 @@ use crate::queue::{AfterError, MAX_CONSECUTIVE_FAILURES};
 use crate::ui::toast::{Level, Toast};
 
 impl MainWindow {
-    /// Puts the media `resolved` found in the queue as `placement` says and plays it from its
-    /// start item, unless it was added while something else plays.
+    /// Puts the media `resolved` found in the queue at `target` and plays it from its start
+    /// item, unless it was added while something else plays.
     pub(super) fn play_resolved(
         &mut self,
         resolved: &mut Resolved,
-        placement: Placement,
+        target: Target,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let media = std::mem::take(&mut resolved.media);
-        let first_new = match placement {
-            Placement::Replace => {
+        let replace = target == Target::Placed(Placement::Replace);
+        let first_new = match target {
+            Target::Placed(Placement::Replace) => {
                 self.queue.replace(media);
                 self.skips.played();
                 0
             }
-            Placement::Enqueue => self.queue.append(media),
-            Placement::PlayNext => self.queue.insert_next(media),
+            Target::Placed(Placement::Enqueue) => self.queue.append(media),
+            Target::Placed(Placement::PlayNext) => self.queue.insert_next(media),
+            Target::Before(id) => {
+                let at = id.and_then(|id| self.queue.index_of(id)).unwrap_or(self.queue.len());
+                self.queue.insert_at(at, media)
+            }
         };
-        if placement == Placement::Replace || !self.is_playing(cx) {
+        if replace || !self.is_playing(cx) {
             self.play(first_new + resolved.start, window, cx);
         }
         cx.notify();

@@ -3,8 +3,7 @@
 //! The seek bar (`seek_bar.rs`, S2.3), the time readouts (`readouts.rs`, S2.4) and the volume
 //! control (`volume_slider.rs`, S2.5) are their own modules. The Audio and Subtitles buttons
 //! open the track popover (`track_popover.rs`, S2.6) and the gear the settings panel
-//! (`settings_panel.rs`, S2.7). The List button is disabled until the queue exists (Stage 3):
-//! the light theme's faded buttons mean exactly that.
+//! (`settings_panel.rs`, S2.7), and the List button the queue panel (`queue_panel.rs`, S3.2).
 
 use gpui::{Action, AnyElement, App, ClickEvent, Context, Entity, SharedString, div, prelude::*};
 
@@ -121,6 +120,7 @@ impl MainWindow {
         let id = SharedString::from(format!("{item:?}"));
         let icon_button = IconButton::new(id, button.icon, button.label)
             .size(BUTTON, ICON)
+            .selected(item == Item::List && self.queue_panel.is_open())
             .disabled(!button.enabled);
         match button.press {
             Press::Run(action) => {
