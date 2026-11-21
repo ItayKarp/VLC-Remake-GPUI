@@ -5,7 +5,7 @@ use gpui::{AnyElement, App, Context, Entity, Hsla, SharedString, Window, div, pr
 use super::Gallery;
 use crate::theme::{self, Palette};
 use crate::ui::dropdown::Dropdown;
-use crate::ui::list::{self, Columns, VirtualList};
+use crate::ui::list::{self, Columns, Shape, VirtualList};
 use crate::ui::modal::ModalLayer;
 use crate::ui::slider::{Slider, SliderModel};
 use crate::ui::text_input::TextInput;
@@ -138,9 +138,7 @@ fn eq_band(band: usize, window: &mut Window, cx: &mut Context<Slider>) -> Slider
 fn media_grid(window: &mut Window, cx: &mut Context<VirtualList>) -> VirtualList {
     VirtualList::new(
         "Media",
-        MEDIA_ITEMS,
-        Columns::Fit { width: 120., gap: 8. },
-        96.,
+        Shape { len: MEDIA_ITEMS, columns: Columns::Fit { width: 120., gap: 8. }, row_height: 96. },
         media_card,
         window,
         cx,

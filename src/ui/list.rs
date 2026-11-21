@@ -72,6 +72,17 @@ pub enum Event {
     Activated(usize),
 }
 
+/// How many items a [`VirtualList`] holds and how it lays them out.
+#[derive(Debug, Clone, Copy)]
+pub struct Shape {
+    /// The number of items.
+    pub len: usize,
+    /// How items are arranged across a row.
+    pub columns: Columns,
+    /// The height of one row, in pixels.
+    pub row_height: f32,
+}
+
 /// A virtualized, keyboard-navigable list or grid of `len` items, rendered on demand.
 pub struct VirtualList {
     len: usize,
@@ -94,22 +105,17 @@ impl Focusable for VirtualList {
 }
 
 impl VirtualList {
-    /// A collection of `len` items in rows `row_height` tall, named `label` for screen
-    /// readers. `render_item` draws an item when its row scrolls into view.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "the component gallery calls this signature, and it is outside this change"
-    )]
+    /// A collection laid out as `shape` describes, named `label` for screen readers.
+    /// `render_item` draws an item when its row scrolls into view.
     pub fn new(
         label: impl Into<SharedString>,
-        len: usize,
-        columns: Columns,
-        row_height: f32,
+        shape: Shape,
         render_item: impl Fn(usize, ItemState, &mut Window, &mut App) -> AnyElement + 'static,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         theme::observe(window, cx);
+        let Shape { len, columns, row_height } = shape;
         Self {
             len,
             columns,

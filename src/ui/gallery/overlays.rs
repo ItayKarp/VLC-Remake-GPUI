@@ -94,7 +94,7 @@ impl Gallery {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.popover.trigger.contains(&event.position) {
+        if !self.popover.trigger.contains(event.position) {
             self.popover.open = false;
             cx.notify();
         }

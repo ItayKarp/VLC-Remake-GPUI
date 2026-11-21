@@ -106,7 +106,7 @@ impl ContextMenu {
 
     /// Whether `position` is over this menu or any of its open submenus.
     pub fn contains(&self, position: Point<Pixels>, cx: &App) -> bool {
-        self.tracker.contains(&position)
+        self.tracker.contains(position)
             || self.submenu.as_ref().is_some_and(|s| s.menu.read(cx).contains(position, cx))
     }
 

@@ -43,13 +43,8 @@ impl BoundsTracker {
     }
 
     /// Whether `position` was inside the element last frame.
-    #[allow(
-        clippy::trivially_copy_pass_by_ref,
-        reason = "dropdowns and the gallery call this with `&event.position`; they are \
-                  outside this change"
-    )]
-    pub fn contains(&self, position: &Point<Pixels>) -> bool {
-        self.bounds().is_some_and(|b| b.contains(position))
+    pub fn contains(&self, position: Point<Pixels>) -> bool {
+        self.bounds().is_some_and(|b| b.contains(&position))
     }
 
     /// An invisible element covering its parent that records the parent's bounds.
@@ -193,6 +188,6 @@ mod tests {
     fn tracker_starts_empty() {
         let tracker = BoundsTracker::new();
         assert!(tracker.bounds().is_none());
-        assert!(!tracker.contains(&point(px(1.), px(1.))));
+        assert!(!tracker.contains(point(px(1.), px(1.))));
     }
 }

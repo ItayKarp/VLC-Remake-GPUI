@@ -134,7 +134,7 @@ impl Dropdown {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.trigger.contains(&event.position) {
+        if !self.trigger.contains(event.position) {
             self.close(cx);
         }
     }
