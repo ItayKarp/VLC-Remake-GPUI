@@ -8,6 +8,10 @@
 //! - [`identity`] and [`resolve`]: how a file is recognized after a move (S1.7.2).
 //! - [`policy`]: what is worth keeping and where to resume (S1.7.4).
 //!
+//! The history thread owns the database, so other tables' modules (saved playlists) send their
+//! work through [`History::with_database`] rather than opening a second connection that would
+//! race this one's migrations.
+//!
 //! With "Save recently played items" off, callers don't begin sessions, so nothing is written.
 
 pub mod identity;
@@ -27,6 +31,9 @@ use self::worker::Job;
 use crate::app::media::Media;
 use crate::db::media::{Progress, Saved};
 use crate::settings::Locations;
+
+/// Work for the history thread's database connection; it reports its own outcome.
+pub(crate) type DatabaseWork = Box<dyn FnOnce(&mut rusqlite::Connection) + Send>;
 
 /// Names one [`Session`] to the history thread.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -88,6 +95,14 @@ impl History {
     /// Forgets every media's history (S1.7.5).
     pub fn clear(&self) {
         self.send(Job::Clear);
+    }
+
+    /// Runs `work` on the database, after the jobs sent before it.
+    pub(crate) fn with_database(
+        &self,
+        work: impl FnOnce(&mut rusqlite::Connection) + Send + 'static,
+    ) {
+        self.send(Job::Database(Box::new(work)));
     }
 
     fn send(&self, job: Job) {

@@ -85,7 +85,14 @@ pub const SECTIONS: &[Section] = &[
     },
     Section {
         title: "Library",
-        actions: &[&act::Search, &act::MarkWatched, &act::MarkUnwatched, &act::ClearHistory],
+        actions: &[
+            &act::Search,
+            &act::MarkWatched,
+            &act::MarkUnwatched,
+            &act::ClearHistory,
+            &act::NewPlaylist,
+            &act::SaveQueueAsPlaylist,
+        ],
     },
     Section {
         title: "Application",

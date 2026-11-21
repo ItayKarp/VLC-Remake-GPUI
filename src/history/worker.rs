@@ -5,15 +5,14 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use futures::channel::oneshot;
 
 use super::SessionId;
 use super::resolve::{self, ORPHAN_LIFETIME, ResolveError};
 use crate::app::media::Media;
-use crate::db::Database;
 use crate::db::media::{self, MediaId, Progress, Saved};
+use crate::db::{Database, now_ms};
 use crate::logging;
 
 /// Work for the history thread.
@@ -30,6 +29,8 @@ pub(super) enum Job {
     SetWatched(Media, bool),
     /// Forget everything.
     Clear,
+    /// Work on the database for a table history doesn't own (saved playlists).
+    Database(super::DatabaseWork),
     /// Reply once every job sent before this one is done.
     Flush(oneshot::Sender<()>),
 }
@@ -94,6 +95,10 @@ impl Worker {
             }
             Job::SetWatched(media, watched) => self.set_watched(&media, watched),
             Job::Clear => media::clear(self.database.connection()).map(drop),
+            Job::Database(work) => {
+                work(self.database.connection());
+                Ok(())
+            }
             Job::Flush(reply) => {
                 let _ = reply.send(());
                 Ok(())
@@ -145,10 +150,4 @@ impl Worker {
             None => Ok(()),
         }
     }
-}
-
-/// Now, in milliseconds since the Unix epoch.
-fn now_ms() -> i64 {
-    let since = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-    i64::try_from(since.as_millis()).unwrap_or(i64::MAX)
 }

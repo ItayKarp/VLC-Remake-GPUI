@@ -156,6 +156,8 @@ pub const COMMANDS: &[Command] = &[
     cmd("Mark as Watched", AppArea, NONE, &act::MarkWatched),
     cmd("Mark as Unwatched", AppArea, NONE, &act::MarkUnwatched),
     cmd("Clear History", AppArea, NONE, &act::ClearHistory),
+    cmd("New Playlist", AppArea, NONE, &act::NewPlaylist),
+    cmd("Save Queue as Playlist", AppArea, NONE, &act::SaveQueueAsPlaylist),
     cmd(
         "Close Window",
         Global,

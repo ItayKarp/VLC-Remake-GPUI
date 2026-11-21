@@ -55,6 +55,10 @@ actions!(
         MarkUnwatched,
         /// Forget the playback history: positions, plays and the recent list.
         ClearHistory,
+        /// Open the New Playlist dialog (S3.5.1).
+        NewPlaylist,
+        /// Open the New Playlist dialog holding the queue's items (S3.5.5).
+        SaveQueueAsPlaylist,
     ]
 );
 

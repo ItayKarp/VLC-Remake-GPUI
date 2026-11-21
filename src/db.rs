@@ -1,5 +1,5 @@
 //! The local SQLite database (S1.7.1): `library.db` in the data dir, holding the playback history
-//! ([`media`]) and, from Stage 4, the library.
+//! ([`media`]), saved playlists ([`playlists`]) and, from Stage 4, the library.
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -12,11 +12,12 @@
 
 pub mod media;
 mod migrations;
+pub mod playlists;
 #[cfg(test)]
 mod tests;
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, ErrorCode};
 
@@ -163,4 +164,10 @@ fn is_transient(error: &rusqlite::Error) -> bool {
 fn in_memory_after(error: &Unusable) -> Connection {
     tracing::error!("db: can't use the database file ({error}); history won't be kept");
     open_in_memory().expect("an in-memory SQLite database always opens")
+}
+
+/// Now, in milliseconds since the Unix epoch, as the tables store times.
+pub fn now_ms() -> i64 {
+    let since = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    i64::try_from(since.as_millis()).unwrap_or(i64::MAX)
 }

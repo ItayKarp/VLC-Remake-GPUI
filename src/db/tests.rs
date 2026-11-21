@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use super::media::{self, Entry, FileStamp, Progress, Saved};
-use super::migrations::{self, CURRENT_VERSION};
+use super::migrations::{self, CURRENT_VERSION, MIGRATIONS};
+use super::playlists::{self, Stored};
 use super::{CORRUPT_SUFFIX, Database};
 use crate::opening::scratch::scratch_dir;
 
@@ -106,4 +107,25 @@ fn orphans_are_found_last_and_purged_when_old() {
     assert_eq!(media::purge_orphans(connection, 1_000).expect("purge"), 0);
     assert_eq!(media::purge_orphans(connection, 1_001).expect("purge"), 1);
     assert_eq!(media::clear(connection).expect("clear"), 1);
+}
+
+#[test]
+fn a_database_from_every_older_version_is_brought_up_to_date() {
+    for version in 1..CURRENT_VERSION {
+        let path = db_path();
+        let connection = rusqlite::Connection::open(&path).expect("open");
+        for sql in &MIGRATIONS[..version as usize] {
+            connection.execute_batch(sql).expect("an older schema");
+        }
+        connection.pragma_update(None, "user_version", version).expect("set version");
+        media::insert(&connection, &entry("a")).expect("an older row");
+        drop(connection);
+
+        let mut database = Database::open(&path);
+        let migrated = migrations::version(database.connection()).map_err(|e| e.to_string());
+        assert_eq!(migrated, Ok(CURRENT_VERSION), "from version {version}");
+        assert!(media::find_identity(database.connection(), "a").expect("query").is_some());
+        let playlist = Stored { title: "Mix".into(), ..Stored::default() };
+        playlists::insert(database.connection(), None, &playlist, 1).expect("the new tables");
+    }
 }

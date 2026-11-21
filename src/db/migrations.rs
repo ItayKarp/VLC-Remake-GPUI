@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
-const MIGRATIONS: &[&str] = &[MEDIA];
+pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "
@@ -31,6 +31,26 @@ const MEDIA: &str = "
     );
     CREATE INDEX media_identity ON media (identity);
     CREATE INDEX media_location ON media (location);
+";
+
+/// Version 2 (S3.5): saved playlists and their items, in order. Stage 4 (S4.1) adds the rest of
+/// the library around them.
+const PLAYLISTS: &str = "
+    CREATE TABLE playlists (
+        id INTEGER PRIMARY KEY,
+        title TEXT NOT NULL,
+        -- A custom thumbnail image as a stored path; NULL for the automatic collage (S3.5.6).
+        thumbnail TEXT,
+        created_ms INTEGER NOT NULL,
+        modified_ms INTEGER NOT NULL
+    );
+    CREATE TABLE playlist_items (
+        playlist_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        -- A stored path or a URL, as `media.location`.
+        location TEXT NOT NULL,
+        PRIMARY KEY (playlist_id, position)
+    );
 ";
 
 /// The schema version this build writes.

@@ -133,6 +133,8 @@ icons! {
     SHUFFLE => "shuffle.svg",
     /// A queue row's drag handle (`move` in the icon set).
     DRAG_HANDLE => "drag-handle.svg",
+    // Saved playlists (S3.5).
+    PLAYLIST => "playlist.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

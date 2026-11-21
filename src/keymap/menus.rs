@@ -142,6 +142,9 @@ fn file_menu() -> Menu {
             item(&act::OpenDisc, "Open Disc…"),
             item(&act::OpenCaptureDevice, "Open Capture Device…"),
             SEPARATOR,
+            item(&act::NewPlaylist, "New Playlist…"),
+            item(&act::SaveQueueAsPlaylist, "Save Queue as Playlist…"),
+            SEPARATOR,
             item(&act::Convert, "Convert…"),
         ],
     )

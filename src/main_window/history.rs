@@ -219,8 +219,9 @@ impl MainWindow {
     /// Marks what's playing watched or unwatched. This playback stops recording, so its
     /// position doesn't undo the mark.
     fn mark_watched(&mut self, watched: bool, cx: &mut Context<Self>) {
-        let media = self.player_entity().and_then(|player| player.read(cx).media().cloned());
-        let (Some(media), Some(history)) = (media, History::get(cx)) else { return };
+        let (Some(media), Some(history)) = (self.player_media(cx), History::get(cx)) else {
+            return;
+        };
         self.discard_history();
         history.set_watched(media, watched);
     }
@@ -230,6 +231,11 @@ impl MainWindow {
         let toast = Toast::new(Level::Info, "History is off. Clear what was already saved?")
             .action("Clear History", |_, cx| clear_history(cx));
         self.show_toast(toast, cx);
+    }
+
+    /// What the player has open, if anything.
+    pub(super) fn player_media(&self, cx: &App) -> Option<Media> {
+        self.player_entity().and_then(|player| player.read(cx).media().cloned())
     }
 
     fn player_entity(&self) -> Option<gpui::Entity<Player>> {

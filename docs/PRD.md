@@ -900,21 +900,21 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1, S4.1  **Size:** M  **Design refs:** `docs/ui/dialogs/new_playlist/new_playlist.png`, `sidebar-playlists.png`, `media_cards/playlist-*`
 
 **Subtasks**
-- [ ] S3.5.1 The New Playlist dialog: **Playlist Details** (title field, placeholder "e.g., Favorite Videos", and a thumbnail picker "+"), **Select Files** (a dashed drop zone "Drag files into the box or click here to select files." plus "+"), Cancel and Save. Save is enabled once the title is non-empty.
-- [ ] S3.5.2 Playlists in the library (Playlists section): "+ Create playlist", rows with the playlist glyph, hover `•••` and the playlist context menu (S4.8.3).
-- [ ] S3.5.3 Open a playlist: a list view with reordering, removing, and adding items (not designed; reuse the queue row style).
-- [ ] S3.5.4 Rename, delete (with confirmation and undo), and duplicate.
-- [ ] S3.5.5 "Add to Playlist" from the file menu and the queue ("Save queue as playlist").
-- [ ] S3.5.6 The playlist thumbnail is a custom image, or an automatic 2×2 collage of its first items' thumbnails.
+- [x] S3.5.1 The New Playlist dialog: **Playlist Details** (title field, placeholder "e.g., Favorite Videos", and a thumbnail picker "+"), **Select Files** (a dashed drop zone "Drag files into the box or click here to select files." plus "+"), Cancel and Save. Save is enabled once the title is non-empty. *(`main_window/new_playlist.rs`, with a screenshot test against the design. The whole drop zone is the "+": click it, or Enter on it, to pick files. Playlists are rows in `library.db` (migration 2, `db/playlists.rs`), kept by location like the session's queue, and written on the history thread, which owns the database (`src/playlists.rs`). New Playlist and Save Queue as Playlist are commands (no default keys), in the macOS File menu and the video menu's Playlist ▸.)*
+- [ ] S3.5.2 Playlists in the library (Playlists section): "+ Create playlist", rows with the playlist glyph, hover `•••` and the playlist context menu (S4.8.3). *(Comes with Stage 4, which builds the library. Until then the video menu's Playlist ▸ Saved Playlists ▸ lists each playlist with Play, Add to Queue, Rename…, Duplicate and Delete….)*
+- [ ] S3.5.3 Open a playlist: a list view with reordering, removing, and adding items (not designed; reuse the queue row style). *(Comes with the library's Playlists section (S3.5.2). Adding items works now: Add to Playlist ▸.)*
+- [x] S3.5.4 Rename, delete (with confirmation and undo), and duplicate. *(`main_window/saved_playlists.rs`. Delete asks first, then its toast has Undo, which puts the playlist back with the same id. A duplicate is numbered like a taken title.)*
+- [x] S3.5.5 "Add to Playlist" from the file menu and the queue ("Save queue as playlist"). *(Until the library's file menu (S4.8.1) exists, the video menu's Playlist ▸ has Add to Playlist ▸ for the playing item (a saved playlist, or New Playlist… holding it) and Save Queue as Playlist…, which opens the dialog with the queue's items. S4.8.1 reuses `MainWindow::add_to_playlist`.)*
+- [ ] S3.5.6 The playlist thumbnail is a custom image, or an automatic 2×2 collage of its first items' thumbnails. *(The custom image is picked, checked and saved with the playlist; showing it, and the collage, need the thumbnail cache (S4.4) and a place that shows playlists (S3.5.2).)*
 
 **Edge cases**
-- Duplicate playlist names: allowed but warned, or auto-suffixed (decide).
-- A title with leading or trailing spaces, only whitespace, or 500 characters: trim it, require at least one visible character, cap at about 100 characters.
-- A thumbnail image that is huge, animated (GIF or WebP), corrupt, or not an image: validate it, take the first frame, and downscale.
-- A playlist item whose file is moved: resolve it by content hash (S1.7.2), otherwise show it as missing with "Locate…".
-- An empty playlist: allowed, with an empty state.
-- Dropping 1,000 files into the dialog's drop zone: add them asynchronously with a progress indicator; Save stays disabled until adding is finished.
-- Cancel with unsaved changes: confirm discarding when files were added.
+- Duplicate playlist names: allowed but warned, or auto-suffixed (decide). *(Decided: auto-suffixed, "Mix (2)", ignoring case, for new, renamed and duplicated playlists (`playlists/title.rs`).)*
+- A title with leading or trailing spaces, only whitespace, or 500 characters: trim it, require at least one visible character, cap at about 100 characters. *(Done: zero-width characters don't count as visible; the field stops at 100.)*
+- A thumbnail image that is huge, animated (GIF or WebP), corrupt, or not an image: validate it, take the first frame, and downscale. *(Validated now, by content and under 25 MB (`playlists/thumbnail.rs`); the first frame and downscaling come with the thumbnail cache (S3.5.6).)*
+- A playlist item whose file is moved: resolve it by content hash (S1.7.2), otherwise show it as missing with "Locate…". *(Comes with the playlist view (S3.5.3); a missing item fails and is skipped like any queued file (S3.1.4).)*
+- An empty playlist: allowed, with an empty state. *(Allowed; its menu says it is empty and disables Play and Add to Queue. The view's empty state comes with S3.5.3.)*
+- Dropping 1,000 files into the dialog's drop zone: add them asynchronously with a progress indicator; Save stays disabled until adding is finished. *(Done: they resolve in the background like any open (folders, playlist files); the zone says "Adding files…" and then how many will be added.)*
+- Cancel with unsaved changes: confirm discarding when files were added. *(Done for Cancel, ✕ and Escape; files that came from the queue don't count as added.)*
 
 ---
 

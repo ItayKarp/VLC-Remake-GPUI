@@ -14,6 +14,7 @@ mod logging;
 mod main_window;
 mod onboarding;
 mod opening;
+mod playlists;
 mod power;
 mod queue;
 #[cfg(test)]
@@ -48,6 +49,7 @@ fn main() {
     application.run(move |cx: &mut App| {
         settings::init(cx);
         history::init(cx);
+        playlists::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);
         theme::init(cx);
