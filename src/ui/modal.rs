@@ -25,6 +25,10 @@ use crate::theme::{self, Palette};
 
 pub use dialog::{Dialog, DialogButton};
 
+/// Key context of the top dialog. App and player shortcuts don't fire inside it;
+/// a dialog binds its own keys in this context.
+pub const CONTEXT: &str = "Modal";
+
 /// What a modal view must provide to go in a [`ModalLayer`].
 pub trait ModalView: Render + Focusable + EventEmitter<DismissEvent> {}
 impl<T: Render + Focusable + EventEmitter<DismissEvent>> ModalView for T {}
@@ -175,7 +179,7 @@ impl ModalLayer {
             .occlude()
             .when(is_top, |layer| {
                 layer
-                    .key_context("Modal")
+                    .key_context(CONTEXT)
                     .on_action(cx.listener(Self::trap_next))
                     .on_action(cx.listener(Self::trap_prev))
                     .on_key_down(cx.listener(Self::on_key_down))

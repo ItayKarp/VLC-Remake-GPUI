@@ -87,6 +87,15 @@ icons! {
     INFO_TWO_TONE_ACCENT => "info-two-tone.accent.svg",
     CHECK_BOX => "check-box.svg",
     CHECK_BOX_ACCENT => "check-box.accent.svg",
+    // The main menu (S0.5.4).
+    STREAMING => "streaming.svg",
+    DISC => "disc.svg",
+    CAPTURE_DEVICE => "capture-device.svg",
+    CONVERT => "convert.svg",
+    RECENT => "recent.svg",
+    PROFILE => "profile.svg",
+    HOTKEYS => "hotkeys.svg",
+    PAINT => "paint.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

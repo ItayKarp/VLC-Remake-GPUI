@@ -32,7 +32,7 @@ fn radio_keys(
     let Some(on_select) = on_select else {
         return group;
     };
-    group.on_key_down(move |event, window, cx| {
+    group.key_context(focus::CONTROL).on_key_down(move |event, window, cx| {
         let Some(next) = arrow_target(event, axis, selected, len) else {
             return;
         };

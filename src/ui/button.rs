@@ -175,8 +175,11 @@ impl RenderOnce for Button {
                     Some(handle) => b.track_focus(handle),
                     None => b.tab_index(0),
                 };
-                let b =
-                    b.cursor_pointer().hover(move |s| s.bg(hover)).active(move |s| s.bg(pressed));
+                let b = b
+                    .key_context(focus::CONTROL)
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(hover))
+                    .active(move |s| s.bg(pressed));
                 focus::ring(b, &p)
             })
             .when(!enabled, |b| b.opacity(0.4))

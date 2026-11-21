@@ -10,7 +10,7 @@
 //! - The **focus ring** shows only for keyboard focus (`focus_visible`), never after
 //!   a mouse click. Components draw it with [`ring`].
 
-use gpui::{InteractiveElement, KeyDownEvent, Styled, actions};
+use gpui::{InteractiveElement, KeyContext, KeyDownEvent, Styled, actions};
 
 use crate::theme::Palette;
 
@@ -23,6 +23,22 @@ actions!(
         FocusPrev,
     ]
 );
+
+/// Key context of every control that handles Space, Enter, Escape or the arrows
+/// itself, so player shortcuts on those keys don't take them while it has focus.
+pub const CONTROL: &str = "Control";
+/// Key context of controls that take typed characters (text inputs, and menus and
+/// dropdowns with type-ahead), so letter and symbol shortcuts don't fire in them.
+pub const TYPING: &str = "Typing";
+
+/// A key context made of several identifiers, e.g. `TextInput Control Typing`.
+pub fn context(identifiers: &[&'static str]) -> KeyContext {
+    let mut context = KeyContext::default();
+    for identifier in identifiers {
+        context.add(*identifier);
+    }
+    context
+}
 
 /// Handles Tab / Shift+Tab on a window's root element.
 pub fn tab_navigation<E: InteractiveElement>(element: E) -> E {

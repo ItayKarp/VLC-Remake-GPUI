@@ -289,6 +289,7 @@ impl Render for VirtualList {
             .id("virtual-list-frame")
             .relative()
             .size_full()
+            .key_context(focus::CONTROL)
             .track_focus(&self.focus_handle)
             .role(if item_width.is_some() { accesskit::Role::Grid } else { accesskit::Role::List })
             .aria_label(self.label.clone())
