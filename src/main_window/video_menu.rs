@@ -150,12 +150,16 @@ fn on_main(
     })
 }
 
-/// Open Media: the open commands and Open Recent.
+/// Open Media: the open commands, Add to Queue and Play Next (S3.1.2), and Open Recent.
 fn open_media_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem {
     let items = vec![
         main_menu::dispatching(&act::OpenFile, "Open File(s)…", cx).icon(icons::FILE),
         main_menu::dispatching(&act::OpenFolder, "Open Folder…", cx).icon(icons::FOLDER),
         main_menu::dispatching(&act::OpenFromClipboard, "Open from Clipboard", cx),
+        MenuItem::Separator,
+        on_main(main, "Add to Queue…", |_, window, cx| MainWindow::prompt_to_enqueue(window, cx)),
+        on_main(main, "Play Next…", |_, window, cx| MainWindow::prompt_to_play_next(window, cx)),
+        MenuItem::Separator,
         main_menu::recent_menu(main, cx).icon(icons::RECENT),
     ];
     MenuItem::submenu("Open Media", items).icon(icons::FILE)

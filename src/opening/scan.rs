@@ -2,7 +2,7 @@
 //! would list them ("Episode 2" before "Episode 10"), files before subfolders.
 //!
 //! The scan runs off the UI thread and stops when cancelled. It goes [`MAX_DEPTH`] folders
-//! deep, stops at [`MAX_FILES`], skips hidden and system files, and follows a symlinked
+//! deep (or stays in the folder, per Settings → Library "Include subfolders"), stops at [`MAX_FILES`], skips hidden and system files, and follows a symlinked
 //! folder only once (a link to a parent folder would loop forever otherwise). Playlists and
 //! subtitles inside the folder are left out: the folder's media is the point, and libVLC finds
 //! a video's subtitles next to it by itself.
@@ -30,10 +30,35 @@ pub struct Scan {
     pub truncated: bool,
 }
 
-/// The media files in `folder`. Fails only when `folder` itself can't be read; unreadable
-/// subfolders are skipped.
-pub fn scan(folder: &Path, cancel: &Cancel) -> io::Result<Scan> {
-    let mut scanner = Scanner { cancel, visited: HashSet::new(), scan: Scan::default() };
+/// Whether a scan goes into subfolders.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Subfolders {
+    /// Down to [`MAX_DEPTH`] folders deep.
+    #[default]
+    Include,
+    /// Only the folder itself.
+    Skip,
+}
+
+impl Subfolders {
+    /// Settings → Library "Include subfolders".
+    pub fn from_setting(include: bool) -> Self {
+        if include { Subfolders::Include } else { Subfolders::Skip }
+    }
+
+    fn max_depth(self) -> usize {
+        match self {
+            Subfolders::Include => MAX_DEPTH,
+            Subfolders::Skip => 0,
+        }
+    }
+}
+
+/// The media files in `folder`, and in its subfolders if `subfolders` says so. Fails only when
+/// `folder` itself can't be read; unreadable subfolders are skipped.
+pub fn scan(folder: &Path, subfolders: Subfolders, cancel: &Cancel) -> io::Result<Scan> {
+    let max_depth = subfolders.max_depth();
+    let mut scanner = Scanner { cancel, max_depth, visited: HashSet::new(), scan: Scan::default() };
     let entries = read_sorted(folder)?;
     scanner.visit_entries(folder, entries, 0);
     Ok(scanner.scan)
@@ -41,6 +66,8 @@ pub fn scan(folder: &Path, cancel: &Cancel) -> io::Result<Scan> {
 
 struct Scanner<'a> {
     cancel: &'a Cancel,
+    /// How many folders deep to go below the one scanned.
+    max_depth: usize,
     /// Folders already scanned, by canonical path.
     visited: HashSet<PathBuf>,
     scan: Scan,
@@ -66,7 +93,7 @@ impl Scanner<'_> {
                 self.consider(entry.path());
             }
         }
-        if depth >= MAX_DEPTH {
+        if depth >= self.max_depth {
             return;
         }
         for subfolder in subfolders {
@@ -185,12 +212,14 @@ mod tests {
             fs::write(root.join(file), b"x").unwrap();
         }
         fs::write(root.join("no_extension"), b"\x1A\x45\xDF\xA3rest").unwrap();
-        let scan = scan(&root, &Cancel::default()).unwrap();
+        let scan = scan(&root, Subfolders::Include, &Cancel::default()).unwrap();
         assert_eq!(
             names(&scan, &root),
             ["no_extension", "z.mp3", "Season 1/E2.mkv", "Season 1/E10.MKV"]
         );
         assert!(!scan.truncated);
+        let top = super::scan(&root, Subfolders::Skip, &Cancel::default()).unwrap();
+        assert_eq!(names(&top, &root), ["no_extension", "z.mp3"]);
     }
 
     #[test]
@@ -199,8 +228,8 @@ mod tests {
         fs::write(root.join("a.mp4"), b"x").unwrap();
         let cancel = Cancel::default();
         cancel.cancel();
-        assert_eq!(scan(&root, &cancel).unwrap().files, Vec::<PathBuf>::new());
-        assert!(scan(&root.join("missing"), &Cancel::default()).is_err());
+        assert_eq!(scan(&root, Subfolders::Include, &cancel).unwrap().files, Vec::<PathBuf>::new());
+        assert!(scan(&root.join("missing"), Subfolders::Include, &Cancel::default()).is_err());
     }
 
     #[cfg(unix)]
@@ -210,7 +239,7 @@ mod tests {
         fs::create_dir(root.join("sub")).unwrap();
         fs::write(root.join("sub/a.mp4"), b"x").unwrap();
         std::os::unix::fs::symlink(&root, root.join("sub/back")).unwrap();
-        let scan = scan(&root, &Cancel::default()).unwrap();
+        let scan = scan(&root, Subfolders::Include, &Cancel::default()).unwrap();
         assert_eq!(names(&scan, &root), ["sub/a.mp4"]);
     }
 }

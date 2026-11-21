@@ -4,6 +4,7 @@
 //! - [`kind`] and [`sniff`]: what a file is, by extension or by content (S1.3.6).
 //! - [`scan`]: the media in a folder, asynchronously and cancellably.
 //! - [`playlist`]: playlist files expand into their entries (S1.3.4).
+//! - [`siblings`]: one file opened with the rest of its folder (S3.1.3).
 //! - [`paste`]: paths and URLs from clipboard text (S1.3.3).
 //! - [`recent`]: the Open Recent list (S1.3.5).
 //! - [`resolve`](resolve::resolve): all of the above for one batch of picked items.
@@ -19,6 +20,7 @@ pub mod resolve;
 pub mod scan;
 #[cfg(test)]
 pub(crate) mod scratch;
+pub mod siblings;
 mod sniff;
 
 use std::io;
@@ -50,6 +52,9 @@ impl Cancel {
 pub struct Resolved {
     /// The items to play, in order: folders scanned and playlists expanded.
     pub media: Vec<Media>,
+    /// The index in [`Self::media`] to start playing at: the opened file, when its folder was
+    /// queued with it (S3.1.3), else 0.
+    pub start: usize,
     /// Subtitle files picked along with them, to attach to the video.
     pub subtitles: Vec<PathBuf>,
     /// How many picked files were skipped as not media.

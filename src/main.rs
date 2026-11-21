@@ -15,6 +15,7 @@ mod main_window;
 mod onboarding;
 mod opening;
 mod power;
+mod queue;
 #[cfg(test)]
 mod screenshot_test;
 mod settings;

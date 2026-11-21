@@ -1,6 +1,6 @@
 //! Player behavior (Settings → Playback; most of it comes with Stage 2 and S5.7): pausing for
 //! other apps' audio (S1.5.6), resuming and marking media watched (S1.7.4), and the speed each
-//! launch starts at (S2.7.4).
+//! launch starts at (S2.7.4), and queueing a file's folder with it (S3.1.3).
 
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +35,9 @@ pub struct PlayerSettings {
     /// for the rest of the session and is never saved. The engine clamps it into range.
     #[serde(deserialize_with = "lenient")]
     pub default_speed: f32,
+    /// Whether opening one file also queues the other media in its folder (S3.1.3).
+    #[serde(deserialize_with = "lenient")]
+    pub queue_siblings: QueueSiblings,
 }
 
 impl Default for PlayerSettings {
@@ -45,6 +48,7 @@ impl Default for PlayerSettings {
             watched_percent: DEFAULT_WATCHED_PERCENT,
             watched_remaining_seconds: DEFAULT_WATCHED_REMAINING_SECONDS,
             default_speed: DEFAULT_SPEED,
+            queue_siblings: QueueSiblings::default(),
         }
     }
 }
@@ -60,4 +64,18 @@ pub enum ResumePolicy {
     Ask,
     /// Always start from the beginning.
     Never,
+}
+
+/// Whether opening one file also queues the other media in its folder, in natural order, with
+/// the opened file current.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueueSiblings {
+    /// Only the opened file is queued.
+    Never,
+    /// When the file is a TV episode (`S01E02`, `1x02`), the folder's other episodes are queued.
+    #[default]
+    Episodes,
+    /// The folder's other media is always queued.
+    Always,
 }

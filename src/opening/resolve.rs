@@ -1,6 +1,9 @@
 //! Turns what the user picked, dropped or pasted into what to play: folders are scanned,
 //! playlists expanded, subtitle files set aside to attach, and other files skipped.
 //!
+//! One media file opened alone brings its folder along when [`Options::siblings`] says so
+//! (S3.1.3), and starts at itself.
+//!
 //! Non-media files mixed with media are skipped and counted ("3 files skipped"). When nothing
 //! among the picked files is recognizable as media, they are handed to the engine anyway:
 //! libVLC probes far more formats than [`super::sniff`] knows, and it gives a clear error for
@@ -11,14 +14,30 @@ use std::path::{Path, PathBuf};
 
 use super::kind::{self, Kind};
 use super::playlist::{self, PlaylistError};
-use super::scan;
-use super::{Cancel, Problem, Resolved};
+use super::scan::{self, Subfolders};
+use super::{Cancel, Problem, Resolved, siblings};
 use crate::app::media::Media;
+use crate::settings::QueueSiblings;
+
+/// How folders are read, from the settings at the time of the open.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options {
+    /// Whether opened folders (and a file's folder) include their subfolders.
+    pub subfolders: Subfolders,
+    /// Whether one file opened alone brings the rest of its folder.
+    pub siblings: QueueSiblings,
+}
 
 /// Resolves `items` in order. Returns `None` when cancelled. Reads the file system, so run it
 /// off the UI thread.
-pub fn resolve(items: Vec<Media>, cancel: &Cancel) -> Option<Resolved> {
-    let mut resolver = Resolver { cancel, resolved: Resolved::default(), others: Vec::new() };
+pub fn resolve(items: Vec<Media>, options: Options, cancel: &Cancel) -> Option<Resolved> {
+    let options = if items.len() == 1 {
+        options
+    } else {
+        Options { siblings: QueueSiblings::Never, ..options }
+    };
+    let mut resolver =
+        Resolver { cancel, options, resolved: Resolved::default(), others: Vec::new() };
     for item in items {
         if cancel.is_cancelled() {
             return None;
@@ -30,6 +49,7 @@ pub fn resolve(items: Vec<Media>, cancel: &Cancel) -> Option<Resolved> {
 
 struct Resolver<'a> {
     cancel: &'a Cancel,
+    options: Options,
     resolved: Resolved,
     /// Picked files that aren't recognizably media.
     others: Vec<PathBuf>,
@@ -51,7 +71,7 @@ impl Resolver<'_> {
 
     fn add_folder(&mut self, item: Media) {
         let path = item.as_path().expect("a folder is a path");
-        match scan::scan(path, self.cancel) {
+        match scan::scan(path, self.options.subfolders, self.cancel) {
             Ok(scan) if scan.files.is_empty() => self.problem(path, Problem::NoMediaInFolder),
             Ok(scan) => {
                 if scan.truncated {
@@ -66,7 +86,7 @@ impl Resolver<'_> {
     fn add_file(&mut self, item: Media) {
         let path = item.as_path().expect("a file is a path").to_path_buf();
         match kind::classify(&path) {
-            Ok(Kind::Media) => self.play(item.clone(), vec![item]),
+            Ok(Kind::Media) => self.add_media(item, &path),
             Ok(Kind::Playlist(format)) => match playlist::expand(&path, format, self.cancel) {
                 Ok(items) => self.play(item, items),
                 Err(PlaylistError::Empty) => self.problem(&path, Problem::EmptyPlaylist),
@@ -78,6 +98,18 @@ impl Resolver<'_> {
             Ok(Kind::Subtitle) => self.resolved.subtitles.push(path),
             Ok(Kind::Other) => self.others.push(path),
             Err(error) => self.problem(&path, Problem::Unreadable(error.kind())),
+        }
+    }
+
+    /// Plays the media file `item`, with its folder if the options say so.
+    fn add_media(&mut self, item: Media, path: &Path) {
+        let Options { siblings, subfolders } = self.options;
+        match siblings::queue(path, siblings, subfolders, self.cancel) {
+            Some((files, start)) => {
+                self.resolved.start = self.resolved.media.len() + start;
+                self.play(item, files.into_iter().map(Media::File).collect());
+            }
+            None => self.play(item.clone(), vec![item]),
         }
     }
 
@@ -114,7 +146,8 @@ mod tests {
     }
 
     fn resolve_all(items: Vec<Media>) -> Resolved {
-        resolve(items, &Cancel::default()).expect("not cancelled")
+        let options = Options { siblings: QueueSiblings::Always, ..Options::default() };
+        resolve(items, options, &Cancel::default()).expect("not cancelled")
     }
 
     #[test]
@@ -162,9 +195,26 @@ mod tests {
     }
 
     #[test]
+    fn one_file_opened_alone_brings_its_folder_and_starts_at_itself() {
+        let dir = scratch_dir();
+        for name in ["a.mp4", "b.mp4", "c.mp4"] {
+            fs::write(dir.join(name), b"x").unwrap();
+        }
+        let resolved = resolve_all(vec![Media::File(dir.join("b.mp4"))]);
+        assert_eq!(names(&resolved.media), ["a.mp4", "b.mp4", "c.mp4"]);
+        assert_eq!(resolved.start, 1);
+        assert_eq!(names(&resolved.opened), ["b.mp4"]);
+        let two = resolve_all(vec![Media::File(dir.join("b.mp4")), Media::File(dir.join("a.mp4"))]);
+        assert_eq!(names(&two.media), ["b.mp4", "a.mp4"]);
+        assert_eq!(two.start, 0);
+    }
+
+    #[test]
     fn cancelled_resolves_to_nothing() {
         let cancel = Cancel::default();
         cancel.cancel();
-        assert!(resolve(vec![Media::Url("https://x".into())], &cancel).is_none());
+        assert!(
+            resolve(vec![Media::Url("https://x".into())], Options::default(), &cancel).is_none()
+        );
     }
 }

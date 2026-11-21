@@ -622,13 +622,13 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Subtasks**
 - [x] S2.2.1 Lay out the bar from a **declarative item list** (it's needed for Customize Player in S8.7): the order, groups and spacers come from data, not hard-coded layout. *(`main_window/control_bar/layout.rs`: a list of item and gap slots; gaps split the groups. The time readouts, seek bar and volume level show the player's state but aren't interactive until S2.3–S2.5.)*
 - [x] S2.2.2 Play/Pause: orange ▶ when paused or stopped, grey ❚❚ while playing, and a buffering spinner state (not designed; add one). *(`control_bar/play_button.rs`. The spinner turns on the grey pill while opening or buffering; pressing it pauses. The pill follows `Player::wants_to_play`, so it changes on the click.)*
-- [x] S2.2.3 Previous and Next: previous restarts the current item if it's more than 3 s in, otherwise goes to the previous item. Both are disabled at the queue's ends unless Repeat is All. *(`main_window/transport.rs` and `transport/rules.rs`; P and N do the same. Previous stays enabled on the first item while it would restart it. Repeat comes with the queue (S3.1), so the list stops at its ends for now.)*
+- [x] S2.2.3 Previous and Next: previous restarts the current item if it's more than 3 s in, otherwise goes to the previous item. Both are disabled at the queue's ends unless Repeat is All. *(`main_window/transport.rs` and `transport/rules.rs`; P and N do the same. Previous stays enabled on the first item while it would restart it. Repeat comes with S3.3, so the queue stops at its ends for now.)*
 - [x] S2.2.4 Hover, pressed, focused and disabled states for every icon button, with a tooltip showing the action and its shortcut. *(The kit's `IconButton` and the pill; names and shortcuts come from the command table and keymap.)*
 - [x] S2.2.5 Narrow windows: items drop in a defined priority order (for example Settings and List go into an overflow `…`) instead of overlapping. *(`control_bar/fit.rs`: Settings, List, Subtitles, Audio, Volume (as Mute), Duration, Previous/Next, the current time, then the seek bar. Buttons move into the `…` menu; readouts are hidden. Play/Pause always stays.)*
 
 **Edge cases**
 - Rapid clicks on Play/Pause (double-click speed) produce exactly the matching number of toggles, debounced against the engine state, and the icon never desyncs from the real state. *(Done: each click flips the player's requested state, not its reported one, and clicks skip the held-key gate.)*
-- Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on). *(Replays; the Repeat case comes with S3.1. Play after an error tries the item again.)*
+- Pressing Play after `Ended` replays from the start (or plays the next queue item when Repeat is on). *(Replays; the Repeat case comes with S3.3. Play after an error tries the item again.)*
 - Pressing Play with an empty queue opens the Open File dialog, or does nothing with a tooltip (decide). *(Decided: it opens the Open File dialog, unless an open is still resolving.)*
 - The light theme mock shows Previous, Next and the gear faded. Decide whether that means "disabled" (no queue) or is just styling, and match it consistently. *(Decided: disabled. Previous and Next fade where they'd do nothing; the gear and List stay disabled until their panels exist (S2.7, Stage 3). S2.7 enabled the gear.)*
 
@@ -826,18 +826,18 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S1.2  **Size:** M
 
 **Subtasks**
-- [ ] S3.1.1 A `Queue` entity: an ordered list of items (local file, URL, disc), the current index, and play history (for Previous under shuffle).
-- [ ] S3.1.2 Opening media **replaces** the queue by default; "Enqueue" (Add to Queue, `--enqueue`, Shift+drop) **appends**; "Play next" inserts after the current item.
-- [ ] S3.1.3 Opening one file from a folder optionally queues its siblings in natural order (a setting, on for TV episodes). Settings → Library "When opening a folder: Include subfolders" (S5.9) controls recursion.
-- [ ] S3.1.4 Auto-advance on `Ended`; on `Error`, skip to the next item with a toast ("Couldn't play X, skipped"), and stop after N consecutive failures (for example 5) to avoid spinning through a broken list.
+- [x] S3.1.1 A `Queue` entity: an ordered list of items (local file, URL, disc), the current index, and play history (for Previous under shuffle). *(`src/queue.rs`, without GPUI; the main window owns one. Entries carry ids, so history and duplicates survive moves. Discs join `Media` with S8.9. The history is recorded now and read by shuffle (S3.3).)*
+- [x] S3.1.2 Opening media **replaces** the queue by default; "Enqueue" (Add to Queue, `--enqueue`, Shift+drop) **appends**; "Play next" inserts after the current item. *(`Placement::PlayNext` joins `Replace` and `Enqueue`. Add to Queue… and Play Next… are in the video menu's Open Media ▸ and pick files; added items start only when nothing is playing.)*
+- [x] S3.1.3 Opening one file from a folder optionally queues its siblings in natural order (a setting, on for TV episodes). Settings → Library "When opening a folder: Include subfolders" (S5.9) controls recursion. *(`opening/siblings.rs`. `prefs.player.queue_siblings`: `never`, `episodes` (default: a file named `S01E02` or `1x02` queues the folder's other episodes, nothing else) or `always`. `prefs.library.include_subfolders` (default on) applies to opened folders too. Only a single file opened in place of the queue does this; its row comes with S5.7 and S5.9.)*
+- [x] S3.1.4 Auto-advance on `Ended`; on `Error`, skip to the next item with a toast ("Couldn't play X, skipped"), and stop after N consecutive failures (for example 5) to avoid spinning through a broken list. *(`main_window/queue_play.rs` and `queue/skips.rs`: 5 in a row, counted until something reaches Playing. The last item's error stays on screen with no skip.)*
 
 **Edge cases**
-- The queue contains the same file twice: allowed, and each entry is independent.
-- The currently playing item is removed from the queue: playback continues and the item stays in history (decide); or stop (VLC behavior).
-- The queue is replaced while the current item is buffering: cancel cleanly (S1.2 generation id).
-- An item's file is deleted before it's reached: skip it with a toast.
-- 10,000 items (a dropped music folder): operations are O(1) or O(log n) where possible, and the UI is virtualized.
-- Queue items that are playlist files (`.m3u`): expand them (S1.3.4), with cycle detection (A includes B includes A) and a depth limit.
+- The queue contains the same file twice: allowed, and each entry is independent. *(Done.)*
+- The currently playing item is removed from the queue: playback continues and the item stays in history (decide); or stop (VLC behavior). *(Decided: playback continues, and Next plays the item that took its place. In the model now; the panel's Delete is S3.2.)*
+- The queue is replaced while the current item is buffering: cancel cleanly (S1.2 generation id). *(Done: the new open takes a new generation.)*
+- An item's file is deleted before it's reached: skip it with a toast. *(Done: the engine's preflight fails it and the queue skips it.)*
+- 10,000 items (a dropped music folder): operations are O(1) or O(log n) where possible, and the UI is virtualized. *(Lookups and Next/Previous are O(1); insert and remove move the items after them. The virtualized list is S3.2.)*
+- Queue items that are playlist files (`.m3u`): expand them (S1.3.4), with cycle detection (A includes B includes A) and a depth limit. *(Done in S1.3.4; every placement resolves the same way.)*
 
 ---
 

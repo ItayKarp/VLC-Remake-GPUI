@@ -2,9 +2,13 @@
 //! paste and launches all end in [`MainWindow::open`], which resolves the items off the UI
 //! thread ([`opening::resolve`]) and then plays them.
 //!
+//! Opened items replace the queue; Add to Queue (`--enqueue`, Shift+drop) appends them, and Play
+//! Next puts them after the current item (S3.1.2). One file opened in place of the queue brings
+//! its folder along when Settings say so (S3.1.3).
+//!
 //! While items resolve (a large folder, a sleeping network drive), the window shows
-//! "Opening…" with a Cancel button. Opening something new in place of the list cancels what
-//! is still resolving; adding to the list (`--enqueue`) doesn't.
+//! "Opening…" with a Cancel button. Opening something new in place of the queue cancels what
+//! is still resolving; adding to the queue doesn't.
 
 use gpui::{
     ClipboardEntry, Context, ExternalPaths, PathPromptOptions, SharedString, Task, Window,
@@ -14,7 +18,10 @@ use gpui::{
 use super::MainWindow;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
+use crate::opening::resolve::Options;
+use crate::opening::scan::Subfolders;
 use crate::opening::{self, Cancel, Resolved, paste, recent};
+use crate::settings::{self, QueueSiblings};
 use crate::ui::toast::{Level, Toast};
 
 /// Items being resolved before they play.
@@ -52,16 +59,29 @@ impl MainWindow {
         let id = self.next_job;
         let label = job_label(&request.items);
         let placement = request.placement;
+        let options = Self::resolve_options(placement, cx);
         let job_cancel = cancel.clone();
         let task = cx.spawn_in(window, async move |this, cx| {
             let items = request.items;
-            let resolved =
-                cx.background_spawn(async move { opening::resolve::resolve(items, &job_cancel) });
+            let resolved = cx.background_spawn(async move {
+                opening::resolve::resolve(items, options, &job_cancel)
+            });
             let resolved = resolved.await;
             this.update_in(cx, |this, window, cx| this.finish_job(id, resolved, window, cx)).ok();
         });
         self.jobs.push(Job { id, placement, cancel, label, _task: task });
         cx.notify();
+    }
+
+    /// How to read folders, from the settings. Only an open that replaces the queue brings a
+    /// file's folder along: adding one file to the queue means that file.
+    fn resolve_options(placement: Placement, cx: &Context<Self>) -> Options {
+        let prefs = &settings::get(cx).prefs;
+        let siblings = match placement {
+            Placement::Replace => prefs.player.queue_siblings,
+            Placement::Enqueue | Placement::PlayNext => QueueSiblings::Never,
+        };
+        Options { subfolders: Subfolders::from_setting(prefs.library.include_subfolders), siblings }
     }
 
     /// Stops resolving every pending open.
@@ -85,13 +105,13 @@ impl MainWindow {
         };
         let job = self.jobs.remove(index);
         cx.notify();
-        let (Some(resolved), placement) = (resolved, job.placement) else {
+        let (Some(mut resolved), placement) = (resolved, job.placement) else {
             return;
         };
         self.report(&resolved, cx);
         recent::record(&resolved.opened, cx);
         if !resolved.media.is_empty() {
-            self.play_list(resolved.media, placement, window, cx);
+            self.play_resolved(&mut resolved, placement, window, cx);
         }
         self.attach_subtitles(&resolved.subtitles, cx);
     }
@@ -110,8 +130,8 @@ impl MainWindow {
         }
     }
 
-    /// Asks for files or a folder to open, and opens what the user picks.
-    fn prompt(pick: Pick, window: &mut Window, cx: &mut Context<Self>) {
+    /// Asks for files or a folder to open, and opens what the user picks as `placement` says.
+    fn prompt(pick: Pick, placement: Placement, window: &mut Window, cx: &mut Context<Self>) {
         let folder = matches!(pick, Pick::Folder);
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: !folder,
@@ -125,7 +145,7 @@ impl MainWindow {
             };
             this.update_in(cx, |this, window, cx| {
                 let items = paths.into_iter().map(Media::from).collect();
-                this.open(OpenRequest::replace(items), window, cx);
+                this.open(OpenRequest::placed(items, placement), window, cx);
             })
             .ok();
         })
@@ -134,15 +154,25 @@ impl MainWindow {
 
     /// Open File(s) (S1.3.1).
     pub(super) fn prompt_for_files(window: &mut Window, cx: &mut Context<Self>) {
-        Self::prompt(Pick::Files, window, cx);
+        Self::prompt(Pick::Files, Placement::Replace, window, cx);
+    }
+
+    /// Add to Queue (S3.1.2): files to play after the rest of the queue.
+    pub(super) fn prompt_to_enqueue(window: &mut Window, cx: &mut Context<Self>) {
+        Self::prompt(Pick::Files, Placement::Enqueue, window, cx);
+    }
+
+    /// Play Next (S3.1.2): files to play after the current item.
+    pub(super) fn prompt_to_play_next(window: &mut Window, cx: &mut Context<Self>) {
+        Self::prompt(Pick::Files, Placement::PlayNext, window, cx);
     }
 
     /// Open Folder (S1.3.1).
     pub(super) fn prompt_for_folder(window: &mut Window, cx: &mut Context<Self>) {
-        Self::prompt(Pick::Folder, window, cx);
+        Self::prompt(Pick::Folder, Placement::Replace, window, cx);
     }
 
-    /// Files dropped anywhere on the window (S1.3.2).
+    /// Files dropped anywhere on the window (S1.3.2); with Shift held, added to the queue.
     pub(super) fn on_drop(
         &mut self,
         paths: &ExternalPaths,
@@ -150,7 +180,9 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         let items = paths.paths().iter().cloned().map(Media::from).collect();
-        self.open(OpenRequest::replace(items), window, cx);
+        let placement =
+            if window.modifiers().shift { Placement::Enqueue } else { Placement::Replace };
+        self.open(OpenRequest::placed(items, placement), window, cx);
     }
 
     /// Opens the paths or URLs on the clipboard (S1.3.3): files copied in a file manager, or

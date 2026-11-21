@@ -1,6 +1,6 @@
-//! What the main window plays until the player screen (Stage 2) and the queue (Stage 3)
-//! exist: the opened list, played in order through the engine's [`Player`], and a status line
-//! that says what's happening ("Opening …" with Cancel, or why something couldn't play).
+//! The engine's [`Player`] in the main window: created on first use, its events routed to
+//! the queue (`queue_play.rs`) and the controls, and a status line that says what's happening
+//! ("Opening …" with Cancel, or why something couldn't play).
 //!
 //! The player is created on the first open, so a window that opens nothing never loads
 //! libVLC. Its video shows in a [`VideoView`] that replaces the empty state while media is
@@ -16,7 +16,6 @@ use gpui::{
 
 use super::MainWindow;
 use crate::app::media::Media;
-use crate::app::request::Placement;
 use crate::engine;
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::{ErrorKind, PlaybackState};
@@ -27,28 +26,6 @@ use crate::ui::toast::{Level, Toast};
 use crate::video::{Output, VideoView};
 
 impl MainWindow {
-    /// Puts `media` in the list, replacing it or adding to it, and plays the first new item
-    /// unless something from the list is already playing.
-    pub(super) fn play_list(
-        &mut self,
-        media: Vec<Media>,
-        placement: Placement,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let first_new = match placement {
-            Placement::Replace => {
-                self.files.clear();
-                0
-            }
-            Placement::Enqueue => self.files.len(),
-        };
-        self.files.extend(media);
-        if placement == Placement::Replace || !self.is_playing(cx) {
-            self.play(first_new, window, cx);
-        }
-    }
-
     /// Attaches dropped subtitle files to what's playing, or explains why it can't.
     pub(super) fn attach_subtitles(&mut self, subtitles: &[PathBuf], cx: &mut Context<Self>) {
         if subtitles.is_empty() {
@@ -64,28 +41,12 @@ impl MainWindow {
         }
     }
 
-    /// Plays item `index` of the list.
-    pub(super) fn play(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(media) = self.files.get(index).cloned() else {
-            return;
-        };
-        self.current = Some(index);
-        let player = self.player(window, cx);
-        player.update(cx, |player, cx| player.open(media, cx));
-        // The video replaces the empty state and its focused Open button; with nothing focused
-        // the player's keys would reach nothing.
-        if self.open_button.is_focused(window) || window.focused(cx).is_none() {
-            self.focus_handle.focus(window, cx);
-        }
-        cx.notify();
-    }
-
-    fn is_playing(&self, cx: &Context<Self>) -> bool {
+    pub(super) fn is_playing(&self, cx: &Context<Self>) -> bool {
         self.player.as_ref().is_some_and(|(player, _)| player.read(cx).state().is_active())
     }
 
     /// The player, created on first use.
-    fn player(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<Player> {
+    pub(super) fn player(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<Player> {
         if let Some((player, _)) = &self.player {
             return player.clone();
         }
@@ -133,13 +94,12 @@ impl MainWindow {
     ) {
         self.on_history_event(event, cx);
         match event {
-            // Until the queue (Stage 3) has its policies, the list plays straight through.
-            PlayerEvent::EndReached => {
-                if let Some(next) = self.current.map(|i| i + 1) {
-                    self.play(next, window, cx);
-                }
-            }
+            PlayerEvent::EndReached => self.advance(window, cx),
+            PlayerEvent::Error(_) => self.skip_failed(window, cx),
             PlayerEvent::StateChanged(state) => {
+                if *state == PlaybackState::Playing {
+                    self.skips.played();
+                }
                 self.reset_seek_bar(*state);
                 self.update_display_sleep(window, cx);
                 cx.notify();

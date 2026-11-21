@@ -1,5 +1,6 @@
 //! The main window's content before the player screen exists (Stage 2): settings notices, a
-//! drop zone with an Open button, what's opening or playing, and the opened list.
+//! drop zone with an Open button, what's opening or playing, and the queue (until its panel,
+//! S3.2).
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ExternalPaths, SharedString, Stateful, div, prelude::*,
@@ -37,18 +38,20 @@ impl MainWindow {
 
     /// The opened list, the playing item marked, cut short when it is long.
     fn render_list(&self, p: &Palette) -> Option<Div> {
-        if self.files.len() < 2 {
+        let entries = self.queue.entries();
+        if entries.len() < 2 {
             return None;
         }
-        let rows = self.files.iter().enumerate().take(LIST_ROWS).map(|(i, file)| {
-            let playing = self.current == Some(i);
+        let current = self.queue.current_index();
+        let rows = entries.iter().enumerate().take(LIST_ROWS).map(|(i, entry)| {
+            let playing = current == Some(i);
             let marker = if playing { "▶ " } else { "" };
             div()
                 .text_size(px(13.))
                 .text_color(if playing { p.text_strong } else { p.text_muted })
-                .child(SharedString::from(format!("{marker}{}", file.display_name())))
+                .child(SharedString::from(format!("{marker}{}", entry.media.display_name())))
         });
-        let more = self.files.len().saturating_sub(LIST_ROWS);
+        let more = entries.len().saturating_sub(LIST_ROWS);
         let more = (more > 0).then(|| {
             div().text_size(px(13.)).text_color(p.text_muted).child(format!("and {more} more"))
         });

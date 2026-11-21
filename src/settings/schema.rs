@@ -30,7 +30,7 @@ pub use controls::{
     WheelAction,
 };
 pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
-pub use playback::{PlayerSettings, ResumePolicy};
+pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy};
 pub use subtitles::SubtitleSettings;
 
 /// Everything the app persists, as one in-memory value.
@@ -124,13 +124,23 @@ empty_sections! {
 }
 
 /// Library preferences (Stage 4, S5.9).
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LibrarySettings {
     /// Lets every launch open its own window instead of handing its files to the
     /// running one (S0.6.1). The opposite of "Only allow one VLC window" (S5.9.1).
     #[serde(deserialize_with = "lenient")]
     pub allow_multiple_instances: bool,
+    /// "When opening a folder: Include subfolders" (S5.9): whether opening a folder, or a
+    /// file's folder (S3.1.3), takes the media in its subfolders too.
+    #[serde(deserialize_with = "lenient")]
+    pub include_subfolders: bool,
+}
+
+impl Default for LibrarySettings {
+    fn default() -> Self {
+        Self { allow_multiple_instances: false, include_subfolders: true }
+    }
 }
 
 /// Privacy preferences (Stage 5).

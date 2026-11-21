@@ -23,6 +23,7 @@ mod now_playing;
 mod opening;
 mod osd;
 mod player_keys;
+mod queue_play;
 mod seek_bar;
 mod seeking;
 mod settings_panel;
@@ -47,13 +48,13 @@ use gpui::{
 
 use self::auto_hide::rules::Layout;
 use crate::app;
-use crate::app::media::Media;
 use crate::app::request::OpenRequest;
 use crate::engine::player::Player;
 use crate::keymap::actions::{CopyDebugInfo, OpenFile, OpenFolder, OpenFromClipboard};
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
 use crate::power::DisplaySleep;
+use crate::queue::{Queue, Skips};
 use crate::settings;
 use crate::theme;
 use crate::ui::focus;
@@ -68,10 +69,10 @@ pub const TITLE_BAR_HEIGHT: f32 = 40.;
 
 /// The main window's view: what's been opened, settings notices, and the `…` menu.
 pub struct MainWindow {
-    /// What was opened, in play order; the queue (Stage 3) takes over from this list.
-    files: Vec<Media>,
-    /// The index in `files` of what the player has.
-    current: Option<usize>,
+    /// What plays, in order, and which item the player has (S3.1).
+    queue: Queue,
+    /// Failed items skipped in a row (S3.1.4).
+    skips: Skips,
     /// Opens still resolving (scanning folders, expanding playlists).
     jobs: Vec<opening::Job>,
     /// The id the next job gets.
@@ -133,8 +134,8 @@ impl MainWindow {
         open_button.focus(window, cx);
 
         let mut this = Self {
-            files: Vec::new(),
-            current: None,
+            queue: Queue::default(),
+            skips: Skips::default(),
             jobs: Vec::new(),
             next_job: 0,
             player: None,
