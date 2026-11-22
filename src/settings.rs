@@ -12,6 +12,7 @@ mod document;
 mod lenient;
 mod migrate;
 mod paths;
+pub mod registry;
 mod schema;
 mod storage;
 mod store;
@@ -45,6 +46,8 @@ const SAVE_DEBOUNCE: Duration = Duration::from_millis(500);
 /// The settings GPUI global: the loaded state and the pending debounced save.
 pub struct SettingsStore {
     state: SettingsState,
+    /// The settings this launch started with, for the restart banner (S5.1.5).
+    at_launch: Settings,
     /// The pending debounced save. Replacing it cancels the previous one.
     pending_save: Option<Task<()>>,
 }
@@ -55,7 +58,8 @@ impl Global for SettingsStore {}
 pub fn init(cx: &mut App) {
     let state = SettingsState::load(Locations::resolve());
     let needs_save = state.is_dirty(); // e.g. just migrated
-    cx.set_global(SettingsStore { state, pending_save: None });
+    let at_launch = state.settings.clone();
+    cx.set_global(SettingsStore { state, at_launch, pending_save: None });
     cx.on_app_quit(|cx| {
         if let Err(err) = flush(cx) {
             tracing::error!("settings: couldn't save on quit: {err}");
@@ -85,7 +89,9 @@ pub fn peek() -> Preferences {
 /// need the global.
 #[cfg(test)]
 pub fn init_in_memory(cx: &mut App) {
-    cx.set_global(SettingsStore { state: SettingsState::load(None), pending_save: None });
+    let state = SettingsState::load(None);
+    let at_launch = state.settings.clone();
+    cx.set_global(SettingsStore { state, at_launch, pending_save: None });
 }
 
 /// The current settings.
@@ -99,6 +105,21 @@ pub fn update(cx: &mut App, f: impl FnOnce(&mut Settings)) {
     if changed {
         schedule_save(cx);
     }
+}
+
+/// Whether a setting that applies at the next launch was changed since this one started.
+pub fn needs_restart(cx: &App) -> bool {
+    let store = cx.global::<SettingsStore>();
+    registry::needs_restart(&store.at_launch, &store.state.settings)
+}
+
+/// Saves the settings and starts VLC again ("Restart now", S5.1.5). The new process waits for
+/// this one to exit, so it becomes the running instance.
+pub fn restart(cx: &mut App) {
+    if let Err(err) = flush(cx) {
+        tracing::error!("settings: couldn't save before restarting: {err}");
+    }
+    cx.restart();
 }
 
 /// Writes pending changes now, on this thread. Used on quit and where the caller

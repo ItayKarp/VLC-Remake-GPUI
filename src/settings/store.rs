@@ -9,6 +9,7 @@ use toml_edit::DocumentMut;
 use super::document::merge_typed;
 use super::migrate::{self, Documents, Outcome};
 use super::paths::Locations;
+use super::registry;
 use super::schema::{LocalState, Preferences, Settings};
 use super::storage::{self, LoadIssue};
 
@@ -138,11 +139,13 @@ impl SettingsState {
         prefs.doc = docs.prefs;
         local.doc = docs.local;
 
-        let settings = Settings {
+        let mut settings = Settings {
             prefs: deserialize::<Preferences>(&prefs.doc),
             local: deserialize::<LocalState>(&local.doc),
         };
-        Self::new(settings, Some([prefs, local]), migrated, notices)
+        // Values from an older or newer version may be outside today's ranges.
+        let clamped = registry::sanitize(&mut settings);
+        Self::new(settings, Some([prefs, local]), migrated || clamped, notices)
     }
 
     /// Assembles a state with no saves prepared yet.
