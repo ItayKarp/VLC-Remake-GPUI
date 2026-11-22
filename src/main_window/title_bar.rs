@@ -107,7 +107,7 @@ impl MainWindow {
             .pl(px(left_inset()))
             .child(logo(p))
             .child(self.render_menu_button(cx))
-            .child(sidebar_toggle(cx))
+            .child(self.sidebar_toggle(cx))
             .when_some(chip, |left, (folder, name)| {
                 left.child(div().mx(px(DIVIDER_MARGIN)).w(px(1.)).h(px(16.)).bg(p.divider))
                     .child(folder_chip(p, folder, name))
@@ -124,6 +124,21 @@ impl MainWindow {
                     this.toggle_menu(window, cx);
                 })),
         )
+    }
+
+    /// Shows and hides the library sidebar (S4.5), lit while it shows.
+    fn sidebar_toggle(&self, cx: &mut Context<Self>) -> IconButton {
+        let button = IconButton::new("sidebar", icons::SIDEBAR, "Show / hide file browser")
+            .size(BAR_BUTTON, BAR_ICON)
+            .selected(self.library_panel.is_open())
+            .in_title_bar()
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.toggle_library_panel(window, cx);
+            }));
+        match keymap::shortcut(&ToggleFileBrowser, cx) {
+            Some(shortcut) => button.shortcut(shortcut),
+            None => button,
+        }
     }
 
     /// The `…` menu, below its button.
@@ -147,20 +162,6 @@ fn logo(p: &Palette) -> Div {
         .items_center()
         .justify_center()
         .child(svg().path(icons::LOGO_SMALL).size(px(BAR_ICON)).text_color(p.accent_fg))
-}
-
-/// Shows and hides the library sidebar. The sidebar comes with the library (Stage 4); until
-/// then the toggle shows in its inactive state and does nothing.
-fn sidebar_toggle(cx: &App) -> IconButton {
-    let button = IconButton::new("sidebar", icons::SIDEBAR, "Show / hide file browser")
-        .size(BAR_BUTTON, BAR_ICON)
-        .selected(false)
-        .disabled(true)
-        .in_title_bar();
-    match keymap::shortcut(&ToggleFileBrowser, cx) {
-        Some(shortcut) => button.shortcut(shortcut),
-        None => button,
-    }
 }
 
 /// The folder chip (S2.1.3). The library opens at the folder once it exists (S4.10); until

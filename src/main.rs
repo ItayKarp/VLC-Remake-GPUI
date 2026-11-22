@@ -13,6 +13,7 @@ mod keymap;
 mod library;
 mod logging;
 mod main_window;
+mod navigation;
 mod onboarding;
 mod opening;
 mod playlists;

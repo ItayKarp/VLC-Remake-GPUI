@@ -135,6 +135,10 @@ actions!(
         ToggleQueue,
         /// Show or hide the file browser.
         ToggleFileBrowser,
+        /// Go back to the library's previous place (S4.5.2).
+        GoBack,
+        /// Go forward to the library place gone back from (S4.5.2).
+        GoForward,
         /// Save the current frame as an image.
         Snapshot,
         /// Start or stop recording.

@@ -5,9 +5,9 @@
 //! seeking (S2.3.4: the arrows with their modifiers, Home and End), the speed (S2.7.3: `[`,
 //! `]` and `=`), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
 //! (S2.9: Shift+F10 and the context-menu key), frame stepping (`,` and `.`) and T (S2.10.3)
-//! work, and Q shows the queue (S3.2). A command whose story hasn't shipped (L, X, Shift+S,
-//! Shift+R) says "Coming soon" over the video in debug builds and is only logged in release
-//! builds.
+//! work, Q shows the queue (S3.2) and L the library sidebar (S4.5). A command whose story hasn't
+//! shipped (X, Shift+S, Shift+R) says "Coming soon" over the video in debug builds and is only
+//! logged in release builds.
 
 use std::time::Instant;
 
@@ -180,6 +180,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::HideInterface, MainWindow::toggle_hide_ui),
     (&act::ShowContextMenu, MainWindow::show_context_menu),
     (&act::ToggleQueue, MainWindow::toggle_queue_panel),
+    (&act::ToggleFileBrowser, MainWindow::toggle_library_panel),
     // Its key has a handler of its own (`fullscreen.rs`); this one serves the menus.
     (&act::ToggleFullscreen, |_, window, _| window.toggle_fullscreen()),
 ];

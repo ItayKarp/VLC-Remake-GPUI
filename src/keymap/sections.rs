@@ -87,6 +87,8 @@ pub const SECTIONS: &[Section] = &[
         title: "Library",
         actions: &[
             &act::Search,
+            &act::GoBack,
+            &act::GoForward,
             &act::MarkWatched,
             &act::MarkUnwatched,
             &act::ClearHistory,

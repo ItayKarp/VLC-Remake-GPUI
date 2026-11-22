@@ -113,6 +113,22 @@ pub struct LocalState {
     /// The output device and last volume (S1.5).
     #[serde(deserialize_with = "lenient")]
     pub audio: LocalAudio,
+    /// Where the library was last, per presentation (S4.5.6). Local: routes name folders.
+    #[serde(deserialize_with = "lenient")]
+    pub library_routes: LibraryRoutes,
+}
+
+/// The library's last route in each presentation, as `navigation::stored` writes routes. Empty
+/// means Home.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibraryRoutes {
+    /// The sidebar overlay over the player.
+    #[serde(deserialize_with = "lenient")]
+    pub overlay: String,
+    /// Full library mode.
+    #[serde(deserialize_with = "lenient")]
+    pub full: String,
 }
 
 macro_rules! empty_sections {

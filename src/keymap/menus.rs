@@ -62,7 +62,6 @@ pub const PENDING: &[&dyn Action] = &[
     &act::OpenSettings,      // S5.2
     &act::Record,            // S8.6
     &act::Snapshot,          // S8.4
-    &act::ToggleFileBrowser, // S4.10
     &act::NextProgram,       // S8.9
 ];
 

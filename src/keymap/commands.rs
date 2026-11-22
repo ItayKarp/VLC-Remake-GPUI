@@ -101,6 +101,20 @@ pub const COMMANDS: &[Command] = &[
     cmd("Open Capture Device", AppArea, keys(&["secondary-shift-c"]), &act::OpenCaptureDevice),
     cmd("Convert", AppArea, keys(&["secondary-r"]), &act::Convert),
     cmd("Search", Library, keys(&["secondary-f"]), &act::Search),
+    // Alt+Left and Alt+Right seek in the player; the library's are deeper in the key context, so
+    // they win while it has focus.
+    cmd(
+        "Back",
+        Library,
+        Keys::PerOs { mac: &["cmd-[", "alt-left"], others: &["alt-left"] },
+        &act::GoBack,
+    ),
+    cmd(
+        "Forward",
+        Library,
+        Keys::PerOs { mac: &["cmd-]", "alt-right"], others: &["alt-right"] },
+        &act::GoForward,
+    ),
     cmd("Toggle fullscreen", Player, keys(&["f"]), &act::ToggleFullscreen),
     cmd("Exit fullscreen", Player, keys(&["escape"]), &act::ExitFullscreen),
     cmd("Show playback position and time", Player, keys(&["t"]), &act::ShowTime),

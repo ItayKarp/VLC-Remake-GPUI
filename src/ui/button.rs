@@ -236,6 +236,7 @@ pub struct IconButton {
     icon_size: f32,
     selected: bool,
     disabled: bool,
+    color: Option<Hsla>,
     placement: Placement,
     on_click: Option<ClickHandler>,
 }
@@ -256,6 +257,7 @@ impl IconButton {
             icon_size: 18.,
             selected: false,
             disabled: false,
+            color: None,
             placement: Placement::Content,
             on_click: None,
         }
@@ -286,6 +288,13 @@ impl IconButton {
         self
     }
 
+    /// Draws the icon in `color` instead of the theme's icon color (the library rail's orange
+    /// section icon).
+    pub fn color(mut self, color: Hsla) -> Self {
+        self.color = Some(color);
+        self
+    }
+
     /// Marks the button as sitting in the title bar: pressing it must not start a
     /// window drag in the drag area underneath.
     pub fn in_title_bar(mut self) -> Self {
@@ -305,7 +314,7 @@ impl RenderOnce for IconButton {
         let p = theme::palette(window, cx);
         let (hover, pressed) = (p.button_hover, p.selected);
         let enabled = !self.disabled;
-        let color = if self.selected { p.accent_fg } else { p.icon };
+        let color = self.color.unwrap_or(if self.selected { p.accent_fg } else { p.icon });
         let name = tooltip::describe(&self.label, self.shortcut.as_deref());
 
         div()
