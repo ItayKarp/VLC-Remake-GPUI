@@ -16,8 +16,11 @@ REQUEST_TIMEOUT_SECONDS = 20
 BUILDS_PER_BRANCH = 3
 BUILD_FIELDS = (
     "number,result,building,timestamp,duration,estimatedDuration,"
-    "changeSets[items[msg,commitId,author[fullName]]]"
+    "changeSets[items[msg,commitId,author[fullName]]],"
+    "actions[_class,causes[shortDescription]]"
 )
+# The action Jenkins adds to a build it stopped, saying why ("Superseded by #6").
+INTERRUPTION_ACTION = "jenkins.model.InterruptedBuildAction"
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,7 @@ class BuildInfo:
     duration_ms: int
     estimated_ms: int
     commits: list[Commit]
+    interruption: str = ""
 
 
 class Jenkins:
@@ -101,6 +105,7 @@ class Jenkins:
             duration_ms=int(document.get("duration") or 0),
             estimated_ms=int(document.get("estimatedDuration") or 0),
             commits=commits,
+            interruption=_interruption(document),
         )
 
     def stages(self, path: str) -> list[Stage]:
@@ -128,6 +133,15 @@ class Jenkins:
         request = urllib.request.Request(url, headers=self._headers)
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
             return response.read()
+
+
+def _interruption(document: dict) -> str:
+    """Why Jenkins stopped the build ("Superseded by #6", "Aborted by …"), or "" if it didn't."""
+    for action in document.get("actions") or []:
+        if action and action.get("_class") == INTERRUPTION_ACTION:
+            causes = [c.get("shortDescription", "") for c in action.get("causes") or []]
+            return next((cause for cause in causes if cause), "")
+    return ""
 
 
 def _quote(name: str) -> str:

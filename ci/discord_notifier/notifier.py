@@ -21,9 +21,9 @@ from pathlib import Path
 from discord import Attachment, Webhook, message_link
 from failure import FailedStage, Recipient, failure_message
 from jenkins import BuildInfo, BuildRef, Jenkins
-from message import IMAGE_NAME, LogTail, build_payload
+from message import IMAGE_NAME, LogTail, build_payload, outcome
 from overview import render
-from stages import RESULT_WORD, failed_leaves, format_duration, log_focus
+from stages import failed_leaves, log_focus
 
 # Discord allows a webhook about five requests per two seconds; one edit per build this often
 # keeps well inside that with a few builds running.
@@ -124,9 +124,8 @@ class Notifier:
                 self._webhook.edit(thread_id, record["message_id"], payload)
                 self._last_edit[ref.path] = time.monotonic()
         if not info.building:
-            result = RESULT_WORD.get(info.result or "", info.result or "Finished")
             title = f"{self._settings.job} · {ref.branch} #{info.number}"
-            picture = render(title, f"{result} in {format_duration(info.duration_ms)}", stages)
+            picture = render(title, outcome(info), stages)
             image = Attachment(IMAGE_NAME, picture, "image/png")
             self._webhook.edit(thread_id, record["message_id"], payload, [image])
             if info.result == "FAILURE":
