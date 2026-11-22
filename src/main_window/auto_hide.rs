@@ -58,6 +58,7 @@ struct Seen {
     /// The window was fullscreen.
     fullscreen: bool,
     /// What the native title bar (the macOS traffic lights) was last set to.
+    #[cfg(target_os = "macos")]
     native_title_bar: Option<bool>,
 }
 
@@ -104,6 +105,7 @@ impl MainWindow {
             self.auto_hide.timer.cancel();
         }
         let chrome = self.chrome(window, cx);
+        #[cfg(target_os = "macos")]
         self.sync_native_title_bar(chrome.title_bar || window.is_fullscreen(), window);
         if !chrome.controls {
             self.control_bar.close_overflow();
@@ -116,6 +118,7 @@ impl MainWindow {
     }
 
     /// Shows or hides the native title bar (macOS's traffic lights) with ours.
+    #[cfg(target_os = "macos")]
     fn sync_native_title_bar(&mut self, shown: bool, window: &Window) {
         if self.auto_hide.seen.native_title_bar != Some(shown) {
             self.auto_hide.seen.native_title_bar = Some(shown);
