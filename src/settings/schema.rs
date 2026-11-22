@@ -15,6 +15,7 @@ mod general;
 mod interface;
 mod miniplayer;
 mod playback;
+mod privacy;
 mod subtitles;
 
 use std::collections::BTreeMap;
@@ -38,6 +39,7 @@ pub use interface::{
 };
 pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
+pub use privacy::PrivacySettings;
 pub use subtitles::SubtitleSettings;
 
 /// Everything the app persists, as one in-memory value.
@@ -218,51 +220,6 @@ impl Default for LibrarySettings {
             include_subfolders: true,
             show_hidden_files: false,
             add_instead_of_replacing: false,
-        }
-    }
-}
-
-/// Privacy preferences (Stage 5).
-#[allow(
-    clippy::struct_excessive_bools,
-    reason = "independent switches, each its own row in Settings → Privacy"
-)]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct PrivacySettings {
-    /// "Save recently played items" (S5.5.1). Also governs the OS recent documents
-    /// list (S0.6.5) and the playback history (S1.7): off, nothing is written to either.
-    #[serde(deserialize_with = "lenient")]
-    pub save_recently_played: bool,
-    /// Hides media file names in the log file, keeping only their extensions
-    /// (S0.7.1). The home directory is always replaced by `~`.
-    #[serde(deserialize_with = "lenient")]
-    pub redact_file_names_in_logs: bool,
-    /// How many items Open Recent keeps (S1.3.5); `0` keeps none.
-    #[serde(deserialize_with = "lenient")]
-    pub recent_media_count: u32,
-    /// "Remember the playback position" (S5.5.1): save where media was left, so it can resume
-    /// (S1.7). Plays are still counted while history is saved.
-    #[serde(deserialize_with = "lenient")]
-    pub remember_playback_position: bool,
-    /// "Fetch titles and cover art from the internet" (S5.5, S4.3.4): whether the library may
-    /// look covers up online for media without one. Off by default: nothing about the user's
-    /// files leaves the machine unless they turn it on.
-    #[serde(deserialize_with = "lenient")]
-    pub fetch_online_metadata: bool,
-}
-
-/// How many items Open Recent keeps by default.
-pub const DEFAULT_RECENT_MEDIA_COUNT: u32 = 10;
-
-impl Default for PrivacySettings {
-    fn default() -> Self {
-        PrivacySettings {
-            save_recently_played: true,
-            redact_file_names_in_logs: false,
-            recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
-            remember_playback_position: true,
-            fetch_online_metadata: false,
         }
     }
 }

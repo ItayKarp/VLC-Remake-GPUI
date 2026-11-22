@@ -5,6 +5,7 @@ use gpui::Hsla;
 
 use super::category::Category;
 use super::value::{Binding, Choice, Value};
+use crate::privacy::keychain::Secret;
 use crate::settings::Settings;
 
 /// The control a row shows.
@@ -37,6 +38,9 @@ pub enum Control {
     Button { label: &'static str, action: fn(&mut gpui::Window, &mut gpui::App) },
     /// A comma-separated list of entries.
     List,
+    /// A password kept in the OS keychain, never in the settings; its binding is
+    /// [`Binding::ACTION`].
+    Secret(Secret),
 }
 
 /// Lists an [`Control::Options`] row's options, given the saved id.

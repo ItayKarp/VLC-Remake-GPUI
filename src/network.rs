@@ -18,6 +18,7 @@ use crate::db::network::{self, Stream};
 use crate::db::now_ms;
 use crate::history::History;
 use crate::navigation::route::NetworkCategory;
+use crate::privacy::exclusions::Exclusions;
 use crate::settings;
 
 /// Every category's streams, as Network lists them.
@@ -46,13 +47,22 @@ pub fn urls(category: NetworkCategory, cx: &App) -> Vec<String> {
     listed.map(|stream| stream.url.clone()).collect()
 }
 
+/// How many recent streams are kept, listed or not (Clear History counts them while history is
+/// off too).
+pub fn recent_count(cx: &App) -> usize {
+    let Some(streams) = cx.try_global::<Streams>() else { return 0 };
+    streams.streams.iter().filter(|stream| stream.category == NetworkCategory::Recent).count()
+}
+
 /// Lists `urls` first in Recent Streams, if recently played items are saved. Links with
-/// credentials are left out.
+/// credentials, and those "Never remember items matching" names, are left out.
 pub fn record_recent(urls: &[String], cx: &mut App) {
     if !settings::get(cx).prefs.privacy.save_recently_played {
         return;
     }
-    let urls = storable(urls);
+    let exclusions = Exclusions::from_settings(cx);
+    let mut urls = storable(urls);
+    urls.retain(|url| !exclusions.excludes_url(url));
     if urls.is_empty() {
         return;
     }

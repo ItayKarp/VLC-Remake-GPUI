@@ -14,6 +14,7 @@ use gpui::{
 
 use super::SettingsPage;
 use super::options::OptionsDropdown;
+use super::secret::SecretField;
 use crate::settings::{
     self, Settings,
     registry::{Control, SettingDef, Value},
@@ -28,6 +29,7 @@ enum Widget {
     Options(OptionsDropdown),
     Slider(Entity<Slider>),
     Field(Entity<TextInput>),
+    Secret(Entity<SecretField>),
 }
 
 /// A control and the subscription to what the user does with it.
@@ -60,6 +62,12 @@ impl Widgets {
                 | Control::Path(_)
                 | Control::HexColor
                 | Control::List => Some(make_field(def, window, cx)),
+                Control::Secret(secret) => {
+                    let field = cx.new(|cx| SecretField::new(secret, def.label, window, cx));
+                    // The field saves to the keychain itself; the page only keeps it enabled.
+                    widgets.by_key.insert(def.key, Widget::Secret(field));
+                    None
+                }
                 _ => None,
             };
             if let Some((widget, subscription)) = made {
@@ -77,6 +85,7 @@ impl Widgets {
             Widget::Options(options) => options.dropdown.clone().into_any_element(),
             Widget::Slider(slider) => slider.clone().into_any_element(),
             Widget::Field(field) => field.clone().into_any_element(),
+            Widget::Secret(field) => field.clone().into_any_element(),
         })
     }
 
@@ -129,6 +138,7 @@ fn sync_widget(
             slider.set_value(number, window, cx);
             slider.set_disabled(disabled, cx);
         }),
+        Widget::Secret(field) => field.update(cx, |field, cx| field.set_parent_off(disabled, cx)),
         Widget::Field(field) => field.update(cx, |field, cx| {
             field.set_disabled(disabled, cx);
             let text = def.format_value(&value);

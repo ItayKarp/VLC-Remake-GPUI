@@ -62,6 +62,11 @@ notify = { version = "8", default-features = false, features = ["macos_fsevent"]
 # others and moving it to another display (S5.4.1). The version must match GPUI's.
 raw-window-handle = "0.6"
 
+# The last.fm password (S5.5.3) lives in the OS keychain, never in a settings file: Keychain
+# Services on macOS, Credential Manager on Windows, the Secret Service (over zbus, pure Rust)
+# elsewhere.
+keyring = "4"
+
 # Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
 # primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must
 # match GPUI's (`=0.3.2`).

@@ -13,14 +13,15 @@ use gpui::{App, Context, Div, Subscription, prelude::*};
 
 use super::MainWindow;
 use crate::app::media::Media;
-use crate::db::media::Saved;
+use crate::db::media::{self, Saved};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::PlaybackState;
 use crate::engine::values::SeekTarget;
 use crate::history::policy::{self, Rules, SAVE_INTERVAL};
 use crate::history::{History, Session, SessionId};
 use crate::keymap::actions::{ClearHistory, MarkUnwatched, MarkWatched};
-use crate::opening::recent;
+use crate::privacy::clear::clear_history;
+use crate::privacy::exclusions;
 use crate::settings::{self, ResumePolicy, SettingsStore};
 use crate::ui::toast::{Level, Toast};
 
@@ -35,9 +36,9 @@ pub(super) struct HistoryWatch {
     counted: bool,
     /// The "Resume from …?" toast, while it may still show.
     resume_toast: Option<u64>,
-    /// Whether history was on at the last settings change.
-    was_on: bool,
-    /// Offers to clear history when it is turned off.
+    /// What was remembered at the last settings change.
+    was: Remembered,
+    /// Offers to clear history, or positions, when they are turned off.
     settings: Option<Subscription>,
     /// Ends the session when the app quits.
     quit: Option<Subscription>,
@@ -48,11 +49,14 @@ pub(super) struct HistoryWatch {
 impl MainWindow {
     /// Follows the privacy settings and ends the session when the app quits.
     pub(super) fn set_up_history(&mut self, cx: &mut Context<Self>) {
-        self.history.was_on = history_on(cx);
+        self.history.was = Remembered::from_settings(cx);
         self.history.settings = Some(cx.observe_global::<SettingsStore>(|this, cx| {
-            let on = history_on(cx);
-            if std::mem::replace(&mut this.history.was_on, on) && !on {
+            let now = Remembered::from_settings(cx);
+            let was = std::mem::replace(&mut this.history.was, now);
+            if was.history && !now.history {
                 this.history_turned_off(cx);
+            } else if was.positions && !now.positions {
+                Self::positions_turned_off(cx);
             }
         }));
         self.history.quit = Some(cx.on_app_quit(|this, cx| {
@@ -102,6 +106,9 @@ impl MainWindow {
             return;
         };
         let Some(media) = player.read(cx).media().cloned() else { return };
+        if exclusions::excluded(&media, cx) {
+            return;
+        }
         let offer = restored.as_ref() != Some(&media);
         let (session, saved) = history.begin(media);
         let id = session.id();
@@ -233,6 +240,24 @@ impl MainWindow {
         self.show_toast(toast, cx);
     }
 
+    /// Offers to forget the positions already saved, when there are any (S5.5).
+    fn positions_turned_off(cx: &mut Context<Self>) {
+        let Some(history) = History::get(cx) else { return };
+        let count = history.query("history", media::count_positions);
+        cx.spawn(async move |this, cx| {
+            let Ok(Some(count @ 1..)) = count.await else { return };
+            let text = if count == 1 {
+                "Positions are no longer saved. Forget the one already saved?".to_owned()
+            } else {
+                format!("Positions are no longer saved. Forget the {count} already saved?")
+            };
+            let toast = Toast::new(Level::Info, text)
+                .action("Forget Positions", |_, cx| forget_positions(cx));
+            this.update(cx, |this, cx| this.show_toast(toast, cx)).ok();
+        })
+        .detach();
+    }
+
     /// What the player has open, if anything.
     pub(super) fn player_media(&self, cx: &App) -> Option<Media> {
         self.player_entity().and_then(|player| player.read(cx).media().cloned())
@@ -243,16 +268,31 @@ impl MainWindow {
     }
 }
 
+/// What the privacy settings let history remember.
+#[derive(Clone, Copy, Default)]
+struct Remembered {
+    /// "Save recently played items".
+    history: bool,
+    /// "Remember the playback position", which counts only while history is saved.
+    positions: bool,
+}
+
+impl Remembered {
+    fn from_settings(cx: &App) -> Self {
+        let privacy = &settings::get(cx).prefs.privacy;
+        let history = privacy.save_recently_played;
+        Self { history, positions: history && privacy.remember_playback_position }
+    }
+}
+
+/// Forgets every saved position.
+fn forget_positions(cx: &mut App) {
+    if let Some(history) = History::get(cx) {
+        history.forget_positions();
+    }
+}
+
 /// Whether "Save recently played items" is on.
 fn history_on(cx: &App) -> bool {
     settings::get(cx).prefs.privacy.save_recently_played
-}
-
-/// Forgets the playback history, the recent media list and the recent network streams.
-fn clear_history(cx: &mut App) {
-    if let Some(history) = History::get(cx) {
-        history.clear();
-    }
-    recent::clear(cx);
-    crate::network::clear_recent(cx);
 }

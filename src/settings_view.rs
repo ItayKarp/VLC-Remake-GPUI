@@ -20,6 +20,7 @@ mod controls;
 mod highlight;
 mod options;
 mod row;
+mod secret;
 mod swatches;
 #[cfg(test)]
 mod tests;

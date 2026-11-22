@@ -158,19 +158,6 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .keywords(&["stats", "bitrate", "dropped frames"])
     .advanced(),
     SettingDef::new(
-        "privacy.redact_file_names_in_logs",
-        DIAGNOSTICS,
-        "Hide file names in the log",
-        Control::Toggle,
-        toggle!(prefs.privacy.redact_file_names_in_logs),
-    )
-    .info(
-        "Writes only the extension of each media file to the log, so a shared log doesn't show \
-         what you watch.",
-    )
-    .keywords(&["privacy", "redact", "anonymize"])
-    .advanced(),
-    SettingDef::new(
         "component_gallery",
         DIAGNOSTICS,
         "Component gallery (unstable)",

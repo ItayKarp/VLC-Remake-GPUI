@@ -11,7 +11,7 @@ use super::keys::{
     SelectAll, SelectLeft, SelectRight, SelectToEnd, SelectToHome, SelectWordLeft, SelectWordRight,
     ShowCharacterPalette, Submit, Undo, WordLeft, WordRight,
 };
-use super::{Event, TextInput};
+use super::{Echo, Event, TextInput};
 
 impl TextInput {
     /// Deletes the selection or the grapheme before the caret.
@@ -174,18 +174,18 @@ impl TextInput {
         }
     }
 
-    /// Copies the selection to the clipboard.
+    /// Copies the selection to the clipboard, unless the field is masked.
     pub(super) fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
         let selected = self.state.selected_text();
-        if !selected.is_empty() {
+        if !selected.is_empty() && self.echo == Echo::Plain {
             cx.write_to_clipboard(ClipboardItem::new_string(selected.to_owned()));
         }
     }
 
-    /// Moves the selection to the clipboard.
+    /// Moves the selection to the clipboard, unless the field is masked.
     pub(super) fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
         let selected = self.state.selected_text();
-        if !selected.is_empty() {
+        if !selected.is_empty() && self.echo == Echo::Plain {
             cx.write_to_clipboard(ClipboardItem::new_string(selected.to_owned()));
             let changed = self.state.replace(None, "", Instant::now());
             self.edited(changed, window, cx);
