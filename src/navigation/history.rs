@@ -50,6 +50,18 @@ impl NavHistory {
         true
     }
 
+    /// Puts `route` in place of the current one, leaving no step back to it: a search being
+    /// typed refines itself rather than stacking every keystroke. Returns `false`, changing
+    /// nothing, when it is already there.
+    pub fn replace(&mut self, route: Route) -> bool {
+        if route == self.current {
+            return false;
+        }
+        self.current = route;
+        self.forward.clear();
+        true
+    }
+
     /// Takes one `step`, past the routes `exists` rejects, which are forgotten. Returns `false`,
     /// changing nothing, when no route that exists lies that way.
     pub fn step(&mut self, step: Step, exists: impl Fn(&Route) -> bool) -> bool {
@@ -129,6 +141,14 @@ mod tests {
         history.step(Step::Back, all);
         history.go(Route::Videos(None));
         assert!(!history.can_step(Step::Forward, all));
+    }
+
+    #[test]
+    fn replacing_leaves_no_step_back_to_the_old_route() {
+        let mut history = visited(&[Route::History]);
+        assert!(history.replace(Route::Videos(None)));
+        assert!(history.step(Step::Back, all));
+        assert_eq!(history.current(), &Route::Home);
     }
 
     #[test]

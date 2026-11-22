@@ -2,9 +2,10 @@
 //! (S4.5.2), the breadcrumb, `•••` and pop-out; under them the item count (S4.5.5), with "Not in
 //! library" for a folder outside every media folder, and Sort, View and Search; then a divider.
 //!
-//! View opens its menu ([`view_menu`](super::view_menu)). `•••` (its menu isn't designed),
-//! pop-out (full library mode, S4.10.2), Sort and Search (S4.7) come with their stories and show
-//! disabled until then.
+//! Sort and View open their menus ([`sort_menu`](super::sort_menu),
+//! [`view_menu`](super::view_menu)), and Search a field under the count row
+//! ([`search_field`](super::search_field)). `•••` (its menu isn't designed) and pop-out (full
+//! library mode, S4.10.2) come with their stories and show disabled until then.
 
 use gpui::{Action, App, ClickEvent, Context, Div, SharedString, div, prelude::*, px};
 
@@ -21,8 +22,8 @@ use crate::theme::Palette;
 use crate::ui::button::IconButton;
 
 /// The header's buttons: 28 px, 8 px apart, 18 px in from the panel's sides (`player_02`).
-const BUTTON: f32 = 28.;
-const ICON: f32 = 20.;
+pub(super) const BUTTON: f32 = 28.;
+pub(super) const ICON: f32 = 20.;
 pub(super) const GAP: f32 = 8.;
 const SIDE: f32 = 18.;
 /// The navigation row's top and height, the count row's gap above it and height, and the
@@ -56,6 +57,7 @@ impl MainWindow {
             .flex_none()
             .child(nav)
             .child(self.count_row(trail.outside_library, p, cx))
+            .children(self.render_search_field(p, cx))
             .child(div().mx(px(INSET)).mt(px(DIVIDER_TOP)).h(px(1.)).bg(p.divider))
     }
 
@@ -93,9 +95,9 @@ impl MainWindow {
                     .text_color(p.text_muted)
                     .child(SharedString::from(count)),
             )
-            .child(later("library-sort", icons::SORT, "Sort"))
+            .child(self.library_sort_button(p, cx))
             .child(self.view_button(cx))
-            .child(later("library-search", icons::SEARCH, "Search"))
+            .child(self.search_button(cx))
     }
 }
 
@@ -109,6 +111,18 @@ impl MainWindow {
                     this.toggle_view_menu(window, cx);
                 }));
         div().relative().child(self.library_panel.view_button.element()).child(button)
+    }
+}
+
+impl MainWindow {
+    /// Search, shown on while the field is open, which opens and closes it.
+    fn search_button(&self, cx: &mut Context<Self>) -> IconButton {
+        IconButton::new("library-search", icons::SEARCH, "Search")
+            .size(BUTTON, ICON)
+            .selected(self.library_panel.search.is_some())
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.toggle_library_search(window, cx);
+            }))
     }
 }
 

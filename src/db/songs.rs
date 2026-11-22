@@ -21,6 +21,8 @@ pub struct Song {
     pub metadata: Metadata,
     /// What the history remembers of it.
     pub saved: Saved,
+    /// When it joined the library, in milliseconds since the epoch, if known.
+    pub added_ms: Option<i64>,
 }
 
 /// Every song, in no order. A song with files in several places is listed once.
@@ -29,7 +31,7 @@ pub fn all(connection: &Connection) -> rusqlite::Result<Vec<Song>> {
     // file found.
     let mut statement = connection.prepare(&format!(
         "SELECT media.duration_ms, media.position_ms, media.watched, media.play_count,
-             media.id, folders.path, files.name, {columns}, MIN(files.id)
+             media.id, folders.path, files.name, media.added_ms, {columns}, MIN(files.id)
          FROM media JOIN files ON files.media_id = media.id
              JOIN folders ON folders.id = files.folder_id
          WHERE media.kind = 'audio' AND media.orphaned_ms IS NULL
@@ -46,7 +48,14 @@ fn read(row: &Row<'_>) -> rusqlite::Result<Option<Song>> {
     let saved = media::read_saved(row)?;
     let media = MediaId(row.get(4)?);
     let (folder, name): (String, String) = (row.get(5)?, row.get(6)?);
-    let metadata = metadata::read_from(row, 7)?;
+    let added_ms = media::known_time(row.get(7)?);
+    let metadata = metadata::read_from(row, 8)?;
     let path = folders::decode(&folder).zip(stored_path::decode(&name));
-    Ok(path.map(|(folder, name)| Song { media, path: folder.join(name), metadata, saved }))
+    Ok(path.map(|(folder, name)| Song {
+        media,
+        path: folder.join(name),
+        metadata,
+        saved,
+        added_ms,
+    }))
 }

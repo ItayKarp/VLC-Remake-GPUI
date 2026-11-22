@@ -15,6 +15,7 @@ mod interface;
 mod playback;
 mod subtitles;
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -120,6 +121,10 @@ pub struct LocalState {
     /// `navigation::view` writes them; the others show as lists.
     #[serde(deserialize_with = "lenient")]
     pub library_grid: Vec<String>,
+    /// How each library place sorts when it isn't its default (S4.7.2): the sort's name by the
+    /// place's route, as `navigation::sort` writes them. Local: routes name folders.
+    #[serde(deserialize_with = "lenient")]
+    pub library_sorts: BTreeMap<String, String>,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty

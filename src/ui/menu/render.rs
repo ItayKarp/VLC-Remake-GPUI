@@ -89,7 +89,7 @@ impl ContextMenu {
             .reserve_icon(any_icons)
             .height(ROW_HEIGHT);
         let selectable = item.selectable() || submenu_open;
-        let reason = item.disabled_reason().filter(|_| !submenu_open).cloned();
+        let reason = item.hover_text().filter(|_| !submenu_open).cloned();
         div()
             .id(i)
             .relative()

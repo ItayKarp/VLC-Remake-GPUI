@@ -5,17 +5,15 @@
 //! "Unknown Genre"), compare ignoring case, and list in natural order with the unknown one last.
 //! A tag naming several artists (`A feat. B`) lists the song under each.
 //!
-//! An album is its name: two albums of the same name by different artists list as one. An
-//! album's tracks are in disc and track order; an artist's songs go by album, then disc and
-//! track; a genre's by artist, then the same.
+//! An album is its name: two albums of the same name by different artists list as one. The
+//! songs under a name come in no order: the listing sorts them (S4.7, [`super::sort`]).
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use super::display::{self, ARTIST_SEPARATORS, UNKNOWN_ALBUM, UNKNOWN_ARTIST};
 use super::folder_view::Card;
 use super::watch_state::WatchState;
-use crate::db::metadata::{MediaKind, Metadata};
+use crate::db::metadata::MediaKind;
 use crate::db::songs::Song;
 use crate::history::policy::WatchedRule;
 use crate::opening::scan::natural_cmp;
@@ -74,44 +72,15 @@ pub fn names(songs: &[Song], by: Grouping) -> Vec<String> {
     names.into_iter().map(|(_, name)| name).collect()
 }
 
-/// The cards of the songs listed under `name` when grouped `by`, in that grouping's order, with
-/// `rule` deciding what is watched.
+/// The cards of the songs listed under `name` when grouped `by`, unsorted, with `rule` deciding
+/// what is watched.
 pub fn songs_in(songs: Vec<Song>, by: Grouping, name: &str, rule: WatchedRule) -> Vec<Card> {
     let name = name.to_lowercase();
-    let mut songs: Vec<Song> = songs
+    songs
         .into_iter()
         .filter(|song| by.names(song).iter().any(|listed| listed.to_lowercase() == name))
-        .collect();
-    songs.sort_by(|a, b| order(by, a, b));
-    songs.into_iter().map(|song| card(song, rule)).collect()
-}
-
-/// How two songs under one name compare.
-fn order(by: Grouping, a_song: &Song, b_song: &Song) -> Ordering {
-    let (a, b) = (&a_song.metadata, &b_song.metadata);
-    let by_artist = || natural_cmp(display::artist(a), display::artist(b));
-    let by_album = || natural_cmp(display::album(a), display::album(b));
-    let within_album = || {
-        disc(a)
-            .cmp(&disc(b))
-            .then_with(|| track(a).cmp(&track(b)))
-            .then_with(|| natural_cmp(&title(a_song), &title(b_song)))
-    };
-    match by {
-        Grouping::Albums => within_album(),
-        Grouping::Artists => by_album().then_with(within_album),
-        Grouping::Genres => by_artist().then_with(by_album).then_with(within_album),
-    }
-}
-
-/// A song's disc: untagged is the first.
-fn disc(tags: &Metadata) -> u32 {
-    tags.disc_number.unwrap_or(1)
-}
-
-/// A song's track: untagged ones come after the numbered ones.
-fn track(tags: &Metadata) -> u32 {
-    tags.track_number.unwrap_or(u32::MAX)
+        .map(|song| card(song, rule))
+        .collect()
 }
 
 fn title(song: &Song) -> String {
@@ -125,6 +94,8 @@ fn card(song: Song, rule: WatchedRule) -> Card {
         kind: MediaKind::Audio,
         watch: WatchState::of(&song.saved, rule),
         path: song.path,
+        tags: song.metadata,
+        added_ms: song.added_ms,
     }
 }
 

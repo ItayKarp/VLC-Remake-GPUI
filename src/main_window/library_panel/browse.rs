@@ -47,9 +47,7 @@ impl MainWindow {
             .on_key_down(cx.listener(Self::listing_key));
         let view = self.library_view(cx);
         let len = match self.listing(cx) {
-            Body::Items(items) if items.len() == 0 => {
-                return body.child(note("Nothing here yet.", p));
-            }
+            Body::Items(items) if items.len() == 0 => return body.child(self.render_empty(p, cx)),
             Body::Items(items) => items.len(),
             Body::Reading => return body,
             Body::Gone(message) => return body.child(self.render_gone(message, p, cx)),

@@ -1,7 +1,8 @@
 //! What the sidebar lists for its route (S4.5, S4.6): the places a route leads to (media folders,
 //! subfolders, Music's categories, playlists), the recently played media (History), in a
 //! Videos or Songs folder its media as cards ([`card`](super::card)), and in Albums, Artists
-//! and Genres their names, then one name's songs ([`music`]).
+//! and Genres their names, then one name's songs ([`music`]), and a search what it finds
+//! ([`search`]).
 //!
 //! A folder is read in the background: its subfolders and media files from the disk, and what
 //! the library knows of them from the database ([`folder_view`]). A folder that is gone says
@@ -9,6 +10,7 @@
 //! a folder of 10,000 files draws only what is on screen.
 
 mod music;
+mod search;
 
 use std::path::PathBuf;
 
@@ -24,7 +26,9 @@ use crate::db::metadata::MediaKind;
 use crate::history::History;
 use crate::history::policy::WatchedRule;
 use crate::library::folder_view::{self, Card, OnDisk};
+use crate::library::sort;
 use crate::navigation::route::{MusicCategory, MusicRoute, Route};
+use crate::navigation::sort::Sort;
 use crate::opening::recent;
 use crate::playlists;
 use crate::settings;
@@ -49,6 +53,18 @@ struct Contents {
     folders: Vec<PathBuf>,
     names: Vec<String>,
     cards: Vec<Card>,
+}
+
+impl Contents {
+    /// Orders the subfolders and cards by `sort`: subfolders by name, Z to A only when `sort`
+    /// orders names that way.
+    fn sort(&mut self, sort: Sort) {
+        folder_view::sort_folders(&mut self.folders);
+        if sort.reverses_names() {
+            self.folders.reverse();
+        }
+        sort::sort_cards(&mut self.cards, sort);
+    }
 }
 
 /// What the body lists: the rows, then the cards.
@@ -112,14 +128,15 @@ impl MainWindow {
     /// Reads the current route's folder or music again, if it shows one and the sidebar is
     /// open.
     pub(super) fn reload_folder(&mut self, cx: &mut Context<Self>) {
-        let panel = &mut self.library_panel;
-        let route = panel.history.current().clone();
-        let read = if !panel.open {
+        let route = self.library_panel.history.current().clone();
+        let sort = self.library_sort(cx);
+        let read = if !self.library_panel.open {
             None
         } else if let Some(folder) = route.folder() {
-            Some(read_folder(route.clone(), folder.clone(), cx))
+            let sort = sort.unwrap_or(Sort::TitleAscending);
+            Some(read_folder(route.clone(), folder.clone(), sort, cx))
         } else {
-            music::read(route.clone(), cx)
+            music::read(route.clone(), sort, cx).or_else(|| search::read(route.clone(), cx))
         };
         let Some(read) = read else {
             self.library_panel.folder = None;
@@ -139,6 +156,14 @@ impl MainWindow {
         if let Some(listing) = listing.filter(|listing| listing.route == *route) {
             listing.state = state;
             cx.notify();
+        }
+    }
+
+    /// Orders what the current route lists by `sort`, if it was read.
+    pub(super) fn sort_listing(&mut self, sort: Sort) {
+        let listing = self.library_panel.folder.as_mut();
+        if let Some(FolderListing { state: FolderState::Read(contents), .. }) = listing {
+            contents.sort(sort);
         }
     }
 
@@ -187,8 +212,13 @@ fn section_kind(route: &Route) -> MediaKind {
 }
 
 /// Reads `folder` in the background into the listing, if it still shows `route`: the disk and
-/// the library at once, then the cards of the route's kind.
-fn read_folder(route: Route, folder: PathBuf, cx: &mut Context<MainWindow>) -> Task<()> {
+/// the library at once, then the cards of the route's kind, ordered by `sort`.
+fn read_folder(
+    route: Route,
+    folder: PathBuf,
+    sort: Sort,
+    cx: &mut Context<MainWindow>,
+) -> Task<()> {
     let wanted = section_kind(&route);
     let prefs = &settings::get(cx).prefs;
     let show_hidden = prefs.library.show_hidden_files;
@@ -197,12 +227,13 @@ fn read_folder(route: Route, folder: PathBuf, cx: &mut Context<MainWindow>) -> T
     let on_disk = cx.background_spawn(async move { folder_view::read_disk(&folder, show_hidden) });
     cx.spawn(async move |this, cx| {
         let state = match on_disk.await {
-            Ok(OnDisk { mut folders, files }) => {
+            Ok(OnDisk { folders, files }) => {
                 let known = known.await.unwrap_or_default();
                 let cards = cx.background_spawn(async move {
-                    folder_view::sort_folders(&mut folders);
                     let cards = folder_view::cards(files, known, wanted, rule);
-                    Contents { folders, cards, ..Contents::default() }
+                    let mut contents = Contents { folders, cards, ..Contents::default() };
+                    contents.sort(sort);
+                    contents
                 });
                 FolderState::Read(cards.await)
             }

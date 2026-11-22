@@ -12,6 +12,7 @@ use crate::library::music::{self, Grouping};
 use crate::main_window::MainWindow;
 use crate::main_window::library_panel::row::{Row, Target};
 use crate::navigation::route::{MusicCategory, MusicRoute, Route};
+use crate::navigation::sort::Sort;
 use crate::settings;
 
 /// Where a Music route is: its grouping, and the name it shows, if one.
@@ -24,9 +25,13 @@ fn place(route: &Route) -> Option<(Grouping, Option<&String>)> {
     }
 }
 
-/// Reads what `route` lists in the background, for a place in Albums, Artists or Genres; `None`
-/// for other routes.
-pub(super) fn read(route: Route, cx: &mut Context<MainWindow>) -> Option<Task<()>> {
+/// Reads what `route` lists in the background, for a place in Albums, Artists or Genres, its
+/// songs ordered by `sort`; `None` for other routes.
+pub(super) fn read(
+    route: Route,
+    sort: Option<Sort>,
+    cx: &mut Context<MainWindow>,
+) -> Option<Task<()>> {
     let (grouping, name) = place(&route)?;
     let name = name.cloned();
     let rule = WatchedRule::from_settings(&settings::get(cx).prefs.player);
@@ -35,10 +40,12 @@ pub(super) fn read(route: Route, cx: &mut Context<MainWindow>) -> Option<Task<()
         let songs = songs.await.unwrap_or_default();
         let contents = cx.background_spawn(async move {
             match name {
-                Some(name) => Contents {
-                    cards: music::songs_in(songs, grouping, &name, rule),
-                    ..Contents::default()
-                },
+                Some(name) => {
+                    let cards = music::songs_in(songs, grouping, &name, rule);
+                    let mut contents = Contents { cards, ..Contents::default() };
+                    contents.sort(sort.unwrap_or(Sort::TitleAscending));
+                    contents
+                }
                 None => Contents { names: music::names(&songs, grouping), ..Contents::default() },
             }
         });

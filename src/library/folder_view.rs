@@ -21,7 +21,7 @@ use crate::app::file_types::FILE_TYPES;
 use crate::db::files::{self, Listed};
 use crate::db::folders;
 use crate::db::media::MediaId;
-use crate::db::metadata::MediaKind;
+use crate::db::metadata::{MediaKind, Metadata};
 use crate::history::policy::WatchedRule;
 use crate::opening::scan::natural_cmp;
 
@@ -38,6 +38,10 @@ pub struct Card {
     pub kind: MediaKind,
     /// How far it was watched.
     pub watch: WatchState,
+    /// Its tags, as far as the library read them, for sorting (S4.7).
+    pub tags: Metadata,
+    /// When its media joined the library, in milliseconds since the epoch, if known.
+    pub added_ms: Option<i64>,
 }
 
 /// What a folder holds on the disk: its subfolders and its media files, unsorted.
@@ -80,8 +84,8 @@ pub fn read_library(connection: &Connection, folder: &Path) -> rusqlite::Result<
     Ok(Vec::new())
 }
 
-/// The cards for `files` that are `wanted` (video or audio), in natural order, with what the
-/// library knows (`known`) and `rule` deciding what is watched.
+/// The cards for `files` that are `wanted` (video or audio), in natural order of their names,
+/// with what the library knows (`known`) and `rule` deciding what is watched.
 pub fn cards(
     files: Vec<PathBuf>,
     known: Vec<Listed>,
@@ -106,11 +110,18 @@ pub fn sort_folders(folders: &mut [PathBuf]) {
 
 fn card(path: PathBuf, known: &HashMap<PathBuf, Listed>, rule: WatchedRule) -> Card {
     let listed = path.file_name().and_then(|name| known.get(Path::new(name)));
-    let probed = listed.map_or(MediaKind::Unknown, |listed| listed.kind);
-    let kind = if probed == MediaKind::Unknown { kind_by_extension(&path) } else { probed };
+    let tags = listed.map(|listed| listed.metadata.clone()).unwrap_or_default();
+    let kind = if tags.kind == MediaKind::Unknown { kind_by_extension(&path) } else { tags.kind };
     let watch = listed.map_or(WatchState::Unwatched, |listed| WatchState::of(&listed.saved, rule));
-    let label = file_name(&path);
-    Card { label, media: listed.and_then(|listed| listed.media), path, kind, watch }
+    Card {
+        label: file_name(&path),
+        media: listed.and_then(|listed| listed.media),
+        path,
+        kind,
+        watch,
+        tags,
+        added_ms: listed.and_then(|listed| listed.added_ms),
+    }
 }
 
 /// Video or audio, as the file's extension says; unknown for one that says neither.

@@ -1,7 +1,9 @@
 //! The library sidebar over the player (S4.5, S4.6; `player_02`, `library/sidebar/*`): the icon
 //! rail ([`rail`]), and a panel with back and forward, the breadcrumb ([`crumbs`]), the item count
 //! ([`header`]) and what the current route lists ([`listing`]): rows ([`row`]) and media cards
-//! ([`card`], [`card_menu`]), or the same as tiles ([`grid`], chosen with [`view_menu`]),
+//! ([`card`], [`card_menu`]) in the order [`sort_menu`] picks, or the same as tiles ([`grid`],
+//! chosen with [`view_menu`]), or what a search finds ([`search_field`]), or why there is
+//! nothing ([`empty`]),
 //! browsed with the mouse and the keyboard ([`browse`]), and dragged out ([`drag`]).
 //!
 //! The title bar's sidebar toggle and L show and hide it. The navigation model is
@@ -17,12 +19,15 @@ mod card;
 mod card_menu;
 mod crumbs;
 mod drag;
+mod empty;
 mod grid;
 mod header;
 mod listing;
 mod rail;
 mod row;
+mod search_field;
 mod selection;
+mod sort_menu;
 mod view_menu;
 
 pub(super) use self::drag::DraggedMedia;
@@ -34,6 +39,7 @@ use gpui::{
 
 use self::card_menu::CardMenu;
 use self::listing::FolderListing;
+use self::search_field::SearchField;
 use self::selection::Selection;
 use super::MainWindow;
 use crate::db::media::MediaId;
@@ -80,9 +86,14 @@ pub(super) struct LibraryPanel {
     /// The rail's "+" menu, and its button.
     add_menu: OpenMenu,
     add_button: BoundsTracker,
+    /// The header's Sort menu, and its button.
+    sort_menu: OpenMenu,
+    sort_button: BoundsTracker,
     /// The header's View menu, and its button.
     view_menu: OpenMenu,
     view_button: BoundsTracker,
+    /// The search field, while open.
+    search: Option<SearchField>,
 }
 
 impl LibraryPanel {
@@ -112,8 +123,11 @@ impl LibraryPanel {
             crumb_button: BoundsTracker::new(),
             add_menu: None,
             add_button: BoundsTracker::new(),
+            sort_menu: None,
+            sort_button: BoundsTracker::new(),
             view_menu: None,
             view_button: BoundsTracker::new(),
+            search: None,
         }
     }
 
@@ -140,7 +154,9 @@ impl MainWindow {
         panel.crumb_menu = None;
         panel.add_menu = None;
         panel.card_menu = None;
+        panel.sort_menu = None;
         panel.view_menu = None;
+        panel.search = None;
         if panel.open {
             self.reload_folder(cx);
             let handle = self.library_panel.list_focus.clone();
@@ -151,8 +167,10 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Goes to `route`, remembering it for the next launch.
+    /// Goes to `route`, remembering it for the next launch. Going somewhere closes the search
+    /// field.
     pub(super) fn navigate(&mut self, route: Route, cx: &mut Context<Self>) {
+        self.library_panel.search = None;
         if self.library_panel.history.go(route) {
             self.arrived(cx);
         }
@@ -176,6 +194,7 @@ impl MainWindow {
         let panel = &mut self.library_panel;
         panel.crumb_menu = None;
         panel.card_menu = None;
+        panel.sort_menu = None;
         panel.view_menu = None;
         panel.selection.clear();
         panel.scroll.scroll_to_item(0, ScrollStrategy::Top);
@@ -230,13 +249,16 @@ impl MainWindow {
         Some(mouse_navigation(root, cx))
     }
 
-    /// The panel's menus that are open: the breadcrumb's `…`, the rail's "+", View and a card's.
+    /// The panel's menus that are open: the breadcrumb's `…`, the rail's "+", Sort, View and a
+    /// card's.
     pub(super) fn render_library_menus(&self) -> impl Iterator<Item = gpui::AnyElement> {
         let panel = &self.library_panel;
         let crumbs = crumbs::render_menu(&panel.crumb_menu, &panel.crumb_button);
         let add = add_menu::render(&panel.add_menu, &panel.add_button);
+        let sort = sort_menu::render(&panel.sort_menu, &panel.sort_button);
         let view = view_menu::render(&panel.view_menu, &panel.view_button);
-        crumbs.into_iter().chain(add).chain(view).chain(card_menu::render(&panel.card_menu))
+        let menus = crumbs.into_iter().chain(add).chain(sort).chain(view);
+        menus.chain(card_menu::render(&panel.card_menu))
     }
 }
 

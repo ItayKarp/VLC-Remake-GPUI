@@ -213,6 +213,12 @@ pub(super) fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
     })
 }
 
+/// A `media` time column as a time: 0 is what rows from before the column existed hold, and
+/// says nothing.
+pub(super) fn known_time(millis: Option<i64>) -> Option<i64> {
+    millis.filter(|&millis| millis > 0)
+}
+
 fn stamp_columns(stamp: Option<FileStamp>) -> (Option<i64>, Option<i64>) {
     stamp.map_or((None, None), |stamp| (Some(stamp.size as i64), stamp.modified_ms))
 }

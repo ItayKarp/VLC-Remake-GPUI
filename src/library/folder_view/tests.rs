@@ -14,7 +14,8 @@ fn rule() -> WatchedRule {
 }
 
 fn listed(name: &str, kind: MediaKind, saved: Saved) -> Listed {
-    Listed { name: name.into(), media: Some(MediaId(1)), kind, saved }
+    let metadata = Metadata { kind, ..Metadata::default() };
+    Listed { name: name.into(), media: Some(MediaId(1)), saved, metadata, added_ms: None }
 }
 
 fn names(cards: &[Card]) -> Vec<String> {
@@ -93,6 +94,6 @@ fn the_library_s_files_are_read_with_their_history() {
     known.sort_by(|a, b| a.name.cmp(&b.name));
     assert_eq!(known.len(), 2);
     assert_eq!((known[0].media, known[0].saved.watched), (Some(id), true));
-    assert_eq!((known[1].media, known[1].kind), (None, MediaKind::Unknown));
+    assert_eq!((known[1].media, known[1].metadata.kind), (None, MediaKind::Unknown));
     assert_eq!(read_library(c, Path::new("/elsewhere")).expect("read"), []);
 }

@@ -31,6 +31,8 @@ pub mod progress;
 pub mod properties;
 pub mod recognize;
 pub mod root_check;
+pub mod search;
+pub mod sort;
 pub mod sources;
 pub mod thumbnail_cache;
 pub mod thumbnailer;

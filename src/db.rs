@@ -2,7 +2,7 @@
 //! ([`media`]), saved playlists ([`playlists`]) and the library (S4.1): its media folders and
 //! their files ([`roots`], [`folders`], [`files`]), what is known about each media
 //! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
-//! and favorites ([`activity`]).
+//! and favorites ([`activity`]), and the search index ([`search`]).
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -23,6 +23,7 @@ pub mod metadata;
 mod migrations;
 pub mod playlists;
 pub mod roots;
+pub mod search;
 pub mod songs;
 #[cfg(test)]
 mod tests;

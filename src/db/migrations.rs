@@ -9,7 +9,7 @@ use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
 pub(super) const MIGRATIONS: &[&str] =
-    &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION, THUMBNAILS];
+    &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION, THUMBNAILS, super::search::MIGRATION];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "

@@ -2,13 +2,15 @@
 //! keymap.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use gpui::{Modifiers, MouseButton, Pixels, Point, TestAppContext, VisualTestContext, point, px};
 
 use super::MainWindow;
 use super::listing::Body;
 use crate::main_window::tests::{main_view, open, tap};
-use crate::navigation::route::{MusicRoute, Route};
+use crate::navigation::route::{MusicRoute, Route, Search, Section};
+use crate::navigation::sort::Sort;
 use crate::navigation::view::View;
 use crate::opening::scratch::scratch_dir;
 
@@ -114,6 +116,77 @@ fn each_section_keeps_its_view(cx: &mut TestAppContext) {
     assert_eq!(view(cx), View::List);
     main.update(cx, |main, cx| main.navigate(Route::Videos(None), cx));
     assert_eq!(view(cx), View::Grid);
+}
+
+/// The listed cards' names, in order.
+fn listed(cx: &mut VisualTestContext) -> Vec<String> {
+    let main = main_view(cx);
+    cx.update(|_, cx| {
+        let main = main.read(cx);
+        let Body::Items(items) = main.listing(cx) else { panic!("the folder was read") };
+        items.cards.iter().map(|card| card.label.clone()).collect()
+    })
+}
+
+#[gpui::test]
+fn a_new_sort_reorders_the_folder_and_keeps_the_selection(cx: &mut TestAppContext) {
+    let cx = browse(cx, 3);
+    tap(cx, "down");
+    tap(cx, "down");
+    let main = main_view(cx);
+    main.update(cx, |main, cx| main.set_library_sort(Sort::TitleDescending, cx));
+    let names = ["Show S01E03.mkv", "Show S01E02.mkv", "Show S01E01.mkv"];
+    assert_eq!(listed(cx), names);
+    assert_eq!(selected(cx), ["Show S01E02"]);
+    // Reading the folder again keeps the place's sort.
+    main.update(cx, MainWindow::reload_folder);
+    cx.run_until_parked();
+    assert_eq!(listed(cx), names);
+}
+
+/// The sidebar's current route.
+fn route(cx: &mut VisualTestContext) -> Route {
+    let main = main_view(cx);
+    cx.update(|_, cx| main.read(cx).library_panel.history.current().clone())
+}
+
+/// Types `text` into the search field and lets the debounce pass.
+fn type_search(cx: &mut VisualTestContext, text: &str) {
+    cx.simulate_input(text);
+    cx.executor().advance_clock(Duration::from_millis(200));
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn typing_a_search_shows_one_results_route_and_clearing_goes_back(cx: &mut TestAppContext) {
+    let cx = browse(cx, 1);
+    let folder = route(cx);
+    let main = main_view(cx);
+    main.update_in(cx, MainWindow::toggle_library_search);
+    cx.run_until_parked();
+    type_search(cx, "sho");
+    type_search(cx, "w");
+    let search = Search { query: "show".into(), scope: Section::Videos };
+    assert_eq!(route(cx), Route::Search(search));
+    // Refining replaced the route, so one step back leaves the search.
+    tap(cx, if cfg!(target_os = "macos") { "cmd-a" } else { "ctrl-a" });
+    tap(cx, "backspace");
+    cx.executor().advance_clock(Duration::from_millis(200));
+    cx.run_until_parked();
+    assert_eq!(route(cx), folder);
+    tap(cx, "escape");
+    assert!(main.read_with(cx, |main, _| main.library_panel.search.is_none()));
+}
+
+#[gpui::test]
+fn an_empty_search_can_widen_to_everywhere(cx: &mut TestAppContext) {
+    let cx = browse(cx, 1);
+    let main = main_view(cx);
+    main.update_in(cx, MainWindow::toggle_library_search);
+    type_search(cx, "zzz");
+    main.update(cx, MainWindow::search_everywhere);
+    let search = Search { query: "zzz".into(), scope: Section::Home };
+    assert_eq!(route(cx), Route::Search(search));
 }
 
 /// Drags the first card onto the queue panel and returns what the queue holds then.

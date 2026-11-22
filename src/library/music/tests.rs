@@ -6,10 +6,12 @@ use crate::db::Database;
 use crate::db::files::{self, Scanned};
 use crate::db::folders;
 use crate::db::media::{self, Entry, FileStamp, MediaId, Saved};
-use crate::db::metadata;
+use crate::db::metadata::{self, Metadata};
 use crate::db::roots::{self, RootKind};
 use crate::db::songs;
 use crate::library::path_key::Case;
+use crate::library::sort::sort_cards;
+use crate::navigation::sort::Sortable;
 use crate::settings::Settings;
 
 fn rule() -> WatchedRule {
@@ -41,7 +43,7 @@ fn song(id: i64, tags: Tags) -> Song {
         ..Metadata::default()
     };
     let path = PathBuf::from(format!("/m/{id}.mp3"));
-    Song { media: MediaId(id), path, metadata, saved: Saved::default() }
+    Song { media: MediaId(id), path, metadata, saved: Saved::default(), added_ms: None }
 }
 
 fn library() -> Vec<Song> {
@@ -68,6 +70,13 @@ fn titles(cards: &[Card]) -> Vec<&str> {
     cards.iter().map(|card| card.label.as_str()).collect()
 }
 
+/// The songs under `name`, in the order the listing shows them by default.
+fn listed(by: Grouping, sortable: Sortable, name: &str) -> Vec<Card> {
+    let mut cards = songs_in(library(), by, name, rule());
+    sort_cards(&mut cards, sortable.default_sort());
+    cards
+}
+
 #[test]
 fn names_are_listed_once_in_natural_order_with_the_unknown_last() {
     let songs = library();
@@ -78,16 +87,16 @@ fn names_are_listed_once_in_natural_order_with_the_unknown_last() {
 
 #[test]
 fn an_album_s_tracks_go_by_disc_and_track() {
-    let tracks = songs_in(library(), Grouping::Albums, "JUXT", rule());
+    let tracks = listed(Grouping::Albums, Sortable::Album, "JUXT");
     assert_eq!(titles(&tracks), ["Intro", "Middle", "Outro"]);
     assert_eq!(tracks[0].media, Some(MediaId(2)));
 }
 
 #[test]
 fn an_artist_s_songs_go_by_album_and_include_shared_tags() {
-    let songs = songs_in(library(), Grouping::Artists, "a", rule());
+    let songs = listed(Grouping::Artists, Sortable::Artist, "a");
     assert_eq!(titles(&songs), ["Track 2", "Track 10", "Loose"]);
-    let unknown = songs_in(library(), Grouping::Artists, UNKNOWN_ARTIST, rule());
+    let unknown = listed(Grouping::Artists, Sortable::Artist, UNKNOWN_ARTIST);
     assert_eq!(titles(&unknown), ["Intro", "Middle", "Outro"]);
 }
 
