@@ -24,9 +24,9 @@ pub(crate) mod value;
 pub use category::Layout;
 pub use category::{Category, Group};
 pub use def::{ApplyMode, Control, SettingDef};
-#[allow(unused_imports, reason = "the Settings window's search field (S5.2)")]
+#[cfg(test)]
 pub use rules::search;
-pub use rules::{hex_color, sanitize};
+pub use rules::{hex_color, sanitize, search_words};
 pub use value::{Binding, Choice, SettingChoice, Value};
 
 use super::Settings;

@@ -25,6 +25,7 @@ mod screenshot_test;
 mod session;
 mod settings;
 mod settings_view;
+mod settings_window;
 mod theme;
 mod ui;
 mod video;

@@ -93,19 +93,24 @@ impl SettingDef {
         }
     }
 
-    /// Whether every word of `query` (already folded) is in the label, info text or keywords.
-    #[allow(dead_code, reason = "the Settings window's search field (S5.2)")]
+    /// Whether every word of a query (from [`search_words`]) is in the label, info text or
+    /// keywords.
     pub fn matches(&self, words: &[String]) -> bool {
         let haystack = fold(&format!("{} {} {}", self.label, self.info, self.keywords.join(" ")));
         words.iter().all(|word| haystack.contains(word.as_str()))
     }
 }
 
+/// The words a search for `query` looks for, folded so accents and case don't matter.
+pub fn search_words(query: &str) -> Vec<String> {
+    fold(query).split_whitespace().map(str::to_owned).collect()
+}
+
 /// The rows `query` finds, in registry order; accents and case don't matter. An empty query finds
 /// nothing.
-#[allow(dead_code, reason = "the Settings window's search field (S5.2)")]
+#[cfg(test)]
 pub fn search(query: &str) -> Vec<&'static SettingDef> {
-    let words: Vec<String> = fold(query).split_whitespace().map(str::to_owned).collect();
+    let words = search_words(query);
     if words.is_empty() {
         return Vec::new();
     }

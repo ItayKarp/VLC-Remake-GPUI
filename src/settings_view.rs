@@ -7,13 +7,17 @@
 //!   `Restart` setting differs from what this launch started with, a "Restart VLC to apply"
 //!   banner with **Restart now** tops the page (S5.1.5).
 //!
-//! Changes apply at once: there is no Save button. The page follows the settings as they change
-//! anywhere, so a value changed elsewhere shows here too. The Settings window (S5.2) shows pages,
-//! except for categories whose [`Layout`] is hand-built.
+//! - While the Settings window searches (S5.2.3), only the matching rows show, with the words
+//!   marked, and Advanced Options opens when a match is inside it.
+//! - Advanced Options stays open or closed per page for the session (S5.2.4).
 //!
-//! [`Layout`]: crate::settings::registry::Layout
+//! Changes apply at once: there is no Save button. The page follows the settings as they change
+//! anywhere, so a value changed elsewhere shows here too. The Settings window shows a page per
+//! category.
 
+mod advanced;
 mod controls;
+mod highlight;
 mod row;
 mod swatches;
 #[cfg(test)]
@@ -38,7 +42,10 @@ const NEXT_MEDIA_NOTE: &str = "Applies to the next file you open";
 /// One category's page.
 pub struct SettingsPage {
     category: Category,
-    advanced_open: bool,
+    /// The search the page answers (folded words); empty shows every row.
+    words: Vec<String>,
+    /// Advanced Options opened or closed by hand during the current search.
+    search_advanced: Option<bool>,
     widgets: Widgets,
     /// `NextMedia` rows changed on this page, which say when the change applies.
     edited: HashSet<&'static str>,
@@ -57,7 +64,8 @@ impl SettingsPage {
         let widgets = Widgets::new(&defs, window, cx);
         let page = Self {
             category,
-            advanced_open: false,
+            words: Vec::new(),
+            search_advanced: None,
             widgets,
             edited: HashSet::new(),
             _settings: settings,
@@ -72,10 +80,39 @@ impl SettingsPage {
         self.widgets.sync(&defs, window, cx);
     }
 
-    /// Opens or closes the page's Advanced Options.
+    /// Shows only the rows matching `words` (from [`registry::search_words`]); none shows all.
+    pub fn set_search(&mut self, words: Vec<String>, cx: &mut Context<Self>) {
+        if self.words != words {
+            self.words = words;
+            self.search_advanced = None;
+            cx.notify();
+        }
+    }
+
+    /// Opens or closes the page's Advanced Options. During a search this lasts until the search
+    /// changes; otherwise it is remembered for the session.
     pub fn set_advanced_open(&mut self, open: bool, cx: &mut Context<Self>) {
-        self.advanced_open = open;
+        if self.words.is_empty() {
+            advanced::set_open(self.category, open, cx);
+        } else {
+            self.search_advanced = Some(open);
+        }
         cx.notify();
+    }
+
+    /// Whether Advanced Options shows its rows: opened by hand, or holding a search match.
+    fn is_advanced_open(&self, has_advanced_rows: bool, cx: &Context<Self>) -> bool {
+        if self.words.is_empty() {
+            advanced::is_open(self.category, cx)
+        } else {
+            self.search_advanced.unwrap_or(has_advanced_rows)
+        }
+    }
+
+    /// The rows the page shows: all of them, or those the search finds.
+    fn shown_rows(&self) -> impl Iterator<Item = &'static SettingDef> + '_ {
+        registry::in_category(self.category)
+            .filter(|def| self.words.is_empty() || def.matches(&self.words))
     }
 
     /// Saves `value` for `def` if the setting takes it.
@@ -127,6 +164,7 @@ impl SettingsPage {
         let label = RowLabel {
             key: def.key,
             label: def.label,
+            highlights: highlight::ranges(def.label, &self.words),
             info: def.info,
             note,
             enabled: state.enabled,
@@ -155,15 +193,16 @@ impl Render for SettingsPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let settings = settings::get(cx).clone();
-        let (advanced, basic): (Vec<_>, Vec<_>) =
-            registry::in_category(self.category).partition(|def| def.advanced);
+        let (advanced, basic): (Vec<_>, Vec<_>) = self.shown_rows().partition(|def| def.advanced);
         let basic_rows = self.sections(&basic, &settings, &p, cx);
-        let advanced_rows = if self.advanced_open {
-            self.sections(&advanced, &settings, &p, cx)
+        let open = self.is_advanced_open(!advanced.is_empty(), cx);
+        let advanced_rows =
+            if open { self.sections(&advanced, &settings, &p, cx) } else { Vec::new() };
+        let empty_note = if self.words.is_empty() {
+            "Nothing to set here yet."
         } else {
-            Vec::new()
+            "No settings on this page match the search."
         };
-        let open = self.advanced_open;
         let advanced_bar = (!advanced.is_empty()).then(|| {
             row::advanced_bar(open, &p).on_click(cx.listener(move |this, _, _, cx| {
                 this.set_advanced_open(!open, cx);
@@ -180,7 +219,9 @@ impl Render for SettingsPage {
             .children(
                 Self::restart_banner(cx).map(|banner| div().pt(px(PAGE_PADDING)).child(banner)),
             )
-            .when(basic.is_empty() && advanced.is_empty(), |page| page.child(row::empty_note(&p)))
+            .when(basic.is_empty() && advanced.is_empty(), |page| {
+                page.child(row::empty_note(empty_note, &p))
+            })
             .children(basic_rows)
             .children(advanced_bar)
             .children(advanced_rows)

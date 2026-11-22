@@ -1,7 +1,7 @@
 //! A page in a window: fields refuse half-typed values and put the saved one back, disabled rows
 //! ignore writes, a `NextMedia` change is noted, and controls follow changes made elsewhere.
 
-use gpui::{Entity, TestAppContext, VisualTestContext};
+use gpui::{AppContext, Entity, TestAppContext, VisualTestContext};
 
 use super::SettingsPage;
 use crate::settings::{
@@ -94,4 +94,27 @@ fn a_next_media_change_is_noted_and_outside_changes_show(cx: &mut TestAppContext
     });
     cx.run_until_parked();
     assert_eq!(languages.read_with(cx, |field, _| field.text().to_owned()), "he");
+}
+
+#[gpui::test]
+fn a_search_shows_matching_rows_and_opens_advanced_options_for_them(cx: &mut TestAppContext) {
+    let (page, cx) = open(Category::Audio, cx);
+    let open_now = |page: &Entity<SettingsPage>, cx: &mut VisualTestContext| {
+        page.update(cx, |page, cx| page.is_advanced_open(true, cx))
+    };
+    assert!(!open_now(&page, cx), "closed until opened");
+
+    page.update(cx, |page, cx| page.set_search(registry::search_words("passthrough"), cx));
+    assert!(open_now(&page, cx), "a match inside opens it");
+    let shown: Vec<_> = page.read_with(cx, |page, _| page.shown_rows().map(|d| d.key).collect());
+    assert_eq!(shown, ["audio.passthrough"]);
+
+    // Closing it by hand during a search isn't remembered once the search ends.
+    page.update(cx, |page, cx| page.set_advanced_open(false, cx));
+    assert!(!open_now(&page, cx));
+    page.update(cx, |page, cx| page.set_search(Vec::new(), cx));
+    page.update(cx, |page, cx| page.set_advanced_open(true, cx));
+    let reopened =
+        cx.update(|window, cx| cx.new(|cx| SettingsPage::new(Category::Audio, window, cx)));
+    assert!(open_now(&reopened, cx), "remembered for the session");
 }

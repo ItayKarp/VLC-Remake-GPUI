@@ -22,6 +22,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use super::lenient::lenient;
+use super::registry::Category;
 use super::stored_path;
 use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
@@ -130,6 +131,9 @@ pub struct LocalState {
     /// The corner full library mode's miniplayer card was last docked in (S4.10.5).
     #[serde(deserialize_with = "lenient")]
     pub miniplayer_corner: MiniplayerCorner,
+    /// The page the Settings window last showed (S5.2.2).
+    #[serde(deserialize_with = "lenient")]
+    pub settings_category: Category,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty

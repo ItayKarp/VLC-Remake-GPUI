@@ -164,6 +164,17 @@ icons! {
     CHECK_BOX_FULL => "check-box-full.svg",
     NEW_FOLDER => "new-folder.svg",
     SAVE => "save.svg",
+    // The Settings window's sidebar (S5.2.2); the other categories reuse icons above.
+    /// General and Performance: three sliders (`preferences` in the icon set).
+    PREFERENCES => "preferences.svg",
+    /// Interface: a pointer.
+    INTERFACE => "interface.svg",
+    /// Privacy: a shield.
+    PRIVACY => "privacy.svg",
+    /// Recording: a record button.
+    RECORD => "record.svg",
+    /// Extensions: a puzzle piece (`plugins` in the icon set).
+    PLUGINS => "plugins.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

@@ -58,7 +58,6 @@ pub const PENDING: &[&dyn Action] = &[
     &act::OpenCaptureDevice, // S8.9
     &act::Convert,           // S8.10
     &act::CustomizePlayer,   // S8.7
-    &act::OpenSettings,      // S5.2
     &act::Record,            // S8.6
     &act::Snapshot,          // S8.4
     &act::NextProgram,       // S8.9

@@ -15,13 +15,14 @@ mod not_responding;
 pub mod open;
 pub mod recent;
 pub mod request;
+mod settings_window;
 
 use gpui::{
     App, DisplayId, SharedString, TitlebarOptions, WindowBounds, WindowHandle, WindowOptions,
     point, prelude::*, px, size,
 };
 
-use crate::keymap::actions::{CloseWindow, Quit, RunSetupAgain};
+use crate::keymap::actions::{CloseWindow, OpenSettings, Quit, RunSetupAgain};
 use crate::main_window::MainWindow;
 use crate::onboarding::{self, Onboarding};
 use crate::settings;
@@ -32,6 +33,7 @@ use instance::{InboxReceiver, Role};
 use request::{Launch, OpenRequest};
 
 pub use display::preferred_display;
+pub use settings_window::open_settings;
 
 /// The app id the desktop environment groups our windows by.
 const APP_ID: &str = "org.redesignedvlc.app";
@@ -55,6 +57,8 @@ pub fn init(cx: &mut App) {
             });
         }
     });
+    crate::settings_window::bind_keys(cx);
+    cx.on_action(|_: &OpenSettings, cx| cx.defer(|cx| open_settings(None, cx)));
     cx.on_action(|_: &RunSetupAgain, cx| {
         let display = preferred_display(cx);
         cx.defer(move |cx| run_setup_again(display, cx));
@@ -151,33 +155,60 @@ pub fn open_main_window(
     request: OpenRequest,
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<MainWindow>> {
-    let fallback = visible_bounds(display, cx);
-    let displays: Vec<(DisplayId, Rect)> =
-        cx.displays().iter().map(|d| (d.id(), Rect::from_gpui(d.visible_bounds()))).collect();
-    let rects: Vec<Rect> = displays.iter().map(|(_, r)| *r).collect();
     let saved = settings::get(cx).local.window.main;
-    let bounds = geometry::restore(&saved, &rects, &fallback, MAIN_MIN_SIZE).unwrap_or_else(|| {
-        let w = MAIN_DEFAULT_SIZE.0.min(fallback.w);
-        let h = MAIN_DEFAULT_SIZE.1.min(fallback.h);
-        WindowBounds::Windowed(Rect::centered_in(w, h, &fallback).to_gpui())
-    });
-    // Create the window on the display that holds it, so Windows applies that
-    // display's scale factor when placing it.
-    let center = Rect::from_gpui(bounds.get_bounds()).center();
-    let display = displays.iter().find(|(_, r)| r.contains(center)).map(|(id, _)| *id).or(display);
-    let min_w = MAIN_MIN_SIZE.0.min(fallback.w);
-    let min_h = MAIN_MIN_SIZE.1.min(fallback.h);
+    let placement = Placement::restore(&saved, MAIN_DEFAULT_SIZE, MAIN_MIN_SIZE, display, cx);
     let handle = cx.open_window(
         WindowOptions {
-            window_bounds: Some(bounds),
             is_resizable: true,
-            window_min_size: Some(size(px(min_w), px(min_h))),
-            display_id: display,
-            ..window_options(crate::main_window::TITLE_BAR_HEIGHT)
+            ..placement.options(window_options(crate::main_window::TITLE_BAR_HEIGHT))
         },
         |window, cx| cx.new(|cx| MainWindow::new(request, window, cx)),
     )?;
-    Ok(correct_dpi_drift(handle, bounds, cx))
+    Ok(correct_dpi_drift(handle, placement.bounds, cx))
+}
+
+/// Where a remembered window opens: its bounds, minimum size and display.
+struct Placement {
+    bounds: WindowBounds,
+    min_size: (f32, f32),
+    display: Option<DisplayId>,
+}
+
+impl Placement {
+    /// Where `saved` put the window, or centered on `display` at `default` size, with `min`
+    /// shrunk to fit the display.
+    fn restore(
+        saved: &settings::WindowGeometry,
+        default: (f32, f32),
+        min: (f32, f32),
+        display: Option<DisplayId>,
+        cx: &App,
+    ) -> Self {
+        let fallback = visible_bounds(display, cx);
+        let displays: Vec<(DisplayId, Rect)> =
+            cx.displays().iter().map(|d| (d.id(), Rect::from_gpui(d.visible_bounds()))).collect();
+        let rects: Vec<Rect> = displays.iter().map(|(_, r)| *r).collect();
+        let bounds = geometry::restore(saved, &rects, &fallback, min).unwrap_or_else(|| {
+            let (w, h) = (default.0.min(fallback.w), default.1.min(fallback.h));
+            WindowBounds::Windowed(Rect::centered_in(w, h, &fallback).to_gpui())
+        });
+        // Create the window on the display that holds it, so Windows applies that
+        // display's scale factor when placing it.
+        let center = Rect::from_gpui(bounds.get_bounds()).center();
+        let display =
+            displays.iter().find(|(_, r)| r.contains(center)).map(|(id, _)| *id).or(display);
+        Self { bounds, min_size: (min.0.min(fallback.w), min.1.min(fallback.h)), display }
+    }
+
+    /// `options` with this placement.
+    fn options(&self, options: WindowOptions) -> WindowOptions {
+        WindowOptions {
+            window_bounds: Some(self.bounds),
+            window_min_size: Some(size(px(self.min_size.0), px(self.min_size.1))),
+            display_id: self.display,
+            ..options
+        }
+    }
 }
 
 /// Opens the component kit gallery (`--component-gallery`).

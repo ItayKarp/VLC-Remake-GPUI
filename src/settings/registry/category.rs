@@ -1,6 +1,8 @@
 //! The Settings window's 13 categories and the three sidebar groups they sit in
 //! (`docs/ui/settings/screens/*`). The sidebar label and the page title differ.
 
+use serde::{Deserialize, Serialize};
+
 /// A sidebar group.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Group {
@@ -33,10 +35,12 @@ pub enum Layout {
     HandBuilt,
 }
 
-/// One page of the Settings window.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// One page of the Settings window. Saved by name as the page Settings last showed (S5.2.2).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Category {
     /// "Global Settings".
+    #[default]
     General,
     /// "Interface Settings".
     Interface,

@@ -164,7 +164,7 @@ pub const COMMANDS: &[Command] = &[
     cmd(
         "Settings",
         AppArea,
-        Keys::PerOs { mac: &["cmd-,"], others: &["ctrl-p"] },
+        Keys::PerOs { mac: &["cmd-,"], others: &["ctrl-p", "ctrl-,"] },
         &act::OpenSettings,
     ),
     cmd("About VLC", AppArea, keys(&["shift-f1"]), &act::About),

@@ -188,6 +188,13 @@ impl TextInput {
         cx.notify();
     }
 
+    /// Selects the whole text, so typing replaces it.
+    pub fn select_everything(&mut self, cx: &mut Context<Self>) {
+        self.state.select_all();
+        self.scrolling = Scrolling::ToCaret;
+        cx.notify();
+    }
+
     /// Shows or clears a validation error.
     pub fn set_validation(&mut self, validation: Validation, cx: &mut Context<Self>) {
         if self.validation != validation {

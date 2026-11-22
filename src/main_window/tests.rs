@@ -84,10 +84,10 @@ fn the_main_menu_leaves_out_commands_that_havent_shipped(cx: &mut TestAppContext
             })
             .collect()
     });
-    for shown in ["Open File(s)", "Open Folder", "Open Recent", "About VLC"] {
+    for shown in ["Open File(s)", "Open Folder", "Open Recent", "Settings", "About VLC"] {
         assert!(labels.iter().any(|label| label == shown), "{shown} missing: {labels:?}");
     }
-    for hidden in ["Convert", "Open Disc", "Open Capture Device", "Customize Player", "Settings"] {
+    for hidden in ["Convert", "Open Disc", "Open Capture Device", "Customize Player"] {
         assert!(!labels.iter().any(|label| label == hidden), "{hidden} shown: {labels:?}");
     }
 }

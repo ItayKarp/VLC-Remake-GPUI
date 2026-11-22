@@ -2,7 +2,12 @@
 //! rows. A label has an `(i)` icon whose tooltip is the setting's info text; the control sits in
 //! a fixed column on the right. A disabled row is dimmed. The Advanced Options bar closes a page.
 
-use gpui::{AnyElement, Div, SharedString, Stateful, div, prelude::*, px};
+use std::ops::Range;
+
+use gpui::{
+    AnyElement, Div, FontWeight, HighlightStyle, SharedString, Stateful, StyledText, div,
+    prelude::*, px,
+};
 
 use crate::assets::icons;
 use crate::theme::Palette;
@@ -35,6 +40,8 @@ pub(super) struct RowLabel {
     pub key: &'static str,
     /// The label.
     pub label: &'static str,
+    /// The parts of the label a search matched, marked in the accent.
+    pub highlights: Vec<Range<usize>>,
     /// The `(i)` tooltip; empty for none.
     pub info: &'static str,
     /// A muted line under the label ("Applies to the next file you open").
@@ -59,7 +66,7 @@ pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
         .flex()
         .items_center()
         .gap(px(INFO_GAP))
-        .child(label.label)
+        .child(label_text(label, p))
         .when(!label.info.is_empty(), |text| text.child(info_icon(label, p)));
     let note = label
         .note
@@ -75,6 +82,18 @@ pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
         .when(!label.enabled, |row| row.opacity(DISABLED_OPACITY))
         .child(div().flex_1().min_w_0().flex().flex_col().child(text).children(note))
         .child(div().w(px(CONTROL_WIDTH)).flex_none().flex().justify_end().child(control))
+}
+
+/// The label, with the search's matches marked.
+fn label_text(label: &RowLabel, p: &Palette) -> StyledText {
+    let marked = HighlightStyle {
+        color: Some(p.accent_on_tint),
+        background_color: Some(p.accent_tint),
+        font_weight: Some(FontWeight::SEMIBOLD),
+        ..HighlightStyle::default()
+    };
+    let highlights = label.highlights.iter().map(|range| (range.clone(), marked));
+    StyledText::new(label.label).with_highlights(highlights)
 }
 
 /// The `(i)` icon, showing the info text on hover.
@@ -113,11 +132,7 @@ pub(super) fn advanced_bar(open: bool, p: &Palette) -> Stateful<Div> {
     focus::ring(bar, p)
 }
 
-/// A muted line for a page without rows yet.
-pub(super) fn empty_note(p: &Palette) -> Div {
-    div()
-        .pt(px(SECTION_TOP))
-        .text_size(px(metrics::TEXT))
-        .text_color(p.text_muted)
-        .child("Nothing to set here yet.")
+/// A muted line for a page without rows to show.
+pub(super) fn empty_note(text: &'static str, p: &Palette) -> Div {
+    div().pt(px(SECTION_TOP)).text_size(px(metrics::TEXT)).text_color(p.text_muted).child(text)
 }
