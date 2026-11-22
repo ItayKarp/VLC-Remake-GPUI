@@ -1,4 +1,4 @@
-"""The message sent after a build fails: a mention, the first errors, and the full logs."""
+"""The message sent after a build fails: a mention, what failed, and the full logs."""
 
 from __future__ import annotations
 
@@ -7,10 +7,9 @@ from dataclasses import dataclass
 
 from discord import Attachment
 from jenkins import BuildInfo, BuildRef
-from stages import excerpt, format_duration
+from stages import format_duration
 
-# Discord's limits: characters in a message, and files on one.
-MESSAGE_LIMIT = 2000
+# Discord's limit on files in one message.
 ATTACHMENT_LIMIT = 10
 UNSAFE_FILE_CHARACTERS = re.compile(r"[^a-z0-9]+")
 
@@ -44,7 +43,7 @@ class Recipient:
 def failure_message(
     job: str, ref: BuildRef, info: BuildInfo, failed: list[FailedStage], recipient: Recipient
 ) -> tuple[dict, list[Attachment]]:
-    """The message and its log files: who to tell, what failed, and the first errors."""
+    """The message and its log files: who to tell, what failed, and each failed stage's log."""
     mention_user_id = recipient.mention_user_id
     mention = f"<@{mention_user_id}> " if mention_user_id else ""
     headline = f"{mention}❌ **[{job} · {ref.branch} #{info.number}]({ref.url})** failed"
@@ -56,22 +55,11 @@ def failure_message(
     else:
         lines.append("No stage failed on its own: the pipeline itself stopped. See Jenkins.")
     files = [_log_file(stage) for stage in failed[:ATTACHMENT_LIMIT] if any(stage.log)]
-    footer = "Full logs attached." if files else ""
+    if files:
+        lines.append("Logs attached.")
     content = "\n".join(lines)
-    if failed and any(failed[0].log):
-        content += "\n" + _code_block(failed[0], MESSAGE_LIMIT - len(content) - len(footer) - 2)
-    if footer:
-        content += "\n" + footer
     allowed = {"users": [mention_user_id]} if mention_user_id else {"parse": []}
     return {"content": content, "allowed_mentions": allowed}, files
-
-
-def _code_block(stage: FailedStage, room: int) -> str:
-    title = f"First errors in {stage.label}:\n"
-    fence = "```\n", "\n```"
-    body_room = room - len(title) - len(fence[0]) - len(fence[1])
-    body = excerpt(stage.log, body_room).replace("```", "'''")
-    return f"{title}{fence[0]}{body}{fence[1]}"
 
 
 def _log_file(stage: FailedStage) -> Attachment:

@@ -15,8 +15,6 @@ AXIS_VALUE = re.compile(r"\w+ = '([^']*)'")
 CONSOLE_NOTE = re.compile(r"\x1b\[8m.*?\x1b\[0m")
 ANSI_CODE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 TIMESTAMP_PREFIX = re.compile(r"^\[\d{4}-\d\d-\d\dT[\d:.]+Z\] ")
-# Where rustc and clippy diagnostics begin: what to show first from a failed stage.
-DIAGNOSTIC_START = re.compile(r"^(error|warning)(\[[\w-]+\])?:")
 
 LOG_LINE_WIDTH = 110
 
@@ -143,13 +141,3 @@ def clean_log(text: str, line_count: int) -> list[str]:
         line if len(line) <= LOG_LINE_WIDTH else line[: LOG_LINE_WIDTH - 1] + "…" for line in lines
     ]
     return shortened[-line_count:]
-
-
-def excerpt(lines: list[str], limit: int) -> str:
-    """At most `limit` characters of a failed log: from the first diagnostic on, else its end."""
-    start = next((i for i, line in enumerate(lines) if DIAGNOSTIC_START.match(line)), None)
-    if start is None:
-        text = "\n".join(lines).strip("\n")
-        return text if len(text) <= limit else "…" + text[-(limit - 1) :]
-    text = "\n".join(lines[start:]).strip("\n")
-    return text if len(text) <= limit else text[: limit - 1] + "…"

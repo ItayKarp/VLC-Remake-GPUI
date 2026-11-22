@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import unittest
 
-from failure import MESSAGE_LIMIT, FailedStage, Recipient, failure_message
+from failure import FailedStage, Recipient, failure_message
 from jenkins import BuildInfo, BuildRef, Commit
 from message import FIELD_LIMIT, LogTail, build_payload
 from overview import render
@@ -126,23 +126,17 @@ class FailureTest(unittest.TestCase):
         recipient = Recipient(mention, link)
         return failure_message("RedesignedVLC", REF, _info(False, "FAILURE"), failed, recipient)
 
-    def test_it_mentions_the_user_and_starts_at_the_first_error(self) -> None:
+    def test_it_mentions_the_user_and_attaches_the_log(self) -> None:
         payload, files = self._message([FailedStage(("Linux", "all", "Clippy"), CLIPPY_LOG)])
         content = payload["content"]
         self.assertTrue(content.startswith("<@123456789012345678> ❌"))
         self.assertEqual(payload["allowed_mentions"], {"users": ["123456789012345678"]})
         self.assertIn(f"↪️ Re: [the build's message]({BUILD_MESSAGE_LINK})", content)
         self.assertIn("Failed: **Linux › all › Clippy**", content)
-        self.assertIn("```\nerror: this `if` has identical blocks", content)
-        self.assertNotIn("Compiling gpui", content)
-        self.assertLessEqual(len(content), MESSAGE_LIMIT)
+        self.assertIn("Logs attached.", content)
+        self.assertNotIn("```", content)
         self.assertEqual(files[0].name, "linux-all-clippy.txt")
         self.assertIn(b"Compiling gpui", files[0].content)
-
-    def test_a_huge_log_still_fits_one_message(self) -> None:
-        log = ["error: first"] + [f"warning: number {n}" for n in range(5000)]
-        payload, _ = self._message([FailedStage(("Linux", "x11", "Test"), log)])
-        self.assertLessEqual(len(payload["content"]), MESSAGE_LIMIT)
 
     def test_without_a_user_id_nobody_is_mentioned(self) -> None:
         payload, files = self._message([], mention="", link="")
