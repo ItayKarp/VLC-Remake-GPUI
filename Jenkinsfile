@@ -1,26 +1,28 @@
 // CI for RedesignedVLC (S0.8.1): formatting, then clippy, the tests and a release build on
-// every platform we ship, then SonarQube analysis with its quality gate. Results go to Discord.
+// Linux, then SonarQube analysis with its quality gate. Results go to Discord.
 //
-// Not wired up yet. Before the first run, set up Jenkins as the "Jenkins setup" block in
-// `environment` below says: agent labels, the SonarQube server and scanner, and the Discord
-// webhook credential.
+// Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
+// build agent, triggered by GitHub's push webhook for `main`. Windows and macOS aren't built
+// here: there are no agents for them.
+//
+// Before the first run, set up Jenkins as the "Jenkins setup" block in `environment` below
+// says: the agent label, the SonarQube server and scanner, and the Discord webhook credential.
 //
 // Plugins: Pipeline, Pipeline: Declarative (1.5 or later, for `matrix`), Multibranch Pipeline
-// with a Git source, Timestamper, Credentials Binding, SonarQube Scanner and Discord Notifier.
+// with a GitHub or Git source, Timestamper, Credentials Binding, SonarQube Scanner and Discord
+// Notifier.
 //
-// Agents need rustup and Git. Per platform:
-//   - Linux: pkg-config and the GPUI build libraries (Debian/Ubuntu: libfontconfig-dev
-//     libvulkan1 libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libzstd-dev). The
-//     SonarQube stage also needs cargo-llvm-cov.
-//   - macOS: Xcode. The pipeline installs its Metal toolchain if it is missing.
-//   - Windows: the MSVC build tools.
+// The agent needs rustup, Git, pkg-config, cargo-llvm-cov and the GPUI build libraries
+// (Debian: libfontconfig-dev libvulkan1 libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev
+// libzstd-dev), plus a Vulkan driver (mesa-vulkan-drivers) for the screenshot tests.
 
 pipeline {
     agent none
 
     options {
         timestamps()
-        timeout(time: 90, unit: 'MINUTES')
+        // A Pi builds everything one cell at a time; an uncached build takes hours.
+        timeout(time: 6, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
         disableConcurrentBuilds(abortPrevious: true)
     }
@@ -33,9 +35,8 @@ pipeline {
         RUSTUP_TOOLCHAIN = 'stable'
 
         // ---- Jenkins setup: fill these in when configuring Jenkins. ----
-        // The label of the Linux agents that run formatting and SonarQube. The platform
-        // matrix below uses the labels 'linux', 'windows', 'macos-arm64' and 'macos-x64'
-        // (Jenkins needs them as literals there); give the agents those labels.
+        // The label of the Linux agent. The matrix below uses the literal 'linux' (Jenkins
+        // needs one there); keep the two the same.
         LINUX_AGENT = 'linux'
         // Manage Jenkins > System > SonarQube servers: the server's name.
         SONARQUBE_SERVER = 'sonarqube'
@@ -56,35 +57,18 @@ pipeline {
             }
         }
 
-        stage('Platforms') {
+        stage('Linux') {
             matrix {
                 axes {
-                    // Agent labels.
-                    axis {
-                        name 'PLATFORM'
-                        values 'linux', 'windows', 'macos-arm64', 'macos-x64'
-                    }
-                    // Linux display servers: both, or each one alone (the `x11` and
-                    // `wayland` crate features). Other platforms only build 'all'.
+                    // Display servers: both, or each one alone (the `x11` and `wayland`
+                    // crate features).
                     axis {
                         name 'BACKENDS'
                         values 'all', 'x11', 'wayland'
                     }
                 }
-                excludes {
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            notValues 'linux'
-                        }
-                        axis {
-                            name 'BACKENDS'
-                            notValues 'all'
-                        }
-                    }
-                }
 
-                agent { label "${PLATFORM}" }
+                agent { label 'linux' }
 
                 environment {
                     FEATURES = cargoFeatures("${BACKENDS}")
@@ -93,21 +77,11 @@ pipeline {
                 stages {
                     stage('Toolchain') {
                         steps {
-                            run("rustup toolchain install ${env.RUSTUP_TOOLCHAIN} --profile minimal --component clippy")
+                            sh "rustup toolchain install ${env.RUSTUP_TOOLCHAIN} --profile minimal --component clippy"
                         }
                     }
 
-                    stage('Metal toolchain') {
-                        when { expression { env.PLATFORM.startsWith('macos') } }
-                        steps {
-                            // GPUI compiles its shaders at build time; newer Xcode versions
-                            // ship without the compiler.
-                            sh 'xcrun metal --version || xcodebuild -downloadComponent MetalToolchain'
-                        }
-                    }
-
-                    stage('Linux libraries') {
-                        when { environment name: 'PLATFORM', value: 'linux' }
+                    stage('Libraries') {
                         steps {
                             // Fails early, naming what's missing, instead of deep in a build script.
                             sh "pkg-config --print-errors --exists ${linuxLibraries(env.BACKENDS)}"
@@ -116,13 +90,13 @@ pipeline {
 
                     stage('Clippy') {
                         steps {
-                            run("cargo clippy --all-targets ${env.FEATURES} -- -D warnings")
+                            sh "cargo clippy --all-targets ${env.FEATURES} -- -D warnings"
                         }
                     }
 
                     stage('Test') {
                         steps {
-                            run("cargo test ${env.FEATURES}")
+                            sh "cargo test ${env.FEATURES}"
                         }
                         post {
                             always {
@@ -133,7 +107,7 @@ pipeline {
 
                     stage('Release build') {
                         steps {
-                            run("cargo build --release ${env.FEATURES}")
+                            sh "cargo build --release ${env.FEATURES}"
                         }
                     }
                 }
@@ -145,8 +119,8 @@ pipeline {
             steps {
                 sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component clippy,llvm-tools-preview'
                 sh 'mkdir -p target/sonar'
-                // Clippy findings as JSON for SonarQube. The Platforms stage already failed
-                // the build on any warning; this run only reports them.
+                // Clippy findings as JSON for SonarQube. The Linux stage already failed the
+                // build on any warning; this run only reports them.
                 sh 'cargo clippy --all-targets --message-format=json > target/sonar/clippy.json'
                 sh 'cargo llvm-cov --lcov --output-path target/sonar/lcov.info'
                 script {
@@ -194,24 +168,12 @@ String linuxLibraries(String backends) {
     return libraries.join(' ')
 }
 
-/** Runs `command` with the platform's shell; cargo and rustup take the same arguments on each. */
-void run(String command) {
-    if (isUnix()) {
-        sh command
-    } else {
-        bat command
-    }
-}
-
 /**
  * Keeps the screenshot tests' actual, expected and diff images, under the cell's name so the
- * cells don't overwrite each other's. Only macOS and Linux render them; Windows skips the tests.
+ * cells don't overwrite each other's.
  */
 void archiveScreenshots() {
-    if (!isUnix()) {
-        return
-    }
-    def folder = "screenshots/${env.PLATFORM}-${env.BACKENDS}"
+    def folder = "screenshots/linux-${env.BACKENDS}"
     sh "rm -rf '${folder}' && mkdir -p '${folder}' && { cp target/screenshots/*.png '${folder}/' 2>/dev/null || true; }"
     archiveArtifacts artifacts: "${folder}/*.png", allowEmptyArchive: true
 }
