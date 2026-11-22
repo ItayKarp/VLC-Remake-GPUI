@@ -153,7 +153,7 @@ impl MainWindow {
     }
 
     /// Once `task` is done, says what it did with `done`, or that it failed.
-    fn report_playlists<T: 'static>(
+    pub(super) fn report_playlists<T: 'static>(
         task: Task<Option<T>>,
         done: impl FnOnce(T) -> String + 'static,
         window: &mut Window,

@@ -27,6 +27,7 @@ mod library_panel;
 mod library_status;
 mod main_menu;
 mod miniplayer;
+mod network_stream;
 mod new_playlist;
 mod notice;
 mod now_playing;
@@ -345,7 +346,7 @@ impl Render for MainWindow {
         let root = Self::player_keys(focus::tab_navigation(div()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
         let root = Self::menu_actions(Self::playlist_actions(root, cx), cx);
-        Self::open_actions(root, cx)
+        Self::open_actions(Self::network_actions(root, cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))

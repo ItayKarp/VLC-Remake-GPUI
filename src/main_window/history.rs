@@ -248,10 +248,11 @@ fn history_on(cx: &App) -> bool {
     settings::get(cx).prefs.privacy.save_recently_played
 }
 
-/// Forgets the playback history and the recent media list.
+/// Forgets the playback history, the recent media list and the recent network streams.
 fn clear_history(cx: &mut App) {
     if let Some(history) = History::get(cx) {
         history.clear();
     }
     recent::clear(cx);
+    crate::network::clear_recent(cx);
 }

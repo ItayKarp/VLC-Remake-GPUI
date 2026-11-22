@@ -8,6 +8,13 @@ use gpui::{App, KeyBinding, actions};
 /// The key context every text input sets while it has focus.
 pub const CONTEXT: &str = "TextInput";
 
+/// The key context a multi-line text input adds: Enter starts a line, Up and Down move between
+/// lines.
+pub const MULTI_LINE_CONTEXT: &str = "TextArea";
+
+/// Where Enter submits: a single-line input.
+const SINGLE_LINE: &str = "TextInput && !TextArea";
+
 actions!(
     text_input,
     [
@@ -57,6 +64,16 @@ actions!(
         Redo,
         /// Enter: tells listeners the value is final.
         Submit,
+        /// Enter in a multi-line input: starts a new line.
+        Newline,
+        /// Moves the caret up a line.
+        Up,
+        /// Moves the caret down a line.
+        Down,
+        /// Extends the selection up a line.
+        SelectUp,
+        /// Extends the selection down a line.
+        SelectDown,
         /// Opens the system's emoji and symbol picker.
         ShowCharacterPalette,
     ]
@@ -73,6 +90,21 @@ macro_rules! platform {
 pub fn bind_keys(cx: &mut App) {
     cx.bind_keys(common_bindings());
     cx.bind_keys(platform_only_bindings());
+    cx.bind_keys(multi_line_bindings());
+}
+
+/// Bindings only a multi-line input has.
+fn multi_line_bindings() -> Vec<KeyBinding> {
+    let ctx = Some(MULTI_LINE_CONTEXT);
+    vec![
+        KeyBinding::new("enter", Newline, ctx),
+        KeyBinding::new("shift-enter", Newline, ctx),
+        KeyBinding::new(platform!("cmd-enter", "ctrl-enter"), Submit, ctx),
+        KeyBinding::new("up", Up, ctx),
+        KeyBinding::new("down", Down, ctx),
+        KeyBinding::new("shift-up", SelectUp, ctx),
+        KeyBinding::new("shift-down", SelectDown, ctx),
+    ]
 }
 
 /// Bindings every platform has, in its own spelling.
@@ -91,7 +123,7 @@ fn common_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("end", End, ctx),
         KeyBinding::new("shift-home", SelectToHome, ctx),
         KeyBinding::new("shift-end", SelectToEnd, ctx),
-        KeyBinding::new("enter", Submit, ctx),
+        KeyBinding::new("enter", Submit, Some(SINGLE_LINE)),
         KeyBinding::new(platform!("alt-backspace", "ctrl-backspace"), BackspaceWord, ctx),
         KeyBinding::new(platform!("alt-delete", "ctrl-delete"), DeleteWord, ctx),
         KeyBinding::new(platform!("alt-left", "ctrl-left"), WordLeft, ctx),

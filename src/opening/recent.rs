@@ -10,20 +10,24 @@ use gpui::App;
 
 use crate::app;
 use crate::app::media::Media;
+use crate::network::links;
 use crate::settings;
 
 /// The most items the list keeps, whatever the setting says.
 pub const MAX_COUNT: u32 = 100;
 
-/// Remembers `opened`, in the order opened, if the privacy setting allows it.
+/// Remembers `opened`, in the order opened, if the privacy setting allows it. Links with a
+/// user name or password are left out: settings files aren't a place for passwords.
 pub fn record(opened: &[Media], cx: &mut App) {
     let privacy = &settings::get(cx).prefs.privacy;
+    let opened: Vec<Media> =
+        opened.iter().filter(|media| !has_credentials(media)).cloned().collect();
     if !privacy.save_recently_played || opened.is_empty() {
         return;
     }
     let count = limit(privacy.recent_media_count);
-    settings::update(cx, |s| remember(&mut s.local.recent_media, opened, count));
-    app::recent::add(opened, cx);
+    settings::update(cx, |s| remember(&mut s.local.recent_media, &opened, count));
+    app::recent::add(&opened, cx);
 }
 
 /// The recent items to show, newest first; none while history is off.
@@ -43,6 +47,11 @@ pub fn items(cx: &App) -> Vec<Media> {
 /// Forgets every recent item.
 pub fn clear(cx: &mut App) {
     settings::update(cx, |s| s.local.recent_media.clear());
+}
+
+/// Whether `media` is a link carrying a user name or password.
+fn has_credentials(media: &Media) -> bool {
+    matches!(media, Media::Url(url) if links::has_credentials(url))
 }
 
 fn limit(count: u32) -> usize {

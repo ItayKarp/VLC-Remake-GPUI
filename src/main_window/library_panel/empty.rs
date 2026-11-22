@@ -11,7 +11,7 @@ use gpui::{ClickEvent, Context, Div, SharedString, div, prelude::*, px};
 
 use super::{INSET, MainWindow};
 use crate::assets::icons;
-use crate::navigation::route::{HomeSection, MusicRoute, Route, Search, Section};
+use crate::navigation::route::{HomeSection, MusicRoute, NetworkCategory, Route, Search, Section};
 use crate::theme::Palette;
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
@@ -58,6 +58,7 @@ impl EmptyState {
             Route::History => {
                 state(icons::RECENT, "Nothing watched yet", "What you play shows up here.")
             }
+            Route::Network(Some(category)) => network_category(*category),
             Route::Playlists(None) => state(
                 icons::PLAYLIST,
                 "No playlists yet",
@@ -66,6 +67,22 @@ impl EmptyState {
             _ => state(icons::FOLDER, "Nothing here yet", ""),
         }
     }
+}
+
+/// What an empty Network category says.
+fn network_category(category: NetworkCategory) -> EmptyState {
+    let (title, hint) = match category {
+        NetworkCategory::Recent => {
+            ("No recent streams", "Streams you open with Open Network Stream show up here.")
+        }
+        NetworkCategory::Podcasts => {
+            ("No podcasts yet", "Subscribing to podcasts isn't available yet.")
+        }
+        NetworkCategory::Radio => {
+            ("No radio stations yet", "Right-click a recent stream and choose Add to Radio.")
+        }
+    };
+    EmptyState { icon: icons::STREAMING, title: title.to_owned(), hint, everywhere: false }
 }
 
 /// The hint of Music's empty categories.

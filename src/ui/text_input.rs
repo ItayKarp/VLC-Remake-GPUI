@@ -1,6 +1,8 @@
-//! Single-line text input (S0.4.9), built on GPUI's input example: caret,
-//! selection (mouse, Shift+arrows, double-click for a word, select all),
-//! clipboard, IME composition, undo/redo, a placeholder and validation states.
+//! Text input (S0.4.9), built on GPUI's input example: caret, selection (mouse,
+//! Shift+arrows, double-click for a word, select all), clipboard, IME composition,
+//! undo/redo, a placeholder and validation states. It holds one line, or several with
+//! [`TextInput::with_rows`] (S4.11.1): then Enter starts a line, Up and Down move between
+//! lines, and the wheel scrolls.
 //!
 //! The editing rules live in [`EditState`], which has no GPUI types, so they're
 //! unit tested. Offsets are UTF-8 byte offsets on grapheme boundaries; IME calls
@@ -16,16 +18,19 @@ mod handlers;
 mod history;
 mod input_handler;
 pub mod keys;
+mod layout;
+mod multi_line;
 mod render;
 mod utf16;
 
 use gpui::{
-    App, Bounds, Context, EventEmitter, FocusHandle, Focusable, Pixels, ShapedLine, SharedString,
-    Window, px,
+    App, Bounds, Context, EventEmitter, FocusHandle, Focusable, Pixels, Point, SharedString, Window,
 };
 
 pub use edit_state::EditState;
 pub use keys::bind_keys;
+
+use self::layout::Lines;
 
 use crate::theme;
 
@@ -50,18 +55,27 @@ pub enum Look {
     Bare,
 }
 
+/// How the next paint scrolls the text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Scrolling {
+    /// The caret moved or the text changed since the last paint: scroll to show the caret.
+    ToCaret,
+    /// Keep the scroll (the wheel moved it), within the text.
+    Free,
+}
+
 /// What a text input tells its listeners.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
     /// The text changed.
     Changed,
-    /// Enter was pressed.
+    /// Enter was pressed (Cmd+Enter or Ctrl+Enter in a multi-line input).
     Submitted,
     /// Focus left the input.
     Blurred,
 }
 
-/// A single-line text field view.
+/// A text field view.
 pub struct TextInput {
     state: EditState,
     placeholder: SharedString,
@@ -70,10 +84,14 @@ pub struct TextInput {
     look: Look,
     disabled: bool,
     focus_handle: FocusHandle,
-    last_layout: Option<ShapedLine>,
+    /// The lines of a multi-line input that show at once; `None` for a single line.
+    rows: Option<usize>,
+    last_layout: Option<Lines>,
     last_bounds: Option<Bounds<Pixels>>,
-    /// Horizontal scroll, so the caret stays visible in long text.
-    scroll_x: Pixels,
+    /// How far the text is scrolled, so the caret stays visible in long text.
+    scroll: Point<Pixels>,
+    /// Whether the next paint scrolls to the caret.
+    scrolling: Scrolling,
     /// A mouse drag is extending the selection.
     selecting: bool,
 }
@@ -106,9 +124,11 @@ impl TextInput {
             look: Look::Framed,
             disabled: false,
             focus_handle,
+            rows: None,
             last_layout: None,
             last_bounds: None,
-            scroll_x: px(0.),
+            scroll: Point::default(),
+            scrolling: Scrolling::Free,
             selecting: false,
         }
     }
@@ -122,6 +142,13 @@ impl TextInput {
     /// Starts with the whole text selected, so typing replaces it.
     pub fn with_all_selected(mut self) -> Self {
         self.state.select_all();
+        self
+    }
+
+    /// Makes the input hold several lines, `rows` of them showing at once.
+    pub fn with_rows(mut self, rows: usize) -> Self {
+        self.rows = Some(rows.max(1));
+        self.state.set_multi_line();
         self
     }
 
@@ -192,12 +219,14 @@ impl TextInput {
             window.notify_text_input_changed(&self.focus_handle);
             cx.emit(Event::Changed);
         }
+        self.scrolling = Scrolling::ToCaret;
         cx.notify();
     }
 
     /// Repaints after the caret or selection moved, and tells the platform.
     fn moved(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.notify_text_selection_changed(&self.focus_handle);
+        self.scrolling = Scrolling::ToCaret;
         cx.notify();
     }
 }

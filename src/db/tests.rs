@@ -159,3 +159,25 @@ fn assert_migrated_to_the_library(connection: &rusqlite::Connection, id: media::
         .expect("library columns");
     assert_eq!((added, kind.as_str(), plays), (500, "unknown", 1));
 }
+
+#[test]
+fn playlists_of_links_only_are_streams() {
+    let mut database = Database::in_memory();
+    let connection = database.connection();
+    let stored = |title: &str, locations: &[&str]| Stored {
+        title: title.into(),
+        thumbnail: None,
+        locations: locations.iter().map(|location| (*location).to_owned()).collect(),
+    };
+    let lists = [
+        stored("a", &["https://x/live", "rtsp://cam/1"]),
+        stored("b", &["https://x/live", "/m/a.mkv"]),
+        stored("c", &[]),
+    ];
+    for list in &lists {
+        playlists::insert(connection, None, list, 1).expect("insert");
+    }
+    let streams: Vec<bool> =
+        playlists::list(connection).expect("list").iter().map(|s| s.streams_only).collect();
+    assert_eq!(streams, [true, false, false]);
+}

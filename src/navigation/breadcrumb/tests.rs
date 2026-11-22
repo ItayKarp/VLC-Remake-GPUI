@@ -11,7 +11,8 @@ fn labels(trail: &Trail) -> Vec<&str> {
 fn with<R>(f: impl FnOnce(Places) -> R) -> R {
     let videos = [PathBuf::from("/media/Shows"), PathBuf::from("/media/Shows/Anime")];
     let music = [PathBuf::from("/music/My Songs")];
-    let playlists = [Summary { id: PlaylistId(4), title: "Cool Songs".into(), len: 2 }];
+    let playlists =
+        [Summary { id: PlaylistId(4), title: "Cool Songs".into(), len: 2, streams_only: false }];
     f(Places { video_roots: &videos, music_roots: &music, playlists: &playlists })
 }
 

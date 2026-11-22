@@ -1,6 +1,6 @@
-//! The rail's "+" menu (S4.5.7, not designed): add a folder to the library, or open files or a
-//! folder to play. Open Network Stream joins it with its story (S4.11). The listing's "+ Add"
-//! rows (S4.6.1) add a folder the same way, to the video or the music folders.
+//! The rail's "+" menu (S4.5.7, not designed): add a folder to the library, or open files, a
+//! folder or a network stream (S4.11) to play. The listing's "+ Add" rows (S4.6.1) add a folder
+//! the same way, to the video or the music folders.
 
 use std::path::PathBuf;
 
@@ -8,7 +8,7 @@ use gpui::{AnyElement, App, Context, DismissEvent, PathPromptOptions, WeakEntity
 
 use super::{MainWindow, OpenMenu};
 use crate::assets::icons;
-use crate::keymap::actions::{OpenFile, OpenFolder};
+use crate::keymap::actions::{OpenFile, OpenFolder, OpenNetworkStream};
 use crate::main_window::main_menu::dispatching;
 use crate::navigation::route::{MusicRoute, Route};
 use crate::settings;
@@ -43,6 +43,7 @@ fn items(main: &WeakEntity<MainWindow>, cx: &App) -> Vec<MenuItem> {
         MenuItem::Separator,
         dispatching(&OpenFile, "Open File(s)…", cx).icon(icons::FILE),
         dispatching(&OpenFolder, "Open Folder…", cx).icon(icons::FOLDER),
+        dispatching(&OpenNetworkStream, "Open Network Stream…", cx).icon(icons::STREAMING),
     ]
 }
 

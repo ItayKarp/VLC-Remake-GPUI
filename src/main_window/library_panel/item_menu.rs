@@ -1,6 +1,7 @@
 //! The listing's item menus (S4.8): a media card's file menu ([`file_menu`](super::file_menu)),
-//! a folder row's ([`folder_menu`](super::folder_menu)) and a playlist row's
-//! ([`playlist_menu`](super::playlist_menu)). Each opens from a right-click, the item's `•••`
+//! a folder row's ([`folder_menu`](super::folder_menu)), a playlist row's
+//! ([`playlist_menu`](super::playlist_menu)) and a network stream row's
+//! ([`stream_menu`](super::stream_menu)). Each opens from a right-click, the item's `•••`
 //! hover button, and the context-menu key or Shift+F10 on the keyboard's item (S4.8.4).
 //!
 //! A menu acts on every selected item of its kind, in list order, when the item it opened on is
@@ -17,7 +18,8 @@ use gpui::{
 
 use super::listing::{Body, Item};
 use super::row::Target;
-use super::{INSET, MainWindow, file_menu, folder_menu, playlist_menu};
+use super::stream_menu::StreamTarget;
+use super::{INSET, MainWindow, file_menu, folder_menu, playlist_menu, stream_menu};
 use crate::db::media::MediaId;
 use crate::db::metadata::MediaKind;
 use crate::db::playlists::Summary;
@@ -43,6 +45,8 @@ pub(super) enum MenuKind {
     Folder,
     /// A playlist row's.
     Playlist,
+    /// A network stream row's.
+    Stream,
 }
 
 /// One media card a file menu acts on.
@@ -65,6 +69,7 @@ enum Subject {
     Files(Vec<FileTarget>),
     Folders(Vec<PathBuf>),
     Playlists(Vec<Summary>),
+    Streams(Vec<StreamTarget>),
 }
 
 /// The menu `item` has, if any: cards, folders and saved playlists have one.
@@ -95,6 +100,7 @@ impl MainWindow {
             }
             Subject::Folders(folders) => folder_menu::items(&main, folders),
             Subject::Playlists(playlists) => playlist_menu::items(&main, playlists, cx),
+            Subject::Streams(streams) => stream_menu::items(&main, streams),
         };
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
@@ -164,31 +170,20 @@ impl MainWindow {
 
 /// The `picked` items, all of `kind`, as what their menu acts on.
 fn subject(kind: MenuKind, picked: &[(usize, Item<'_>)], cx: &App) -> Subject {
-    let routes = || {
+    let rows = || {
         picked.iter().filter_map(|(_, item)| match item {
-            Item::Row(row) => match row.target() {
-                Target::Go(route) => Some(route),
-                _ => None,
-            },
+            Item::Row(row) => Some(row.target()),
             Item::Card(_) => None,
         })
     };
+    let routes = || {
+        rows().filter_map(|target| match target {
+            Target::Go(route) => Some(route),
+            _ => None,
+        })
+    };
     match kind {
-        MenuKind::File => Subject::Files(
-            picked
-                .iter()
-                .filter_map(|(index, item)| match item {
-                    Item::Card(card) => Some(FileTarget {
-                        path: card.path.clone(),
-                        media: card.media,
-                        kind: card.kind,
-                        watched: card.watch.is_watched(),
-                        index: *index,
-                    }),
-                    Item::Row(_) => None,
-                })
-                .collect(),
-        ),
+        MenuKind::File => Subject::Files(file_targets(picked)),
         MenuKind::Folder => Subject::Folders(routes().filter_map(Route::folder).cloned().collect()),
         MenuKind::Playlist => {
             let summaries = playlists::summaries(cx);
@@ -198,7 +193,34 @@ fn subject(kind: MenuKind, picked: &[(usize, Item<'_>)], cx: &App) -> Subject {
             };
             Subject::Playlists(routes().filter_map(summary).collect())
         }
+        MenuKind::Stream => Subject::Streams(
+            rows()
+                .filter_map(|target| match target {
+                    Target::Stream(url, category) => {
+                        Some(StreamTarget { url: url.clone(), category: *category })
+                    }
+                    _ => None,
+                })
+                .collect(),
+        ),
     }
+}
+
+/// The media cards among `picked`, as what a file menu acts on.
+fn file_targets(picked: &[(usize, Item<'_>)]) -> Vec<FileTarget> {
+    picked
+        .iter()
+        .filter_map(|(index, item)| match item {
+            Item::Card(card) => Some(FileTarget {
+                path: card.path.clone(),
+                media: card.media,
+                kind: card.kind,
+                watched: card.watch.is_watched(),
+                index: *index,
+            }),
+            Item::Row(_) => None,
+        })
+        .collect()
 }
 
 /// What an action does with the main window and its items.

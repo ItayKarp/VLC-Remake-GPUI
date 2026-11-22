@@ -1,6 +1,7 @@
 //! The listing's plain rows (`player_02`, `sidebar-videos*`): an icon and a name, for a place to
-//! go to, a recently played media, or the "+ Add" action (S4.6.1). A folder's and a saved
-//! playlist's row has a menu (S4.8.2, S4.8.3), from a right-click or its `•••` on hover.
+//! go to, a recently played media, a network stream (S4.11), or the "+ Add" and "+ Add Network
+//! Stream" actions (S4.6.1). A folder's, a saved playlist's and a stream's row has a menu
+//! (S4.8.2, S4.8.3), from a right-click or its `•••` on hover.
 
 use gpui::{
     ClickEvent, Context, MouseButton, MouseDownEvent, SharedString, Stateful, Window, div,
@@ -15,7 +16,8 @@ use super::selection::Key;
 use crate::app::media::Media;
 use crate::app::request::OpenRequest;
 use crate::assets::icons;
-use crate::navigation::route::{MusicRoute, Route};
+use crate::navigation::route::{MusicRoute, NetworkCategory, Route};
+use crate::network::{self, links};
 use crate::theme::Palette;
 use crate::ui::{icon, metrics};
 
@@ -42,6 +44,10 @@ pub(super) enum Target {
     Play(Media),
     /// Asks for a folder and adds it to the library's video or music folders.
     Add(Shelf),
+    /// Plays a stream listed in a Network category.
+    Stream(String, NetworkCategory),
+    /// Opens the Open Network Stream dialog.
+    AddStream,
 }
 
 impl Row {
@@ -54,6 +60,12 @@ impl Row {
     pub(super) fn recent(media: Media) -> Self {
         let icon = if media.as_path().is_some() { icons::FILE } else { icons::STREAMING };
         Self::new(media.display_name(), icon, Target::Play(media))
+    }
+
+    /// A stream listed in Network's `category`, which plays when clicked. A password in it is
+    /// masked.
+    pub(super) fn stream(url: String, category: NetworkCategory) -> Self {
+        Self::new(links::masked(&url), icons::STREAMING, Target::Stream(url, category))
     }
 
     /// "+ Add" for a Videos or Songs route; other routes have none.
@@ -83,7 +95,7 @@ impl Row {
 
     /// Whether the row is an action rather than an item.
     pub(super) fn is_action(&self) -> bool {
-        matches!(self.target, Target::Add(_))
+        matches!(self.target, Target::Add(_) | Target::AddStream)
     }
 
     /// The menu the row has: a folder's or a saved playlist's.
@@ -91,6 +103,7 @@ impl Row {
         match &self.target {
             Target::Go(Route::Playlists(Some(_))) => Some(MenuKind::Playlist),
             Target::Go(route) if route.folder().is_some() => Some(MenuKind::Folder),
+            Target::Stream(..) => Some(MenuKind::Stream),
             _ => None,
         }
     }
@@ -100,7 +113,8 @@ impl Row {
         match &self.target {
             Target::Go(route) => Key::Place(route.clone()),
             Target::Play(media) => Key::Recent(media.clone()),
-            Target::Add(_) => Key::Add,
+            Target::Stream(url, _) => Key::Recent(Media::Url(url.clone())),
+            Target::Add(_) | Target::AddStream => Key::Add,
         }
     }
 
@@ -174,7 +188,8 @@ pub(super) fn row_frame(id: impl Into<gpui::ElementId>, p: &Palette) -> Stateful
 }
 
 impl MainWindow {
-    /// Does what a row says: goes to its route, plays its media, or adds a folder.
+    /// Does what a row says: goes to its route, plays its media or stream, adds a folder, or
+    /// opens Open Network Stream. A recent stream played moves to the top of its list.
     pub(super) fn follow(&mut self, target: Target, window: &mut Window, cx: &mut Context<Self>) {
         match target {
             Target::Go(route) => self.navigate(route, cx),
@@ -183,6 +198,14 @@ impl MainWindow {
                 self.open(OpenRequest::placed(vec![media], placement), window, cx);
             }
             Target::Add(folders) => add_menu::add_folder(cx.entity().downgrade(), folders, cx),
+            Target::Stream(url, category) => {
+                if category == NetworkCategory::Recent {
+                    network::record_recent(std::slice::from_ref(&url), cx);
+                }
+                let placement = self.library_placement(cx);
+                self.open(OpenRequest::placed(vec![Media::Url(url)], placement), window, cx);
+            }
+            Target::AddStream => self.show_network_stream(window, cx),
         }
     }
 }

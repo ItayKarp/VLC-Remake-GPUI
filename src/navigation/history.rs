@@ -104,6 +104,7 @@ fn push(stack: &mut Vec<Route>, route: Route) {
 mod tests {
     use super::*;
     use crate::db::playlists::PlaylistId;
+    use crate::navigation::route::MusicRoute;
 
     fn all(_: &Route) -> bool {
         true
@@ -185,7 +186,7 @@ mod tests {
     fn the_oldest_steps_are_forgotten() {
         let mut history = NavHistory::new(Route::Home);
         for index in 0..=MAX_STEPS {
-            history.go(Route::Network(Some(index.to_string())));
+            history.go(Route::Music(MusicRoute::Albums(Some(index.to_string()))));
         }
         let mut steps = 0;
         while history.step(Step::Back, all) {

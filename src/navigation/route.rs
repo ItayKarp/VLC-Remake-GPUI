@@ -16,7 +16,7 @@ pub enum Route {
     /// The music: its categories, or a place in one.
     Music(MusicRoute),
     /// Network streams: their categories (`None`), or one category (S4.11).
-    Network(Option<String>),
+    Network(Option<NetworkCategory>),
     /// The saved playlists (`None`), or one of them.
     Playlists(Option<PlaylistId>),
     /// The recently played list (S4.5.7).
@@ -62,6 +62,32 @@ impl HomeSection {
             Self::Folders => "Frequently Visited Folders",
             Self::Playlists => "Frequently Visited Playlists",
             Self::Artists => "Frequently Listened Artists",
+        }
+    }
+}
+
+/// Network's categories (S4.11.3): built in, since streams are filed into them rather than
+/// organized freely (playlists do that). Podcasts are filled by subscriptions (S8.17).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum NetworkCategory {
+    /// The streams opened from Open Network Stream, the latest first.
+    Recent,
+    /// Podcast feeds.
+    Podcasts,
+    /// Radio stations.
+    Radio,
+}
+
+impl NetworkCategory {
+    /// Every category, in the order Network lists them.
+    pub const ALL: [Self; 3] = [Self::Recent, Self::Podcasts, Self::Radio];
+
+    /// The category's name.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Recent => "Recent Streams",
+            Self::Podcasts => "Podcasts",
+            Self::Radio => "Radio",
         }
     }
 }

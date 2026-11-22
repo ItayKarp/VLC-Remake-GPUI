@@ -54,7 +54,7 @@ impl Trail {
                 vec![section(Section::Home), crumb(home.label(), route.clone())]
             }
             Route::Network(Some(category)) => {
-                vec![section(Section::Network), crumb(category, route.clone())]
+                vec![section(Section::Network), crumb(category.label(), route.clone())]
             }
             Route::Playlists(Some(id)) => {
                 let title = places.playlists.iter().find(|summary| summary.id == *id);

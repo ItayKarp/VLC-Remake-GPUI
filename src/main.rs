@@ -14,6 +14,7 @@ mod library;
 mod logging;
 mod main_window;
 mod navigation;
+mod network;
 mod onboarding;
 mod opening;
 mod playlists;
@@ -53,6 +54,7 @@ fn main() {
         history::init(cx);
         library::init(cx);
         playlists::init(cx);
+        network::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);
         theme::init(cx);

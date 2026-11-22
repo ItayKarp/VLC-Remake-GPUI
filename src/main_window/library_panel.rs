@@ -38,6 +38,7 @@ mod row;
 mod search_field;
 mod selection;
 mod sort_menu;
+mod stream_menu;
 mod view_menu;
 
 pub(super) use self::drag::DraggedMedia;
@@ -122,6 +123,8 @@ impl LibraryPanel {
     pub(super) fn new(cx: &mut Context<MainWindow>) -> Self {
         // A folder may appear or vanish when the indexer reports a change.
         cx.observe_global::<crate::library::Library>(MainWindow::reload_folder).detach();
+        // Network lists its streams as they are saved.
+        cx.observe_global::<crate::network::Streams>(|_, cx| cx.notify()).detach();
         // Thumbnails show as they arrive.
         cx.observe_global::<Thumbnails>(|this, cx| {
             if this.library_panel.is_open() {

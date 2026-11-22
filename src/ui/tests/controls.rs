@@ -11,7 +11,7 @@ use gpui::{
 use super::support::{draw, host, setup};
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::slider::{self, Slider, SliderModel};
-use crate::ui::text_input::TextInput;
+use crate::ui::text_input::{self, TextInput};
 
 /// Two text inputs side by side, to move focus between.
 struct Two {
@@ -110,4 +110,36 @@ fn tab_moves_between_controls(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("shift-tab");
     draw(cx);
     assert!(cx.update(|window, _| a.is_focused(window)));
+}
+
+#[gpui::test]
+fn a_multi_line_input_takes_enter_and_moves_by_line(cx: &mut TestAppContext) {
+    setup(cx);
+    let (input, cx) = host(cx, |window, cx| TextInput::new(window, cx).with_rows(4));
+    let submitted: Rc<RefCell<usize>> = Rc::default();
+    let sink = submitted.clone();
+    let _subscription = cx.update(|_, cx| {
+        cx.subscribe(&input, move |_, event: &text_input::Event, _| {
+            if *event == text_input::Event::Submitted {
+                *sink.borrow_mut() += 1;
+            }
+        })
+    });
+    cx.update(|window, cx| input.read(cx).focus_handle(cx).focus(window, cx));
+    draw(cx);
+    cx.simulate_input("abc");
+    cx.simulate_keystrokes("enter");
+    cx.simulate_input("de");
+    draw(cx);
+    // Up from the end of "de" lands under it on the line above; Home and End stay on it.
+    cx.simulate_keystrokes("up end");
+    cx.simulate_input("!");
+    cx.simulate_keystrokes("down home");
+    cx.simulate_input(">");
+    draw(cx);
+    assert_eq!(input.read_with(cx, |i, _| i.text().to_owned()), "abc!\n>de");
+    assert_eq!(*submitted.borrow(), 0);
+    let submit = if cfg!(target_os = "macos") { "cmd-enter" } else { "ctrl-enter" };
+    cx.simulate_keystrokes(submit);
+    assert_eq!(*submitted.borrow(), 1);
 }

@@ -3,7 +3,7 @@
 //! their files ([`roots`], [`folders`], [`files`]), what is known about each media
 //! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
 //! and favorites ([`activity`]) with the media Home lists ([`played`]), and the search index
-//! ([`search`]).
+//! ([`search`]). Network streams are in [`network`].
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -21,6 +21,7 @@ pub mod folders;
 pub mod media;
 pub mod metadata;
 mod migrations;
+pub mod network;
 pub mod played;
 pub mod playlists;
 pub mod roots;

@@ -5,7 +5,7 @@
 //! Paths are encoded like every stored path, so any path survives. Text that doesn't parse (a
 //! newer build's route, a hand edit) reads as nothing, and the library opens at Home.
 
-use super::route::{HomeSection, MusicRoute, Route, Search, Section};
+use super::route::{HomeSection, MusicRoute, NetworkCategory, Route, Search, Section};
 use crate::db::playlists::PlaylistId;
 use crate::settings::stored_path;
 
@@ -21,7 +21,9 @@ pub fn encode(route: &Route) -> String {
         Route::Music(MusicRoute::Albums(name)) => ("music/albums", name.clone()),
         Route::Music(MusicRoute::Artists(name)) => ("music/artists", name.clone()),
         Route::Music(MusicRoute::Genres(name)) => ("music/genres", name.clone()),
-        Route::Network(category) => ("network", category.clone()),
+        Route::Network(category) => {
+            ("network", category.map(|category| category.as_str().to_owned()))
+        }
         Route::Playlists(id) => ("playlists", id.map(|id| id.0.to_string())),
         Route::History => ("history", None),
         Route::Search(search) => {
@@ -55,7 +57,12 @@ pub fn decode(text: &str) -> Option<Route> {
         "music/albums" => Route::Music(MusicRoute::Albums(name())),
         "music/artists" => Route::Music(MusicRoute::Artists(name())),
         "music/genres" => Route::Music(MusicRoute::Genres(name())),
-        "network" => Route::Network(name()),
+        "network" => match value {
+            None => Route::Network(None),
+            Some(name) => Route::Network(Some(
+                NetworkCategory::ALL.into_iter().find(|category| category.as_str() == name)?,
+            )),
+        },
         "playlists" => Route::Playlists(value.map(str::parse).transpose().ok()?.map(PlaylistId)),
         "history" => Route::History,
         _ => {
@@ -109,7 +116,8 @@ mod tests {
             Route::Music(MusicRoute::Albums(Some("Juxt: Live".into()))),
             Route::Music(MusicRoute::Artists(None)),
             Route::Music(MusicRoute::Genres(Some("Jazz".into()))),
-            Route::Network(Some("Radio".into())),
+            Route::Network(Some(NetworkCategory::Radio)),
+            Route::Network(None),
             Route::Playlists(Some(PlaylistId(42))),
             Route::Playlists(None),
             Route::History,

@@ -1,8 +1,8 @@
 //! What the sidebar lists for its route (S4.5, S4.6): the places a route leads to (media folders,
 //! subfolders, Music's categories, playlists), the recently played media (History), in a
 //! Videos or Songs folder its media as cards ([`card`](super::card)), and in Albums, Artists
-//! and Genres their names, then one name's songs ([`music`]), and a search what it finds
-//! ([`search`]).
+//! and Genres their names, then one name's songs ([`music`]), Network its categories and
+//! streams ([`network`]), and a search what it finds ([`search`]).
 //!
 //! A folder is read in the background: its subfolders and media files from the disk, and what
 //! the library knows of them from the database ([`folder_view`]). A folder that is gone says
@@ -10,6 +10,7 @@
 //! a folder of 10,000 files draws only what is on screen.
 
 mod music;
+mod network;
 mod search;
 
 use std::path::PathBuf;
@@ -328,6 +329,7 @@ fn rows(route: &Route, cx: &App) -> Vec<Row> {
             })
             .collect(),
         Route::History => recent::items(cx).into_iter().map(Row::recent).collect(),
+        Route::Network(category) => network::rows(*category, cx),
         _ => Vec::new(),
     }
 }
