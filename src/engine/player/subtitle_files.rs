@@ -9,14 +9,17 @@
 //! loaded earlier, or out of order, would take another's track for its own.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use encoding_rs::Encoding;
 use gpui::{AppContext as _, Context};
 
 use super::{Player, PlayerEvent};
 use crate::app::media::Media;
+use crate::engine::cues;
 use crate::engine::sidecar::{self, Sidecar};
-use crate::engine::subtitle_text::{self, EncodingChoice, Prepared};
+use crate::engine::subtitle_style::SubtitleLoading;
+use crate::engine::subtitle_text::{self, EncodingChoice};
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
 use crate::engine::values::Generation;
 
@@ -32,7 +35,17 @@ pub(super) struct Pending {
 }
 
 impl Pending {
-    fn new(mut file: SubtitleFile, prepared: Prepared, show: bool) -> Self {
+    /// Readies `file` to load, read as `choice` says, and reads its cues when the app can draw
+    /// it (S6.2). Reads the file, so it runs off the UI thread.
+    fn prepare(
+        mut file: SubtitleFile,
+        choice: EncodingChoice,
+        loading: &SubtitleLoading,
+        show: bool,
+    ) -> Self {
+        let prepared = subtitle_text::prepare(&file.path, choice, loading.converted.as_deref());
+        let text = subtitle_text::decode(&prepared, &loading.encoding);
+        file.cues = text.and_then(|text| cues::parse(&file.path, &text)).map(Arc::new);
         file.encoding = prepared.encoding;
         Self { file, load: prepared.path, show }
     }
@@ -49,9 +62,7 @@ impl Player {
         let choice = loading.encoding_choice();
         self.queue_files(cx, move || {
             let prepare = |sidecar: Sidecar| {
-                let prepared =
-                    subtitle_text::prepare(&sidecar.path, choice, loading.converted.as_deref());
-                Pending::new(SubtitleFile::found(sidecar), prepared, false)
+                Pending::prepare(SubtitleFile::found(sidecar), choice, &loading, false)
             };
             sidecar::find(&path, level).into_iter().map(prepare).collect()
         });
@@ -68,8 +79,7 @@ impl Player {
         let (path, loading) = (path.to_path_buf(), self.media_options.subtitles.clone());
         self.queue_files(cx, move || {
             let choice = loading.encoding_choice();
-            let prepared = subtitle_text::prepare(&path, choice, loading.converted.as_deref());
-            vec![Pending::new(SubtitleFile::new(path), prepared, true)]
+            vec![Pending::prepare(SubtitleFile::new(path), choice, &loading, true)]
         });
         true
     }
@@ -87,13 +97,15 @@ impl Player {
         let Some(index) = files.iter().position(|file| file.track == Some(track)) else { return };
         let file = files.remove(index);
         self.info.retired_tracks.push(track);
+        if self.info.drawn == Some(track) {
+            self.info.drawn = None;
+        }
         self.track_choices.user_picked(TrackKind::Subtitle);
         let loading = self.media_options.subtitles.clone();
         let choice = encoding.map_or(loading.encoding_choice(), EncodingChoice::Use);
         self.queue_files(cx, move || {
-            let prepared = subtitle_text::prepare(&file.path, choice, loading.converted.as_deref());
             let file = SubtitleFile { track: None, encoding_chosen: encoding.is_some(), ..file };
-            vec![Pending::new(file, prepared, true)]
+            vec![Pending::prepare(file, choice, &loading, true)]
         });
         cx.emit(PlayerEvent::TracksChanged);
         cx.notify();

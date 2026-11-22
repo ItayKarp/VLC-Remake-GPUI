@@ -1450,20 +1450,20 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S6.1, S1.4  **Size:** M  **Design refs:** `controls-subtitle_settings.png` (Appearance), Settings → Subtitles "Appearance"
 
 **Subtasks**
-- [ ] S6.2.1 Font, size (Relative or Pixels; "Automatic"), bold, text color (hex plus swatch), text opacity, outline thickness and color, and shadow. Changes apply live.
-- [ ] S6.2.2 **Embedded Sub Format** toggle: on uses the ASS/SSA styles from the file, off forces the user's style.
-- [ ] S6.2.3 Subtitles render on the video layer, inside the video rectangle (or in the letterbox bars, as an option), and are scaled with the video resolution.
-- [ ] S6.2.4 A color picker for the swatches (not designed; design it).
-- [ ] S6.2.5 Subtitles stay visible above the control bar when it's shown (shift them up) instead of being covered.
+- [x] S6.2.1 Font, size (Relative or Pixels; "Automatic"), bold, text color (hex plus swatch), text opacity, outline thickness and color, and shadow. Changes apply live. *(D25: the app draws subtitle files itself. `engine/cues.rs` reads SRT and WebVTT leniently (`cues/blocks.rs`: missing blank lines, either decimal separator, a byte order mark anywhere, unreadable timings skipped and counted in the log, cues sorted), ASS/SSA dialogue by its `Format:` line (`cues/ass.rs`), MicroDVD when its first line gives the frame rate (`cues/microdvd.rs`), `<i>`, `<b>`, `<u>`, `<font color>`, entities and `{\an8}`-style overrides (`cues/markup.rs`); TTML, SAMI, the rarer formats and pictures read as `None` and stay with libVLC. Files are read off the UI thread as they load, in the encoding S6.1.6 decided (`subtitle_text::decode`). While a file the app reads is selected, the backend is told to show no subtitle and the player keeps the track selected (`player/drawn.rs`), taking over a file track libVLC selects itself; so these files no longer switch hardware decoding off (S1.6). Cues follow the position run on between the backend's reports at the playback rate (`PositionTracker::at`), with the subtitle delay. `video/subtitles.rs` draws them in the video view at libVLC's sizes (a relative size is the picture's height over VLC's divisor, Automatic 6.25%; pixels are the video's, scaled with the picture), wrapped inside 90% of the picture's width; the outline is the text painted around each letter in the outline color, the shadow an offset copy; opacity covers all three. The Appearance rows are live (no Restart banner); libVLC still gets them at launch for what it draws. Checked in the app on macOS: an SRT with italics, a wrapped long line and an `{\an8}` Hebrew-and-English line, white and then yellow bold, right-to-left order from the OS's shaper.)*
+- [x] S6.2.2 **Embedded Sub Format** toggle: on uses the ASS/SSA styles from the file, off forces the user's style. *(Settings → Subtitles' first Appearance row (`subtitles.file_styles`, on by default as VLC), live: on, a styled file goes to libVLC (libass, its own fonts, colors and positions); off, the app draws it in the user's style, keeping italic, bold, underline and `\an` placement. SRT and MicroDVD colors are drawn only while it is on. The in-player panel's Appearance rows (`controls-subtitle_settings.png`) wait for the panels' session values (S7.1).)*
+- [x] S6.2.3 Subtitles render on the video layer, inside the video rectangle (or in the letterbox bars, as an option), and are scaled with the video resolution. *(Subtitle area: On the picture or In the black bars (`subtitles.area`), a canvas over the picture in `VideoView` placed by the same framing as the picture (aspect ratio and crop). Checked in the app with a 2.39:1 video in both areas. Subtitles libVLC draws stay in the picture.)*
+- [x] S6.2.4 A color picker for the swatches (not designed; design it). *(The palette S5.8.3 gave the color rows' squares (`settings_view/color_picker.rs`): sixteen colors that read well as subtitles, the saved one ringed; the hex field takes any other.)*
+- [x] S6.2.5 Subtitles stay visible above the control bar when it's shown (shift them up) instead of being covered. *(The main window tells the video what the floating bars cover (`viewport::covered`): the control bar's height, and the title bar's for top-placed cues, less the viewport's inset; nothing while they are docked or hidden. Text keeps 8 px clear of them. Checked in the app with auto-hide set to Always: the cues sit above the floating bar and below the title bar, and drop back when they hide.)*
 
 **Edge cases**
-- Right-to-left subtitles (Hebrew, Arabic) with punctuation at the line ends, and mixed RTL/LTR lines: correct bidi rendering.
+- Right-to-left subtitles (Hebrew, Arabic) with punctuation at the line ends, and mixed RTL/LTR lines: correct bidi rendering. *(Drawn files: the OS's shaper sets each line's direction by its first letter; checked on macOS with a Hebrew line ending in English. Windows and Linux not checked.)*
 - CJK, Thai and Devanagari need proper shaping and line breaking. Emoji in subtitles.
 - Vertical text and karaoke effects in ASS: as far as libass supports them.
-- Very long lines: wrap within the safe area, never outside the video rectangle.
-- Overlapping cues at the same time: stack them without overlapping.
-- Text color equal to the outline color, or opacity 0%: allowed, but show a hint in the settings ("Subtitles will be invisible").
-- Image-based subtitles (PGS, VobSub) ignore font and color settings: disable those controls with a note while an image track is active.
+- Very long lines: wrap within the safe area, never outside the video rectangle. *(Drawn files wrap inside 90% of the picture's width.)*
+- Overlapping cues at the same time: stack them without overlapping. *(Drawn files: the earliest lowest, each placement (bottom, middle, top) its own stack.)*
+- Text color equal to the outline color, or opacity 0%: allowed, but show a hint in the settings ("Subtitles will be invisible"). *(Done: Text color and Text opacity say "Subtitles will be invisible." at 0%, and "The outline is the text's color, so letters run together." when they match with an outline.)*
+- Image-based subtitles (PGS, VobSub) ignore font and color settings: disable those controls with a note while an image track is active. *(Not yet: `Player::backend_draws_subtitle` tells, for the panel's Appearance rows (S7.1) to use; the Settings window doesn't follow the playing track.)*
 - Resizing the window or entering fullscreen: subtitles re-layout without flicker.
 
 ---
@@ -2167,6 +2167,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D22 | How the Video tab of the track popover is opened | S2.6.1 | **Decided (S2.6):** reachable inside the popover; shown only with 2+ video tracks |
 | D23 | Effect sections have no title or enable toggle in the design | S7.1.3 | Add a title and toggle to each section header |
 | D24 | How the Video, Audio and Subtitles Settings pages relate to the in-player panels | S5.8.4 | **Decided (S5.8.4):** pages are defaults, panels change the session until quit and win over a default changed meanwhile; Save as Default writes back |
+| D25 | Who draws subtitles: libVLC 3 blends them into the frame with a style read at launch, so it can't restyle live, use the black bars or move above the control bar | S6.2 | **Decided (S6.2):** the app draws the text subtitle files it can read (SRT, WebVTT, ASS/SSA with Embedded Sub Format off, MicroDVD with its frame rate) with GPUI; libVLC keeps picture subtitles, styled ASS/SSA with Embedded Sub Format on, the rarer text formats and subtitles inside the video, until libVLC 4 |
 
 ### D3 — shortcut conflicts found in the designs
 

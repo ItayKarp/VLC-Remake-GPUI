@@ -67,6 +67,13 @@ pub struct SubtitleSettings {
     /// "Shadow".
     #[serde(deserialize_with = "lenient")]
     pub shadow: bool,
+    /// "Embedded Sub Format": styled (ASS/SSA) subtitle files keep the look they give
+    /// themselves; off, the app draws them in the style above (S6.2.2).
+    #[serde(deserialize_with = "lenient")]
+    pub file_styles: bool,
+    /// "Subtitle area": where subtitles the app draws sit (S6.2.3).
+    #[serde(deserialize_with = "lenient")]
+    pub area: SubtitleArea,
 }
 
 impl Default for SubtitleSettings {
@@ -87,6 +94,8 @@ impl Default for SubtitleSettings {
             outline: Outline::default(),
             outline_color: "#000000".into(),
             shadow: true,
+            file_styles: true,
+            area: SubtitleArea::default(),
         }
     }
 }
@@ -100,4 +109,15 @@ pub enum SizeValues {
     Relative,
     /// A fixed height in pixels.
     Pixels,
+}
+
+/// "Subtitle area": where the subtitles the app draws sit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubtitleArea {
+    /// On the picture, near its bottom edge.
+    #[default]
+    Picture,
+    /// In the black bars around the picture when there are any, so no line covers it.
+    Bars,
 }

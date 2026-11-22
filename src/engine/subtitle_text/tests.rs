@@ -98,3 +98,15 @@ fn the_setting_pictures_and_unreadable_files_load_as_they_are() {
     let no_cache = prepare(&hebrew, EncodingChoice::Guess, None);
     assert_eq!(no_cache, Prepared { path: hebrew, encoding: Some(WINDOWS_1255) });
 }
+
+#[test]
+fn decoding_reads_converted_copies_and_the_setting_s_encoding() {
+    let dir = scratch();
+    let hebrew = write(&dir, "Movie.srt", &srt(HEBREW), WINDOWS_1255);
+    let converted = prepare(&hebrew, EncodingChoice::Guess, Some(&dir.join("cache")));
+    assert!(decode(&converted, "").unwrap().contains(HEBREW));
+    let as_is = prepare(&hebrew, EncodingChoice::Setting, None);
+    assert!(decode(&as_is, "Windows-1255").unwrap().contains(HEBREW));
+    let picture = Prepared { path: dir.join("Movie.sup"), encoding: None };
+    assert_eq!(decode(&picture, ""), None);
+}

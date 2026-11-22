@@ -6,6 +6,7 @@
 //! - [`layout`] letterboxes the picture on device pixels, and [`framing`] stretches and crops
 //!   it as Settings → Video says.
 //! - [`VideoView`] draws the newest picture, black bars around it whatever the theme.
+//! - [`subtitles`] draws the subtitle files the app draws itself over it (S6.2).
 
 mod bgra;
 mod frame;
@@ -14,6 +15,7 @@ pub mod framing;
 pub mod layout;
 #[cfg(target_os = "macos")]
 mod pixel_buffer;
+mod subtitles;
 mod view;
 
 use std::sync::Arc;
@@ -24,6 +26,7 @@ use self::frame::Frame;
 use self::frame_slot::FrameSlot;
 use crate::engine::video::VideoSink;
 
+pub use subtitles::Covered;
 pub use view::VideoView;
 
 /// A presentation path: the sink the engine writes pictures into, and the mailbox the

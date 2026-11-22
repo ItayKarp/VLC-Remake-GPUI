@@ -11,13 +11,13 @@ use crate::engine::mock::MockMedia;
 use crate::engine::tracks::auto::{SubtitleMode, TrackPreferences};
 use crate::engine::tracks::{Cycled, Track, TrackId, TrackKind, Tracks};
 
-fn track(id: i32, kind: TrackKind, language: &str) -> Track {
+pub(super) fn track(id: i32, kind: TrackKind, language: &str) -> Track {
     Track { language: Language::parse(language), ..Track::new(TrackId(id), kind) }
 }
 
 /// Japanese and English audio with English playing; English, forced English and French
 /// subtitles, none shown.
-fn movie() -> Tracks {
+pub(super) fn movie() -> Tracks {
     Tracks {
         all: vec![
             track(1, TrackKind::Audio, "jpn"),
@@ -42,13 +42,13 @@ fn wanting(rig: &Rig, cx: &mut TestAppContext, audio: &str, subtitles: SubtitleM
 }
 
 /// Opens with the mock silent, takes the open's commands, then reports `tracks`.
-fn open_with(rig: &Rig, cx: &mut TestAppContext, tracks: Tracks) {
+pub(super) fn open_with(rig: &Rig, cx: &mut TestAppContext, tracks: Tracks) {
     rig.open(cx);
     rig.mock.take_commands();
     rig.emit(cx, BackendEvent::Tracks(tracks));
 }
 
-fn selected(rig: &Rig, cx: &mut TestAppContext, kind: TrackKind) -> Option<TrackId> {
+pub(super) fn selected(rig: &Rig, cx: &mut TestAppContext, kind: TrackKind) -> Option<TrackId> {
     rig.player.read_with(cx, |player, _| player.tracks().selected(kind))
 }
 

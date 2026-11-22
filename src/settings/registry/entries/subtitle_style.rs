@@ -1,21 +1,30 @@
-//! Subtitles' Appearance section (S5.8.3, `subtitles_01.png`): the font, size, colors, outline
-//! and shadow of plain-text subtitles. libVLC's text renderer reads them when the player starts,
-//! so they apply at the next launch; styled (ASS/SSA) subtitles keep their own look.
+//! Subtitles' Appearance section (S5.8.3, `subtitles_01.png`; live since S6.2): whether styled
+//! files keep their own look, where subtitles sit, and the font, size, colors, outline and
+//! shadow of plain-text subtitles. Subtitle files the app draws change at once; subtitles inside
+//! the video, which libVLC draws with the style it read when the player started, take them at
+//! the next launch.
 
 use std::sync::OnceLock;
 
-use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
+use super::super::def::{Condition, Control, Marks, SettingDef};
 use super::super::value::{Choice, SettingChoice, choice, number, text, toggle};
 use crate::engine::subtitle_style::{Outline, RelativeSize};
-use crate::settings::registry::Category;
-use crate::settings::{self, SizeValues};
+use crate::settings::registry::{Category, hex_color};
+use crate::settings::{self, SizeValues, SubtitleArea};
 
 const APPEARANCE: (Category, &str) = (Category::Subtitles, "Appearance");
 /// Text opacity's ticks, and the ones labelled.
 const OPACITY_TICK: f64 = 10.;
 const OPACITY_LABEL: f64 = 50.;
-/// Why a change waits for a restart, said on every Appearance row.
-const RESTART_NOTE: &str = "Applies when VLC starts again; styled (ASS) subtitles keep their own.";
+/// When a change shows, said on the rows that have nothing else to say.
+const LIVE_NOTE: &str =
+    "Subtitle files change at once; subtitles inside the video when VLC starts again.";
+
+impl SettingChoice for SubtitleArea {
+    const VALUES: &'static [Self] = &[Self::Picture, Self::Bars];
+    const CHOICES: &'static [Choice] =
+        &[Choice::new("picture", "On the picture"), Choice::new("bars", "In the black bars")];
+}
 
 impl SettingChoice for SizeValues {
     const VALUES: &'static [Self] = &[Self::Relative, Self::Pixels];
@@ -77,8 +86,41 @@ fn missing(font: &str, installed: &[String]) -> bool {
     !font.is_empty() && !installed.iter().any(|name| name == font)
 }
 
+/// Warns that subtitles can't be read in the chosen colors: fully transparent text, or an
+/// outline in the text's own color.
+fn unreadable(cx: &gpui::App) -> Option<String> {
+    let subtitles = &settings::get(cx).prefs.subtitles;
+    if subtitles.text_opacity_percent == 0 {
+        return Some("Subtitles will be invisible.".to_owned());
+    }
+    let same = hex_color(&subtitles.text_color) == hex_color(&subtitles.outline_color);
+    (same && subtitles.outline != Outline::None)
+        .then(|| "The outline is the text's color, so letters run together.".to_owned())
+}
+
 /// The Subtitles page's Appearance rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
+    SettingDef::new(
+        "subtitles.file_styles",
+        APPEARANCE,
+        "Embedded Sub Format",
+        Control::Toggle,
+        toggle!(prefs.subtitles.file_styles),
+    )
+    .info(
+        "On, styled (ASS/SSA) subtitle files keep the fonts, colors and positions they give \
+         themselves; off, they are drawn in the style below.",
+    )
+    .keywords(&["ass", "ssa", "styles", "embedded"]),
+    SettingDef::new(
+        "subtitles.area",
+        APPEARANCE,
+        "Subtitle area",
+        Control::Segmented(SubtitleArea::CHOICES),
+        choice!(prefs.subtitles.area),
+    )
+    .info("In the black bars, subtitle files sit below the picture when it has bars there.")
+    .keywords(&["position", "letterbox", "placement"]),
     SettingDef::new(
         "subtitles.font",
         APPEARANCE,
@@ -89,7 +131,6 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .info("The font family subtitles are drawn in, such as Helvetica; empty uses the system's.")
     .placeholder("System, sans-serif")
     .hint(font_missing)
-    .applies(ApplyMode::Restart)
     .keywords(&["typeface", "family"]),
     SettingDef::new(
         "subtitles.size_values",
@@ -98,8 +139,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Segmented(SizeValues::CHOICES),
         choice!(prefs.subtitles.size_values),
     )
-    .info("Relative sizes grow with the video; Pixels keeps the text the same height.")
-    .applies(ApplyMode::Restart),
+    .info("Relative sizes grow with the video; Pixels keeps the text the same height."),
     SettingDef::new(
         "subtitles.relative_size",
         APPEARANCE,
@@ -107,9 +147,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Dropdown(RelativeSize::CHOICES),
         choice!(prefs.subtitles.relative_size),
     )
-    .info(RESTART_NOTE)
+    .info(LIVE_NOTE)
     .depends_on("subtitles.size_values", Condition::Is("relative"))
-    .applies(ApplyMode::Restart)
     .keywords(&["text size", "bigger", "smaller"]),
     SettingDef::new(
         "subtitles.pixel_size",
@@ -121,7 +160,6 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .info("The text's height in the video's pixels, while Size values is Pixels.")
     .range(8., 200., 1.)
     .depends_on("subtitles.size_values", Condition::Is("pixels"))
-    .applies(ApplyMode::Restart)
     .keywords(&["text size"]),
     SettingDef::new(
         "subtitles.bold",
@@ -130,8 +168,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.subtitles.bold),
     )
-    .info(RESTART_NOTE)
-    .applies(ApplyMode::Restart),
+    .info(LIVE_NOTE),
     SettingDef::new(
         "subtitles.text_color",
         APPEARANCE,
@@ -140,7 +177,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         text!(prefs.subtitles.text_color),
     )
     .info("A color such as #FFFFFF, #FF0 or yellow; the square opens a palette.")
-    .applies(ApplyMode::Restart)
+    .hint(unreadable)
     .keywords(&["colour", "font color"]),
     SettingDef::new(
         "subtitles.text_opacity_percent",
@@ -149,9 +186,9 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Slider { marks: Marks::Labelled(OPACITY_TICK, halves), format: percent },
         number!(u32: prefs.subtitles.text_opacity_percent),
     )
-    .info(RESTART_NOTE)
+    .info(LIVE_NOTE)
+    .hint(unreadable)
     .range(0., 100., 1.)
-    .applies(ApplyMode::Restart)
     .keywords(&["transparency", "see-through"]),
     SettingDef::new(
         "subtitles.outline",
@@ -161,7 +198,6 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         choice!(prefs.subtitles.outline),
     )
     .info("The border around each letter that keeps text readable on bright pictures.")
-    .applies(ApplyMode::Restart)
     .keywords(&["border", "stroke", "edge"]),
     SettingDef::new(
         "subtitles.outline_color",
@@ -172,7 +208,6 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .info("A color such as #000000, #000 or black; the square opens a palette.")
     .depends_on("subtitles.outline", Condition::IsNot("none"))
-    .applies(ApplyMode::Restart)
     .keywords(&["colour", "border"]),
     SettingDef::new(
         "subtitles.shadow",
@@ -181,8 +216,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.subtitles.shadow),
     )
-    .info("A soft shadow under the text. Applies when VLC starts again.")
-    .applies(ApplyMode::Restart)
+    .info("A soft shadow under the text.")
     .keywords(&["drop shadow"]),
 ];
 

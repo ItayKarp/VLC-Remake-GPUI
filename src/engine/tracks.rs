@@ -12,9 +12,11 @@ pub mod codec;
 mod label;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use encoding_rs::Encoding;
 
+use super::cues::CueTrack;
 use super::language::Language;
 use super::sidecar::Sidecar;
 
@@ -190,6 +192,8 @@ pub struct SubtitleFile {
     pub encoding: Option<&'static Encoding>,
     /// The user chose [`Self::encoding`] for this file, rather than it being guessed.
     pub encoding_chosen: bool,
+    /// Its cues, when the app can draw it itself (S6.2); `None` leaves it to the backend.
+    pub cues: Option<Arc<CueTrack>>,
 }
 
 impl SubtitleFile {
@@ -202,6 +206,7 @@ impl SubtitleFile {
             forced: false,
             encoding: None,
             encoding_chosen: false,
+            cues: None,
         }
     }
 

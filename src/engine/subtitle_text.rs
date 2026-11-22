@@ -72,6 +72,25 @@ pub fn prepare(path: &Path, choice: EncodingChoice, converted: Option<&Path>) ->
     }
 }
 
+/// The text of the prepared file `prepared`, for the app to draw it (S6.2): read in its byte
+/// order mark's encoding, the one it was prepared in, or else `setting` (Settings → Subtitles'
+/// Text encoding, a label such as `Windows-1255`), else UTF-8. `None` for a picture format or
+/// a file too big or binary to be text.
+pub fn decode(prepared: &Prepared, setting: &str) -> Option<String> {
+    if !super::sidecar::is_text(&prepared.path) {
+        return None;
+    }
+    let bytes = read(&prepared.path)?;
+    // A converted copy is UTF-8 with a byte order mark, whatever the original was in.
+    let encoding = Encoding::for_bom(&bytes)
+        .map(|(encoding, _)| encoding)
+        .or(prepared.encoding)
+        .or_else(|| Encoding::for_label(setting.trim().as_bytes()))
+        .unwrap_or(UTF_8);
+    let (text, _) = encoding.decode_with_bom_removal(&bytes);
+    Some(text.into_owned())
+}
+
 /// The file's bytes, unless it is too big or holds binary data (NUL bytes outside UTF-16).
 fn read(path: &Path) -> Option<Vec<u8>> {
     let size = fs::metadata(path).ok()?.len();

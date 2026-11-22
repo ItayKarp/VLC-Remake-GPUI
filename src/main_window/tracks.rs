@@ -26,12 +26,12 @@ impl MainWindow {
     /// to them.
     pub(super) fn set_up_tracks(&mut self, player: &Entity<Player>, cx: &mut Context<Self>) {
         let settings = settings::get(cx).clone();
-        player.update(cx, |player, _| apply(&settings, player));
+        player.update(cx, |player, cx| apply(&settings, player, cx));
         let player = player.downgrade();
         self.tracks.settings = Some(cx.observe_global::<SettingsStore>(move |_, cx| {
             let settings = settings::get(cx).clone();
             // The player lives as long as the window that owns this subscription.
-            let _ = player.update(cx, |player, _| apply(&settings, player));
+            let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
         }));
     }
 
@@ -47,10 +47,12 @@ impl MainWindow {
     }
 }
 
-/// Gives `player` what `settings` say about new media's tracks and options.
-fn apply(settings: &Settings, player: &mut Player) {
+/// Gives `player` what `settings` say about new media's tracks and options, and whether styled
+/// subtitle files keep their own look (Embedded Sub Format, live).
+fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
     player.set_track_preferences(preferences(settings));
     player.set_media_options(media_options(settings));
+    player.set_file_styles(settings.prefs.subtitles.file_styles, cx);
 }
 
 /// The track preferences in `settings`.

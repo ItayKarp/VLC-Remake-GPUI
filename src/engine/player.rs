@@ -3,6 +3,7 @@
 
 mod audio;
 mod commands;
+mod drawn;
 mod receive;
 mod subtitle_files;
 mod tracks;
@@ -99,6 +100,8 @@ struct Info {
     /// Tracks of subtitle files read again in another encoding: libVLC can't remove a file's
     /// track, so the player leaves them out.
     retired_tracks: Vec<TrackId>,
+    /// The subtitle track the app draws itself (S6.2), while the backend shows none.
+    drawn: Option<TrackId>,
     video_size: Option<VideoSize>,
     chapters: Vec<Chapter>,
     metadata: Metadata,
@@ -124,6 +127,8 @@ pub struct Player {
     steps: FrameSteps,
     /// The subtitle files being prepared to load, in order (`subtitle_files.rs`).
     subtitle_loads: Option<Task<()>>,
+    /// Embedded Sub Format: styled files keep their own look, drawn by the backend (`drawn.rs`).
+    file_styles: bool,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -153,6 +158,7 @@ impl Player {
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),
             subtitle_loads: None,
+            file_styles: true,
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

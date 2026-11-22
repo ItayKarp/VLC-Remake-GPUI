@@ -25,6 +25,7 @@
 pub mod audio;
 pub mod backend;
 mod coalesce;
+pub mod cues;
 pub mod language;
 pub mod lengths;
 pub mod libvlc;

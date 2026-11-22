@@ -50,6 +50,20 @@ pub fn content_insets(chrome: Chrome) -> (f32, f32) {
     }
 }
 
+/// How much of the video's top and bottom the title bar and control bar cover for `chrome`:
+/// nothing while they are docked around the video or hidden; floating, their heights less the
+/// viewport's inset.
+pub fn covered(chrome: Chrome) -> (f32, f32) {
+    let inset = match chrome.layout {
+        Layout::Docked => return (0., 0.),
+        Layout::Floating => INSET,
+        Layout::Fullscreen => 0.,
+    };
+    let top = if chrome.title_bar { TITLE_BAR_HEIGHT - inset } else { 0. };
+    let bottom = if chrome.controls { CONTROL_BAR_HEIGHT - inset } else { 0. };
+    (top, bottom)
+}
+
 /// The width and height the window has around the picture for `chrome`: the docked bars and the
 /// viewport's inset ("Resize window to fit video", S5.4.1).
 pub fn surround(chrome: Chrome) -> (f32, f32) {

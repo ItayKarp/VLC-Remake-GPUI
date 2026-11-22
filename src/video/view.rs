@@ -1,9 +1,11 @@
 //! [`VideoView`]: the video area. It redraws when the engine delivers a picture, paints it
 //! letterboxed on black at Settings → Video's aspect ratio and crop (S5.8.1), shows a placeholder
 //! for audio-only media, saying so when Settings turned video off, and toggles fullscreen on a
-//! double-click (S1.4.1, S1.4.2, S1.4.4).
+//! double-click (S1.4.1, S1.4.2, S1.4.4). Over the picture it draws the subtitle files the app
+//! draws itself (S6.2), clear of the control bar while that covers the video's bottom.
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use futures::StreamExt as _;
 use futures::channel::mpsc::UnboundedReceiver;
@@ -16,6 +18,7 @@ use super::Output;
 use super::frame::Frame;
 use super::frame_slot::{Delivery, FrameSlot};
 use super::framing::{self, AspectRatio, Crop};
+use super::subtitles::{self, Covered, Overlay, Placing};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::keymap::actions::ToggleFullscreen;
 use crate::settings::{self, SettingsStore};
@@ -35,6 +38,8 @@ pub struct VideoView {
     /// The picture on screen.
     shown: Option<Frame>,
     player: Entity<Player>,
+    /// What the bars floating over the view cover, which subtitles keep clear of.
+    covered: Covered,
     _follow: Task<()>,
     /// The visibility of the window the view is in.
     visibility: Subscription,
@@ -54,9 +59,17 @@ impl VideoView {
         let Output { slot, woken, .. } = output;
         slot.set_accepting(window.is_visible());
         let visibility = Self::follow_visibility(window, cx);
-        // The aspect and the audio-only placeholder depend on what the player knows.
+        // The aspect, the audio-only placeholder and the subtitles depend on what the player
+        // knows; subtitles change with the position while paused, when no frame comes.
         let changes = cx.subscribe(&player, |_, _, event: &PlayerEvent, cx| {
-            if matches!(event, PlayerEvent::VideoSizeChanged(_) | PlayerEvent::StateChanged(_)) {
+            let redraw = matches!(
+                event,
+                PlayerEvent::VideoSizeChanged(_)
+                    | PlayerEvent::StateChanged(_)
+                    | PlayerEvent::PositionChanged(_)
+                    | PlayerEvent::TracksChanged
+            );
+            if redraw {
                 cx.notify();
             }
         });
@@ -64,6 +77,7 @@ impl VideoView {
             slot,
             shown: None,
             player,
+            covered: Covered::default(),
             _follow: cx.spawn(async move |this, cx| follow_frames(woken, this, cx).await),
             visibility,
             _changes: changes,
@@ -84,6 +98,15 @@ impl VideoView {
         self.slot.set_accepting(window.is_visible());
         self.visibility = Self::follow_visibility(window, cx);
         cx.notify();
+    }
+
+    /// Keeps subtitles clear of what `covered` says the control bar and title bar cover while
+    /// they float over the video (S6.2.5); nothing when they don't.
+    pub fn set_covered(&mut self, covered: Covered, cx: &mut Context<Self>) {
+        if self.covered != covered {
+            self.covered = covered;
+            cx.notify();
+        }
     }
 
     /// Takes pictures only while the window shows (S1.4.4): a minimized or covered window
@@ -119,6 +142,22 @@ impl VideoView {
             .map_or_else(|| frame.size(), |size| (size.width, size.height))
     }
 
+    /// The subtitle cues the app draws now, if any show.
+    fn overlay(&self, cx: &App) -> Option<Overlay> {
+        let (cues, time) = self.player.read(cx).drawn_subtitles(Instant::now())?;
+        let cues: Vec<_> = cues.at(time).cloned().collect();
+        if cues.is_empty() {
+            return None;
+        }
+        let subtitles = &settings::get(cx).prefs.subtitles;
+        Some(Overlay {
+            cues,
+            style: crate::main_window::subtitle_style::style(subtitles),
+            file_colors: subtitles.file_styles,
+            area: subtitles.area,
+        })
+    }
+
     fn is_audio_only(&self, cx: &App) -> bool {
         let player = self.player.read(cx);
         player.state().is_active() && player.video_size().is_none() && self.shown.is_none()
@@ -130,13 +169,18 @@ impl Render for VideoView {
         self.advance(window);
         let video = &settings::get(cx).prefs.video;
         let (framing, video_on) = ((video.aspect_ratio, video.crop), video.enabled);
-        let picture = self.shown.clone().map(|frame| {
-            let aspect = self.aspect(&frame, cx);
-            picture(frame, aspect, framing)
-        });
+        let aspect = self.shown.as_ref().map(|frame| self.aspect(frame, cx));
+        let picture =
+            self.shown.clone().zip(aspect).map(|(frame, aspect)| picture(frame, aspect, framing));
         let placeholder = self.is_audio_only(cx).then(|| placeholder(video_on));
+        let video_height = aspect.map_or(0, |(_, height)| height);
+        let subtitles = self.overlay(cx).map(|overlay| {
+            let scene = Scene { aspect, framing, video_height, covered: self.covered };
+            drawn_subtitles(overlay, scene)
+        });
         div()
             .id("video")
+            .relative()
             .size_full()
             // The bars are black whatever the theme, like the picture's own black.
             .bg(black())
@@ -151,7 +195,38 @@ impl Render for VideoView {
             })
             .children(picture)
             .children(placeholder)
+            .children(subtitles)
     }
+}
+
+/// Where drawn subtitles go: the picture's aspect and framing, its height in the video's pixels,
+/// and what the bars over the view cover.
+#[derive(Clone, Copy)]
+struct Scene {
+    aspect: Option<(u32, u32)>,
+    framing: (AspectRatio, Crop),
+    video_height: u32,
+    covered: Covered,
+}
+
+/// Paints `overlay` over the picture `scene` frames, or over the whole view without a picture.
+fn drawn_subtitles(overlay: Overlay, scene: Scene) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |bounds, (), window, cx| {
+            let scale = window.scale_factor();
+            let picture = scene.aspect.map_or(bounds, |aspect| {
+                framing::frame(bounds, aspect, scene.framing.0, scene.framing.1, scale).shown
+            });
+            let Scene { video_height, covered, .. } = scene;
+            let placing = Placing { view: bounds, picture, video_height, covered };
+            subtitles::paint(&overlay, &placing, window, cx);
+        },
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
 }
 
 /// Paints `frame`, of display `aspect`, letterboxed at the aspect ratio and crop of `framing`.

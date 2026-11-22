@@ -20,17 +20,19 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     App, Bounds, Context, DispatchPhase, Entity, IntoElement, MouseMoveEvent, Pixels, Point,
-    Window, canvas, point, prelude::*,
+    Window, canvas, point, prelude::*, px,
 };
 
 use self::rules::{Chrome, IdleTimer, PointerAnchor, Prefs, Situation, Tick};
 use super::control_bar::CONTROL_BAR_HEIGHT;
 use super::video_menu::VideoMenu;
+use super::viewport;
 use super::{MainWindow, TITLE_BAR_HEIGHT};
 use crate::cursor;
 use crate::engine::state::PlaybackState;
 use crate::settings;
 use crate::ui::popover::BoundsTracker;
+use crate::video::Covered;
 
 /// The auto-hide state of the main window.
 #[derive(Default)]
@@ -115,7 +117,19 @@ impl MainWindow {
         if !chrome.title_bar {
             self.menu = None;
         }
+        self.sync_video_cover(chrome, cx);
         chrome
+    }
+
+    /// Tells the video what the bars floating over it cover, so subtitles keep clear of them
+    /// (S6.2.5).
+    fn sync_video_cover(&self, chrome: Chrome, cx: &mut Context<Self>) {
+        let here = self.showing_video(cx).is_some();
+        let (top, bottom) = if here { viewport::covered(chrome) } else { (0., 0.) };
+        let covered = Covered { top: px(top), bottom: px(bottom) };
+        if let Some(video) = &self.video {
+            video.update(cx, |video, cx| video.set_covered(covered, cx));
+        }
     }
 
     /// Shows or hides the native title bar (macOS's traffic lights) with ours.

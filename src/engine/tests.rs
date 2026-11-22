@@ -2,6 +2,7 @@
 //! edge cases.
 
 mod audio;
+mod drawn;
 mod tracks;
 
 use std::cell::RefCell;

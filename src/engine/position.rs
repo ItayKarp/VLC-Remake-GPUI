@@ -5,6 +5,9 @@ use std::time::{Duration, Instant};
 
 /// The shortest gap between two position updates sent to the UI (about 15 Hz).
 pub const POSITION_INTERVAL: Duration = Duration::from_millis(66);
+/// How far [`PositionTracker::at`] runs on past the last report: further than the backend's
+/// reports are apart, not so far that a stall shows subtitles ahead of the picture for long.
+const MAX_RUN_ON: Duration = Duration::from_secs(1);
 
 /// Turns the positions a backend reports into the ones the UI shows.
 #[derive(Debug, Default)]
@@ -12,12 +15,22 @@ pub struct PositionTracker {
     duration: Option<Duration>,
     shown: Duration,
     last_sent: Option<Instant>,
+    /// When [`Self::shown`] last moved, for running on between reports.
+    moved: Option<Instant>,
 }
 
 impl PositionTracker {
     /// The position the UI shows now.
     pub fn shown(&self) -> Duration {
         self.shown
+    }
+
+    /// The position at `now`, between the backend's reports: the last one moved on at `rate`
+    /// while `running`, for at most [`MAX_RUN_ON`]. Subtitles the app draws follow it (S6.2).
+    pub fn at(&self, now: Instant, rate: f32, running: bool) -> Duration {
+        let Some(moved) = self.moved.filter(|_| running) else { return self.shown };
+        let elapsed = now.saturating_duration_since(moved).min(MAX_RUN_ON);
+        self.clamp(self.shown + elapsed.mul_f32(rate.max(0.)))
     }
 
     /// Sets the media's length, or `None` while unknown. Zero counts as unknown.
@@ -35,6 +48,7 @@ impl PositionTracker {
     pub fn seeked(&mut self, target: Duration, now: Instant) -> Duration {
         self.shown = self.clamp(target);
         self.last_sent = Some(now);
+        self.moved = Some(now);
         self.shown
     }
 
@@ -45,6 +59,7 @@ impl PositionTracker {
         let next = self.clamp(reported).max(self.shown);
         let due = self.last_sent.is_none_or(|last| now.duration_since(last) >= POSITION_INTERVAL);
         self.shown = next;
+        self.moved = Some(now);
         if !due {
             return None;
         }
@@ -95,6 +110,18 @@ mod tests {
         assert_eq!(tracker.seeked(secs(20), start), secs(20));
         let later = start + POSITION_INTERVAL;
         assert_eq!(tracker.report(Duration::from_millis(19_960), later), Some(secs(20)));
+    }
+
+    #[test]
+    fn the_position_runs_on_between_reports_while_playing() {
+        let start = Instant::now();
+        let mut tracker = PositionTracker::default();
+        tracker.report(secs(10), start);
+        let later = start + Duration::from_millis(200);
+        assert_eq!(tracker.at(later, 1.0, true), Duration::from_millis(10_200));
+        assert_eq!(tracker.at(later, 2.0, true), Duration::from_millis(10_400));
+        assert_eq!(tracker.at(later, 1.0, false), secs(10));
+        assert_eq!(tracker.at(start + secs(5), 1.0, true), secs(11), "a stall runs on 1 s");
     }
 
     #[test]

@@ -82,6 +82,7 @@ impl Player {
         let before = std::mem::replace(&mut self.info.tracks, tracks);
         claim_added(&mut self.info.subtitle_files, &before, &self.info.tracks);
         describe_files(&self.info.subtitle_files, &mut self.info.tracks);
+        self.reconcile_drawn();
         self.load_waiting_files(cx);
         for kind in AUTO_KINDS {
             match self.auto_pick(kind) {
@@ -110,6 +111,10 @@ impl Player {
     /// Asks the backend for the selection and records it now, so cycling again before the
     /// backend confirms moves on from it.
     fn apply_track(&mut self, kind: TrackKind, track: Option<TrackId>) {
+        if kind == TrackKind::Subtitle {
+            self.apply_subtitle(track);
+            return;
+        }
         self.with_backend(|backend| backend.select_track(kind, track));
         self.info.tracks.select(kind, track);
     }

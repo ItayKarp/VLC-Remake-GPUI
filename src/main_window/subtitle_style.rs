@@ -11,7 +11,7 @@ const CONVERTED_DIR_NAME: &str = "subtitles";
 const FULL_PERCENT: u32 = 100;
 
 /// The style plain-text subtitles are drawn in.
-pub(super) fn style(subtitles: &SubtitleSettings) -> SubtitleStyle {
+pub(crate) fn style(subtitles: &SubtitleSettings) -> SubtitleStyle {
     let size = match subtitles.size_values {
         SizeValues::Relative => TextSize::Relative(subtitles.relative_size),
         SizeValues::Pixels => TextSize::Pixels(subtitles.pixel_size),

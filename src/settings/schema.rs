@@ -58,7 +58,7 @@ pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, Wh
 pub use presets::{Preset, PresetSettings};
 pub use privacy::PrivacySettings;
 pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
-pub use subtitles::{SizeValues, SubtitleSettings};
+pub use subtitles::{SizeValues, SubtitleArea, SubtitleSettings};
 pub use video::{PictureSettings, VideoSettings};
 
 /// Everything the app persists, as one in-memory value.

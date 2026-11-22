@@ -40,8 +40,8 @@ pub use schema::{
     MiniplayerCorner, NetworkSettings, NowPlayingNotification, PerformanceSettings,
     PictureSettings, PlayerSettings, PostProcessing, Preferences, Preset, PresetSettings,
     QueueSiblings, RecordingSettings, ResumePolicy, Settings, SizeValues, SkipLength,
-    SkipLoopFilter, StartupVolume, SubtitleSettings, Tuning, VideoQuality, WheelAction,
-    WhenFinished, WindowGeometry, WindowMode, proxy_url,
+    SkipLoopFilter, StartupVolume, SubtitleArea, SubtitleSettings, Tuning, VideoQuality,
+    WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;
