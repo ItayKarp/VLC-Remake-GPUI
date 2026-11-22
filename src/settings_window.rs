@@ -20,6 +20,8 @@ mod audio_screenshot;
 mod chrome;
 mod keys;
 #[cfg(test)]
+mod library_screenshot;
+#[cfg(test)]
 mod playback_screenshot;
 #[cfg(test)]
 mod screenshots;

@@ -13,6 +13,7 @@ mod audio;
 mod controls;
 mod general;
 mod interface;
+mod library;
 mod live;
 mod miniplayer;
 mod playback;
@@ -39,6 +40,7 @@ pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{
     AutoHide, DurationReadout, FitVideo, InterfaceSettings, NowPlayingNotification,
 };
+pub use library::{ArtworkSource, LibrarySettings};
 pub use live::LiveState;
 pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
@@ -175,43 +177,6 @@ pub struct LibraryRoutes {
     /// Full library mode.
     #[serde(deserialize_with = "lenient")]
     pub full: String,
-}
-
-/// Library preferences (Stage 4, S5.9).
-#[allow(
-    clippy::struct_excessive_bools,
-    reason = "independent switches, each its own row in Settings → Library"
-)]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LibrarySettings {
-    /// Lets every launch open its own window instead of handing its files to the
-    /// running one (S0.6.1). The opposite of "Only allow one VLC window" (S5.9.1).
-    #[serde(deserialize_with = "lenient")]
-    pub allow_multiple_instances: bool,
-    /// "When opening a folder: Include subfolders" (S5.9): whether opening a folder, or a
-    /// file's folder (S3.1.3), takes the media in its subfolders too.
-    #[serde(deserialize_with = "lenient")]
-    pub include_subfolders: bool,
-    /// "Show hidden files" (S5.9.1): whether the library indexes dot files and files the OS
-    /// marks hidden or system (S4.2.2).
-    #[serde(deserialize_with = "lenient")]
-    pub show_hidden_files: bool,
-    /// "Add to the playlist instead of replacing it" (S4.10.6): whether opening a library item
-    /// while something plays adds it to the end of the queue rather than replacing the queue.
-    #[serde(deserialize_with = "lenient")]
-    pub add_instead_of_replacing: bool,
-}
-
-impl Default for LibrarySettings {
-    fn default() -> Self {
-        Self {
-            allow_multiple_instances: false,
-            include_subfolders: true,
-            show_hidden_files: false,
-            add_instead_of_replacing: false,
-        }
-    }
 }
 
 /// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens

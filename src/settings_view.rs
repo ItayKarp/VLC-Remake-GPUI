@@ -20,6 +20,7 @@ mod color_picker;
 mod controls;
 mod equalizer;
 mod highlight;
+mod media_folders;
 mod options;
 mod row;
 mod secret;
@@ -186,9 +187,14 @@ impl SettingsPage {
             enabled: state.enabled,
         };
         let control = self.control(def, &state, p, cx);
-        if matches!(def.control, registry::Control::Equalizer) {
-            // The panel is the row: the design gives it the page's width and no label.
-            return div().py(px(8.)).child(control);
+        if matches!(def.control, registry::Control::Equalizer | registry::Control::MediaFolders) {
+            // The panel is the row: the design gives the equalizer the page's width and no
+            // label, and the folder list, under its own heading, follows it. Dimmed like any
+            // row while its dependency isn't met.
+            return div()
+                .py(px(8.))
+                .when(!state.enabled, |panel| panel.opacity(row::DISABLED_OPACITY))
+                .child(control);
         }
         row::row(&label, control, p)
     }

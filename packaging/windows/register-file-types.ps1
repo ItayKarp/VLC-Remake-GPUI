@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Writes per-user keys under HKCU\Software\Classes and HKCU\Software\RegisteredApplications:
-    a ProgID that opens files with "<exe>" "%1", an OpenWithProgids entry per extension, and
+    a ProgID that opens files with "<exe>" --started-from-file "%1", an OpenWithProgids entry per extension, and
     the Capabilities that "Default apps" lists. It doesn't take over any file type: Windows
     asks the user to pick the default. No administrator rights are needed.
 
@@ -73,7 +73,7 @@ function Unregister-FileTypes {
 }
 
 function Register-FileTypes([string]$ExePath) {
-    $open = "`"$ExePath`" `"%1`""
+    $open = "`"$ExePath`" --started-from-file `"%1`""
 
     Set-RegistryValue "$Classes\$ProgId" '' 'Media file'
     Set-RegistryValue "$Classes\$ProgId\DefaultIcon" '' "`"$ExePath`",0"

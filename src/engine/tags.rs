@@ -33,6 +33,9 @@ pub enum Probe {
 /// How a reader may look things up.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Lookup {
+    /// Only the file: no cover images from its folder (Library → "Fetch titles and artwork",
+    /// S5.9.2).
+    File,
     /// Only the file and its folder (the default).
     #[default]
     Local,

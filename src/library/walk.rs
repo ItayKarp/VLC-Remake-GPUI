@@ -6,8 +6,9 @@
 //! - A folder's listing is sent before its subfolders are listed, so the indexer always knows a
 //!   folder's parent first.
 //! - Each folder is listed once, by file identity, so symlink and junction loops end.
-//! - Hidden and system files are skipped unless asked for; a folder that can't be read is
-//!   reported and skipped; a file deleted meanwhile is simply not listed.
+//! - Hidden and system files are skipped unless asked for, and the OS's own folders always are
+//!   ([`system_folders`]); a folder that can't be read is reported and skipped; a file deleted
+//!   meanwhile is simply not listed.
 
 use std::collections::HashSet;
 use std::ffi::OsString;
@@ -20,7 +21,7 @@ use std::sync::mpsc::SyncSender;
 use std::sync::{Condvar, Mutex, PoisonError};
 use std::thread;
 
-use super::{placeholder, recognize};
+use super::{placeholder, recognize, system_folders};
 use crate::db::media::FileStamp;
 use crate::history::identity;
 use crate::opening::Cancel;
@@ -166,7 +167,7 @@ impl Walk<'_> {
         // since the folder was read, or a broken link: neither is there to index.
         let Ok(metadata) = fs::metadata(&path) else { return };
         if metadata.is_dir() {
-            if self.first_visit(&path, &metadata) {
+            if !system_folders::is_system_folder(&path) && self.first_visit(&path, &metadata) {
                 listing.subdirs.push(entry.file_name());
             }
         } else if metadata.is_file() {

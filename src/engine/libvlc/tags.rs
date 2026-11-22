@@ -109,7 +109,9 @@ impl Loaded {
             return None;
         }
         let flags = match lookup {
-            Lookup::Local => PARSE_LOCAL | FETCH_LOCAL,
+            // The local fetch saves a picture inside the file to the art cache; whether a
+            // folder's cover is used is the extractor's choice.
+            Lookup::File | Lookup::Local => PARSE_LOCAL | FETCH_LOCAL,
             Lookup::Online => PARSE_LOCAL | FETCH_LOCAL | FETCH_NETWORK,
         };
         // SAFETY: `media` is a live media of this instance, released once below.

@@ -18,7 +18,7 @@ use crate::assets::icons;
 use crate::db::metadata::MediaKind;
 use crate::keymap;
 use crate::keymap::actions::ToggleFileBrowser;
-use crate::library::folder_view::kind_by_extension;
+use crate::library::{self, folder_view::kind_by_extension};
 use crate::settings;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
@@ -113,8 +113,8 @@ impl MainWindow {
             .pl(px(left_inset()))
             .child(logo(p))
             .child(self.render_menu_button(cx))
-            .child(self.sidebar_toggle(cx))
-            .when_some(chip, |left, (folder, name)| {
+            .when(library::is_enabled(cx), |left| left.child(self.sidebar_toggle(cx)))
+            .when_some(chip.filter(|_| library::is_enabled(cx)), |left, (folder, name)| {
                 left.child(div().mx(px(DIVIDER_MARGIN)).w(px(1.)).h(px(16.)).bg(p.divider))
                     .child(folder_chip(p, folder, name, cx))
             })

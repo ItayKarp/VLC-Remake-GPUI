@@ -141,9 +141,22 @@ fn videos_dont_take_the_folders_cover() {
     let dir = scratch_dir();
     picture(&dir.join("folder.jpg"), 3);
     let movie = dir.join("movie.mkv");
-    assert_eq!(choose_artwork(None, &movie, MediaKind::Video), None);
+    assert_eq!(choose_artwork(None, &movie, MediaKind::Video, Lookup::Local), None);
     assert_eq!(
-        choose_artwork(Some(&dir.join("folder.jpg")), &movie, MediaKind::Audio),
+        choose_artwork(Some(&dir.join("folder.jpg")), &movie, MediaKind::Audio, Lookup::Local),
         Some((dir.join("folder.jpg"), ArtworkSource::Folder))
+    );
+}
+
+#[test]
+fn from_the_file_only_leaves_the_folders_cover_alone() {
+    let dir = scratch_dir();
+    picture(&dir.join("folder.jpg"), 3);
+    let song = dir.join("song.mp3");
+    assert_eq!(choose_artwork(None, &song, MediaKind::Audio, Lookup::File), None);
+    let inside = std::env::temp_dir().join("embedded.jpg");
+    assert_eq!(
+        choose_artwork(Some(&inside), &song, MediaKind::Audio, Lookup::File),
+        Some((inside, ArtworkSource::Embedded))
     );
 }

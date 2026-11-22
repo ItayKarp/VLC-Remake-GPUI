@@ -7,7 +7,8 @@
 //!   reads it again.
 //! - Online-only files are never read: they have no media row until they are on the disk.
 //! - Covers: a picture inside the file first; for songs without one, the folder's cover
-//!   ([`folder_art`]). Both are cached downscaled ([`ArtworkCache`]).
+//!   ([`folder_art`]) unless only the file may be used ([`Lookup::File`], S5.9.2). Both are
+//!   cached downscaled ([`ArtworkCache`]).
 //! - Nothing is looked up online unless the user allows it ([`Lookup::Online`], S4.3.4).
 
 use std::path::{Path, PathBuf};
@@ -86,7 +87,8 @@ impl Extractor {
     fn found(&self, probed: Probed, path: &Path) -> Found {
         let kind = probed.metadata.kind;
         let artwork = self.cache.as_ref().and_then(|cache| {
-            let (image, source) = choose_artwork(probed.artwork.as_deref(), path, kind)?;
+            let found = probed.artwork.as_deref();
+            let (image, source) = choose_artwork(found, path, kind, self.lookup)?;
             Some((cache.store(&image)?, source))
         });
         let extracted =
@@ -96,18 +98,20 @@ impl Extractor {
 }
 
 /// Which cover a media at `path` gets: the one the reader found inside it (which it saved
-/// outside the media's folder), or for a song, the folder's cover. The reader's pick from the
-/// folder is ignored, so every song in a folder gets the same, predictable cover.
+/// outside the media's folder), or for a song, the folder's cover unless `lookup` keeps to the
+/// file. The reader's pick from the folder is ignored, so every song in a folder gets the same,
+/// predictable cover.
 pub fn choose_artwork(
     found: Option<&Path>,
     path: &Path,
     kind: MediaKind,
+    lookup: Lookup,
 ) -> Option<(PathBuf, ArtworkSource)> {
     let folder = path.parent()?;
     if let Some(found) = found.filter(|found| found.parent() != Some(folder)) {
         return Some((found.to_path_buf(), ArtworkSource::Embedded));
     }
-    if kind != MediaKind::Audio {
+    if kind != MediaKind::Audio || lookup == Lookup::File {
         return None;
     }
     folder_art::find(folder).map(|cover| (cover, ArtworkSource::Folder))

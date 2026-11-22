@@ -215,7 +215,8 @@ impl MainWindow {
         self.show_pending_crash(cx);
     }
 
-    /// Follows the window: the theme, redraws, its geometry, focus and the GPU it renders with.
+    /// Follows the window: the theme, redraws, its geometry, focus, the GPU it renders with, and
+    /// whether the library is used.
     fn follow_window(window: &mut Window, cx: &mut Context<Self>) {
         theme::observe(window, cx);
         Self::redraw_on_changes(window, cx);
@@ -223,6 +224,7 @@ impl MainWindow {
         Self::release_keys_on_blur(window, cx);
         Self::close_popovers_on_deactivate(window, cx);
         crate::diagnostics::system::remember_gpu(window);
+        Self::follow_library_switch(window, cx);
     }
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when

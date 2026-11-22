@@ -15,6 +15,7 @@ use gpui::{
 use super::SettingsPage;
 use super::color_picker::ColorPicker;
 use super::equalizer::EqualizerPanel;
+use super::media_folders::MediaFoldersPanel;
 use super::options::OptionsDropdown;
 use super::secret::SecretField;
 use crate::settings::{
@@ -29,6 +30,7 @@ use crate::ui::text_input::{self, TextInput, Validation};
 enum Widget {
     Dropdown(Entity<Dropdown>),
     Equalizer(Entity<EqualizerPanel>),
+    MediaFolders(Entity<MediaFoldersPanel>),
     Options(OptionsDropdown),
     Slider(Entity<Slider>),
     Field(Entity<TextInput>),
@@ -76,6 +78,12 @@ impl Widgets {
                     widgets.by_key.insert(def.key, Widget::Equalizer(panel));
                     None
                 }
+                Control::MediaFolders => {
+                    let panel = cx.new(MediaFoldersPanel::new);
+                    // The list changes the folders itself.
+                    widgets.by_key.insert(def.key, Widget::MediaFolders(panel));
+                    None
+                }
                 Control::Secret(secret) => {
                     let field = cx.new(|cx| SecretField::new(secret, def.label, window, cx));
                     // The field saves to the keychain itself; the page only keeps it enabled.
@@ -97,6 +105,7 @@ impl Widgets {
         Some(match self.by_key.get(def.key)? {
             Widget::Dropdown(dropdown) => dropdown.clone().into_any_element(),
             Widget::Equalizer(panel) => panel.clone().into_any_element(),
+            Widget::MediaFolders(panel) => panel.clone().into_any_element(),
             Widget::Options(options) => options.dropdown.clone().into_any_element(),
             Widget::Slider(slider) => slider.clone().into_any_element(),
             Widget::Field(field) => field.clone().into_any_element(),
@@ -160,6 +169,9 @@ fn sync_widget(
         }),
         Widget::Secret(field) => field.update(cx, |field, cx| field.set_parent_off(disabled, cx)),
         Widget::Equalizer(panel) => panel.update(cx, |panel, cx| panel.sync(window, cx)),
+        Widget::MediaFolders(panel) => {
+            panel.update(cx, |panel, cx| panel.set_enabled(!disabled, cx));
+        }
         Widget::Field(field) => field.update(cx, |field, cx| {
             field.set_disabled(disabled, cx);
             let text = def.format_value(&value);

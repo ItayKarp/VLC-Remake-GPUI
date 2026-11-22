@@ -29,7 +29,7 @@ const SECTION_TEXT: f32 = 18.;
 const SECTION_TOP: f32 = 30.;
 const SECTION_BOTTOM: f32 = 8.;
 /// How much a disabled row shows through.
-const DISABLED_OPACITY: f32 = 0.4;
+pub(super) const DISABLED_OPACITY: f32 = 0.4;
 /// The Advanced Options bar's height and the space above it.
 const ADVANCED_HEIGHT: f32 = 36.;
 const ADVANCED_TOP: f32 = 24.;

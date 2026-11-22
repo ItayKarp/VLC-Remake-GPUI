@@ -43,6 +43,10 @@ pub enum Control {
     /// The equalizer's sliders, across the page under the rows before it; the panel saves the
     /// gains itself, so its binding is [`Binding::ACTION`].
     Equalizer,
+    /// The library's media folders (S5.9.3), across the page: each with its status, Rescan and
+    /// Remove, then buttons that add one. The list changes the folders itself, so its binding is
+    /// [`Binding::ACTION`].
+    MediaFolders,
 }
 
 /// The ticks on a [`Control::Slider`]'s track, every that much from the minimum.

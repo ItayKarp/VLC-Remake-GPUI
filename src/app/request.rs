@@ -78,6 +78,10 @@ pub struct Launch {
     pub start: StartScreen,
     /// What to open.
     pub open: OpenRequest,
+    /// Whether the file manager started it (`--started-from-file`, which the app's file
+    /// associations pass), for "Apply to files opened from the file manager" (S5.9.1). Only the
+    /// launch itself needs it: it isn't forwarded.
+    pub from_file_manager: bool,
 }
 
 impl Launch {

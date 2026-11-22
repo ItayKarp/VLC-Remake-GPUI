@@ -167,3 +167,21 @@ fn hidden_files_follow_the_setting() {
     indexer.send(Command::ShowHidden(true));
     indexer.wait_for("both files", idle_with(2));
 }
+
+#[test]
+fn suspending_keeps_the_index_and_stops_following_the_folder() {
+    let top = scratch_dir();
+    write_settled(&top.join("a.mkv"), b"one");
+    let indexer = start();
+    indexer.send(video(&top));
+    indexer.wait_for("one file", idle_with(1));
+    indexer.send(Command::Suspend);
+    indexer.wait_for("no folders", <[RootState]>::is_empty);
+    {
+        let mut database = indexer.store.0.lock().expect("lock");
+        assert_eq!(roots::list(database.connection()).expect("list").len(), 1);
+    }
+    write_settled(&top.join("b.mkv"), b"two");
+    indexer.send(video(&top));
+    indexer.wait_for("both files", idle_with(2));
+}

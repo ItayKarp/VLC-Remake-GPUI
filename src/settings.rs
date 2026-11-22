@@ -32,11 +32,12 @@ pub use paths::{Locations, cache_dir, default_media_folder, display_path};
     reason = "part of the settings API; some types are named only by tests and later stages"
 )]
 pub use schema::{
-    AudioSettings, AutoHide, ClickAction, ControlsSettings, DoubleClickAction, DurationReadout,
-    FitVideo, HorizontalWheelAction, InterfaceLanguage, LibraryRoutes, LiveState, LocalState,
-    MiniplayerCorner, NowPlayingNotification, PictureSettings, PlayerSettings, Preferences,
-    QueueSiblings, ResumePolicy, Settings, SizeValues, SkipLength, StartupVolume, SubtitleSettings,
-    VideoQuality, WheelAction, WhenFinished, WindowGeometry, WindowMode,
+    ArtworkSource, AudioSettings, AutoHide, ClickAction, ControlsSettings, DoubleClickAction,
+    DurationReadout, FitVideo, HorizontalWheelAction, InterfaceLanguage, LibraryRoutes,
+    LibrarySettings, LiveState, LocalState, MiniplayerCorner, NowPlayingNotification,
+    PictureSettings, PlayerSettings, Preferences, QueueSiblings, ResumePolicy, Settings,
+    SizeValues, SkipLength, StartupVolume, SubtitleSettings, VideoQuality, WheelAction,
+    WhenFinished, WindowGeometry, WindowMode,
 };
 pub use store::Notice;
 use store::SettingsState;

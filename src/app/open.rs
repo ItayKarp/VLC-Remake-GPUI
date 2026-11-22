@@ -12,9 +12,10 @@ use gpui::{App, AsyncApp, Global};
 
 use super::instance::batch::{BATCH_WINDOW, Batcher};
 use super::instance::{InboxReceiver, Incoming};
-use super::request::{Launch, OpenRequest, StartScreen};
+use super::request::{Launch, OpenRequest, Placement, StartScreen};
 use crate::main_window::MainWindow;
 use crate::onboarding::Onboarding;
+use crate::settings;
 
 /// Files asked for while onboarding was showing, opened when it finishes.
 #[derive(Default)]
@@ -76,6 +77,8 @@ fn deliver(launch: Launch, cx: &mut App) {
 fn open(request: OpenRequest, cx: &mut App) {
     let windows = cx.windows();
     if let Some(main) = windows.iter().find_map(gpui::AnyWindowHandle::downcast::<MainWindow>) {
+        let request =
+            handed_over(request, settings::get(cx).prefs.library.add_instead_of_replacing);
         main.update(cx, |main, window, cx| {
             main.open(request, window, cx);
             window.activate_window();
@@ -87,9 +90,18 @@ fn open(request: OpenRequest, cx: &mut App) {
         queue(request, cx);
         onboarding.update(cx, |_, window, _| window.activate_window()).ok();
     } else {
-        super::open_initial_window(&Launch { open: request, start: StartScreen::Auto }, cx);
+        super::open_initial_window(&Launch { open: request, ..Launch::default() }, cx);
     }
     cx.activate(true);
+}
+
+/// What files handed to the open window do: with "Add to the playlist instead of replacing it"
+/// (S5.9.1), go to the end of the queue rather than replace it.
+fn handed_over(mut request: OpenRequest, add: bool) -> OpenRequest {
+    if add && request.placement == Placement::Replace {
+        request.placement = Placement::Enqueue;
+    }
+    request
 }
 
 /// Keeps `request` until onboarding hands off to the main window: launches and files
