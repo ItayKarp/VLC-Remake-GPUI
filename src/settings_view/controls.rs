@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use gpui::{AnyElement, App, Context, PathPromptOptions, Window, div, prelude::*, px};
+use gpui::{AnyElement, App, Context, PathPromptOptions, PromptLevel, Window, div, prelude::*, px};
 
 use super::SettingsPage;
 use super::swatches::{SelectHandler, SwatchRow, swatches};
@@ -42,8 +42,8 @@ impl SettingsPage {
         match (def.control, &state.value) {
             (Control::Toggle, Value::Bool(on)) => Toggle::new(def.key, *on, def.label)
                 .disabled(!enabled)
-                .on_change(cx.listener(move |this, on: &bool, _, cx| {
-                    this.write(def, Value::Bool(*on), cx);
+                .on_change(cx.listener(move |this, on: &bool, window, cx| {
+                    this.toggle(def, *on, window, cx);
                 }))
                 .into_any_element(),
             (Control::Segmented(choices), Value::Choice(id)) => {
@@ -67,6 +67,36 @@ impl SettingsPage {
         }
     }
 
+    /// Saves a toggle, asking first when the row wants turning it off confirmed (S5.10.1),
+    /// unless confirmations are off (S5.3.3).
+    fn toggle(
+        &mut self,
+        def: &'static SettingDef,
+        on: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let confirm =
+            def.confirm_off.filter(|_| !on && settings::get(cx).prefs.startup.show_dialogs);
+        let Some(confirm) = confirm else {
+            self.write(def, Value::Bool(on), cx);
+            return;
+        };
+        let answer = window.prompt(
+            PromptLevel::Warning,
+            confirm.title,
+            Some(confirm.detail),
+            &[confirm.button, "Cancel"],
+            cx,
+        );
+        cx.spawn(async move |page, cx| {
+            if answer.await == Ok(0) {
+                page.update(cx, |page, cx| page.write(def, Value::Bool(false), cx)).ok();
+            }
+        })
+        .detach();
+    }
+
     /// The row's stateful control; a path field gets a Browse button, a color field a square.
     fn widget(
         &self,
@@ -79,9 +109,15 @@ impl SettingsPage {
             return element;
         }
         let field = Self::field_with_escape(def, element, cx);
-        match def.control {
-            Control::Path(pick) => with_browse(def, pick, field, enabled, cx),
-            Control::HexColor => self.with_color_square(def, field),
+        match (def.control, def.side_button) {
+            (Control::Path(pick), _) => with_browse(def, pick, field, enabled, cx),
+            (Control::HexColor, _) => self.with_color_square(def, field),
+            (_, Some(side)) => {
+                let button = Button::new(def.key, side.label)
+                    .disabled(!enabled)
+                    .on_click(move |_, window, cx| (side.action)(window, cx));
+                beside(field, button.into_any_element())
+            }
             _ => field,
         }
     }
@@ -126,13 +162,18 @@ fn with_browse(
     let browse = Button::new("browse", "Browse")
         .disabled(!enabled)
         .on_click(cx.listener(move |_, _, _, cx| browse_for(def, pick, cx)));
+    beside(field, browse.into_any_element())
+}
+
+/// A field taking the row's width with `button` after it.
+fn beside(field: AnyElement, button: AnyElement) -> AnyElement {
     div()
         .w_full()
         .flex()
         .items_start()
         .gap(px(BESIDE_GAP))
         .child(div().flex_1().min_w_0().child(field))
-        .child(div().flex_none().child(browse))
+        .child(div().flex_none().child(button))
         .into_any_element()
 }
 
@@ -140,10 +181,11 @@ fn with_browse(
 /// refuses shows why under the field.
 fn browse_for(def: &'static SettingDef, pick: PathPick, cx: &mut Context<SettingsPage>) {
     let chosen = match pick {
-        PathPick::ExistingFile => {
+        PathPick::ExistingFile | PathPick::Folder => {
+            let folder = pick == PathPick::Folder;
             let options = PathPromptOptions {
-                files: true,
-                directories: false,
+                files: !folder,
+                directories: folder,
                 multiple: false,
                 prompt: None,
             };

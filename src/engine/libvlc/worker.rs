@@ -182,6 +182,7 @@ impl Worker {
     /// Replaces the media with `source` and starts playing it (or holds it paused) from where
     /// `start` says, as open `generation`.
     pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
+        super::hardware::decoding(None);
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
@@ -269,6 +270,7 @@ impl Worker {
     }
 
     fn ended(&self) {
+        super::hardware::decoding(None);
         let state = if self.track_count() == 0 {
             PlaybackState::Error(ErrorKind::NoPlayableStreams)
         } else {
@@ -278,6 +280,7 @@ impl Worker {
     }
 
     fn failed(&self) {
+        super::hardware::decoding(None);
         let started = self.shared.started.load(Ordering::Relaxed);
         let kind = failure::classify(self.source.as_ref(), started);
         tracing::warn!("libvlc: playback failed ({kind:?}): {}", self.vlc.last_error());
@@ -319,6 +322,7 @@ impl Worker {
             (api.libvlc_media_player_release)(self.handles.player);
         }
         self.release_media();
+        super::hardware::decoding(None);
         // SAFETY: nothing uses the instance any more.
         unsafe { (self.vlc.api.libvlc_release)(self.handles.instance) };
         // The player is gone, so `vmem`'s callbacks can't run: the sink may be dropped now.

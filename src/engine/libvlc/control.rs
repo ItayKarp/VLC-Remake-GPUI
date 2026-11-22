@@ -20,6 +20,15 @@ const NO_TRACK: c_int = -1;
 const FULL_VOLUME: f32 = 100.0;
 
 impl Worker {
+    /// Stops playback; the GPU no longer decodes anything.
+    fn stop(&self) {
+        // A stop during a switch to software decoding must reach the player.
+        self.shared.switching.store(false, Ordering::Relaxed);
+        // SAFETY: the player is live for the worker's whole life.
+        unsafe { (self.vlc.api.libvlc_media_player_stop)(self.handles.player) };
+        super::hardware::decoding(None);
+    }
+
     /// Runs one command.
     pub(super) fn execute(&mut self, command: Command) {
         let vlc = Arc::clone(&self.vlc);
@@ -32,11 +41,7 @@ impl Worker {
                 Command::Open { media, start, generation } => self.open(media, start, generation),
                 Command::Play => _ = (api.libvlc_media_player_play)(player),
                 Command::Pause => (api.libvlc_media_player_set_pause)(player, 1),
-                Command::Stop => {
-                    // A stop during a switch to software decoding must reach the player.
-                    self.shared.switching.store(false, Ordering::Relaxed);
-                    (api.libvlc_media_player_stop)(player);
-                }
+                Command::Stop => self.stop(),
                 Command::Seek(to) => self.seek(to),
                 Command::FrameStep(direction) => self.frame_step(direction),
                 Command::SetRate(rate) => {

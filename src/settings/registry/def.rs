@@ -84,6 +84,8 @@ pub enum PathPick {
     ExistingFile,
     /// Where to write a file, which may not exist yet (a log); `name` is suggested.
     NewFile { name: &'static str },
+    /// A folder that exists (where recordings go).
+    Folder,
 }
 
 /// The numbers a numeric setting allows, in the unit its row shows.
@@ -148,8 +150,39 @@ pub enum ApplyMode {
     Restart,
 }
 
+/// What the OS's alert asks before a toggle is turned off, because off is risky ("Verify
+/// certificates").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Confirm {
+    /// The alert's question.
+    pub title: &'static str,
+    /// What turning it off means.
+    pub detail: &'static str,
+    /// The button that turns it off; the other one cancels.
+    pub button: &'static str,
+}
+
+/// A button beside a text field that acts on its saved value (the proxy's Test).
+#[derive(Clone, Copy, Debug)]
+pub struct SideButton {
+    /// The button's label.
+    pub label: &'static str,
+    /// What it does.
+    pub action: fn(&mut gpui::Window, &mut gpui::App),
+}
+
 /// Checks a value beyond its range; returns the message shown under the field.
 pub type Validator = fn(&Value) -> Result<(), String>;
+
+/// How a row's hint line reads.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HintTone {
+    /// Muted, like the label's other notes.
+    #[default]
+    Note,
+    /// In the danger color: the value puts the user at risk ("Certificates aren't verified").
+    Danger,
+}
 
 /// A line under the row's label about its value in the light of the other settings or the
 /// machine ("Starts at 150%, the maximum volume"); `None` when there is nothing to say.
@@ -186,8 +219,14 @@ pub struct SettingDef {
     pub keywords: &'static [&'static str],
     /// A line under the label, given the settings.
     pub hint: Option<Hint>,
+    /// How the hint line reads.
+    pub hint_tone: HintTone,
     /// What an empty text field shows.
     pub placeholder: &'static str,
+    /// What a toggle asks before it is turned off.
+    pub confirm_off: Option<Confirm>,
+    /// A button beside the row's text field.
+    pub side_button: Option<SideButton>,
 }
 
 impl SettingDef {
@@ -214,7 +253,10 @@ impl SettingDef {
             advanced: false,
             keywords: &[],
             hint: None,
+            hint_tone: HintTone::Note,
             placeholder: "",
+            confirm_off: None,
+            side_button: None,
         }
     }
 
@@ -260,9 +302,32 @@ impl SettingDef {
         self
     }
 
+    /// Shows `hint`'s line under the label in the danger color.
+    pub const fn danger_hint(mut self, hint: Hint) -> Self {
+        self.hint = Some(hint);
+        self.hint_tone = HintTone::Danger;
+        self
+    }
+
     /// Shows `placeholder` in the row's empty text field.
     pub const fn placeholder(mut self, placeholder: &'static str) -> Self {
         self.placeholder = placeholder;
+        self
+    }
+
+    /// Asks `confirm` before the toggle is turned off.
+    pub const fn confirm_off(mut self, confirm: Confirm) -> Self {
+        self.confirm_off = Some(confirm);
+        self
+    }
+
+    /// Puts a button labelled `label` that runs `action` beside the row's text field.
+    pub const fn side_button(
+        mut self,
+        label: &'static str,
+        action: fn(&mut gpui::Window, &mut gpui::App),
+    ) -> Self {
+        self.side_button = Some(SideButton { label, action });
         self
     }
 

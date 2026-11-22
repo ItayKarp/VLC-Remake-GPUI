@@ -44,8 +44,11 @@ pub(super) struct RowLabel {
     pub highlights: Vec<Range<usize>>,
     /// The `(i)` tooltip; empty for none.
     pub info: &'static str,
-    /// A muted line under the label ("Applies to the next file you open").
+    /// A line under the label ("Applies to the next file you open"), muted unless it warns of
+    /// danger.
     pub note: Option<SharedString>,
+    /// Whether the note is drawn in the danger color.
+    pub note_is_danger: bool,
     /// Whether the row can be changed.
     pub enabled: bool,
 }
@@ -68,10 +71,11 @@ pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
         .gap(px(INFO_GAP))
         .child(label_text(label, p))
         .when(!label.info.is_empty(), |text| text.child(info_icon(label, p)));
+    let note_color = if label.note_is_danger { p.danger } else { p.text_muted };
     let note = label
         .note
         .clone()
-        .map(|note| div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note));
+        .map(|note| div().text_size(px(metrics::TEXT_SMALL)).text_color(note_color).child(note));
     div()
         .min_h(px(ROW_HEIGHT))
         .py(px(4.))

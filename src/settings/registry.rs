@@ -25,7 +25,9 @@ pub(crate) mod value;
 pub use category::Layout;
 pub use category::{Category, Group};
 pub use color::hex_color;
-pub use def::{ApplyMode, Control, MachineChoice, Marks, OptionsSource, PathPick, SettingDef};
+pub use def::{
+    ApplyMode, Control, HintTone, MachineChoice, Marks, OptionsSource, PathPick, SettingDef,
+};
 #[cfg(test)]
 pub use rules::search;
 pub use rules::{sanitize, search_words};

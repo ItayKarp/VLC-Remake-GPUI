@@ -1,5 +1,5 @@
 //! Network streams (S4.11): the [`Streams`] global listing Network's categories, the operations
-//! that fill them, and reading links ([`links`]).
+//! that fill them, and reading links ([`links`]); and testing the HTTP proxy ([`proxy_test`]).
 //!
 //! The rows live in the database ([`crate::db::network`]), which only the history thread
 //! touches: every operation runs there through [`History::with_database`] and reads the lists
@@ -9,6 +9,7 @@
 //! settings files aren't a place for passwords, and the system keychain isn't wired up yet.
 
 pub mod links;
+pub mod proxy_test;
 
 use futures::channel::oneshot;
 use gpui::{App, Global, Task};

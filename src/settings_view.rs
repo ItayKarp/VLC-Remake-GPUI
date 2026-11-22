@@ -177,6 +177,7 @@ impl SettingsPage {
         let state = RowState { value: def.value(settings), enabled: def.is_enabled(settings) };
         let hint = def.hint.and_then(|hint| hint(cx)).map(SharedString::from);
         let edited = self.edited.contains(def.key).then_some(SharedString::from(NEXT_MEDIA_NOTE));
+        let note_is_danger = hint.is_some() && def.hint_tone == registry::HintTone::Danger;
         let note = hint.or(edited);
         let label = RowLabel {
             key: def.key,
@@ -184,6 +185,7 @@ impl SettingsPage {
             highlights: highlight::ranges(def.label, &self.words),
             info: def.info,
             note,
+            note_is_danger,
             enabled: state.enabled,
         };
         let control = self.control(def, &state, p, cx);

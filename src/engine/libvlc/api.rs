@@ -8,6 +8,7 @@ use std::ffi::{CStr, c_char, c_float, c_int, c_uint, c_void};
 use anyhow::{Context as _, Result};
 use libloading::Library;
 
+use super::certificates::{DialogCallbacks, DialogId};
 use super::runtime::Runtime;
 
 /// Declares an opaque libVLC handle type.
@@ -250,6 +251,9 @@ libvlc_api! {
         *mut c_void
     );
     libvlc_video_set_format_callbacks: fn(Player, FormatCallback, Option<CleanupCallback>);
+    libvlc_dialog_set_callbacks: fn(*mut Instance, *const DialogCallbacks, *mut c_void);
+    libvlc_dialog_post_action: fn(*mut DialogId, c_int) -> c_int;
+    libvlc_dialog_dismiss: fn(*mut DialogId) -> c_int;
 }
 
 /// The libVLC libraries, core first, by their file names on this OS.

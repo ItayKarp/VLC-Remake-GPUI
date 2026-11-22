@@ -16,6 +16,8 @@ const SERVICE: &str = "org.redesignedvlc.app";
 pub enum Secret {
     /// The last.fm password (S5.5.2), for submitting played tracks (S8.17).
     LastFmPassword,
+    /// The HTTP proxy's password (S5.10.1).
+    ProxyPassword,
 }
 
 impl Secret {
@@ -23,6 +25,7 @@ impl Secret {
     fn account(self) -> &'static str {
         match self {
             Self::LastFmPassword => "lastfm",
+            Self::ProxyPassword => "http-proxy",
         }
     }
 }
@@ -78,8 +81,7 @@ pub fn forget(secret: Secret) -> Result<(), KeychainError> {
     }
 }
 
-/// The saved `secret`, if any, for the feature that sends it (S8.17).
-#[allow(dead_code, reason = "scrobbling (S8.17) reads the password; S5.5 only saves it")]
+/// The saved `secret`, if any, for the feature that sends it (the proxy, scrobbling).
 pub fn load(secret: Secret) -> Result<Option<String>, KeychainError> {
     read(&entry(secret)?)
 }

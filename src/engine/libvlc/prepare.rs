@@ -87,8 +87,10 @@ struct Geometry {
 
 impl Worker {
     /// Tells the video sink the display size of `media` (a local `source` only), and turns
-    /// hardware decoding off when the track is rotated; returns how it will be decoded. Blocks
-    /// the worker for the parse, at most [`PARSE_TIMEOUT`].
+    /// hardware decoding off when the track is rotated, Settings → Performance turned it off, or
+    /// it crashed on this media or GPU before ([`super::hardware`]);
+    /// returns how it will be decoded. Blocks the worker for the parse, at most
+    /// [`PARSE_TIMEOUT`].
     pub(super) fn prepare_video(&self, media: *mut Media, source: &Source) -> Decoding {
         let Some(video) = &self.video else { return Decoding::Hardware };
         let geometry = match source {
@@ -96,10 +98,12 @@ impl Worker {
             _ => None,
         };
         video.set_display(geometry.map(|geometry| geometry.display));
-        if !geometry.is_some_and(|geometry| geometry.rotated) {
+        let rotated = geometry.is_some_and(|geometry| geometry.rotated);
+        if rotated {
+            tracing::info!("libvlc: rotated video; decoding in software so it can be rotated");
+        } else if super::system_options::hardware_decoding() && super::hardware::allowed(source) {
             return Decoding::Hardware;
         }
-        tracing::info!("libvlc: rotated video; decoding in software so it can be rotated");
         self.add_option(media, &SOFTWARE_DECODING);
         Decoding::Software
     }

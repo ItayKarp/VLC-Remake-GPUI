@@ -16,8 +16,11 @@ mod interface;
 mod library;
 mod live;
 mod miniplayer;
+mod network;
+mod performance;
 mod playback;
 mod privacy;
+mod recording;
 mod subtitles;
 mod video;
 
@@ -43,8 +46,14 @@ pub use interface::{
 pub use library::{ArtworkSource, LibrarySettings};
 pub use live::LiveState;
 pub use miniplayer::MiniplayerCorner;
+pub use network::{Buffering, Caching, CipherPreference, NetworkSettings, proxy_url};
+pub use performance::{
+    ClockSynchronisation, Decoder, Encoder, HardwareDecoding, PerformanceSettings, PostProcessing,
+    SkipLoopFilter,
+};
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
 pub use privacy::PrivacySettings;
+pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
 pub use subtitles::{SizeValues, SubtitleSettings};
 pub use video::{PictureSettings, VideoSettings};
 
@@ -99,6 +108,15 @@ pub struct Preferences {
     /// Privacy preferences.
     #[serde(deserialize_with = "lenient")]
     pub privacy: PrivacySettings,
+    /// Buffering, the proxy and TLS (S5.10.1).
+    #[serde(deserialize_with = "lenient")]
+    pub network: NetworkSettings,
+    /// Decoding, priority and the clock (S5.10.2).
+    #[serde(deserialize_with = "lenient")]
+    pub performance: PerformanceSettings,
+    /// Recording, casting and streaming out (S5.10.3).
+    #[serde(deserialize_with = "lenient")]
+    pub recording: RecordingSettings,
     /// Custom key bindings.
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
@@ -108,6 +126,10 @@ pub struct Preferences {
 }
 
 /// State that only makes sense on this machine.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "unrelated flags of different features, not one state machine"
+)]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LocalState {
@@ -164,6 +186,22 @@ pub struct LocalState {
     /// "Skin file" (S5.4.4), as typed. Local: it is a path on this machine.
     #[serde(deserialize_with = "lenient")]
     pub skin_file: String,
+    /// "Save recordings to" (S5.10.3), as typed; empty means the OS Videos folder. Local: it is
+    /// a path on this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub recordings_folder: String,
+    /// "Rescan plugins" (S5.10.2) was asked for: the next launch has libVLC look for its plugins
+    /// again instead of trusting its cache, then clears this.
+    #[serde(deserialize_with = "lenient")]
+    pub rescan_plugins: bool,
+    /// Media VLC closed unexpectedly on while the GPU decoded it (S5.10.2), as paths or URLs:
+    /// they decode in software. Local: the GPU and the paths belong to this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub software_decoding: Vec<String>,
+    /// How many times VLC closed unexpectedly while each GPU and driver decoded video; at
+    /// `app::hardware_fallback`'s limit, hardware decoding is off for it.
+    #[serde(deserialize_with = "lenient")]
+    pub hardware_decoding_crashes: BTreeMap<String, u32>,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty

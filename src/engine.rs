@@ -38,6 +38,7 @@ pub mod preview;
 pub mod shutdown;
 pub mod state;
 pub mod subtitle_style;
+pub mod system_options;
 pub mod tags;
 #[cfg(test)]
 mod tests;

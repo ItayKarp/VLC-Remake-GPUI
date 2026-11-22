@@ -30,6 +30,8 @@ mod sidebar;
 #[cfg(test)]
 mod subtitles_screenshot;
 #[cfg(test)]
+mod system_screenshots;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod video_screenshot;

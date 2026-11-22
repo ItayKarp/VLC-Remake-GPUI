@@ -1,9 +1,10 @@
 //! The main window's side of diagnostics (S0.7): telling the user about the last
-//! crash and copying debug info.
+//! crash, or the hardware decoding it made fall back (S5.10.2), and copying debug info.
 
 use gpui::{ClipboardItem, Context, Window};
 
 use super::MainWindow;
+use crate::app::hardware_fallback;
 use crate::diagnostics::{self, crash, debug_info, system};
 use crate::settings;
 use crate::ui::toast::{Level, Toast};
@@ -13,6 +14,10 @@ impl MainWindow {
     pub(super) fn show_pending_crash(&mut self, cx: &mut Context<Self>) {
         let Some(report) = diagnostics::logs_dir().and_then(|logs| crash::take_pending(&logs))
         else {
+            // A crash inside a GPU driver leaves no report, but hardware decoding falls back.
+            if let Some(notice) = hardware_fallback::take_notice() {
+                self.show_toast(Toast::new(Level::Warning, notice), cx);
+            }
             return;
         };
         let toast = Toast::new(

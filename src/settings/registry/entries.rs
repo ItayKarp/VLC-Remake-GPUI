@@ -1,7 +1,6 @@
 //! The registry's rows, one file per category, and the checks they share.
 //!
-//! Categories whose settings don't exist yet (Network, Performance, Recording, Extensions)
-//! have no file: their stories add one along with the settings.
+//! Extensions has no file: its add-ons list waits for the extension system (S8.14, D19).
 
 mod audio;
 mod audio_effects;
@@ -10,9 +9,12 @@ mod diagnostics;
 mod general;
 mod interface;
 mod library;
+mod network;
+mod performance;
 mod play_order;
 mod playback;
 mod privacy;
+mod recording;
 mod subtitle_style;
 mod subtitles;
 mod video;
@@ -24,7 +26,7 @@ use crate::engine::language::Language;
 
 /// Every category's rows, in sidebar order (General, Interface and Playback in two parts each,
 /// Audio in three, Subtitles in two).
-pub(super) static PAGES: [&[SettingDef]; 15] = [
+pub(super) static PAGES: [&[SettingDef]; 18] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
     window::ENTRIES,
@@ -40,6 +42,9 @@ pub(super) static PAGES: [&[SettingDef]; 15] = [
     subtitles::ENTRIES,
     subtitle_style::ENTRIES,
     library::ENTRIES,
+    network::ENTRIES,
+    performance::ENTRIES,
+    recording::ENTRIES,
 ];
 
 /// Checks that every entry of a language list is a language code.

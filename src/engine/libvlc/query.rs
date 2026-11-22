@@ -63,6 +63,7 @@ impl Worker {
             self.defaults.learn(&tracks);
         }
         self.defaults.mark(&mut tracks);
+        self.mark_hardware(&tracks);
         self.watch_subtitles(&tracks, Instant::now());
         self.shared.send(BackendEvent::Tracks(tracks));
         self.send_size_of(&streams);
