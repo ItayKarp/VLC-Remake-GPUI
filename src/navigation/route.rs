@@ -9,6 +9,8 @@ use crate::db::playlists::PlaylistId;
 pub enum Route {
     /// What was watched and listened to lately (S4.9).
     Home,
+    /// One of Home's sections in full (its `>`).
+    HomeSection(HomeSection),
     /// The video folders: their list (`None`), or a folder in one of them.
     Videos(Option<PathBuf>),
     /// The music: its categories, or a place in one.
@@ -21,6 +23,47 @@ pub enum Route {
     History,
     /// Search results (S4.7).
     Search(Search),
+}
+
+/// Home's sections, top to bottom.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum HomeSection {
+    /// Videos left partway, the most recent first.
+    ContinueWatching,
+    /// Audio played lately.
+    ListenAgain,
+    /// Favorite media and playlists (S4.8.5).
+    Favorites,
+    /// The library folders visited most.
+    Folders,
+    /// The saved playlists visited most.
+    Playlists,
+    /// The artists played most.
+    Artists,
+}
+
+impl HomeSection {
+    /// Every section, in Home's order.
+    pub const ALL: [Self; 6] = [
+        Self::ContinueWatching,
+        Self::ListenAgain,
+        Self::Favorites,
+        Self::Folders,
+        Self::Playlists,
+        Self::Artists,
+    ];
+
+    /// The section's heading.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ContinueWatching => "Continue Watching",
+            Self::ListenAgain => "Listen Again",
+            Self::Favorites => "Favorites",
+            Self::Folders => "Frequently Visited Folders",
+            Self::Playlists => "Frequently Visited Playlists",
+            Self::Artists => "Frequently Listened Artists",
+        }
+    }
 }
 
 /// A place in the Music section.
@@ -149,7 +192,7 @@ impl Route {
     /// The rail section this route is in. A search is in the section it searches.
     pub fn section(&self) -> Section {
         match self {
-            Self::Home => Section::Home,
+            Self::Home | Self::HomeSection(_) => Section::Home,
             Self::Videos(_) => Section::Videos,
             Self::Music(_) => Section::Music,
             Self::Network(_) => Section::Network,
@@ -205,6 +248,7 @@ mod tests {
             MusicCategory::Songs.route(),
             Route::Playlists(Some(PlaylistId(3))),
             Route::Search(Search { query: "wand".into(), scope: Section::Videos }),
+            Route::HomeSection(HomeSection::ListenAgain),
         ];
         for route in inside {
             assert!(!route.is_section_root(), "{route:?}");

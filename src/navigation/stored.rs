@@ -1,11 +1,11 @@
 //! Routes as text, so the last one can be saved in `local.toml` (S4.5.6).
 //!
-//! The form is `kind[/category][:value]`: `home`, `videos`, `videos:/media/Shows`,
+//! The form is `kind[/category][:value]`: `home`, `home:listen-again`, `videos`, `videos:/media/Shows`,
 //! `music/songs:/music/My Songs`, `music/albums:Juxt`, `playlists:4`, `search/videos:wand`.
 //! Paths are encoded like every stored path, so any path survives. Text that doesn't parse (a
 //! newer build's route, a hand edit) reads as nothing, and the library opens at Home.
 
-use super::route::{MusicRoute, Route, Search, Section};
+use super::route::{HomeSection, MusicRoute, Route, Search, Section};
 use crate::db::playlists::PlaylistId;
 use crate::settings::stored_path;
 
@@ -14,6 +14,7 @@ pub fn encode(route: &Route) -> String {
     let path = |path: &std::path::PathBuf| stored_path::encode(path);
     let (kind, value) = match route {
         Route::Home => ("home", None),
+        Route::HomeSection(section) => ("home", Some(home_section_name(*section).to_owned())),
         Route::Videos(folder) => ("videos", folder.as_ref().map(path)),
         Route::Music(MusicRoute::Categories) => ("music", None),
         Route::Music(MusicRoute::Songs(folder)) => ("music/songs", folder.as_ref().map(path)),
@@ -42,7 +43,12 @@ pub fn decode(text: &str) -> Option<Route> {
     let name = || value.map(str::to_owned);
     let folder = || value.filter(|path| !path.is_empty()).and_then(stored_path::decode);
     let route = match kind {
-        "home" => Route::Home,
+        "home" => match value {
+            None => Route::Home,
+            Some(name) => Route::HomeSection(
+                HomeSection::ALL.into_iter().find(|section| home_section_name(*section) == name)?,
+            ),
+        },
         "videos" => Route::Videos(folder()),
         "music" => Route::Music(MusicRoute::Categories),
         "music/songs" => Route::Music(MusicRoute::Songs(folder())),
@@ -60,6 +66,17 @@ pub fn decode(text: &str) -> Option<Route> {
     };
     // A value the kind can't hold, or a path that doesn't decode, makes the text unreadable.
     (encode(&route) == text).then_some(route)
+}
+
+fn home_section_name(section: HomeSection) -> &'static str {
+    match section {
+        HomeSection::ContinueWatching => "continue-watching",
+        HomeSection::ListenAgain => "listen-again",
+        HomeSection::Favorites => "favorites",
+        HomeSection::Folders => "folders",
+        HomeSection::Playlists => "playlists",
+        HomeSection::Artists => "artists",
+    }
 }
 
 fn scope_name(section: Section) -> &'static str {
@@ -82,6 +99,8 @@ mod tests {
     fn every_kind_of_route_survives() {
         let routes = [
             Route::Home,
+            Route::HomeSection(HomeSection::ContinueWatching),
+            Route::HomeSection(HomeSection::Artists),
             Route::Videos(None),
             Route::Videos(Some("/media/Shows: the best/S01".into())),
             Route::Music(MusicRoute::Categories),

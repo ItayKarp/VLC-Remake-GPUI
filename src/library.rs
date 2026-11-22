@@ -16,6 +16,7 @@
 //! - [`favorites`], [`copy_in`]: the media and playlists marked as favorites, and copying
 //!   files into a library folder (S4.8).
 //! - [`thumbnails`], [`thumbnailer`], [`thumbnail_cache`]: the views' thumbnails (S4.4).
+//! - [`home`], [`frequency`]: what Home lists, and the fading counts that rank it (S4.9).
 
 pub mod apply;
 pub mod artwork_cache;
@@ -26,6 +27,8 @@ pub mod extract;
 pub mod favorites;
 pub mod folder_art;
 pub mod folder_view;
+pub mod frequency;
+pub mod home;
 pub mod identify;
 pub mod indexer;
 pub mod music;

@@ -4,13 +4,14 @@
 //!
 //! A search says "No results for “…”", a folder "This folder is empty", History "Nothing watched
 //! yet", Albums, Artists and Genres that no songs have been read, Playlists that none were
-//! made. Anything else says "Nothing here yet."
+//! made, and each of Home's sections in full what fills it (S4.9). Anything else says "Nothing
+//! here yet." Home itself has its own welcome.
 
 use gpui::{ClickEvent, Context, Div, SharedString, div, prelude::*, px};
 
 use super::{INSET, MainWindow};
 use crate::assets::icons;
-use crate::navigation::route::{MusicRoute, Route, Search, Section};
+use crate::navigation::route::{HomeSection, MusicRoute, Route, Search, Section};
 use crate::theme::Palette;
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
@@ -44,6 +45,7 @@ impl EmptyState {
         };
         match route {
             Route::Search(search) => searched(search),
+            Route::HomeSection(section) => home_section(*section),
             Route::Videos(Some(_)) => {
                 state(icons::FOLDER, "This folder is empty", "It holds no videos or folders.")
             }
@@ -68,6 +70,35 @@ impl EmptyState {
 
 /// The hint of Music's empty categories.
 const NO_SONGS: &str = "Songs in your music folders show up here once the library has read them.";
+
+/// What a Home section's full list says while it is empty.
+fn home_section(section: HomeSection) -> EmptyState {
+    let (icon, title, hint) = match section {
+        HomeSection::ContinueWatching => {
+            (icons::VIDEOS, "Nothing to continue", "Videos you leave partway show up here.")
+        }
+        HomeSection::ListenAgain => {
+            (icons::MUSIC, "Nothing played yet", "Songs you play show up here.")
+        }
+        HomeSection::Favorites => (
+            icons::FAVORITE,
+            "No favorites yet",
+            "Choose Favorite in a file's or a playlist's menu to see it here.",
+        ),
+        HomeSection::Folders => {
+            (icons::FOLDER, "No folders visited yet", "The folders you open most show up here.")
+        }
+        HomeSection::Playlists => (
+            icons::PLAYLIST,
+            "No playlists visited yet",
+            "The playlists you open most show up here.",
+        ),
+        HomeSection::Artists => {
+            (icons::ARTIST, "No artists played yet", "The artists you play most show up here.")
+        }
+    };
+    EmptyState { icon, title: title.to_owned(), hint, everywhere: false }
+}
 
 fn searched(search: &Search) -> EmptyState {
     let everywhere = search.scope == Section::Home;
@@ -137,5 +168,6 @@ mod tests {
         assert_eq!(title(&Route::History), "Nothing watched yet");
         assert_eq!(title(&Route::Music(MusicRoute::Albums(None))), "No music yet");
         assert_eq!(title(&Route::Home), "Nothing here yet");
+        assert_eq!(title(&Route::HomeSection(HomeSection::Favorites)), "No favorites yet");
     }
 }

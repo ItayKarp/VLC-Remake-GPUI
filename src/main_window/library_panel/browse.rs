@@ -21,12 +21,14 @@ use super::grid::{COLUMNS, LINE_HEIGHT};
 use super::listing::{Body, Item};
 use super::row::{ROW_HEIGHT, ROW_TEXT};
 use super::view_menu::line_of;
+use crate::app::media::Media;
 use crate::app::request::Placement;
 use crate::db::media::MediaId;
 use crate::keymap::actions::ShowContextMenu;
 use crate::library::thumbnails;
 use crate::main_window::opening::Target;
 use crate::navigation::history::Step;
+use crate::navigation::route::{Route, Section};
 use crate::navigation::view::View;
 use crate::opening::Resolved;
 use crate::theme::{self, Palette};
@@ -52,6 +54,9 @@ impl MainWindow {
             .on_action(cx.listener(|this, _: &ShowContextMenu, window, cx| {
                 this.open_item_menu_from_keyboard(window, cx);
             }));
+        if *self.library_panel.history.current() == Route::Home {
+            return body.pt(px(LIST_TOP)).child(self.render_home(p, cx));
+        }
         let view = self.library_view(cx);
         let len = match self.listing(cx) {
             Body::Items(items) if items.len() == 0 => return body.child(self.render_empty(p, cx)),
@@ -156,10 +161,15 @@ impl MainWindow {
     pub(super) fn open_item(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Body::Items(items) = self.listing(cx) else { return };
         match items.get(index) {
-            Some(Item::Card(_)) => {
-                let media = items.card_media();
-                let start = index - items.rows.len();
-                self.play_cards(media, start, window, cx);
+            Some(Item::Card(card)) => {
+                // Home's media are unrelated: one plays alone.
+                if self.library_panel.history.current().section() == Section::Home {
+                    let media = vec![Media::File(card.path.clone())];
+                    self.play_cards(media, 0, window, cx);
+                    return;
+                }
+                let start = items.card_index(index).unwrap_or_default();
+                self.play_cards(items.card_media(), start, window, cx);
             }
             Some(Item::Row(row)) => {
                 let target = row.target().clone();
@@ -172,7 +182,7 @@ impl MainWindow {
     /// Replaces the queue with `media` and plays item `start`.
     pub(super) fn play_cards(
         &mut self,
-        media: Vec<crate::app::media::Media>,
+        media: Vec<Media>,
         start: usize,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -213,10 +223,20 @@ impl MainWindow {
         let Some((movement, extend)) = movement(event, view) else { return };
         if let Some(index) = selection.step(&keys, movement, layout, extend) {
             cx.stop_propagation();
-            let line = line_of(index, view);
-            self.library_panel.scroll.scroll_to_item(line, ScrollStrategy::Nearest);
+            self.scroll_listing_to(index, ScrollStrategy::Nearest, cx);
             cx.notify();
         }
+    }
+
+    /// Scrolls item `index` into view, by `strategy` in the virtual list; Home's page scrolls
+    /// just far enough.
+    pub(super) fn scroll_listing_to(&self, index: usize, strategy: ScrollStrategy, cx: &gpui::App) {
+        if let Some(child) = self.home_child(index) {
+            self.library_panel.home_scroll.scroll_to_item(child);
+            return;
+        }
+        let line = line_of(index, self.library_view(cx));
+        self.library_panel.scroll.scroll_to_item(line, strategy);
     }
 
     fn render_gone(&self, message: &'static str, p: &Palette, cx: &mut Context<Self>) -> Div {

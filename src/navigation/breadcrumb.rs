@@ -50,6 +50,9 @@ impl Trail {
         }
         let crumbs = match route {
             Route::Music(music) => music_crumbs(music),
+            Route::HomeSection(home) => {
+                vec![section(Section::Home), crumb(home.label(), route.clone())]
+            }
             Route::Network(Some(category)) => {
                 vec![section(Section::Network), crumb(category, route.clone())]
             }

@@ -91,7 +91,11 @@ impl MainWindow {
         let Some(subject) = self.menu_subject(index, cx) else { return };
         let main = cx.entity().downgrade();
         let items = match &subject {
-            Subject::Files(files) => file_menu::items(&main, files, cx),
+            Subject::Files(files) => {
+                let mut items = file_menu::items(&main, files, cx);
+                items.splice(1..1, self.continue_watching_item(&main, files));
+                items
+            }
             Subject::Folders(folders) => folder_menu::items(&main, folders),
             Subject::Playlists(playlists) => playlist_menu::items(&main, playlists, cx),
         };
@@ -130,6 +134,12 @@ impl MainWindow {
 
     /// Where a menu opened from the keyboard goes: under item `index`, inside the listing.
     fn below_item(&self, index: usize, cx: &App) -> Point<Pixels> {
+        let home = self.home_child(index);
+        if let Some(item) =
+            home.and_then(|child| self.library_panel.home_scroll.bounds_for_item(child))
+        {
+            return point(item.left() + px(KEYBOARD_INSET), item.bottom());
+        }
         let view = self.library_view(cx);
         let line_height = match view {
             View::List => ROW_HEIGHT,

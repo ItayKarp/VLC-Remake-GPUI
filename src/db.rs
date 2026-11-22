@@ -2,7 +2,8 @@
 //! ([`media`]), saved playlists ([`playlists`]) and the library (S4.1): its media folders and
 //! their files ([`roots`], [`folders`], [`files`]), what is known about each media
 //! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
-//! and favorites ([`activity`]), and the search index ([`search`]).
+//! and favorites ([`activity`]) with the media Home lists ([`played`]), and the search index
+//! ([`search`]).
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -13,7 +14,6 @@
 //!
 //! Every call blocks on disk: use the database from a background thread only.
 
-#[allow(dead_code, reason = "the library's tables (S4.1); Home (S4.9) and the views use them")]
 pub mod activity;
 pub mod artwork;
 pub mod files;
@@ -21,6 +21,7 @@ pub mod folders;
 pub mod media;
 pub mod metadata;
 mod migrations;
+pub mod played;
 pub mod playlists;
 pub mod roots;
 pub mod search;

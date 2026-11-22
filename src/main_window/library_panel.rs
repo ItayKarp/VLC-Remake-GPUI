@@ -1,6 +1,6 @@
 //! The library sidebar over the player (S4.5, S4.6; `player_02`, `library/sidebar/*`): the icon
 //! rail ([`rail`]), and a panel with back and forward, the breadcrumb ([`crumbs`]), the item count
-//! ([`header`]) and what the current route lists ([`listing`]): rows ([`row`]) and media cards
+//! ([`header`]) and what the current route lists ([`listing`]): Home's sections ([`home`]), rows ([`row`]) and media cards
 //! ([`card`]) in the order [`sort_menu`] picks, or the same as tiles ([`grid`],
 //! chosen with [`view_menu`]), or what a search finds ([`search_field`]), or why there is
 //! nothing ([`empty`]),
@@ -25,6 +25,7 @@ mod file_menu;
 mod folder_menu;
 mod grid;
 mod header;
+mod home;
 mod item_menu;
 mod listing;
 mod playlist_menu;
@@ -39,7 +40,8 @@ pub(super) use self::drag::DraggedMedia;
 
 use gpui::{
     App, Context, Div, Entity, FocusHandle, MouseButton, MouseDownEvent, NavigationDirection,
-    ScrollStrategy, Stateful, Subscription, UniformListScrollHandle, Window, div, prelude::*, px,
+    ScrollHandle, ScrollStrategy, Stateful, Subscription, UniformListScrollHandle, Window, div,
+    prelude::*, px,
 };
 
 use self::item_menu::ItemMenu;
@@ -101,6 +103,9 @@ pub(super) struct LibraryPanel {
     view_button: BoundsTracker,
     /// The search field, while open.
     search: Option<SearchField>,
+    /// Home as read, and its page's scroll position.
+    home: Option<home::HomeListing>,
+    home_scroll: ScrollHandle,
 }
 
 impl LibraryPanel {
@@ -136,6 +141,8 @@ impl LibraryPanel {
             view_menu: None,
             view_button: BoundsTracker::new(),
             search: None,
+            home: None,
+            home_scroll: ScrollHandle::new(),
         }
     }
 
@@ -206,8 +213,10 @@ impl MainWindow {
         panel.view_menu = None;
         panel.selection.clear();
         panel.scroll.scroll_to_item(0, ScrollStrategy::Top);
+        panel.home_scroll.set_offset(gpui::Point::default());
         self.reload_folder(cx);
         let route = self.library_panel.history.current().clone();
+        crate::library::home::writes::record_visit(&route, cx);
         settings::update(cx, |s| {
             Presentation::Overlay.remember(&route, &mut s.local.library_routes);
         });

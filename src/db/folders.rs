@@ -75,7 +75,6 @@ pub fn children(connection: &Connection, id: FolderId) -> rusqlite::Result<Vec<F
 }
 
 /// Where folder `id` is, if it exists (and was stored on this OS family).
-#[allow(dead_code, reason = "the library views (S4.6) open folders by id")]
 pub fn path(connection: &Connection, id: FolderId) -> rusqlite::Result<Option<PathBuf>> {
     let stored: Option<String> = connection
         .query_row("SELECT path FROM folders WHERE id = ?1", [id.0], |row| row.get(0))

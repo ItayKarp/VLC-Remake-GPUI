@@ -18,6 +18,7 @@ use crate::keymap::actions::{GoBack, GoForward};
 use crate::navigation::breadcrumb::Trail;
 use crate::navigation::history::Step;
 use crate::navigation::item_count;
+use crate::navigation::route::Route;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
 
@@ -107,6 +108,7 @@ impl MainWindow {
         let button =
             IconButton::new("library-view", view_menu::icon(self.library_view(cx)), "View")
                 .size(BUTTON, ICON)
+                .disabled(*self.library_panel.history.current() == Route::Home)
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     this.toggle_view_menu(window, cx);
                 }));

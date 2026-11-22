@@ -26,6 +26,7 @@ pub(super) const ROW_GAP: f32 = 10.;
 pub(super) const ROW_TEXT: f32 = 14.;
 
 /// One row: what it shows and what clicking it does.
+#[derive(Clone)]
 pub(super) struct Row {
     label: SharedString,
     icon: &'static str,

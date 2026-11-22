@@ -7,6 +7,7 @@ use gpui::{AnyElement, App, Context, Window};
 use super::grid::COLUMNS;
 use super::{MainWindow, OpenMenu};
 use crate::assets::icons;
+use crate::navigation::route::Route;
 use crate::navigation::view::View;
 use crate::settings;
 use crate::ui::menu::{ContextMenu, MenuItem};
@@ -18,6 +19,10 @@ const MENU_GAP: f32 = 4.;
 impl MainWindow {
     /// How the current route's section shows its items.
     pub(super) fn library_view(&self, cx: &App) -> View {
+        // Home's page is sections of rows in the sidebar (`sidebar-home`).
+        if *self.library_panel.history.current() == Route::Home {
+            return View::List;
+        }
         let section = self.library_panel.history.current().section();
         View::of(section, &settings::get(cx).local.library_grid)
     }

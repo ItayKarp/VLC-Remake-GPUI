@@ -67,16 +67,31 @@ impl Contents {
     }
 }
 
-/// What the body lists: the rows, then the cards.
+/// What the body lists: the rows and the cards, in [`Order`].
 pub(super) struct Items<'a> {
     pub(super) rows: Vec<Row>,
     pub(super) cards: &'a [Card],
+    pub(super) order: Order,
+}
+
+/// Which come first: Home lists its media before its places; everything else the other way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Order {
+    RowsFirst,
+    CardsFirst,
 }
 
 /// One listed item.
 pub(super) enum Item<'a> {
     Row(&'a Row),
     Card(&'a Card),
+}
+
+impl<'a> Items<'a> {
+    /// The rows, then the cards.
+    pub(super) fn new(rows: Vec<Row>, cards: &'a [Card]) -> Self {
+        Self { rows, cards, order: Order::RowsFirst }
+    }
 }
 
 impl Items<'_> {
@@ -87,16 +102,35 @@ impl Items<'_> {
 
     /// The item at `index`.
     pub(super) fn get(&self, index: usize) -> Option<Item<'_>> {
-        match self.rows.get(index) {
-            Some(row) => Some(Item::Row(row)),
-            None => self.cards.get(index - self.rows.len()).map(Item::Card),
+        match self.order {
+            Order::RowsFirst => match self.rows.get(index) {
+                Some(row) => Some(Item::Row(row)),
+                None => self.cards.get(index - self.rows.len()).map(Item::Card),
+            },
+            Order::CardsFirst => match self.cards.get(index) {
+                Some(card) => Some(Item::Card(card)),
+                None => self.rows.get(index - self.cards.len()).map(Item::Row),
+            },
         }
+    }
+
+    /// Where item `index` is among the cards, if it is one.
+    pub(super) fn card_index(&self, index: usize) -> Option<usize> {
+        let first = match self.order {
+            Order::RowsFirst => self.rows.len(),
+            Order::CardsFirst => 0,
+        };
+        index.checked_sub(first).filter(|&at| at < self.cards.len())
     }
 
     /// What each item is, in order, for the selection.
     pub(super) fn keys(&self) -> Vec<Key> {
         let rows = self.rows.iter().map(Row::key);
-        rows.chain(self.cards.iter().map(card_key)).collect()
+        let cards = self.cards.iter().map(card_key);
+        match self.order {
+            Order::RowsFirst => rows.chain(cards).collect(),
+            Order::CardsFirst => cards.chain(rows).collect(),
+        }
     }
 
     /// How many items the header counts: action rows ("+ Add") aren't items (S4.5.5).
@@ -128,6 +162,7 @@ impl MainWindow {
     /// Reads the current route's folder or music again, if it shows one and the sidebar is
     /// open.
     pub(super) fn reload_folder(&mut self, cx: &mut Context<Self>) {
+        self.reload_home(cx);
         let route = self.library_panel.history.current().clone();
         let sort = self.library_sort(cx);
         let read = if !self.library_panel.open {
@@ -167,9 +202,8 @@ impl MainWindow {
         let keys = items.keys();
         let Some(key) = self.library_panel.reveal.take() else { return };
         let Some(index) = keys.iter().position(|listed| *listed == key) else { return };
-        let line = super::view_menu::line_of(index, self.library_view(cx));
         self.library_panel.selection.select(key);
-        self.library_panel.scroll.scroll_to_item(line, gpui::ScrollStrategy::Center);
+        self.scroll_listing_to(index, gpui::ScrollStrategy::Center, cx);
     }
 
     /// Orders what the current route lists by `sort`, if it was read.
@@ -183,11 +217,14 @@ impl MainWindow {
     /// What the current route lists, or why it lists nothing.
     pub(super) fn listing(&self, cx: &App) -> Body<'_> {
         let route = self.library_panel.history.current();
+        if let Some(body) = self.home_listing(route, cx) {
+            return body;
+        }
         if let Some(listing) = &self.library_panel.folder {
             return match &listing.state {
                 FolderState::Reading => Body::Reading,
                 FolderState::Read(contents) => {
-                    Body::Items(Items { rows: read_rows(route, contents), cards: &contents.cards })
+                    Body::Items(Items::new(read_rows(route, contents), &contents.cards))
                 }
                 FolderState::Gone => Body::Gone("This folder is no longer available."),
             };
@@ -195,7 +232,7 @@ impl MainWindow {
         if !super::exists(route, cx) {
             return Body::Gone("This playlist no longer exists.");
         }
-        Body::Items(Items { rows: rows(route, cx), cards: &[] })
+        Body::Items(Items::new(rows(route, cx), &[]))
     }
 
     /// How many items the route lists, for the header's count.
