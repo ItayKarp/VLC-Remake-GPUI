@@ -151,9 +151,13 @@ pipeline {
     }
 }
 
-/** The cargo flags that build `backends`: 'all' is the default features. */
+/**
+ * The cargo flags that build `backends`: 'all' is both, the same as the default features.
+ * Never empty: Jenkins makes an empty `environment` value null, which cargo would get as "null".
+ */
 String cargoFeatures(String backends) {
-    return backends == 'all' ? '' : "--no-default-features --features ${backends}"
+    def features = backends == 'all' ? 'x11,wayland' : backends
+    return "--no-default-features --features ${features}"
 }
 
 /** The pkg-config names of the system libraries a Linux build of `backends` links. */
