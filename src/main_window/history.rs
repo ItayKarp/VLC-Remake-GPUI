@@ -1,7 +1,7 @@
 //! The main window's side of playback history (S1.7): each open begins a history [`Session`],
 //! playback saves its position every few seconds and on pause, stop, error and the end (the
 //! session saves the last one when the window closes or the app quits), and media left partway
-//! resumes as the "Continue playback" setting says: at once, after a "Resume from 12:34?"
+//! resumes as the "Continue where you left off" setting says: at once, after a "Resume from 12:34?"
 //! toast, or never.
 //!
 //! It also runs Mark as Watched, Mark as Unwatched and Clear History (S1.7.5), and offers to

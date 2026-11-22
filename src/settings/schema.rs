@@ -13,6 +13,7 @@ mod audio;
 mod controls;
 mod general;
 mod interface;
+mod live;
 mod miniplayer;
 mod playback;
 mod privacy;
@@ -37,8 +38,9 @@ pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{
     AutoHide, DurationReadout, FitVideo, InterfaceSettings, NowPlayingNotification,
 };
+pub use live::LiveState;
 pub use miniplayer::MiniplayerCorner;
-pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
+pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
 pub use privacy::PrivacySettings;
 pub use subtitles::SubtitleSettings;
 
@@ -49,6 +51,8 @@ pub struct Settings {
     pub prefs: Preferences,
     /// Stays on this machine (`local.toml` in the local data dir).
     pub local: LocalState,
+    /// State that lives elsewhere but that Settings rows show and edit; never saved.
+    pub live: LiveState,
 }
 
 /// User preferences that follow the user between machines.

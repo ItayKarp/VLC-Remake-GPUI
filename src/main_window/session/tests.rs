@@ -77,6 +77,8 @@ fn the_queue_comes_back_without_loading_what_was_playing_when_the_app_died(
         assert!(main.queue.is_shuffled());
         assert!(main.player.is_none(), "the crashing item must not load");
     });
+    let live = cx.update(|_, cx| settings::get(cx).live);
+    assert_eq!((live.repeat, live.shuffle), (Repeat::All, true), "Settings shows them");
 }
 
 #[gpui::test]

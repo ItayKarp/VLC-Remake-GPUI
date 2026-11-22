@@ -17,6 +17,8 @@
 //! - [`video`]: the sink interface decoded pictures are delivered through (S1.4).
 //! - [`preview`]: seek-bar preview pictures from a second, muted decoder (S2.3.3).
 //! - [`lengths`]: how long queued media is, read without playing it (S3.2.2).
+//! - [`media_options`]: how new media opens: stream quality, disc menu language and seek
+//!   precision (S5.7).
 //! - [`tags`]: a file's tags, tracks and cover, read without playing it (S4.3.1).
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 
@@ -27,6 +29,7 @@ pub mod language;
 pub mod lengths;
 pub mod libvlc;
 pub mod media_info;
+pub mod media_options;
 pub mod mock;
 pub mod player;
 mod position;

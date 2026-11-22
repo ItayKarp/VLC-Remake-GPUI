@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
+use super::media_options::MediaOptions;
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -228,6 +229,10 @@ impl Backend for MockBackend {
 
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
         self.record(Command::SetSpeakerSetup(setup));
+    }
+
+    fn set_media_options(&mut self, options: &MediaOptions) {
+        self.record(Command::SetMediaOptions(options.clone()));
     }
 
     fn shut_down(self: Box<Self>) {

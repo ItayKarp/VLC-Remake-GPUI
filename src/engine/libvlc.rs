@@ -19,6 +19,7 @@ mod events;
 mod failure;
 mod frame_sink;
 pub mod lengths;
+mod media_options;
 pub mod options;
 mod prepare;
 pub mod preview;
@@ -50,6 +51,7 @@ use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
+use super::media_options::MediaOptions;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use super::video::VideoSink;
@@ -208,6 +210,10 @@ impl Backend for LibVlcBackend {
 
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
         self.send(Command::SetSpeakerSetup(setup));
+    }
+
+    fn set_media_options(&mut self, options: &MediaOptions) {
+        self.send(Command::SetMediaOptions(options.clone()));
     }
 
     fn shut_down(mut self: Box<Self>) {

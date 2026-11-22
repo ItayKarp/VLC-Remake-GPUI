@@ -20,6 +20,7 @@ use super::vmem::Vmem;
 use crate::app::media::Media as Source;
 use crate::engine::audio::SpeakerSetup;
 use crate::engine::backend::{BackendEvent, Command};
+use crate::engine::media_options::MediaOptions;
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::engine::values::{Generation, Offset, Start};
 
@@ -84,6 +85,8 @@ pub struct Worker {
     pub(super) size_watch: SizeWatch,
     /// The forced speaker setup, re-applied to each media.
     pub(super) speaker_setup: SpeakerSetup,
+    /// The options each new media opens with.
+    pub(super) media_options: MediaOptions,
     /// When the output device list is read next.
     pub(super) devices: DeviceWatch,
     /// The open media's default tracks, as libVLC picked them.
@@ -117,6 +120,7 @@ impl Worker {
             video,
             size_watch: SizeWatch::default(),
             speaker_setup: SpeakerSetup::Automatic,
+            media_options: MediaOptions::default(),
             devices: DeviceWatch::default(),
             defaults: Defaults::default(),
             decoding: Decoding::default(),
@@ -183,6 +187,7 @@ impl Worker {
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
         if !media.is_null() {
             self.add_start_options(media, start);
+            self.add_media_options(media);
         }
         // `set_media` stops the previous media first; its events still carry the old
         // generation, because the new one is published only afterwards.

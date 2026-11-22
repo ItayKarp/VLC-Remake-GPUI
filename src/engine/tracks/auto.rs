@@ -1,9 +1,11 @@
 //! Picking tracks for new media by the user's preferred languages (S1.6.3).
 //!
 //! - Audio: the first preferred language that has a track wins; among its tracks the container's
-//!   default, else the first. Without a match the backend's own choice stays.
+//!   default, else the first. Without a match, the "Default audio track" by position (S5.7.2),
+//!   else the backend's own choice.
 //! - Subtitles, when shown: a full (not forced) track in the first preferred language that has
-//!   one; else whatever the backend chose (the container's default). With nothing shown, a
+//!   one; else the "Default subtitle track" by position; else whatever the backend chose (the
+//!   container's default). A position past the media's last track is ignored. With nothing shown, a
 //!   forced track in the audio's language, which carries the signs and foreign lines a viewer of
 //!   that audio needs.
 //! - Subtitles set to forced only: the forced track in the audio's language, or off.
@@ -30,6 +32,11 @@ pub struct TrackPreferences {
     pub subtitle_languages: Vec<Language>,
     /// Whether subtitles show.
     pub subtitles: SubtitleMode,
+    /// The audio track to play when no preferred language has one, by position among the
+    /// media's audio tracks (0 is the first); `None` keeps the backend's choice.
+    pub audio_track: Option<usize>,
+    /// As [`Self::audio_track`], for shown subtitles.
+    pub subtitle_track: Option<usize>,
 }
 
 /// What auto-selection does with one kind of track.
@@ -58,6 +65,7 @@ impl Pick {
 /// The audio track `preferences` ask for.
 pub fn audio(tracks: &Tracks, preferences: &TrackPreferences) -> Pick {
     preferred(tracks, TrackKind::Audio, &preferences.audio_languages, |_| true)
+        .or_else(|| nth(tracks, TrackKind::Audio, preferences.audio_track))
         .map_or(Pick::Keep, Pick::Track)
 }
 
@@ -69,6 +77,9 @@ pub fn subtitle(tracks: &Tracks, preferences: &TrackPreferences) -> Pick {
         if let Some(id) =
             preferred(tracks, TrackKind::Subtitle, &preferences.subtitle_languages, full)
         {
+            return Pick::Track(id);
+        }
+        if let Some(id) = nth(tracks, TrackKind::Subtitle, preferences.subtitle_track) {
             return Pick::Track(id);
         }
         if tracks.subtitle.is_some() {
@@ -83,6 +94,11 @@ pub fn subtitle(tracks: &Tracks, preferences: &TrackPreferences) -> Pick {
         (None, true) => Pick::Keep,
         (None, false) => Pick::Off,
     }
+}
+
+/// The track of `kind` at `position`, if there is one.
+fn nth(tracks: &Tracks, kind: TrackKind, position: Option<usize>) -> Option<TrackId> {
+    tracks.of(kind).nth(position?).map(|track| track.id)
 }
 
 /// The best track of `kind` in the first of `languages` that has one passing `accept`: the
@@ -136,6 +152,7 @@ mod tests {
             audio_languages: parse(audio),
             subtitle_languages: parse(subtitles),
             subtitles: mode,
+            ..TrackPreferences::default()
         }
     }
 
@@ -173,6 +190,24 @@ mod tests {
         japanese.audio = Some(TrackId(1));
         assert_eq!(subtitle(&japanese, &forced_only), Pick::Off);
         assert_eq!(subtitle(&japanese, &none), Pick::Keep);
+    }
+
+    #[test]
+    fn a_track_number_is_the_fallback_after_languages() {
+        let by_number = |audio, subtitle| TrackPreferences {
+            audio_track: Some(audio),
+            subtitle_track: Some(subtitle),
+            ..preferences(&["ko"], &["ko"], SubtitleMode::Show)
+        };
+        assert_eq!(audio(&movie(), &by_number(0, 2)), Pick::Track(TrackId(1)));
+        assert_eq!(subtitle(&movie(), &by_number(0, 2)), Pick::Track(TrackId(5)));
+        assert_eq!(audio(&movie(), &by_number(2, 3)), Pick::Keep, "past the last track");
+        assert_eq!(subtitle(&movie(), &by_number(2, 3)), Pick::Track(TrackId(4)));
+        let english = TrackPreferences {
+            audio_track: Some(0),
+            ..preferences(&["en"], &[], SubtitleMode::Show)
+        };
+        assert_eq!(audio(&movie(), &english), Pick::Track(TrackId(2)), "a language wins");
     }
 
     #[test]

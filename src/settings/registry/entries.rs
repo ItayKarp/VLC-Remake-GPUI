@@ -9,6 +9,7 @@ mod diagnostics;
 mod general;
 mod interface;
 mod library;
+mod play_order;
 mod playback;
 mod privacy;
 mod subtitles;
@@ -18,8 +19,8 @@ use super::def::SettingDef;
 use super::value::Value;
 use crate::engine::language::Language;
 
-/// Every category's rows, in sidebar order (General and Interface in two parts each).
-pub(super) static PAGES: [&[SettingDef]; 10] = [
+/// Every category's rows, in sidebar order (General, Interface and Playback in two parts each).
+pub(super) static PAGES: [&[SettingDef]; 11] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
     window::ENTRIES,
@@ -27,6 +28,7 @@ pub(super) static PAGES: [&[SettingDef]; 10] = [
     privacy::ENTRIES,
     controls::ENTRIES,
     playback::ENTRIES,
+    play_order::ENTRIES,
     audio::ENTRIES,
     subtitles::ENTRIES,
     library::ENTRIES,

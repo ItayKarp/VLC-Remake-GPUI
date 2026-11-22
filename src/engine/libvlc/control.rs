@@ -61,6 +61,7 @@ impl Worker {
                 Command::SetAudioDevice(device) => self.set_audio_device(&device),
                 Command::RefreshAudioDevices => self.poll_devices(),
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
+                Command::SetMediaOptions(options) => self.media_options = options,
             }
         }
     }

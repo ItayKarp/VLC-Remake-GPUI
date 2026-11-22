@@ -13,6 +13,7 @@ use futures::channel::mpsc;
 
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::media_info::{Chapter, Metadata, VideoSize};
+use super::media_options::MediaOptions;
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -131,6 +132,8 @@ pub enum Command {
     RefreshAudioDevices,
     /// Set up the speakers.
     SetSpeakerSetup(SpeakerSetup),
+    /// Open later media with these options.
+    SetMediaOptions(MediaOptions),
 }
 
 /// A playback backend.
@@ -184,6 +187,8 @@ pub trait Backend: Send {
     fn refresh_audio_devices(&mut self);
     /// Mixes channels for `setup` from now on, for this and later media.
     fn set_speaker_setup(&mut self, setup: SpeakerSetup);
+    /// Opens media with `options` from the next [`Self::open`] on; the open media keeps its own.
+    fn set_media_options(&mut self, options: &MediaOptions);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

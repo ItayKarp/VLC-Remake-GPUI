@@ -10,7 +10,7 @@ use super::document::merge_typed;
 use super::migrate::{self, Documents, Outcome};
 use super::paths::Locations;
 use super::registry;
-use super::schema::{LocalState, Preferences, Settings};
+use super::schema::{LiveState, LocalState, Preferences, Settings};
 use super::storage::{self, LoadIssue};
 
 /// Something the UI should tell the user once (S0.2/S0.3 show these).
@@ -142,6 +142,7 @@ impl SettingsState {
         let mut settings = Settings {
             prefs: deserialize::<Preferences>(&prefs.doc),
             local: deserialize::<LocalState>(&local.doc),
+            live: LiveState::default(),
         };
         // Values from an older or newer version may be outside today's ranges.
         let clamped = registry::sanitize(&mut settings);
@@ -172,7 +173,8 @@ impl SettingsState {
         let before = self.settings.clone();
         f(&mut self.settings);
         let changed = self.settings != before;
-        self.dirty |= changed;
+        // The live state is never written, so changing only it leaves nothing to save.
+        self.dirty |= self.settings.prefs != before.prefs || self.settings.local != before.local;
         changed
     }
 
