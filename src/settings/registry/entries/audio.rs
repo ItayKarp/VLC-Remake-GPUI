@@ -1,17 +1,22 @@
-//! Audio ("Audio Defaults"): the output, the volume and the preferred languages.
+//! Audio ("Audio Defaults", S5.8.2): the output and the volume, and the preferred languages,
+//! which the page shows last. Loudness and effects are in `audio_effects.rs`.
 
-use super::super::def::{ApplyMode, Condition, Control, SettingDef};
-use super::super::value::{Binding, Choice, SettingChoice, Value, choice, number, toggle};
+use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
+use super::super::value::{Binding, Choice, SettingChoice, Value, choice, number, text, toggle};
 use super::languages;
+use crate::app::audio_devices;
 use crate::engine::audio::SpeakerSetup;
-use crate::settings::StartupVolume;
 use crate::settings::registry::Category;
+use crate::settings::{self, Settings, StartupVolume};
 
 const OUTPUT: (Category, &str) = (Category::Audio, "Output");
 const VOLUME: (Category, &str) = (Category::Audio, "Volume");
 const TRACKS: (Category, &str) = (Category::Audio, "Tracks & Languages");
 /// A percentage field.
 const PERCENT: Control = Control::Number { unit: "%" };
+/// Maximum volume's ticks, and the ticks that are labelled.
+const VOLUME_TICK: f64 = 25.;
+const VOLUME_LABEL: f64 = 100.;
 
 impl SettingChoice for SpeakerSetup {
     const VALUES: &'static [Self] = &[Self::Automatic, Self::Stereo];
@@ -32,6 +37,24 @@ fn percent(value: f64) -> String {
     format!("{value:.0}%")
 }
 
+/// Maximum volume's tick labels: every hundred percent, the other ticks bare.
+fn hundreds(value: f64) -> String {
+    if value % VOLUME_LABEL == 0. { percent(value) } else { String::new() }
+}
+
+/// Why "Always starts at" won't be reached: it is above the maximum volume, which wins.
+fn startup_above_maximum(cx: &gpui::App) -> Option<String> {
+    startup_limit(settings::get(cx))
+}
+
+/// [`startup_above_maximum`] for `settings`.
+fn startup_limit(settings: &Settings) -> Option<String> {
+    let audio = &settings.prefs.audio;
+    let above = audio.startup_volume == StartupVolume::Fixed
+        && audio.startup_volume_percent > audio.max_volume_percent;
+    above.then(|| format!("Starts at {}%, the maximum volume.", audio.max_volume_percent))
+}
+
 /// "Audio language": the preferred languages, most preferred first.
 const AUDIO_LANGUAGES: Binding = Binding {
     get: |s| Value::List(s.prefs.audio.preferred_languages.clone()),
@@ -42,8 +65,30 @@ const AUDIO_LANGUAGES: Binding = Binding {
     },
 };
 
-/// The Audio page's rows.
+/// The Audio page's Output and Volume rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
+    SettingDef::new(
+        "audio.enabled",
+        OUTPUT,
+        "Enable audio",
+        Control::Toggle,
+        toggle!(prefs.audio.enabled),
+    )
+    .info("Off, media plays silently: audio isn't decoded at all, unlike muting.")
+    .applies(ApplyMode::NextMedia)
+    .keywords(&["sound", "silent", "decode", "video only"]),
+    SettingDef::new(
+        "audio.output_device",
+        OUTPUT,
+        "Output device",
+        Control::Options(audio_devices::choices),
+        text!(local.audio.output_device),
+    )
+    .info(
+        "Where sound plays. System default follows the device chosen in the system's settings; \
+         a chosen device that is unplugged plays through the default until it is back.",
+    )
+    .keywords(&["speakers", "headphones", "bluetooth", "airpods", "hdmi"]),
     SettingDef::new(
         "audio.speaker_setup",
         OUTPUT,
@@ -83,10 +128,13 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         "audio.max_volume_percent",
         VOLUME,
         "Maximum volume",
-        Control::Slider { marks: Some(50.), format: percent },
+        Control::Slider { marks: Marks::Labelled(VOLUME_TICK, hundreds), format: percent },
         number!(u32: prefs.audio.max_volume_percent),
     )
-    .info("How far the volume goes. Above 100%, quiet media gets louder but may distort.")
+    .info(
+        "How far the volume goes. Above 100%, quiet media gets louder but may distort. Lowering \
+         it below the current volume turns the volume down at once.",
+    )
     .range(100., 300., 5.)
     .keywords(&["boost", "amplify", "louder"]),
     SettingDef::new(
@@ -109,7 +157,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .info("The volume each launch starts at, up to the maximum volume.")
     .range(0., 300., 1.)
-    .depends_on("audio.startup_volume", Condition::Is("fixed")),
+    .depends_on("audio.startup_volume", Condition::Is("fixed"))
+    .hint(startup_above_maximum),
     SettingDef::new(
         "audio.volume_step_percent",
         VOLUME,
@@ -120,18 +169,43 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .info("How much the Up and Down keys and each scroll step change the volume.")
     .range(1., 100., 1.)
     .keywords(&["increment", "arrow keys", "scroll"]),
-    SettingDef::new(
-        "audio.preferred_languages",
-        TRACKS,
-        "Audio language",
-        Control::List,
-        AUDIO_LANGUAGES,
-    )
-    .info(
-        "Language codes such as en or fra, most preferred first, separated by commas. New media \
-         plays the first one it has; empty keeps the media's own choice.",
-    )
-    .validate(languages)
-    .applies(ApplyMode::NextMedia)
-    .keywords(&["dub", "track", "language"]),
 ];
+
+/// The Audio page's language rows, after the effects.
+pub(in crate::settings::registry) static LANGUAGE_ENTRIES: &[SettingDef] = &[SettingDef::new(
+    "audio.preferred_languages",
+    TRACKS,
+    "Audio language",
+    Control::List,
+    AUDIO_LANGUAGES,
+)
+.info(
+    "Language codes such as en or fra, most preferred first, separated by commas. New media \
+     plays the first one it has; empty keeps the media's own choice.",
+)
+.validate(languages)
+.applies(ApplyMode::NextMedia)
+.keywords(&["dub", "track", "language"])];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_whole_hundreds_are_labelled() {
+        assert_eq!(hundreds(200.), "200%");
+        assert_eq!(hundreds(125.), "");
+    }
+
+    #[test]
+    fn a_startup_volume_above_the_maximum_says_where_it_stops() {
+        let mut settings = Settings::default();
+        settings.prefs.audio.startup_volume = StartupVolume::Fixed;
+        settings.prefs.audio.startup_volume_percent = 200;
+        settings.prefs.audio.max_volume_percent = 150;
+        let hint = startup_limit(&settings);
+        assert_eq!(hint.as_deref(), Some("Starts at 150%, the maximum volume."));
+        settings.prefs.audio.startup_volume = StartupVolume::RememberLast;
+        assert_eq!(startup_limit(&settings), None);
+    }
+}

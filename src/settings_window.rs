@@ -15,6 +15,8 @@
 //! the theme from the menu, the settings file) shows here at once. `app::open_settings` opens the
 //! window, and brings it forward rather than opening a second one.
 
+#[cfg(test)]
+mod audio_screenshot;
 mod chrome;
 mod keys;
 #[cfg(test)]
@@ -24,7 +26,11 @@ mod screenshots;
 mod search;
 mod sidebar;
 #[cfg(test)]
+mod subtitles_screenshot;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod video_screenshot;
 
 use std::collections::HashMap;
 

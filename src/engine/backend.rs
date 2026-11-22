@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use futures::channel::mpsc;
 
+use super::audio::equalizer::Equalizer;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::MediaOptions;
@@ -134,6 +135,8 @@ pub enum Command {
     SetSpeakerSetup(SpeakerSetup),
     /// Open later media with these options.
     SetMediaOptions(MediaOptions),
+    /// Play through this equalizer, or none.
+    SetEqualizer(Option<Equalizer>),
 }
 
 /// A playback backend.
@@ -189,6 +192,8 @@ pub trait Backend: Send {
     fn set_speaker_setup(&mut self, setup: SpeakerSetup);
     /// Opens media with `options` from the next [`Self::open`] on; the open media keeps its own.
     fn set_media_options(&mut self, options: &MediaOptions);
+    /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.
+    fn set_equalizer(&mut self, equalizer: Option<Equalizer>);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

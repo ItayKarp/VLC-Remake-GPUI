@@ -3,12 +3,14 @@
 //! - [`Output`] pairs the engine-facing [`VideoSink`] of this OS's presentation path (ADR 0001:
 //!   IOSurface pixel buffers on macOS, BGRA images elsewhere) with the mailbox it fills.
 //! - [`frame_slot`] is that one-frame mailbox; it refuses frames while the window is hidden.
-//! - [`layout`] letterboxes the picture on device pixels.
+//! - [`layout`] letterboxes the picture on device pixels, and [`framing`] stretches and crops
+//!   it as Settings → Video says.
 //! - [`VideoView`] draws the newest picture, black bars around it whatever the theme.
 
 mod bgra;
 mod frame;
 pub mod frame_slot;
+pub mod framing;
 pub mod layout;
 #[cfg(target_os = "macos")]
 mod pixel_buffer;

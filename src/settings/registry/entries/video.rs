@@ -1,0 +1,274 @@
+//! Video ("Video Defaults", S5.8.1): the output, the picture, deinterlacing and framing new media
+//! starts with. The in-player panels (Stage 7) change the playing media only (S5.8.4).
+//!
+//! "Play video as desktop wallpaper" isn't offered: video draws inside VLC's own windows, and a
+//! wallpaper needs a window behind the desktop icons that only Windows has.
+
+use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
+use super::super::value::{Binding, Choice, SettingChoice, choice, number, toggle};
+use crate::engine::media_options::{Deinterlace, DeinterlaceMethod};
+use crate::settings::registry::Category;
+use crate::settings::{self, PictureSettings};
+use crate::video::framing::{AspectRatio, Crop};
+
+const OUTPUT: (Category, &str) = (Category::Video, "Output");
+const PICTURE: (Category, &str) = (Category::Video, "Picture");
+const DEINTERLACING: (Category, &str) = (Category::Video, "Deinterlacing");
+const FRAMING: (Category, &str) = (Category::Video, "Framing");
+/// Why picture changes wait for the next file: they are libVLC filter options.
+const PICTURE_INFO: &str = "Applies to the next file you open; the video panel changes the \
+                            playing one.";
+
+impl SettingChoice for Deinterlace {
+    const VALUES: &'static [Self] = &[Self::Automatic, Self::On, Self::Off];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("automatic", "Automatic"),
+        Choice::new("on", "On"),
+        Choice::new("off", "Off"),
+    ];
+}
+
+impl SettingChoice for DeinterlaceMethod {
+    const VALUES: &'static [Self] = &[
+        Self::Automatic,
+        Self::Discard,
+        Self::Blend,
+        Self::Mean,
+        Self::Bob,
+        Self::Linear,
+        Self::X,
+        Self::Yadif,
+        Self::Yadif2x,
+        Self::Phosphor,
+        Self::Ivtc,
+    ];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("automatic", "Automatic"),
+        Choice::new("discard", "Discard"),
+        Choice::new("blend", "Blend"),
+        Choice::new("mean", "Mean"),
+        Choice::new("bob", "Bob"),
+        Choice::new("linear", "Linear"),
+        Choice::new("x", "X"),
+        Choice::new("yadif", "Yadif"),
+        Choice::new("yadif2x", "Yadif (2x)"),
+        Choice::new("phosphor", "Phosphor"),
+        Choice::new("ivtc", "Film NTSC (IVTC)"),
+    ];
+}
+
+impl SettingChoice for AspectRatio {
+    const VALUES: &'static [Self] = &[
+        Self::Automatic,
+        Self::Square,
+        Self::Standard,
+        Self::FiveByFour,
+        Self::Wide,
+        Self::SixteenByTen,
+        Self::Ratio221,
+        Self::Ratio235,
+        Self::Ratio239,
+    ];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("automatic", "Automatic"),
+        Choice::new("1:1", "1:1"),
+        Choice::new("4:3", "4:3"),
+        Choice::new("5:4", "5:4"),
+        Choice::new("16:9", "16:9"),
+        Choice::new("16:10", "16:10"),
+        Choice::new("2.21:1", "2.21:1"),
+        Choice::new("2.35:1", "2.35:1"),
+        Choice::new("2.39:1", "2.39:1"),
+    ];
+}
+
+impl SettingChoice for Crop {
+    const VALUES: &'static [Self] = &[
+        Self::None,
+        Self::Square,
+        Self::Standard,
+        Self::Wide,
+        Self::SixteenByTen,
+        Self::Ratio185,
+        Self::Ratio221,
+        Self::Ratio235,
+        Self::Ratio239,
+    ];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("none", "None"),
+        Choice::new("1:1", "1:1"),
+        Choice::new("4:3", "4:3"),
+        Choice::new("16:9", "16:9"),
+        Choice::new("16:10", "16:10"),
+        Choice::new("1.85:1", "1.85:1"),
+        Choice::new("2.21:1", "2.21:1"),
+        Choice::new("2.35:1", "2.35:1"),
+        Choice::new("2.39:1", "2.39:1"),
+    ];
+}
+
+/// A picture value as its slider says it: "1.25".
+fn plain(value: f64) -> String {
+    super::super::rules::trim(value)
+}
+
+/// A hue as its slider says it: "-30°".
+fn degrees(value: f64) -> String {
+    format!("{value:.0}°")
+}
+
+/// Puts every picture setting back.
+fn reset_picture(_: &mut gpui::Window, cx: &mut gpui::App) {
+    settings::update(cx, |settings| settings.prefs.video.picture = PictureSettings::default());
+}
+
+/// A picture row: `slider` over `range` (minimum, maximum, step).
+const fn picture_row(
+    key: &'static str,
+    label: &'static str,
+    slider: (Control, Binding),
+    range: (f64, f64, f64),
+) -> SettingDef {
+    SettingDef::new(key, PICTURE, label, slider.0, slider.1)
+        .info(PICTURE_INFO)
+        .range(range.0, range.1, range.2)
+        .applies(ApplyMode::NextMedia)
+        .keywords(&["color", "adjust", "image", "filter"])
+}
+
+/// The Video page's rows.
+pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
+    SettingDef::new(
+        "video.enabled",
+        OUTPUT,
+        "Enable video",
+        Control::Toggle,
+        toggle!(prefs.video.enabled),
+    )
+    .info(
+        "Off, media plays its sound only: video isn't decoded, which saves power, and the video \
+         area says why it is empty.",
+    )
+    .applies(ApplyMode::NextMedia)
+    .keywords(&["audio only", "black screen", "decode", "battery"]),
+    SettingDef::new(
+        "video.start_fullscreen",
+        OUTPUT,
+        "Start videos in fullscreen",
+        Control::Toggle,
+        toggle!(prefs.video.start_fullscreen),
+    )
+    .info("Each video goes fullscreen as it starts. Escape leaves fullscreen.")
+    .keywords(&["full screen", "maximize"]),
+    SettingDef::new(
+        "video.keep_display_awake",
+        OUTPUT,
+        "Stop the screensaver during playback",
+        Control::Toggle,
+        toggle!(prefs.video.keep_display_awake),
+    )
+    .info(
+        "Keeps the display from sleeping or starting the screensaver while video plays in a \
+         window that shows.",
+    )
+    .keywords(&["sleep", "display", "power", "idle", "inhibit"]),
+    picture_row(
+        "video.picture.hue",
+        "Hue",
+        (
+            Control::Slider { marks: Marks::None, format: degrees },
+            number!(f32: prefs.video.picture.hue),
+        ),
+        (-180., 180., 1.),
+    ),
+    picture_row(
+        "video.picture.brightness",
+        "Brightness",
+        (
+            Control::Slider { marks: Marks::None, format: plain },
+            number!(f32: prefs.video.picture.brightness),
+        ),
+        (0., 2., 0.01),
+    ),
+    picture_row(
+        "video.picture.contrast",
+        "Contrast",
+        (
+            Control::Slider { marks: Marks::None, format: plain },
+            number!(f32: prefs.video.picture.contrast),
+        ),
+        (0., 2., 0.01),
+    ),
+    picture_row(
+        "video.picture.saturation",
+        "Saturation",
+        (
+            Control::Slider { marks: Marks::Ticks(1.), format: plain },
+            number!(f32: prefs.video.picture.saturation),
+        ),
+        (0., 3., 0.01),
+    ),
+    picture_row(
+        "video.picture.gamma",
+        "Gamma",
+        (
+            Control::Slider { marks: Marks::Ticks(1.), format: plain },
+            number!(f32: prefs.video.picture.gamma),
+        ),
+        (0.01, 10., 0.01),
+    ),
+    SettingDef::new(
+        "video.reset_picture",
+        PICTURE,
+        "Reset picture",
+        Control::Button { label: "Reset", action: reset_picture },
+        Binding::ACTION,
+    )
+    .info("Puts hue, brightness, contrast, saturation and gamma back as the media has them.")
+    .keywords(&["default", "color"]),
+    SettingDef::new(
+        "video.deinterlace",
+        DEINTERLACING,
+        "Deinterlacing",
+        Control::Dropdown(Deinterlace::CHOICES),
+        choice!(prefs.video.deinterlace),
+    )
+    .info(
+        "Removes the comb lines of interlaced video (TV recordings, DVDs). Automatic does it \
+         when the video says it is interlaced.",
+    )
+    .applies(ApplyMode::NextMedia)
+    .keywords(&["interlaced", "comb", "tv", "dvd"]),
+    SettingDef::new(
+        "video.deinterlace_method",
+        DEINTERLACING,
+        "Method",
+        Control::Dropdown(DeinterlaceMethod::CHOICES),
+        choice!(prefs.video.deinterlace_method),
+    )
+    .info(
+        "How lines are joined. Yadif is sharp, Yadif (2x) and Bob keep motion smooth at twice \
+         the frame rate, Blend is cheap; Film NTSC undoes the telecine of film on NTSC discs.",
+    )
+    .depends_on("video.deinterlace", Condition::IsNot("off"))
+    .applies(ApplyMode::NextMedia)
+    .keywords(&["yadif", "bob", "blend", "telecine"]),
+    SettingDef::new(
+        "video.aspect_ratio",
+        FRAMING,
+        "Aspect ratio",
+        Control::Dropdown(AspectRatio::CHOICES),
+        choice!(prefs.video.aspect_ratio),
+    )
+    .info("The shape the picture is stretched to. Automatic keeps the media's own.")
+    .keywords(&["stretch", "widescreen", "16:9", "4:3"]),
+    SettingDef::new(
+        "video.crop",
+        FRAMING,
+        "Crop",
+        Control::Dropdown(Crop::CHOICES),
+        choice!(prefs.video.crop),
+    )
+    .info("Trims the picture to this shape, keeping its middle, to hide black bars.")
+    .keywords(&["black bars", "trim", "zoom", "letterbox"]),
+];

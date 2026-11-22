@@ -18,6 +18,7 @@ mod miniplayer;
 mod playback;
 mod privacy;
 mod subtitles;
+mod video;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -42,7 +43,8 @@ pub use live::LiveState;
 pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
 pub use privacy::PrivacySettings;
-pub use subtitles::SubtitleSettings;
+pub use subtitles::{SizeValues, SubtitleSettings};
+pub use video::{PictureSettings, VideoSettings};
 
 /// Everything the app persists, as one in-memory value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -175,22 +177,6 @@ pub struct LibraryRoutes {
     pub full: String,
 }
 
-macro_rules! empty_sections {
-    ($($(#[$meta:meta])* $name:ident),* $(,)?) => {$(
-        $(#[$meta])*
-        #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-        #[serde(default)]
-        pub struct $name {}
-    )*};
-}
-
-empty_sections! {
-    /// Video preferences (Stage 7).
-    VideoSettings,
-    /// Custom key bindings (S0.5).
-    KeymapSettings,
-}
-
 /// Library preferences (Stage 4, S5.9).
 #[allow(
     clippy::struct_excessive_bools,
@@ -279,3 +265,8 @@ pub enum WindowMode {
     /// Fullscreen; the saved bounds are where it restores to.
     Fullscreen,
 }
+
+/// Custom key bindings (S0.5).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct KeymapSettings {}

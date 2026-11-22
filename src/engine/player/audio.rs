@@ -1,9 +1,10 @@
 //! The [`Player`]'s audio (S1.5): volume within the maximum, mute, the output device and its
-//! hot-plug fallback, speaker setup, and pausing for another app's audio.
+//! hot-plug fallback, speaker setup, the equalizer, and pausing for another app's audio.
 
 use gpui::Context;
 
 use super::{Intent, Player, PlayerEvent};
+use crate::engine::audio::equalizer::Equalizer;
 use crate::engine::audio::{AudioDevice, AudioPolicy, OutputDevice, SpeakerSetup, hotplug};
 use crate::engine::state::PlaybackState;
 use crate::engine::values::{DEFAULT_MAX_VOLUME, MIN_MAX_VOLUME, Volume, VolumeChange};
@@ -18,6 +19,8 @@ pub(super) struct AudioState {
     /// The device sound goes to: the preferred one, or the default while it is unplugged.
     active: OutputDevice,
     speaker_setup: SpeakerSetup,
+    /// The equalizer sound goes through; `None` while it is off.
+    equalizer: Option<Equalizer>,
     policy: AudioPolicy,
     /// The devices plugged in; `None` until the backend reports them.
     devices: Option<Vec<AudioDevice>>,
@@ -32,6 +35,7 @@ impl Default for AudioState {
             preferred: OutputDevice::SystemDefault,
             active: OutputDevice::SystemDefault,
             speaker_setup: SpeakerSetup::Automatic,
+            equalizer: None,
             policy: AudioPolicy::default(),
             devices: None,
             paused_for_cork: false,
@@ -143,6 +147,14 @@ impl Player {
         if std::mem::replace(&mut self.audio.speaker_setup, setup) != setup {
             self.with_backend(|backend| backend.set_speaker_setup(setup));
             cx.notify();
+        }
+    }
+
+    /// Plays through `equalizer` from now on, or without one; heard at once.
+    pub fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
+        if self.audio.equalizer != equalizer {
+            self.audio.equalizer = equalizer;
+            self.with_backend(|backend| backend.set_equalizer(equalizer));
         }
     }
 

@@ -4,14 +4,12 @@
 
 use super::def::{Control, NumberRange, SettingDef};
 use super::value::Value;
-use super::{all, find};
+use super::{all, color, find};
 use crate::library::search::fold;
 use crate::settings::Settings;
 
 /// The longest dependency chain followed; longer means a cycle, which a test rules out.
 const MAX_CHAIN: usize = 8;
-/// The digits of a `#RRGGBB` color.
-const HEX_DIGITS: usize = 6;
 
 /// Why a value was refused, as the field shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,11 +45,13 @@ impl SettingDef {
             }
             (value, _) => value,
         };
-        if let (Control::HexColor, Value::Text(text)) = (self.control, &value)
-            && hex_color(text).is_none()
-        {
-            return Err(Invalid("A color such as #FFFFFF".into()));
-        }
+        let value = match (self.control, value) {
+            (Control::HexColor, Value::Text(text)) => match color::hex_color(&text) {
+                Some(rgb) => Value::Text(color::format(rgb)),
+                None => return Err(Invalid("A color such as #FFFFFF, #FFF or white".into())),
+            },
+            (_, value) => value,
+        };
         if let Some(validate) = self.validate {
             validate(&value).map_err(Invalid)?;
         }
@@ -130,13 +130,6 @@ pub fn sanitize(settings: &mut Settings) -> bool {
         }
     }
     changed
-}
-
-/// The color `#RRGGBB` names, as `0xRRGGBB`.
-pub fn hex_color(text: &str) -> Option<u32> {
-    let digits = text.trim().strip_prefix('#')?;
-    let valid = digits.len() == HEX_DIGITS && digits.chars().all(|c| c.is_ascii_hexdigit());
-    valid.then(|| u32::from_str_radix(digits, 16).ok()).flatten()
 }
 
 /// Reads a typed number, with or without `unit` after it; a comma is a decimal point.

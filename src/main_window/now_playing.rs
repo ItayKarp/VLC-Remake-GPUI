@@ -15,12 +15,14 @@ use gpui::{
 };
 
 use super::MainWindow;
+use super::subtitle_style;
 use crate::app::media::Media;
 use crate::engine;
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::library;
 use crate::power::Playback;
+use crate::settings::{self, SettingsStore};
 use crate::theme::Palette;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
@@ -52,7 +54,8 @@ impl MainWindow {
             return player.clone();
         }
         let output = Output::new();
-        let backend = engine::default_backend(output.sink(), Self::audio_config(cx));
+        let subtitles = subtitle_style::style(&settings::get(cx).prefs.subtitles);
+        let backend = engine::default_backend(output.sink(), Self::audio_config(cx), subtitles);
         let player = cx.new(|cx| Player::new(backend, cx));
         Self::start_at_default_speed(&player, cx);
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
@@ -76,19 +79,26 @@ impl MainWindow {
         (here && player.read(cx).state().is_active()).then(|| self.video.clone()).flatten()
     }
 
-    /// Re-checks whether the display should stay awake when the window shows or hides.
+    /// Re-checks whether the display should stay awake when the window shows or hides, and when
+    /// Settings → Video's "Stop the screensaver during playback" changes.
     pub(super) fn follow_visibility(window: &mut Window, cx: &mut Context<Self>) -> Subscription {
-        cx.observe_window_visibility(window, |this, _, window, cx| {
+        let visibility = cx.observe_window_visibility(window, |this, _, window, cx| {
             this.update_display_sleep(window, cx);
-        })
+        });
+        let setting = cx.observe_global_in::<SettingsStore>(window, |this, window, cx| {
+            this.update_display_sleep(window, cx);
+        });
+        Subscription::join(visibility, setting)
     }
 
+    /// Keeps the display awake while video plays, unless Settings → Video says not to.
     fn update_display_sleep(&mut self, window: &Window, cx: &App) {
         let Some((player, _)) = &self.player else { return };
         let player = player.read(cx);
+        let wanted = settings::get(cx).prefs.video.keep_display_awake;
         self.display_sleep.update(Playback {
             state: player.state(),
-            has_video: player.video_size().is_some(),
+            has_video: wanted && player.video_size().is_some(),
             visible: window.is_visible(),
         });
     }
@@ -108,6 +118,9 @@ impl MainWindow {
                 if *state == PlaybackState::Playing {
                     self.skips.played();
                 }
+                if *state == PlaybackState::Opening {
+                    self.windowing.start_fullscreen = true;
+                }
                 self.found_playing(*state, cx);
                 self.notify_now_playing(*state, cx);
                 self.attach_pending_audio(cx);
@@ -126,6 +139,7 @@ impl MainWindow {
                 self.sync_video_window(window, cx);
                 if let Some(size) = size {
                     self.fit_to_video((size.width as f32, size.height as f32), window, cx);
+                    self.start_fullscreen(window, cx);
                 }
             }
             // The title bar names the media by its title tag (S2.1.2).

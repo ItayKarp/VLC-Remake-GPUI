@@ -1,6 +1,6 @@
 //! Each row's control: the stateless ones (toggle, segmented, swatches, button) drawn from the
 //! settings on every render, and the stateful widgets with what goes beside them (a path's Browse
-//! button, a color's square).
+//! button, a color's square and palette).
 
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -11,7 +11,7 @@ use super::SettingsPage;
 use super::swatches::{SelectHandler, SwatchRow, swatches};
 use crate::settings::{
     self,
-    registry::{self, Control, PathPick, SettingDef, Value},
+    registry::{Control, PathPick, SettingDef, Value},
 };
 use crate::theme::Palette;
 use crate::ui::button::Button;
@@ -20,8 +20,6 @@ use crate::ui::toggle::Toggle;
 
 /// The space between a field and its Browse button or color square.
 const BESIDE_GAP: f32 = 8.;
-/// The square showing a color field's color.
-const COLOR_SQUARE: f32 = 24.;
 
 /// What a row's control shows: its value, and whether it can be changed.
 pub(super) struct RowState {
@@ -83,9 +81,24 @@ impl SettingsPage {
         let field = Self::field_with_escape(def, element, cx);
         match def.control {
             Control::Path(pick) => with_browse(def, pick, field, enabled, cx),
-            Control::HexColor => with_color_square(def, field, cx),
+            Control::HexColor => self.with_color_square(def, field),
             _ => field,
         }
+    }
+}
+
+impl SettingsPage {
+    /// A color field and the square that shows its color and opens the palette.
+    fn with_color_square(&self, def: &SettingDef, field: AnyElement) -> AnyElement {
+        let square = self.widgets.picker(def.key).cloned();
+        div()
+            .w_full()
+            .flex()
+            .items_center()
+            .gap(px(BESIDE_GAP))
+            .child(div().flex_1().min_w_0().child(field))
+            .children(square)
+            .into_any_element()
     }
 }
 
@@ -165,29 +178,4 @@ fn start_folder(def: &SettingDef, cx: &App) -> PathBuf {
         .map(Path::to_path_buf)
         .or_else(dirs::home_dir)
         .unwrap_or_default()
-}
-
-/// A color field and a square of the saved color.
-fn with_color_square(
-    def: &SettingDef,
-    field: AnyElement,
-    cx: &Context<SettingsPage>,
-) -> AnyElement {
-    let color = match def.value(settings::get(cx)) {
-        Value::Text(text) => registry::hex_color(&text),
-        _ => None,
-    };
-    let square = div()
-        .flex_none()
-        .size(px(COLOR_SQUARE))
-        .rounded(px(2.))
-        .when_some(color, |square, color| square.bg(gpui::rgb(color)));
-    div()
-        .w_full()
-        .flex()
-        .items_center()
-        .gap(px(BESIDE_GAP))
-        .child(field)
-        .child(square)
-        .into_any_element()
 }

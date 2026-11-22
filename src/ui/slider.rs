@@ -70,11 +70,12 @@ enum Interaction {
     Disabled,
 }
 
-/// Ticks along the track every `every` from the minimum, each labelled under the track.
+/// Ticks along the track every `every` from the minimum, each labelled under the track when
+/// there is a `label`.
 #[derive(Clone, Copy)]
 struct Marks {
     every: f64,
-    label: fn(f64) -> String,
+    label: Option<fn(f64) -> String>,
 }
 
 /// A slider with an optional numeric field; emits [`Changed`] when the user moves it.
@@ -153,7 +154,14 @@ impl Slider {
     /// Puts a tick on the track every `every` from the minimum, and each mark's `label` under
     /// the track. Horizontal sliders only.
     pub fn marks(mut self, every: f64, label: fn(f64) -> String) -> Self {
-        self.marks = Some(Marks { every, label });
+        self.marks = Some(Marks { every, label: Some(label) });
+        self
+    }
+
+    /// Puts a tick on the track every `every` from the minimum, without labels. Horizontal
+    /// sliders only.
+    pub fn bare_marks(mut self, every: f64) -> Self {
+        self.marks = Some(Marks { every, label: None });
         self
     }
 

@@ -22,17 +22,16 @@ pub enum Control {
     Segmented(&'static [Choice]),
     /// Color squares, each a choice; `color` gives each one's color by id.
     Swatches { choices: &'static [Choice], color: fn(&str) -> Option<Hsla> },
-    /// A slider over the setting's [`NumberRange`]; `format` labels a value. With `marks`, a
-    /// tick and a label every that much from the minimum.
-    Slider { marks: Option<f64>, format: fn(f64) -> String },
+    /// A slider over the setting's [`NumberRange`]; `format` labels a value, and `marks` puts
+    /// ticks on the track.
+    Slider { marks: Marks, format: fn(f64) -> String },
     /// A number field showing `unit` after the value ("10 s").
     Number { unit: &'static str },
     /// A text field.
     Text,
     /// A path field with a Browse button that picks as `PathPick` says.
     Path(PathPick),
-    /// A `#RRGGBB` field with a color square.
-    #[allow(dead_code, reason = "color rows come with S6 (subtitle colors)")]
+    /// A color field (`#RRGGBB`, `#RGB` or a name) with a square that opens a color picker.
     HexColor,
     /// A button that runs `action` ("Run Setup Again…"); its binding is [`Binding::ACTION`].
     Button { label: &'static str, action: fn(&mut gpui::Window, &mut gpui::App) },
@@ -41,6 +40,21 @@ pub enum Control {
     /// A password kept in the OS keychain, never in the settings; its binding is
     /// [`Binding::ACTION`].
     Secret(Secret),
+    /// The equalizer's sliders, across the page under the rows before it; the panel saves the
+    /// gains itself, so its binding is [`Binding::ACTION`].
+    Equalizer,
+}
+
+/// The ticks on a [`Control::Slider`]'s track, every that much from the minimum.
+#[derive(Clone, Copy, Debug)]
+pub enum Marks {
+    /// A plain track.
+    None,
+    /// Ticks only.
+    Ticks(f64),
+    /// Ticks, each labelled under the track by the function (an empty label leaves a tick
+    /// unlabelled).
+    Labelled(f64, fn(f64) -> String),
 }
 
 /// Lists an [`Control::Options`] row's options, given the saved id.
@@ -133,6 +147,10 @@ pub enum ApplyMode {
 /// Checks a value beyond its range; returns the message shown under the field.
 pub type Validator = fn(&Value) -> Result<(), String>;
 
+/// A line under the row's label about its value in the light of the other settings or the
+/// machine ("Starts at 150%, the maximum volume"); `None` when there is nothing to say.
+pub type Hint = fn(&gpui::App) -> Option<String>;
+
 /// One setting: everything the Settings window needs to draw, search, validate and save it.
 #[derive(Clone, Copy, Debug)]
 pub struct SettingDef {
@@ -162,6 +180,10 @@ pub struct SettingDef {
     pub advanced: bool,
     /// Other words search finds the row by.
     pub keywords: &'static [&'static str],
+    /// A line under the label, given the settings.
+    pub hint: Option<Hint>,
+    /// What an empty text field shows.
+    pub placeholder: &'static str,
 }
 
 impl SettingDef {
@@ -187,6 +209,8 @@ impl SettingDef {
             apply: ApplyMode::Live,
             advanced: false,
             keywords: &[],
+            hint: None,
+            placeholder: "",
         }
     }
 
@@ -223,6 +247,18 @@ impl SettingDef {
     /// Puts the row under Advanced Options.
     pub const fn advanced(mut self) -> Self {
         self.advanced = true;
+        self
+    }
+
+    /// Shows `hint`'s line under the label.
+    pub const fn hint(mut self, hint: Hint) -> Self {
+        self.hint = Some(hint);
+        self
+    }
+
+    /// Shows `placeholder` in the row's empty text field.
+    pub const fn placeholder(mut self, placeholder: &'static str) -> Self {
+        self.placeholder = placeholder;
         self
     }
 

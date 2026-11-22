@@ -16,7 +16,9 @@
 //! category.
 
 mod advanced;
+mod color_picker;
 mod controls;
+mod equalizer;
 mod highlight;
 mod options;
 mod row;
@@ -28,11 +30,15 @@ mod widgets;
 
 use std::collections::HashSet;
 
-use gpui::{AnyElement, Context, IntoElement, Render, Subscription, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, Context, IntoElement, Render, SharedString, Subscription, Window, div, prelude::*,
+    px,
+};
 
 use self::controls::RowState;
 use self::row::{PAGE_PADDING, RowLabel};
 use self::widgets::Widgets;
+use crate::app::audio_devices::AudioDevices;
 use crate::settings::registry::{self, ApplyMode, Category, SettingDef, Value};
 use crate::settings::{self, Settings, SettingsStore};
 use crate::theme::{self, Palette};
@@ -52,6 +58,7 @@ pub struct SettingsPage {
     /// `NextMedia` rows changed on this page, which say when the change applies.
     edited: HashSet<&'static str>,
     _settings: Subscription,
+    _devices: Subscription,
 }
 
 impl SettingsPage {
@@ -62,6 +69,10 @@ impl SettingsPage {
             this.sync_widgets(window, cx);
             cx.notify();
         });
+        // Options rows list what the machine has; the audio devices change while Settings shows.
+        let devices = cx.observe_global_in::<AudioDevices>(window, |this, window, cx| {
+            this.sync_widgets(window, cx);
+        });
         let defs: Vec<_> = registry::in_category(category).collect();
         let widgets = Widgets::new(&defs, window, cx);
         let page = Self {
@@ -71,6 +82,7 @@ impl SettingsPage {
             widgets,
             edited: HashSet::new(),
             _settings: settings,
+            _devices: devices,
         };
         page.widgets.sync(&defs, window, cx);
         page
@@ -162,7 +174,9 @@ impl SettingsPage {
         cx: &mut Context<Self>,
     ) -> gpui::Div {
         let state = RowState { value: def.value(settings), enabled: def.is_enabled(settings) };
-        let note = self.edited.contains(def.key).then_some(NEXT_MEDIA_NOTE);
+        let hint = def.hint.and_then(|hint| hint(cx)).map(SharedString::from);
+        let edited = self.edited.contains(def.key).then_some(SharedString::from(NEXT_MEDIA_NOTE));
+        let note = hint.or(edited);
         let label = RowLabel {
             key: def.key,
             label: def.label,
@@ -172,6 +186,10 @@ impl SettingsPage {
             enabled: state.enabled,
         };
         let control = self.control(def, &state, p, cx);
+        if matches!(def.control, registry::Control::Equalizer) {
+            // The panel is the row: the design gives it the page's width and no label.
+            return div().py(px(8.)).child(control);
+        }
         row::row(&label, control, p)
     }
 

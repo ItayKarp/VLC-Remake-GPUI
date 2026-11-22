@@ -1,5 +1,5 @@
 //! The main window's side of tracks (S1.6): it gives the player the preferred languages, default
-//! tracks and the options new media opens with (S5.7) from the settings and follows changes to
+//! tracks and the options new media opens with (S5.7, S5.8.1) from the settings and follows changes to
 //! them, and cycles audio (B) and subtitles (V), saying
 //! which track plays now over the video (S2.10.2); a newer message replaces the last, so a held
 //! key doesn't stack them.
@@ -8,7 +8,7 @@ use gpui::{Context, Entity, Subscription};
 
 use super::MainWindow;
 use crate::engine::language::{self, Language};
-use crate::engine::media_options::MediaOptions;
+use crate::engine::media_options::{Deinterlacing, MediaOptions};
 use crate::engine::player::Player;
 use crate::engine::tracks::auto::{SubtitleMode, TrackPreferences};
 use crate::engine::tracks::{Cycled, TrackKind, Tracks};
@@ -74,10 +74,16 @@ fn position(number: u32) -> Option<usize> {
 /// The options new media opens with, in `settings`.
 fn media_options(settings: &Settings) -> MediaOptions {
     let player = &settings.prefs.player;
+    let video = &settings.prefs.video;
     MediaOptions {
         max_lines: player.video_quality.max_lines(),
         menu_language: Language::parse(&player.menu_language),
         precise_seeks: player.seek_precisely,
+        video: video.enabled,
+        audio: settings.prefs.audio.enabled,
+        picture: video.picture.into(),
+        deinterlace: Deinterlacing { mode: video.deinterlace, method: video.deinterlace_method },
+        subtitles: super::subtitle_style::loading(&settings.prefs.subtitles),
     }
 }
 

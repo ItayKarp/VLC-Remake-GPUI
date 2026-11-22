@@ -45,7 +45,7 @@ pub(super) struct RowLabel {
     /// The `(i)` tooltip; empty for none.
     pub info: &'static str,
     /// A muted line under the label ("Applies to the next file you open").
-    pub note: Option<&'static str>,
+    pub note: Option<SharedString>,
     /// Whether the row can be changed.
     pub enabled: bool,
 }
@@ -70,6 +70,7 @@ pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
         .when(!label.info.is_empty(), |text| text.child(info_icon(label, p)));
     let note = label
         .note
+        .clone()
         .map(|note| div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note));
     div()
         .min_h(px(ROW_HEIGHT))

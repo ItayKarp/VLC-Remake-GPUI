@@ -2,7 +2,7 @@
 //! play. The page's second half (the queue's order, seeking and when media counts as watched) is
 //! in `play_order.rs`.
 
-use super::super::def::{ApplyMode, Condition, Control, MachineChoice, SettingDef};
+use super::super::def::{ApplyMode, Condition, Control, MachineChoice, Marks, SettingDef};
 use super::super::rules::trim;
 use super::super::value::{Choice, SettingChoice, choice, number, text, toggle};
 use crate::engine::language::{self, Language};
@@ -92,7 +92,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         "player.default_speed",
         STARTUP,
         "Default playback speed",
-        Control::Slider { marks: Some(0.25), format: speed },
+        Control::Slider { marks: Marks::Labelled(0.25, speed), format: speed },
         number!(f32: prefs.player.default_speed),
     )
     .info("The speed VLC starts at. A speed you pick while watching lasts until VLC quits.")

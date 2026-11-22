@@ -46,6 +46,7 @@ mod session;
 mod settings_panel;
 mod shortcuts_dialog;
 mod speed;
+mod subtitle_style;
 #[cfg(test)]
 mod tests;
 mod title_bar;

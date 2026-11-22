@@ -10,6 +10,7 @@
 //! A story that adds a setting adds its row here, in its category's file under `entries/`.
 
 mod category;
+mod color;
 mod def;
 mod entries;
 mod rules;
@@ -23,10 +24,11 @@ pub(crate) mod value;
 )]
 pub use category::Layout;
 pub use category::{Category, Group};
-pub use def::{ApplyMode, Control, MachineChoice, OptionsSource, PathPick, SettingDef};
+pub use color::hex_color;
+pub use def::{ApplyMode, Control, MachineChoice, Marks, OptionsSource, PathPick, SettingDef};
 #[cfg(test)]
 pub use rules::search;
-pub use rules::{hex_color, sanitize, search_words};
+pub use rules::{sanitize, search_words};
 pub use value::{Binding, Choice, SettingChoice, Value};
 
 use super::Settings;

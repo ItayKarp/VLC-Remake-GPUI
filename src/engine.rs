@@ -37,6 +37,7 @@ mod preflight;
 pub mod preview;
 pub mod shutdown;
 pub mod state;
+pub mod subtitle_style;
 pub mod tags;
 #[cfg(test)]
 mod tests;
@@ -50,27 +51,30 @@ use std::sync::Arc;
 
 use audio::AudioConfig;
 use backend::{Backend, EventSender};
+use subtitle_style::SubtitleStyle;
 use video::VideoSink;
 
 pub use libvlc::runtime::prepare_environment;
 pub use libvlc::{loaded_version as loaded_libvlc_version, version as libvlc_version};
 
-/// The backend to play with, sending pictures to `video` and set up with `audio`: libVLC, or,
-/// when it can't be loaded, one that fails every open with a clear error. Pass it to
-/// [`Player::new`](player::Player::new).
+/// The backend to play with, sending pictures to `video` and set up with `audio` and the
+/// `subtitles` style: libVLC, or, when it can't be loaded, one that fails every open with a clear
+/// error. Pass it to [`Player::new`](player::Player::new).
 pub fn default_backend(
     video: Arc<dyn VideoSink>,
     audio: AudioConfig,
+    subtitles: SubtitleStyle,
 ) -> impl FnOnce(EventSender) -> Box<dyn Backend> {
-    move |events| new_backend(events, video, audio)
+    move |events| new_backend(events, video, audio, &subtitles)
 }
 
 fn new_backend(
     events: EventSender,
     video: Arc<dyn VideoSink>,
     audio: AudioConfig,
+    subtitles: &SubtitleStyle,
 ) -> Box<dyn Backend> {
-    match libvlc::LibVlcBackend::new(events.clone(), Some(video), audio) {
+    match libvlc::LibVlcBackend::new(events.clone(), Some(video), audio, subtitles) {
         Ok(backend) => Box::new(backend),
         Err(error) => {
             tracing::error!("engine: libVLC is unavailable: {error:#}");

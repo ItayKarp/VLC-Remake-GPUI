@@ -5,6 +5,7 @@
 //! Onboarding hands off by opening the main window *before* closing itself, because
 //! with `QuitMode::LastWindowClosed` closing the only window quits the app.
 
+pub mod audio_devices;
 pub mod cli;
 mod display;
 pub mod file_types;

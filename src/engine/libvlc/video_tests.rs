@@ -18,6 +18,7 @@ use crate::engine::audio::AudioConfig;
 use crate::engine::backend::{self, Backend, BackendEvent};
 use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
+use crate::engine::subtitle_style::SubtitleStyle;
 use crate::engine::values::{Generation, Start};
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
 
@@ -66,7 +67,13 @@ fn shown_size(name: &str) -> (u32, u32) {
     let sink = Arc::new(CountingSink::default());
     let (events, _receiver) = backend::channel();
     let mut backend = Box::new(
-        LibVlcBackend::new(events, Some(sink.clone()), AudioConfig::default()).expect("libVLC"),
+        LibVlcBackend::new(
+            events,
+            Some(sink.clone()),
+            AudioConfig::default(),
+            &SubtitleStyle::default(),
+        )
+        .expect("libVLC"),
     );
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/spike-media").join(name);
     backend.open(&Media::File(path), Start::default(), Generation::default().next());
@@ -108,8 +115,10 @@ fn a_dvd_reveals_its_wide_shape_soon_after_playback_starts() {
     unsafe { super::runtime::prepare_environment() };
     let sink = Arc::new(CountingSink::default());
     let (events, mut receiver) = backend::channel();
-    let mut backend =
-        Box::new(LibVlcBackend::new(events, Some(sink), AudioConfig::default()).expect("libVLC"));
+    let mut backend = Box::new(
+        LibVlcBackend::new(events, Some(sink), AudioConfig::default(), &SubtitleStyle::default())
+            .expect("libVLC"),
+    );
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/spike-media");
     let media = Media::File(path.join("dvd-anamorphic.mpg"));
     backend.open(&media, Start::default(), Generation::default().next());

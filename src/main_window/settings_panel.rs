@@ -2,6 +2,11 @@
 //! button's panel over the bar's right end, with Playback, Video, Audio and Subtitles tabs. It
 //! changes the playing media; the Settings window holds the defaults.
 //!
+//! How the two relate (S5.8.4, D24): a panel value lasts the session, carried from item to item,
+//! and is never saved; it wins over its default changed in Settings meanwhile until the panel
+//! resets it; and Save as Default (S7.1.5) writes a tab's values into its Settings page. Speed
+//! already works this way (S2.7.4), its default applying at the next launch.
+//!
 //! The Playback tab holds the speed (`playback.rs`). Its other designed rows (Show Subtitle
 //! Timeline on Seekbar, Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with their
 //! stories (S6.6, S8.13, S7.8) and are hidden until then, as are the Video, Audio and Subtitles

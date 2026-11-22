@@ -1,5 +1,5 @@
-//! A [`Slider`]'s marks: ticks on the track between its ends and a label under each mark, the
-//! first and last flush with the track's ends (`controls-playback.png`).
+//! A [`Slider`]'s marks: ticks on the track between its ends and, unless they are bare ticks, a
+//! label under each mark, the first and last flush with the track's ends (`controls-playback.png`).
 
 use gpui::{Div, div, prelude::*, px, relative};
 
@@ -39,9 +39,10 @@ impl Slider {
     /// The labels under the track, inset as the track is in the slider.
     pub(super) fn mark_labels(&self, inset: f32, p: &Palette) -> Option<Div> {
         let marks = self.shown_marks()?;
+        let text = marks.label?;
         let labels = values(self.model.min, self.model.max, marks.every).into_iter().map(|value| {
             let fraction = self.model.fraction_at(value) as f32;
-            let label = div().absolute().top_0().child((marks.label)(value));
+            let label = div().absolute().top_0().child(text(value));
             if fraction <= 0. {
                 label.left_0()
             } else if fraction >= 1. {
