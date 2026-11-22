@@ -150,13 +150,26 @@ impl MainWindow {
         self.library_panel.folder = Some(FolderListing { route, state, _read: read });
     }
 
-    /// Shows what was read for `route`, if the listing still shows it.
+    /// Shows what was read for `route`, if the listing still shows it, selecting the item Go
+    /// to Source asked for.
     fn read_into(&mut self, route: &Route, state: FolderState, cx: &mut Context<Self>) {
         let listing = self.library_panel.folder.as_mut();
         if let Some(listing) = listing.filter(|listing| listing.route == *route) {
             listing.state = state;
+            self.select_revealed(cx);
             cx.notify();
         }
+    }
+
+    /// Selects and scrolls to the item Go to Source asked for, once the listing is read.
+    pub(super) fn select_revealed(&mut self, cx: &App) {
+        let Body::Items(items) = self.listing(cx) else { return };
+        let keys = items.keys();
+        let Some(key) = self.library_panel.reveal.take() else { return };
+        let Some(index) = keys.iter().position(|listed| *listed == key) else { return };
+        let line = super::view_menu::line_of(index, self.library_view(cx));
+        self.library_panel.selection.select(key);
+        self.library_panel.scroll.scroll_to_item(line, gpui::ScrollStrategy::Center);
     }
 
     /// Orders what the current route lists by `sort`, if it was read.

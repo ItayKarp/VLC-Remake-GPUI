@@ -235,3 +235,5 @@ fn a_drag_held_over_a_rail_icon_shows_its_section(cx: &mut TestAppContext) {
     let route = cx.update(|_, cx| main.read(cx).library_panel.history.current().clone());
     assert_eq!(route, Route::Playlists(None));
 }
+
+mod menus;

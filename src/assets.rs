@@ -157,6 +157,12 @@ icons! {
     ALBUM => "album.svg",
     ARTIST => "artist.svg",
     GENRE => "genre.svg",
+    // The library's file, folder and playlist menus (S4.8).
+    FAVORITE => "favorite.svg",
+    /// Mark as Watched: [`two_tone::CHECK_BOX`]'s two layers in one file, as menus draw one color.
+    CHECK_BOX_FULL => "check-box-full.svg",
+    NEW_FOLDER => "new-folder.svg",
+    SAVE => "save.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

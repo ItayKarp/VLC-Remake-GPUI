@@ -11,6 +11,7 @@
 
 mod about;
 mod audio;
+mod audio_tracks;
 mod auto_hide;
 mod bar_panel;
 mod control_bar;
@@ -97,6 +98,8 @@ pub struct MainWindow {
     audio: audio::AudioWatch,
     /// The track settings subscription and the last track toast (S1.6).
     tracks: tracks::TrackWatch,
+    /// Audio files waiting for their media to open (S4.8.1).
+    audio_tracks: audio_tracks::PendingAudio,
     /// The playback being recorded and the resume offer (S1.7).
     history: history::HistoryWatch,
     /// Saving the session for the next launch (S3.4).
@@ -160,6 +163,7 @@ impl MainWindow {
             video: None,
             audio: audio::AudioWatch::default(),
             tracks: tracks::TrackWatch::default(),
+            audio_tracks: audio_tracks::PendingAudio::default(),
             history: history::HistoryWatch::default(),
             session: session::SessionWatch::default(),
             display_sleep: DisplaySleep::default(),

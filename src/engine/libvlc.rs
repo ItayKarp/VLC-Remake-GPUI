@@ -188,6 +188,10 @@ impl Backend for LibVlcBackend {
         self.send(Command::AddSubtitle(path.to_path_buf()));
     }
 
+    fn add_audio(&mut self, path: &Path) {
+        self.send(Command::AddAudio(path.to_path_buf()));
+    }
+
     fn set_audio_device(&mut self, device: &OutputDevice) {
         self.send(Command::SetAudioDevice(device.clone()));
     }

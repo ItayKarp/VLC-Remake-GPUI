@@ -123,6 +123,8 @@ pub enum Command {
     SetSubtitleDelay(Offset),
     /// Add a subtitle file to the open media and show it.
     AddSubtitle(PathBuf),
+    /// Add an audio file to the open media as a track and play it.
+    AddAudio(PathBuf),
     /// Play through this device.
     SetAudioDevice(OutputDevice),
     /// List the output devices again.
@@ -172,6 +174,9 @@ pub trait Backend: Send {
     /// Adds the subtitle file at `path` to the open media and shows it. Its track appears in a
     /// later [`BackendEvent::Tracks`].
     fn add_subtitle(&mut self, path: &Path);
+    /// Adds the audio file at `path` to the open media as a track and plays it (S4.8.1). Its
+    /// track appears in a later [`BackendEvent::Tracks`].
+    fn add_audio(&mut self, path: &Path);
     /// Plays through `device` from now on, for this and later media.
     fn set_audio_device(&mut self, device: &OutputDevice);
     /// Lists the output devices again now, rather than at the next poll; a changed list is

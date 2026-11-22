@@ -33,6 +33,12 @@ pub use order::SortKey;
 pub use repeat::Repeat;
 pub use skips::{AfterError, MAX_CONSECUTIVE_FAILURES, Skips};
 
+/// A random item of `len` to start a shuffled play from (the playlist menu's Shuffle, S4.8.3);
+/// 0 for none.
+pub fn random_start(len: usize) -> usize {
+    len.checked_sub(1).map_or(0, |last| random::Random::from_clock().up_to(last))
+}
+
 /// Names one entry for as long as it is queued, wherever it moves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EntryId(u64);

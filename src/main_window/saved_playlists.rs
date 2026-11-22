@@ -3,8 +3,8 @@
 //! item to a playlist and lists the saved ones ([`menu`]) to play, queue, rename, duplicate or
 //! delete, and export to a file ([`export`]). Import Playlist… saves playlist files ([`import`]).
 //!
-//! The library's Playlists section (S3.5.2), the playlist view (S3.5.3) and the playlist context
-//! menu (S4.8.3) come with Stage 4; until then these menus are the way to the saved playlists.
+//! The library's Playlists section lists them too, each with the playlist menu (S4.8.3); Rename,
+//! Duplicate and Delete are only here until the playlist view (S3.5.3) offers them.
 
 mod export;
 mod import;

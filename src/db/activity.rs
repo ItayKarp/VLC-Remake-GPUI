@@ -132,6 +132,20 @@ pub fn is_favorite(connection: &Connection, favorite: Favorite) -> rusqlite::Res
     )
 }
 
+/// Every favorite, in the order they were made.
+pub fn favorites(connection: &Connection) -> rusqlite::Result<Vec<Favorite>> {
+    let mut statement =
+        connection.prepare("SELECT media_id, playlist_id FROM favorites ORDER BY added_ms, id")?;
+    let rows = statement.query_map([], |row| {
+        let media: Option<i64> = row.get(0)?;
+        let playlist: Option<i64> = row.get(1)?;
+        Ok(media
+            .map(|id| Favorite::Media(MediaId(id)))
+            .or(playlist.map(|id| Favorite::Playlist(PlaylistId(id)))))
+    })?;
+    rows.filter_map(Result::transpose).collect()
+}
+
 fn frequent(connection: &Connection, column: &str, limit: usize) -> rusqlite::Result<Vec<i64>> {
     let mut statement = connection.prepare(&format!(
         "SELECT {column} FROM visits WHERE {column} IS NOT NULL

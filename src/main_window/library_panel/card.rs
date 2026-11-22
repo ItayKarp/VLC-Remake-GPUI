@@ -4,7 +4,7 @@
 //! Watched media is dimmed, and the thumbnail carries an orange bar of the progress along its
 //! bottom, full width once watched; media of unknown length has no bar (D9). Hovering brightens
 //! the name, shows a play button over the thumbnail and `•••` at the end, which opens the card's
-//! menu ([`card_menu`](super::card_menu)).
+//! file menu ([`file_menu`](super::file_menu)); so does a right-click.
 
 use gpui::{
     App, ClickEvent, Context, Div, Hsla, MouseButton, MouseDownEvent, Stateful, div, prelude::*,
@@ -71,7 +71,7 @@ pub(super) fn card_events(
         .on_mouse_down(
             MouseButton::Right,
             cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                this.open_card_menu(index, event.position, window, cx);
+                this.open_item_menu(index, event.position, window, cx);
             }),
         )
 }
@@ -144,7 +144,7 @@ fn progress(watch: WatchState) -> Option<f32> {
     }
 }
 
-/// `•••` in `color`, shown while the card is hovered, which opens the card's menu below the
+/// `•••` in `color`, shown while item `index` is hovered, which opens its menu below the
 /// pointer.
 pub(super) fn more_button(
     index: usize,
@@ -161,7 +161,7 @@ pub(super) fn more_button(
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
             cx.stop_propagation();
-            this.open_card_menu(index, event.position(), window, cx);
+            this.open_item_menu(index, event.position(), window, cx);
         }))
         .child(icon(icons::MORE, MORE_ICON, color))
 }

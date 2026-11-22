@@ -117,6 +117,10 @@ actions!(
         Slower,
         /// Play at normal speed.
         NormalSpeed,
+        /// Play the audio 50 ms sooner against the video (S4.8.1).
+        AudioDelayEarlier,
+        /// Play the audio 50 ms later against the video (S4.8.1).
+        AudioDelayLater,
         /// Raise the volume.
         VolumeUp,
         /// Lower the volume.

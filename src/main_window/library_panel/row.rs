@@ -1,10 +1,16 @@
 //! The listing's plain rows (`player_02`, `sidebar-videos*`): an icon and a name, for a place to
-//! go to, a recently played media, or the "+ Add" action (S4.6.1).
+//! go to, a recently played media, or the "+ Add" action (S4.6.1). A folder's and a saved
+//! playlist's row has a menu (S4.8.2, S4.8.3), from a right-click or its `•••` on hover.
 
-use gpui::{ClickEvent, Context, SharedString, Stateful, Window, div, prelude::*, px};
+use gpui::{
+    ClickEvent, Context, MouseButton, MouseDownEvent, SharedString, Stateful, Window, div,
+    prelude::*, px,
+};
 
 use super::MainWindow;
 use super::add_menu::{self, Shelf};
+use super::card::{GROUP, more_button};
+use super::item_menu::MenuKind;
 use super::selection::Key;
 use crate::app::media::Media;
 use crate::app::request::OpenRequest;
@@ -79,6 +85,15 @@ impl Row {
         matches!(self.target, Target::Add(_))
     }
 
+    /// The menu the row has: a folder's or a saved playlist's.
+    pub(super) fn menu(&self) -> Option<MenuKind> {
+        match &self.target {
+            Target::Go(Route::Playlists(Some(_))) => Some(MenuKind::Playlist),
+            Target::Go(route) if route.folder().is_some() => Some(MenuKind::Folder),
+            _ => None,
+        }
+    }
+
     /// What the row is, for the selection.
     pub(super) fn key(&self) -> Key {
         match &self.target {
@@ -98,7 +113,11 @@ impl Row {
     ) -> Stateful<gpui::Div> {
         let (hover, strong) = (p.hover, p.text_strong);
         let target = self.target.clone();
-        super::drag::drop_target(row_frame(("library-row", index), p), self, p, cx)
+        let frame = row_frame(("library-row", index), p)
+            .debug_selector(move || format!("library-row-{index}"));
+        let frame = super::drag::drop_target(frame, self, p, cx);
+        let frame = menu_events(frame, self, index, cx);
+        frame
             .when(selected, |row| row.bg(p.selected))
             .hover(move |style| style.bg(hover).text_color(strong))
             .cursor_pointer()
@@ -114,8 +133,28 @@ impl Row {
                     .justify_center()
                     .child(icon::icon(self.icon, metrics::ICON, p.icon)),
             )
-            .child(div().min_w_0().truncate().child(self.label.clone()))
+            .child(div().flex_1().min_w_0().truncate().child(self.label.clone()))
+            .when(self.menu().is_some(), |row| row.child(more_button(index, p.icon, cx)))
     }
+}
+
+/// `frame` as item `index`'s `row`: when it has a menu, its parts hover together and a
+/// right-click opens the menu.
+pub(super) fn menu_events(
+    frame: Stateful<gpui::Div>,
+    row: &Row,
+    index: usize,
+    cx: &mut Context<MainWindow>,
+) -> Stateful<gpui::Div> {
+    if row.menu().is_none() {
+        return frame;
+    }
+    frame.group(GROUP).on_mouse_down(
+        MouseButton::Right,
+        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+            this.open_item_menu(index, event.position, window, cx);
+        }),
+    )
 }
 
 /// A listing row's frame: its height, its insets and its spacing.

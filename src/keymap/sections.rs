@@ -68,6 +68,8 @@ pub const SECTIONS: &[Section] = &[
             &act::VolumeDown,
             &act::CycleAudioTrack,
             &act::CycleSubtitleTrack,
+            &act::AudioDelayEarlier,
+            &act::AudioDelayLater,
         ],
     },
     Section { title: "Capture", actions: &[&act::Snapshot, &act::Record] },

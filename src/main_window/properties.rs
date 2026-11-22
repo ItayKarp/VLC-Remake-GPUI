@@ -1,9 +1,9 @@
 //! Properties & Metadata (S4.3.5; not designed): a read-only dialog of what the library read
-//! from the playing file, its tags, length, resolution, codecs and cover source. Until the
-//! library's file menu (S4.8.1) exists, it opens from the video menu and Cmd/Ctrl+I. The
+//! from a file, its tags, length, resolution, codecs and cover source. It opens for the playing
+//! file from the video menu and Cmd/Ctrl+I, and for a library file from its menu (S4.8.1). The
 //! database is read on the history thread, so opening it never waits on the disk.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use futures::channel::oneshot;
 use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, prelude::*, px};
@@ -40,7 +40,15 @@ impl MainWindow {
         let player = self.loaded_player(cx);
         let path =
             player.and_then(|player| player.read(cx).media()?.as_path().map(Path::to_path_buf));
-        let (Some(path), Some(history)) = (path, History::get(cx)) else { return };
+        if let Some(path) = path {
+            Self::show_properties_of(path, window, cx);
+        }
+    }
+
+    /// Reads the properties of the file at `path` and opens the dialog with them (the library's
+    /// file menu, S4.8.1).
+    pub(super) fn show_properties_of(path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(history) = History::get(cx) else { return };
         let (reply, answer) = oneshot::channel();
         history.with_database(move |connection| {
             let read = properties::read(connection, &path).unwrap_or_else(|error| {
@@ -57,26 +65,33 @@ impl MainWindow {
     }
 
     fn open_properties(&mut self, read: &Properties, window: &mut Window, cx: &mut Context<Self>) {
-        let rows: Vec<(SharedString, SharedString)> = properties::rows(read)
-            .into_iter()
-            .map(|(label, value)| (label.into(), value.into()))
-            .collect();
+        let rows = properties::rows(read).into_iter().map(|(label, value)| (label, value.into()));
+        self.show_info_dialog("Properties & Metadata", rows.collect(), window, cx);
+    }
+
+    /// Opens a read-only dialog titled `title` of `rows`: a muted label and its value on each
+    /// (Properties & Metadata, and the library's folder Info and playlist properties).
+    pub(super) fn show_info_dialog(
+        &mut self,
+        title: &'static str,
+        rows: Vec<(&'static str, SharedString)>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let body = move |window: &mut Window, cx: &mut App| body(&rows, window, cx);
         let buttons = vec![DialogButton::new("Close").primary()];
-        let dialog = cx.new(|cx| Dialog::new("Properties & Metadata", body, buttons, cx));
+        let dialog = cx.new(|cx| Dialog::new(title, body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
 }
 
-fn body(rows: &[(SharedString, SharedString)], window: &mut Window, cx: &mut App) -> AnyElement {
+fn body(rows: &[(&'static str, SharedString)], window: &mut Window, cx: &mut App) -> AnyElement {
     let p = theme::palette(window, cx);
-    let row = |(label, value): &(SharedString, SharedString)| {
+    let row = |(label, value): &(&'static str, SharedString)| {
         div()
             .flex()
             .gap(px(ROW_GAP * 2.))
-            .child(
-                div().w(px(LABEL_WIDTH)).flex_none().text_color(p.text_muted).child(label.clone()),
-            )
+            .child(div().w(px(LABEL_WIDTH)).flex_none().text_color(p.text_muted).child(*label))
             .child(div().flex_1().min_w_0().child(value.clone()))
     };
     div().flex().flex_col().gap(px(ROW_GAP)).children(rows.iter().map(row)).into_any_element()

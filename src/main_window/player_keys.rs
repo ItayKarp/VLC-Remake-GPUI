@@ -3,7 +3,7 @@
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
 //! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N),
 //! seeking (S2.3.4: the arrows with their modifiers, Home and End), the speed (S2.7.3: `[`,
-//! `]` and `=`), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
+//! `]` and `=`), the audio delay (S4.8.1: J and K), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
 //! (S2.9: Shift+F10 and the context-menu key), frame stepping (`,` and `.`) and T (S2.10.3)
 //! work, Q shows the queue (S3.2) and L the library sidebar (S4.5). A command whose story hasn't
 //! shipped (X, Shift+S, Shift+R) says "Coming soon" over the video in debug builds and is only
@@ -14,6 +14,7 @@ use std::time::Instant;
 use gpui::{Action, Context, Div, Window, prelude::*};
 
 use super::MainWindow;
+use super::audio_tracks::Shift;
 use super::seeking::{Edge, Way};
 use super::speed::rules::SpeedChange;
 use crate::engine::tracks::TrackKind;
@@ -44,6 +45,8 @@ impl MainWindow {
             [
                 CycleSubtitleTrack,
                 CycleAudioTrack,
+                AudioDelayEarlier,
+                AudioDelayLater,
                 VolumeUp,
                 VolumeDown,
                 ShowTime,
@@ -173,6 +176,8 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::VolumeDown, |this, window, cx| this.step_volume(VolumeChange::Down, window, cx)),
     (&act::CycleAudioTrack, |this, _, cx| this.cycle_track(TrackKind::Audio, cx)),
     (&act::CycleSubtitleTrack, |this, _, cx| this.cycle_track(TrackKind::Subtitle, cx)),
+    (&act::AudioDelayEarlier, |this, _, cx| this.shift_audio_delay(Shift::Earlier, cx)),
+    (&act::AudioDelayLater, |this, _, cx| this.shift_audio_delay(Shift::Later, cx)),
     (&act::Faster, |this, window, cx| this.change_speed(SpeedChange::Faster, window, cx)),
     (&act::Slower, |this, window, cx| this.change_speed(SpeedChange::Slower, window, cx)),
     (&act::NormalSpeed, |this, window, cx| this.change_speed(SpeedChange::Normal, window, cx)),

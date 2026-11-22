@@ -13,13 +13,17 @@
 //! - [`episode`], [`display`], [`properties`]: what the views and Properties & Metadata show for
 //!   a media's tags.
 //! - [`folder_view`], [`music`]: what a library folder and Music's categories list (S4.6).
+//! - [`favorites`], [`copy_in`]: the media and playlists marked as favorites, and copying
+//!   files into a library folder (S4.8).
 //! - [`thumbnails`], [`thumbnailer`], [`thumbnail_cache`]: the views' thumbnails (S4.4).
 
 pub mod apply;
 pub mod artwork_cache;
+pub mod copy_in;
 pub mod display;
 pub mod episode;
 pub mod extract;
+pub mod favorites;
 pub mod folder_art;
 pub mod folder_view;
 pub mod identify;
@@ -74,6 +78,7 @@ impl Global for Library {}
 /// Starts the indexer on the history thread's database and keeps it on the settings' media
 /// folders. Without history (tests), there is no library.
 pub fn init(cx: &mut App) {
+    favorites::init(cx);
     let Some(history) = History::get(cx) else { return };
     let (reports, mut received) = mpsc::unbounded();
     let cancel = Cancel::default();

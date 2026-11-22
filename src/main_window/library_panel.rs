@@ -1,10 +1,12 @@
 //! The library sidebar over the player (S4.5, S4.6; `player_02`, `library/sidebar/*`): the icon
 //! rail ([`rail`]), and a panel with back and forward, the breadcrumb ([`crumbs`]), the item count
 //! ([`header`]) and what the current route lists ([`listing`]): rows ([`row`]) and media cards
-//! ([`card`], [`card_menu`]) in the order [`sort_menu`] picks, or the same as tiles ([`grid`],
+//! ([`card`]) in the order [`sort_menu`] picks, or the same as tiles ([`grid`],
 //! chosen with [`view_menu`]), or what a search finds ([`search_field`]), or why there is
 //! nothing ([`empty`]),
-//! browsed with the mouse and the keyboard ([`browse`]), and dragged out ([`drag`]).
+//! browsed with the mouse and the keyboard ([`browse`]), and dragged out ([`drag`]). Cards,
+//! folders and playlists have menus ([`item_menu`]: [`file_menu`], [`folder_menu`],
+//! [`playlist_menu`]).
 //!
 //! The title bar's sidebar toggle and L show and hide it. The navigation model is
 //! [`crate::navigation`]; the panel keeps a [`NavHistory`] and remembers the overlay's last
@@ -16,13 +18,16 @@
 mod add_menu;
 mod browse;
 mod card;
-mod card_menu;
 mod crumbs;
 mod drag;
 mod empty;
+mod file_menu;
+mod folder_menu;
 mod grid;
 mod header;
+mod item_menu;
 mod listing;
+mod playlist_menu;
 mod rail;
 mod row;
 mod search_field;
@@ -37,7 +42,7 @@ use gpui::{
     ScrollStrategy, Stateful, Subscription, UniformListScrollHandle, Window, div, prelude::*, px,
 };
 
-use self::card_menu::CardMenu;
+use self::item_menu::ItemMenu;
 use self::listing::FolderListing;
 use self::search_field::SearchField;
 use self::selection::Selection;
@@ -78,8 +83,10 @@ pub(super) struct LibraryPanel {
     selection: Selection,
     /// The media whose cards were on screen, as the thumbnailer was last told.
     on_screen: Vec<MediaId>,
-    /// A card's menu.
-    card_menu: CardMenu,
+    /// A card's, folder's or playlist's menu.
+    item_menu: ItemMenu,
+    /// The item Go to Source selects once its folder is read.
+    reveal: Option<selection::Key>,
     /// The breadcrumb's `…` menu of hidden segments, and its trigger.
     crumb_menu: OpenMenu,
     crumb_button: BoundsTracker,
@@ -118,7 +125,8 @@ impl LibraryPanel {
             scroll: UniformListScrollHandle::new(),
             selection: Selection::default(),
             on_screen: Vec::new(),
-            card_menu: None,
+            item_menu: None,
+            reveal: None,
             crumb_menu: None,
             crumb_button: BoundsTracker::new(),
             add_menu: None,
@@ -153,7 +161,7 @@ impl MainWindow {
         panel.open = !panel.open;
         panel.crumb_menu = None;
         panel.add_menu = None;
-        panel.card_menu = None;
+        panel.item_menu = None;
         panel.sort_menu = None;
         panel.view_menu = None;
         panel.search = None;
@@ -193,7 +201,7 @@ impl MainWindow {
     fn arrived(&mut self, cx: &mut Context<Self>) {
         let panel = &mut self.library_panel;
         panel.crumb_menu = None;
-        panel.card_menu = None;
+        panel.item_menu = None;
         panel.sort_menu = None;
         panel.view_menu = None;
         panel.selection.clear();
@@ -249,8 +257,8 @@ impl MainWindow {
         Some(mouse_navigation(root, cx))
     }
 
-    /// The panel's menus that are open: the breadcrumb's `…`, the rail's "+", Sort, View and a
-    /// card's.
+    /// The panel's menus that are open: the breadcrumb's `…`, the rail's "+", Sort, View and an
+    /// item's.
     pub(super) fn render_library_menus(&self) -> impl Iterator<Item = gpui::AnyElement> {
         let panel = &self.library_panel;
         let crumbs = crumbs::render_menu(&panel.crumb_menu, &panel.crumb_button);
@@ -258,7 +266,7 @@ impl MainWindow {
         let sort = sort_menu::render(&panel.sort_menu, &panel.sort_button);
         let view = view_menu::render(&panel.view_menu, &panel.view_button);
         let menus = crumbs.into_iter().chain(add).chain(sort).chain(view);
-        menus.chain(card_menu::render(&panel.card_menu))
+        menus.chain(item_menu::render(&panel.item_menu))
     }
 }
 

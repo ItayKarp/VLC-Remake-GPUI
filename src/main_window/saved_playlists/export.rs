@@ -33,7 +33,7 @@ struct Choice {
 
 impl MainWindow {
     /// Asks how to export playlist `summary`, then where.
-    pub(super) fn show_export_playlist(
+    pub(in crate::main_window) fn show_export_playlist(
         &mut self,
         summary: &Summary,
         window: &mut Window,

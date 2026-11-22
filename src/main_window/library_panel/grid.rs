@@ -13,7 +13,7 @@ use gpui::{AnyElement, ClickEvent, Context, Div, Stateful, div, prelude::*, px};
 use super::card::{self, GROUP};
 use super::drag;
 use super::listing::{Body, Item, Items, card_key};
-use super::row::{ROW_TEXT, Row};
+use super::row::{self, ROW_TEXT, Row};
 use super::{INSET, MainWindow, PANEL_WIDTH};
 use crate::db::media::MediaId;
 use crate::db::thumbnails::SizeClass;
@@ -126,8 +126,13 @@ impl MainWindow {
             .items_center()
             .justify_center()
             .child(icon(row.icon(), ROW_TILE_ICON, p.icon));
+        let picture = picture.relative().when(row.menu().is_some(), |picture| {
+            let more = card::more_button(index, p.icon, cx);
+            picture.child(div().absolute().top(px(CELL_PAD)).right_0().child(more))
+        });
         let cell = drag::drop_target(cell(("library-row-tile", index), selected, p), row, p, cx);
-        cell.group(GROUP)
+        row::menu_events(cell, row, index, cx)
+            .group(GROUP)
             .hover(move |style| style.bg(hover).text_color(strong))
             .cursor_pointer()
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {

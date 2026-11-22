@@ -3,6 +3,8 @@
 //! it with the folder's other cards after it as the queue (folder playback, S3); opening a row
 //! does what it says (goes to its place, plays, adds a folder).
 //!
+//! The context-menu key and Shift+F10 open the keyboard's item's menu (S4.8.4).
+//!
 //! The listing is one tab stop, drawn by `uniform_list`, which builds only the rows (or the lines
 //! of tiles, [`grid`](super::grid)) on screen; the media on screen is what the thumbnailer makes
 //! first (S4.4.4). In a grid, Left and Right step through a line and Up and Down jump one.
@@ -21,6 +23,7 @@ use super::row::{ROW_HEIGHT, ROW_TEXT};
 use super::view_menu::line_of;
 use crate::app::request::Placement;
 use crate::db::media::MediaId;
+use crate::keymap::actions::ShowContextMenu;
 use crate::library::thumbnails;
 use crate::main_window::opening::Target;
 use crate::navigation::history::Step;
@@ -44,7 +47,11 @@ impl MainWindow {
             .track_focus(&self.library_panel.list_focus)
             // A control: the player's bindings of the arrows and the page keys leave it alone.
             .key_context(focus::context(&[focus::CONTROL]))
-            .on_key_down(cx.listener(Self::listing_key));
+            .on_key_down(cx.listener(Self::listing_key))
+            // The context-menu key and Shift+F10 open the keyboard's item's menu (S4.8.4).
+            .on_action(cx.listener(|this, _: &ShowContextMenu, window, cx| {
+                this.open_item_menu_from_keyboard(window, cx);
+            }));
         let view = self.library_view(cx);
         let len = match self.listing(cx) {
             Body::Items(items) if items.len() == 0 => return body.child(self.render_empty(p, cx)),
