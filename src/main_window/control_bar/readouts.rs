@@ -48,7 +48,7 @@ impl MainWindow {
             return Self::render_time_field(edit, p, cx);
         }
         let player = self.loaded_player(cx).map(|player| player.read(cx));
-        let text = clock::format(player.map(Player::position).unwrap_or_default());
+        let text = clock::format(player.map_or_default(Player::position));
         let seekable = player.is_some_and(|player| player.is_seekable() != Some(false));
         pill("current-time", p, text.clone())
             .aria_label(SharedString::from(format!("Current time {text}. Jump to a time")))
@@ -69,7 +69,7 @@ impl MainWindow {
             (None, _) => clock::UNKNOWN.to_owned(),
             (Some(duration), settings::DurationReadout::Total) => clock::format(duration),
             (Some(duration), settings::DurationReadout::Remaining) => {
-                clock::format_remaining(player.map(Player::position).unwrap_or_default(), duration)
+                clock::format_remaining(player.map_or_default(Player::position), duration)
             }
         };
         let label = match shown {

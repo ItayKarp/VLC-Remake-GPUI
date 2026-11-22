@@ -77,6 +77,7 @@ impl MainWindow {
             prefs: Prefs {
                 auto_hide: interface.auto_hide_controls,
                 show_in_fullscreen: interface.show_controls_in_fullscreen,
+                decorations: interface.show_window_decorations,
             },
         }
     }
@@ -229,7 +230,7 @@ impl MainWindow {
     /// Whether something keeps the controls up (S2.8.3).
     fn controls_held(&self, window: &Window, cx: &App) -> bool {
         self.playback_holds(cx)
-            || self.pointer_over_bars(window)
+            || self.pointer_over_bars(window, cx)
             || self.pointer_over_library(window)
             || self.has_open_overlay()
             || self.seek_bar.is_scrubbing()
@@ -248,9 +249,10 @@ impl MainWindow {
         }
     }
 
-    pub(super) fn pointer_over_bars(&self, window: &Window) -> bool {
+    pub(super) fn pointer_over_bars(&self, window: &Window, cx: &App) -> bool {
         let Some(pointer) = self.auto_hide.pointer else { return false };
-        let title = (!window.is_fullscreen()).then_some(TITLE_BAR_HEIGHT);
+        let decorated = settings::get(cx).prefs.interface.show_window_decorations;
+        let title = (!window.is_fullscreen() && decorated).then_some(TITLE_BAR_HEIGHT);
         let height = f32::from(window.viewport_size().height);
         rules::over_bars(f32::from(pointer.y), height, CONTROL_BAR_HEIGHT, title)
     }

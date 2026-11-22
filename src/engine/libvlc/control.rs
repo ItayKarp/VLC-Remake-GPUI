@@ -1,6 +1,6 @@
 //! Carries out the player's commands with libVLC calls, on the worker thread.
 
-use std::ffi::c_int;
+use std::ffi::{CStr, c_int};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -141,6 +141,14 @@ impl Worker {
             return;
         };
         self.defaults.commanded(kind.track_kind());
+        if self.attach_slave(kind, &uri) {
+            self.slaves.push(Slave { kind, path });
+        }
+        self.refresh(Refresh::Tracks);
+    }
+
+    /// Hands `uri` to libVLC as a selected `kind` slave. False (logged) when libVLC refuses it.
+    fn attach_slave(&self, kind: SlaveKind, uri: &CStr) -> bool {
         let api = &self.vlc.api;
         // SAFETY: the player is live and `uri` is NUL-terminated for the call.
         let added = unsafe {
@@ -151,12 +159,10 @@ impl Worker {
                 true,
             )
         };
-        if added == 0 {
-            self.slaves.push(Slave { kind, path });
-        } else {
+        if added != 0 {
             tracing::warn!("libvlc: couldn't add the {kind:?} file: {}", self.vlc.last_error());
         }
-        self.refresh(Refresh::Tracks);
+        added == 0
     }
 }
 

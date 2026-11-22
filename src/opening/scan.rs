@@ -131,18 +131,21 @@ fn read_sorted(folder: &Path) -> io::Result<Vec<DirEntry>> {
 /// Dot files everywhere, and files Windows marks hidden or system. The library's scans skip
 /// them too (S4.2.2).
 pub(crate) fn is_hidden(entry: &DirEntry) -> bool {
-    if entry.file_name().to_string_lossy().starts_with('.') {
-        return true;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        const HIDDEN: u32 = 0x2;
-        const SYSTEM: u32 = 0x4;
-        if let Ok(metadata) = entry.metadata() {
-            return metadata.file_attributes() & (HIDDEN | SYSTEM) != 0;
-        }
-    }
+    entry.file_name().to_string_lossy().starts_with('.') || is_marked_hidden(entry)
+}
+
+/// Whether Windows marks `entry` hidden or system.
+#[cfg(windows)]
+fn is_marked_hidden(entry: &DirEntry) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const HIDDEN: u32 = 0x2;
+    const SYSTEM: u32 = 0x4;
+    entry.metadata().is_ok_and(|metadata| metadata.file_attributes() & (HIDDEN | SYSTEM) != 0)
+}
+
+/// Only Windows has hidden and system attributes; elsewhere a dot is the whole rule.
+#[cfg(not(windows))]
+fn is_marked_hidden(_entry: &DirEntry) -> bool {
     false
 }
 

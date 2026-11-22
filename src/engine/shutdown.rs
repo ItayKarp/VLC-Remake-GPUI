@@ -22,20 +22,27 @@ pub enum Shutdown {
 
 /// Shuts `backend` down, waiting at most `timeout` for it.
 pub fn shut_down(backend: Box<dyn Backend>, timeout: Duration) -> Shutdown {
-    let (done, finished) = mpsc::channel();
-    let spawned = thread::Builder::new().name("engine-shutdown".into()).spawn(move || {
-        backend.shut_down();
-        let _ = done.send(());
-    });
-    if let Err(error) = spawned {
-        tracing::error!("engine: couldn't start the shutdown thread: {error}");
-        return Shutdown::Abandoned;
-    }
+    let Some(finished) = release_on_thread(backend) else { return Shutdown::Abandoned };
     if finished.recv_timeout(timeout).is_ok() {
         return Shutdown::Clean;
     }
     tracing::warn!("engine: the backend didn't shut down within {timeout:?}");
     Shutdown::Abandoned
+}
+
+/// Starts releasing `backend` on its own thread; the receiver hears when it has finished.
+/// `None` (logged) when the thread couldn't start.
+fn release_on_thread(backend: Box<dyn Backend>) -> Option<mpsc::Receiver<()>> {
+    let (done, finished) = mpsc::channel();
+    thread::Builder::new()
+        .name("engine-shutdown".into())
+        .spawn(move || {
+            backend.shut_down();
+            let _ = done.send(());
+        })
+        .inspect_err(|error| tracing::error!("engine: couldn't start the shutdown thread: {error}"))
+        .ok()?;
+    Some(finished)
 }
 
 #[cfg(test)]

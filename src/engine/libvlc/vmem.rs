@@ -86,14 +86,7 @@ unsafe extern "C" fn on_format(
             tracing::warn!("vmem: the sink refused {}x{}", proposed.0, proposed.1);
             return 0;
         }
-        tracing::info!(
-            "vmem: libVLC proposed {}x{}, showing {} {}x{}",
-            proposed.0,
-            proposed.1,
-            String::from_utf8_lossy(&format.chroma),
-            format.width,
-            format.height,
-        );
+        log_format(proposed, &format);
         *chroma.cast::<[u8; 4]>() = format.chroma;
         *width = format.width;
         *height = format.height;
@@ -102,6 +95,18 @@ unsafe extern "C" fn on_format(
     }
     // libVLC's "number of picture buffers": one, since we copy each picture out.
     1
+}
+
+/// Logs the size libVLC `proposed` and the picture `format` the sink chose.
+fn log_format(proposed: (c_uint, c_uint), format: &Format) {
+    tracing::info!(
+        "vmem: libVLC proposed {}x{}, showing {} {}x{}",
+        proposed.0,
+        proposed.1,
+        String::from_utf8_lossy(&format.chroma),
+        format.width,
+        format.height,
+    );
 }
 
 unsafe extern "C" fn on_cleanup(opaque: *mut c_void) {

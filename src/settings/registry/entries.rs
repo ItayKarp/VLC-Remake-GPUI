@@ -12,15 +12,17 @@ mod library;
 mod playback;
 mod privacy;
 mod subtitles;
+mod window;
 
 use super::def::SettingDef;
 use super::value::Value;
 use crate::engine::language::Language;
 
-/// Every category's rows, in sidebar order (General in two parts).
-pub(super) static PAGES: [&[SettingDef]; 9] = [
+/// Every category's rows, in sidebar order (General and Interface in two parts each).
+pub(super) static PAGES: [&[SettingDef]; 10] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
+    window::ENTRIES,
     interface::ENTRIES,
     privacy::ENTRIES,
     controls::ENTRIES,

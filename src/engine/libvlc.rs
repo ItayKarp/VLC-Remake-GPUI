@@ -67,18 +67,23 @@ static LIBRARY: OnceLock<Result<Arc<LibVlc>, String>> = OnceLock::new();
 /// The libVLC library, loaded once per process. A failure is kept as text so every caller
 /// gets the same answer without retrying.
 fn library() -> Result<Arc<LibVlc>> {
-    LIBRARY
-        .get_or_init(|| {
-            let runtime = Runtime::located();
-            if runtime.plugin_dir.is_some() && std::env::var_os(PLUGIN_PATH_ENV).is_none() {
-                tracing::warn!("libvlc: {PLUGIN_PATH_ENV} isn't set; libVLC may find no plugins");
-            }
-            let vlc = LibVlc::load(runtime).map_err(|error| format!("{error:#}"))?;
-            tracing::info!("libvlc: loaded {} from {:?}", vlc.version(), runtime.lib_dir);
-            Ok(Arc::new(vlc))
-        })
-        .clone()
-        .map_err(|error| anyhow!(error))
+    LIBRARY.get_or_init(load).clone().map_err(|error| anyhow!(error))
+}
+
+/// Loads the libVLC this build runs with, or says why it couldn't.
+fn load() -> std::result::Result<Arc<LibVlc>, String> {
+    let runtime = Runtime::located();
+    warn_without_plugin_path(runtime);
+    let vlc = LibVlc::load(runtime).map_err(|error| format!("{error:#}"))?;
+    tracing::info!("libvlc: loaded {} from {:?}", vlc.version(), runtime.lib_dir);
+    Ok(Arc::new(vlc))
+}
+
+/// Warns when `runtime` has its own plugins but libVLC hasn't been told where they are.
+fn warn_without_plugin_path(runtime: &Runtime) {
+    if runtime.plugin_dir.is_some() && std::env::var_os(PLUGIN_PATH_ENV).is_none() {
+        tracing::warn!("libvlc: {PLUGIN_PATH_ENV} isn't set; libVLC may find no plugins");
+    }
 }
 
 /// The libVLC version string (`3.0.23 Vetinari`), loading the library if nothing has yet, or

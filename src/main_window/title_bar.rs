@@ -3,7 +3,7 @@
 //! on macOS). The bar drags the window and maximizes on double-click; its buttons don't.
 
 mod fit;
-mod text;
+pub(super) mod text;
 
 use std::path::{Path, PathBuf};
 

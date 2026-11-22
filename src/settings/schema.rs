@@ -33,7 +33,9 @@ pub use controls::{
     WheelAction,
 };
 pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
-pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
+pub use interface::{
+    AutoHide, DurationReadout, FitVideo, InterfaceSettings, NowPlayingNotification,
+};
 pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
 pub use subtitles::SubtitleSettings;
@@ -145,6 +147,13 @@ pub struct LocalState {
     /// `logs/vlc.log` next to this file. Local: it is a path on this machine.
     #[serde(deserialize_with = "lenient")]
     pub log_file: String,
+    /// "Open fullscreen on" (S5.4.1): the display's id as `app::screens` writes it; empty means
+    /// the screen the window is on. Local: displays belong to this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub fullscreen_display: String,
+    /// "Skin file" (S5.4.4), as typed. Local: it is a path on this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub skin_file: String,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty
@@ -269,6 +278,9 @@ pub struct WindowState {
     /// The Settings window (Stage 5).
     #[serde(deserialize_with = "lenient")]
     pub settings: WindowGeometry,
+    /// The video's own window, when video doesn't play in the main window (S5.4.1).
+    #[serde(deserialize_with = "lenient")]
+    pub video: WindowGeometry,
 }
 
 /// A window's normal (un-maximized) bounds in logical pixels, in GPUI's global

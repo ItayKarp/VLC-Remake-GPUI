@@ -13,6 +13,7 @@ mod keymap;
 mod library;
 mod logging;
 mod main_window;
+mod native_window;
 mod navigation;
 mod network;
 mod onboarding;
@@ -29,7 +30,9 @@ mod settings_window;
 mod theme;
 mod ui;
 mod video;
+mod video_window;
 mod window_chrome;
+mod window_prefs;
 
 use gpui::{App, QuitMode};
 use gpui_platform::application;

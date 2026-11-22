@@ -60,10 +60,11 @@ impl Worker {
     pub(super) fn new(mut database: Database) -> Self {
         let before =
             now_ms().saturating_sub(i64::try_from(ORPHAN_LIFETIME.as_millis()).unwrap_or(0));
-        match media::purge_orphans(database.connection(), before) {
-            Ok(0) => {}
-            Ok(purged) => tracing::info!("history: purged {purged} orphaned media"),
-            Err(error) => tracing::warn!("history: couldn't purge orphaned media: {error}"),
+        let purged = media::purge_orphans(database.connection(), before)
+            .inspect_err(|error| tracing::warn!("history: couldn't purge orphaned media: {error}"))
+            .unwrap_or(0);
+        if purged > 0 {
+            tracing::info!("history: purged {purged} orphaned media");
         }
         Self { database, sessions: HashMap::new() }
     }
@@ -123,19 +124,9 @@ impl Worker {
     }
 
     fn resolve(&mut self, media: &Media) -> Option<MediaId> {
-        match resolve::resolve(self.database.connection(), media, now_ms()) {
-            Ok(id) => Some(id),
-            Err(ResolveError::Io(error)) => {
-                if let Some(path) = media.as_path() {
-                    tracing::debug!("history: can't identify {}: {error}", logging::path(path));
-                }
-                None
-            }
-            Err(ResolveError::Db(error)) => {
-                tracing::warn!("history: {error}");
-                None
-            }
-        }
+        resolve::resolve(self.database.connection(), media, now_ms())
+            .inspect_err(|error| log_unresolved(media, error))
+            .ok()
     }
 
     /// Runs `write` on `session`'s row; nothing when the session has none (its media couldn't
@@ -149,5 +140,21 @@ impl Worker {
             Some(&id) => write(self.database.connection(), id),
             None => Ok(()),
         }
+    }
+}
+
+/// Logs why `media` has no history row: a file that can't be read is routine, a database
+/// error isn't.
+fn log_unresolved(media: &Media, error: &ResolveError) {
+    match error {
+        ResolveError::Io(error) => log_unidentified(media, error),
+        ResolveError::Db(error) => tracing::warn!("history: {error}"),
+    }
+}
+
+/// Logs that `media`'s file couldn't be read to identify it.
+fn log_unidentified(media: &Media, error: &std::io::Error) {
+    if let Some(path) = media.as_path() {
+        tracing::debug!("history: can't identify {}: {error}", logging::path(path));
     }
 }

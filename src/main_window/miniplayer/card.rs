@@ -276,7 +276,7 @@ fn progress(position: Duration, duration: Option<Duration>) -> f32 {
 
 /// The file's name under the progress bar.
 fn name_line(media: Option<&Media>, p: &Palette) -> Div {
-    let name: SharedString = media.map(Media::display_name).unwrap_or_default().into();
+    let name: SharedString = media.map_or_default(Media::display_name).into();
     div()
         .h(px(NAME_HEIGHT))
         .px(px(PAD + PAD))

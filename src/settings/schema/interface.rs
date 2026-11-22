@@ -1,6 +1,6 @@
-//! Interface preferences (Settings → Interface; its rows come with S5.4): what the player's
-//! title bar shows (S2.1.2), what the control bar's duration readout shows (S2.4.3), and when
-//! the controls hide (S2.8).
+//! Interface preferences (Settings → Interface, S5.4): the windows (where video plays, their size,
+//! level and frame), what the player's title bar shows (S2.1.2), what the control bar's duration
+//! readout shows (S2.4.3), when the controls hide (S2.8), and the now-playing notification.
 
 use std::time::Duration;
 
@@ -45,6 +45,28 @@ pub struct InterfaceSettings {
     /// Keeps the controls up while playback is paused, rather than hiding them as during play.
     #[serde(deserialize_with = "lenient")]
     pub keep_controls_while_paused: bool,
+    /// "Play video inside main window": off, video plays in a window of its own (S5.4.1).
+    #[serde(deserialize_with = "lenient")]
+    pub play_video_in_main_window: bool,
+    /// "Resize window to fit video": when the window showing video takes the video's size.
+    #[serde(deserialize_with = "lenient")]
+    pub resize_to_fit_video: FitVideo,
+    /// "Remember window size and position": off, windows open centered at their default size.
+    #[serde(deserialize_with = "lenient")]
+    pub remember_window_geometry: bool,
+    /// "Keep window above other windows", except while fullscreen.
+    #[serde(deserialize_with = "lenient")]
+    pub keep_above_other_windows: bool,
+    /// "Show window decorations": off, the player has no title bar or window buttons.
+    #[serde(deserialize_with = "lenient")]
+    pub show_window_decorations: bool,
+    /// When the OS is told that the next item started playing (S5.4.3).
+    #[serde(deserialize_with = "lenient")]
+    pub now_playing_notification: NowPlayingNotification,
+    /// "Use a custom skin" (S5.4.4): read by nothing until skins exist (S8.14); its rows only
+    /// show in builds with the `skins` feature.
+    #[serde(deserialize_with = "lenient")]
+    pub use_custom_skin: bool,
 }
 
 impl InterfaceSettings {
@@ -66,6 +88,32 @@ pub enum AutoHide {
     Always,
     /// Never: the controls stay.
     Never,
+}
+
+/// When the window showing video takes the video's size.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FitVideo {
+    /// The window keeps the size the user gave it.
+    #[default]
+    Never,
+    /// For the first video played since launch.
+    FirstVideo,
+    /// Whenever a video starts or its size changes.
+    EveryVideo,
+}
+
+/// When an OS notification says what started playing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowPlayingNotification {
+    /// Never.
+    Never,
+    /// While no VLC window is the active one.
+    #[default]
+    InBackground,
+    /// For every item.
+    Always,
 }
 
 /// What the control bar's duration readout shows.
@@ -98,6 +146,13 @@ impl Default for InterfaceSettings {
             hide_controls_after_ms: DEFAULT_HIDE_AFTER_MS,
             show_controls_in_fullscreen: true,
             keep_controls_while_paused: true,
+            play_video_in_main_window: true,
+            resize_to_fit_video: FitVideo::default(),
+            remember_window_geometry: true,
+            keep_above_other_windows: false,
+            show_window_decorations: true,
+            now_playing_notification: NowPlayingNotification::default(),
+            use_custom_skin: false,
         }
     }
 }

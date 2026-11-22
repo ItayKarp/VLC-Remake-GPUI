@@ -36,26 +36,36 @@ impl Request {
 /// Inhibits until `released` says to stop (or its sender is dropped), then releases.
 fn hold(app: &str, reason: &str, released: &Receiver<()>) {
     match inhibit_screen_saver(app, reason) {
-        Ok((connection, cookie)) => {
-            let _ = released.recv();
-            let released =
-                connection.call_method(Some(SERVICE), PATH, Some(SERVICE), "UnInhibit", &cookie);
-            if let Err(error) = released {
-                tracing::warn!("power: UnInhibit failed: {error}");
-            }
-        }
+        Ok((connection, cookie)) => hold_screen_saver(&connection, cookie, released),
         Err(error) => {
             tracing::info!("power: no screen saver service ({error:#}); trying systemd-inhibit");
-            match systemd_inhibit(app, reason) {
-                Ok(mut child) => {
-                    let _ = released.recv();
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
-                Err(error) => tracing::warn!("power: couldn't keep the display awake: {error:#}"),
-            }
+            hold_idle_lock(app, reason, released);
         }
     }
+}
+
+/// Waits for `released`, then hands the screen saver its `cookie` back.
+fn hold_screen_saver(connection: &Connection, cookie: u32, released: &Receiver<()>) {
+    let _ = released.recv();
+    let uninhibited =
+        connection.call_method(Some(SERVICE), PATH, Some(SERVICE), "UnInhibit", &cookie);
+    if let Err(error) = uninhibited {
+        tracing::warn!("power: UnInhibit failed: {error}");
+    }
+}
+
+/// Holds a `systemd-inhibit` idle lock until `released`, then ends it.
+fn hold_idle_lock(app: &str, reason: &str, released: &Receiver<()>) {
+    let mut child = match systemd_inhibit(app, reason) {
+        Ok(child) => child,
+        Err(error) => {
+            tracing::warn!("power: couldn't keep the display awake: {error:#}");
+            return;
+        }
+    };
+    let _ = released.recv();
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 fn inhibit_screen_saver(app: &str, reason: &str) -> Result<(Connection, u32)> {

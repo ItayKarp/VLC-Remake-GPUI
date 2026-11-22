@@ -14,6 +14,9 @@ pub enum Control {
     Toggle,
     /// A dropdown of choices.
     Dropdown(&'static [Choice]),
+    /// A dropdown of what this machine has (its displays): `options` lists them, given the
+    /// saved id, which is listed even when it's gone. Its binding holds the id as text.
+    Options(OptionsSource),
     /// Two or three segments side by side.
     Segmented(&'static [Choice]),
     /// Color squares, each a choice; `color` gives each one's color by id.
@@ -36,11 +39,26 @@ pub enum Control {
     List,
 }
 
+/// Lists an [`Control::Options`] row's options, given the saved id.
+pub type OptionsSource = fn(&gpui::App, &str) -> Vec<MachineChoice>;
+
+/// One option of a [`Control::Options`] row.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MachineChoice {
+    /// What the setting stores.
+    pub id: String,
+    /// What the dropdown shows.
+    pub label: String,
+}
+
 /// What a path row's Browse button asks for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PathPick {
     /// A file that exists (a skin).
-    #[allow(dead_code, reason = "the skin file row comes with S5.4")]
+    #[cfg_attr(
+        not(feature = "skins"),
+        allow(dead_code, reason = "the skin file row only shows with the `skins` feature")
+    )]
     ExistingFile,
     /// Where to write a file, which may not exist yet (a log); `name` is suggested.
     NewFile { name: &'static str },

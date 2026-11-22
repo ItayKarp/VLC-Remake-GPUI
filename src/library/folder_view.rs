@@ -110,7 +110,7 @@ pub fn sort_folders(folders: &mut [PathBuf]) {
 
 fn card(path: PathBuf, known: &HashMap<PathBuf, Listed>, rule: WatchedRule) -> Card {
     let listed = path.file_name().and_then(|name| known.get(Path::new(name)));
-    let tags = listed.map(|listed| listed.metadata.clone()).unwrap_or_default();
+    let tags = listed.map_or_default(|listed| listed.metadata.clone());
     let kind = if tags.kind == MediaKind::Unknown { kind_by_extension(&path) } else { tags.kind };
     let watch = listed.map_or(WatchState::Unwatched, |listed| WatchState::of(&listed.saved, rule));
     Card {

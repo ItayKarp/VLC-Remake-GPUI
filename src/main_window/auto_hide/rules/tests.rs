@@ -13,7 +13,7 @@ fn playing(auto_hide: AutoHide) -> Situation {
         held: false,
         summoned: false,
         full_library: false,
-        prefs: Prefs { auto_hide, show_in_fullscreen: true },
+        prefs: Prefs { auto_hide, show_in_fullscreen: true, decorations: true },
     }
 }
 
@@ -26,6 +26,15 @@ fn a_window_keeps_its_bars_by_default() {
     let idle = Situation { idle: true, ..playing(AutoHide::InFullscreenOnly) };
     assert_eq!(idle.chrome(), Chrome { layout: Layout::Docked, title_bar: true, controls: true });
     assert!(!idle.idles());
+}
+
+#[test]
+fn without_window_decorations_only_the_control_bar_shows() {
+    let mut bare = playing(AutoHide::InFullscreenOnly);
+    bare.prefs.decorations = false;
+    assert_eq!(bare.chrome(), Chrome { layout: Layout::Docked, title_bar: false, controls: true });
+    let library = Situation { full_library: true, ..bare };
+    assert!(library.chrome().title_bar, "full library mode keeps its navigation");
 }
 
 #[test]
@@ -80,7 +89,11 @@ fn hide_ui_shows_only_the_video() {
 
 #[test]
 fn controls_off_in_fullscreen_show_only_when_summoned() {
-    let prefs = Prefs { auto_hide: AutoHide::InFullscreenOnly, show_in_fullscreen: false };
+    let prefs = Prefs {
+        auto_hide: AutoHide::InFullscreenOnly,
+        show_in_fullscreen: false,
+        decorations: true,
+    };
     let off = Situation { prefs, held: true, ..fullscreen() };
     assert!(!off.chrome().controls);
     assert!(Situation { summoned: true, ..off }.chrome().controls);

@@ -33,10 +33,16 @@ macro_rules! player_actions {
 }
 
 impl MainWindow {
+    /// A key was released, here or in the video's own window (S5.4.1): the next press of any
+    /// command is a fresh one.
+    pub fn release_keys(&mut self) {
+        self.repeat.release_all();
+    }
+
     /// Adds the player's action handlers and the key-up and blur hooks that end a
     /// held key.
     pub(super) fn player_keys(root: Div, cx: &mut Context<Self>) -> Div {
-        let root = root.on_key_up(cx.listener(|this, _, _, _| this.repeat.release_all()));
+        let root = root.on_key_up(cx.listener(|this, _, _, _| this.release_keys()));
         let root = Self::fullscreen_actions(root, cx);
         let root = Self::playback_actions(root, cx);
         player_actions!(
@@ -187,7 +193,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::ToggleQueue, MainWindow::toggle_queue_panel),
     (&act::ToggleFileBrowser, MainWindow::toggle_library_panel),
     // Its key has a handler of its own (`fullscreen.rs`); this one serves the menus.
-    (&act::ToggleFullscreen, |_, window, _| window.toggle_fullscreen()),
+    (&act::ToggleFullscreen, MainWindow::toggle_fullscreen),
 ];
 
 /// What a key whose command has no effect yet says in debug builds.
