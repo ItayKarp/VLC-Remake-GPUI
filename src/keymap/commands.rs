@@ -164,6 +164,8 @@ pub const COMMANDS: &[Command] = &[
     // VLC's keys; a held key keeps moving the audio.
     held("Audio delay earlier", keys(&["j"]), &act::AudioDelayEarlier),
     held("Audio delay later", keys(&["k"]), &act::AudioDelayLater),
+    held("Subtitle delay earlier", keys(&["g"]), &act::SubtitleDelayEarlier),
+    held("Subtitle delay later", keys(&["h"]), &act::SubtitleDelayLater),
     cmd("Take a snapshot", Player, keys(&["shift-s"]), &act::Snapshot),
     cmd("Record", Player, keys(&["shift-r"]), &act::Record),
     // The context-menu key ("menu") exists on Windows and Linux keyboards.

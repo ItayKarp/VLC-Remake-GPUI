@@ -123,6 +123,10 @@ actions!(
         AudioDelayEarlier,
         /// Play the audio 50 ms later against the video (S4.8.1).
         AudioDelayLater,
+        /// Show the subtitles 50 ms sooner against the video (S6.3.2).
+        SubtitleDelayEarlier,
+        /// Show the subtitles 50 ms later against the video (S6.3.2).
+        SubtitleDelayLater,
         /// Raise the volume.
         VolumeUp,
         /// Lower the volume.

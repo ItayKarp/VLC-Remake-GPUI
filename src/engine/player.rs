@@ -6,8 +6,10 @@ mod commands;
 mod drawn;
 mod receive;
 mod subtitle_files;
+mod sync;
 mod tracks;
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use futures::StreamExt as _;
@@ -23,6 +25,7 @@ use super::media_options::MediaOptions;
 use super::position::PositionTracker;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
+use super::subtitle_sync::{SubtitleKey, SubtitleSync};
 use super::tracks::{SubtitleFile, TrackId, Tracks};
 use super::values::{Generation, Offset, Rate, Volume};
 use crate::app::media::Media;
@@ -43,6 +46,8 @@ pub enum PlayerEvent {
     PausableChanged(bool),
     /// The track list or selection changed; see [`Player::tracks`].
     TracksChanged,
+    /// The selected subtitle track's sync changed; see [`Player::subtitle_sync`].
+    SubtitleSyncChanged,
     /// The buffer is this full, 0.0 to 100.0.
     Buffering(f32),
     /// The displayed video size changed; `None` when there is no video.
@@ -82,7 +87,6 @@ struct Controls {
     volume: Volume,
     muted: bool,
     audio_delay: Offset,
-    subtitle_delay: Offset,
 }
 
 /// What the backend reported about the open media.
@@ -102,6 +106,8 @@ struct Info {
     retired_tracks: Vec<TrackId>,
     /// The subtitle track the app draws itself (S6.2), while the backend shows none.
     drawn: Option<TrackId>,
+    /// Each subtitle track's delay, speed and duration factor (S6.3), set or remembered.
+    syncs: HashMap<SubtitleKey, SubtitleSync>,
     video_size: Option<VideoSize>,
     chapters: Vec<Chapter>,
     metadata: Metadata,
@@ -129,6 +135,8 @@ pub struct Player {
     subtitle_loads: Option<Task<()>>,
     /// Embedded Sub Format: styled files keep their own look, drawn by the backend (`drawn.rs`).
     file_styles: bool,
+    /// The subtitle delay the backend was last given, which outlives the media (`sync.rs`).
+    backend_subtitle_delay: Offset,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -159,6 +167,7 @@ impl Player {
             steps: FrameSteps::default(),
             subtitle_loads: None,
             file_styles: true,
+            backend_subtitle_delay: Offset::default(),
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();
@@ -232,11 +241,6 @@ impl Player {
     /// The audio delay against video.
     pub fn audio_delay(&self) -> Offset {
         self.controls.audio_delay
-    }
-
-    /// The subtitle delay against video.
-    pub fn subtitle_delay(&self) -> Offset {
-        self.controls.subtitle_delay
     }
 
     /// The media's tracks and the selected ones.

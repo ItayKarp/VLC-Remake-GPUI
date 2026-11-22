@@ -42,8 +42,8 @@ fn add_shown(rig: &Rig, cx: &mut TestAppContext, path: &Path) {
 
 fn shown_text(rig: &Rig, cx: &mut TestAppContext) -> Option<Vec<String>> {
     rig.player.read_with(cx, |player, _| {
-        let (cues, time) = player.drawn_subtitles(Instant::now())?;
-        Some(cues.at(time).map(crate::engine::cues::Cue::text).collect())
+        let cues = player.drawn_subtitles(Instant::now())?;
+        Some(cues.into_iter().map(crate::engine::cues::Cue::text).collect())
     })
 }
 

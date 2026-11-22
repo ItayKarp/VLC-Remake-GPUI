@@ -82,22 +82,8 @@ pub fn mac_menu_bar() -> Vec<Menu> {
         app_menu(),
         file_menu(),
         playback_menu(),
-        menu(
-            "Audio",
-            [
-                plain(&act::CycleAudioTrack, "Next Audio Track"),
-                SEPARATOR,
-                plain(&act::VolumeUp, "Increase Volume"),
-                plain(&act::VolumeDown, "Decrease Volume"),
-            ],
-        ),
-        menu(
-            "Subtitle",
-            [
-                plain(&act::CycleSubtitleTrack, "Next Subtitle Track"),
-                item(&act::AddSubtitleFile, "Add Subtitle File…"),
-            ],
-        ),
+        audio_menu(),
+        subtitle_menu(),
         menu(
             "View",
             [
@@ -117,6 +103,33 @@ pub fn mac_menu_bar() -> Vec<Menu> {
             ],
         ),
     ]
+}
+
+/// Audio: the audio track and the volume.
+fn audio_menu() -> Menu {
+    menu(
+        "Audio",
+        [
+            plain(&act::CycleAudioTrack, "Next Audio Track"),
+            SEPARATOR,
+            plain(&act::VolumeUp, "Increase Volume"),
+            plain(&act::VolumeDown, "Decrease Volume"),
+        ],
+    )
+}
+
+/// Subtitle: the subtitle track, adding a file, and the delay (S6.3.2).
+fn subtitle_menu() -> Menu {
+    menu(
+        "Subtitle",
+        [
+            plain(&act::CycleSubtitleTrack, "Next Subtitle Track"),
+            item(&act::AddSubtitleFile, "Add Subtitle File…"),
+            SEPARATOR,
+            plain(&act::SubtitleDelayLater, "Increase Delay"),
+            plain(&act::SubtitleDelayEarlier, "Decrease Delay"),
+        ],
+    )
 }
 
 fn app_menu() -> Menu {

@@ -12,7 +12,7 @@
 //! track popover; picking one counts as the user's pick (S2.6.2).
 
 use encoding_rs::Encoding;
-use gpui::{App, Context, Entity, WeakEntity, Window};
+use gpui::{App, Entity, WeakEntity, Window};
 
 use super::{NOTHING_PLAYING, on_main, run};
 use crate::assets::icons;
@@ -26,9 +26,6 @@ use crate::main_window::MainWindow;
 use crate::settings;
 use crate::settings::registry::TEXT_ENCODINGS;
 use crate::ui::menu::MenuItem;
-
-/// How much one Increase or Decrease Delay moves the subtitles, as VLC's G and H keys do.
-const DELAY_STEP_MS: i64 = 50;
 
 impl MainWindow {
     /// Video ▸.
@@ -77,28 +74,22 @@ impl MainWindow {
                 .icon(icons::SUBTITLES)
                 .why_disabled(NOTHING_PLAYING);
         };
-        let delay = player.read(cx).subtitle_delay().as_millis();
-        let step = |label, change: i64| {
-            on_main(main, label, move |main, _, cx| main.move_subtitle_delay(change, cx))
-        };
+        let sync = player.read(cx).subtitle_sync();
+        let showing = player.read(cx).subtitle_key().is_some();
+        let reset = on_main(main, "Reset Delay", move |main, _, cx| {
+            main.set_subtitle_sync(sync.with_delay(Offset::default()), cx);
+        });
+        let why = if showing { "No delay" } else { "No subtitles showing" };
         let items = vec![
             track_menu(TrackKind::Subtitle, &player, cx),
             run(main, &act::AddSubtitleFile, "Add Subtitle File…", cx),
             encoding_menu(&player, cx),
             MenuItem::Separator,
-            step("Increase Delay", DELAY_STEP_MS),
-            step("Decrease Delay", -DELAY_STEP_MS),
-            step("Reset Delay", -delay).disabled(delay == 0).why_disabled("No delay"),
+            run(main, &act::SubtitleDelayLater, "Increase Delay", cx),
+            run(main, &act::SubtitleDelayEarlier, "Decrease Delay", cx),
+            reset.disabled(sync.delay() == Offset::default()).why_disabled(why),
         ];
         MenuItem::submenu("Subtitle", items).icon(icons::SUBTITLES)
-    }
-
-    /// Moves the subtitle delay by `change` milliseconds and says where it is now.
-    fn move_subtitle_delay(&mut self, change: i64, cx: &mut Context<Self>) {
-        let Some(player) = self.loaded_player(cx) else { return };
-        let delay = player.read(cx).subtitle_delay().as_millis() + change;
-        player.update(cx, |player, cx| player.set_subtitle_delay(Offset::from_millis(delay), cx));
-        self.show_osd(delay_message(delay), cx);
     }
 }
 
@@ -208,21 +199,4 @@ fn stereo_mode_menu(cx: &App) -> MenuItem {
         })
     });
     MenuItem::submenu("Stereo Mode", items.collect())
-}
-
-/// "Subtitle delay 150 ms", "Subtitle delay -50 ms".
-fn delay_message(millis: i64) -> String {
-    format!("Subtitle delay {millis} ms")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::delay_message;
-
-    #[test]
-    fn delay_messages() {
-        assert_eq!(delay_message(150), "Subtitle delay 150 ms");
-        assert_eq!(delay_message(-50), "Subtitle delay -50 ms");
-        assert_eq!(delay_message(0), "Subtitle delay 0 ms");
-    }
 }

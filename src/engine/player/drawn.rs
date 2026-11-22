@@ -7,15 +7,14 @@
 //! libVLC may select a file's track itself (one the user added shows at once): the player takes
 //! that over on the next track list, and turns the backend's selection off again.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use gpui::Context;
 
 use super::{Player, PlayerEvent};
-use crate::engine::cues::CueTrack;
+use crate::engine::cues::{Cue, CueTrack};
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::{TrackId, TrackKind};
-use crate::engine::values::Offset;
 
 impl Player {
     /// Embedded Sub Format: on, styled (ASS/SSA) files keep their own look, drawn by the
@@ -33,14 +32,14 @@ impl Player {
         }
     }
 
-    /// The cues the app draws now and the time in them to show, the subtitle delay applied;
-    /// `None` while the backend draws the subtitle or none shows.
-    pub fn drawn_subtitles(&self, now: Instant) -> Option<(&CueTrack, Duration)> {
+    /// The cues the app draws now, the subtitle sync applied (S6.3); `None` while the backend
+    /// draws the subtitle or none shows.
+    pub fn drawn_subtitles(&self, now: Instant) -> Option<Vec<&Cue>> {
         let cues = self.drawable(self.info.drawn?)?;
         let running = self.state == PlaybackState::Playing;
         let time = self.position.at(now, self.controls.rate.get(), running);
-        let earlier = Offset::from_millis(-self.controls.subtitle_delay.as_millis());
-        Some((cues, earlier.apply(time)))
+        let sync = self.subtitle_sync();
+        Some(cues.at_stretched(sync.file_time(time), sync.duration_factor()))
     }
 
     /// Whether the subtitle showing is drawn by the backend into the picture: a picture format
@@ -56,6 +55,7 @@ impl Player {
         let backend_track = if drawn.is_some() { None } else { track };
         self.with_backend(|backend| backend.select_track(TrackKind::Subtitle, backend_track));
         self.info.tracks.select(TrackKind::Subtitle, track);
+        self.push_subtitle_delay();
     }
 
     /// Squares the backend's new track list with what the app draws: a file track the backend

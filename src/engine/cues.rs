@@ -119,6 +119,33 @@ impl CueTrack {
         self.cues[from..end].iter().filter(move |cue| cue.end > time)
     }
 
+    /// The cues showing at `time` when each stays up `factor` times as long (S6.3.3's duration
+    /// factor; 0 or less leaves them as written). A lengthened cue ends by the time the next one
+    /// starts, so lines don't pile up.
+    pub fn at_stretched(&self, time: Duration, factor: f32) -> Vec<&Cue> {
+        if factor <= 0. {
+            return self.at(time).collect();
+        }
+        let end = self.cues.partition_point(|cue| cue.start <= time);
+        let reach = self.longest.mul_f32(factor.max(1.));
+        let from = self.cues[..end].partition_point(|cue| cue.start + reach <= time);
+        (from..end)
+            .filter(|&index| self.stretched_end(index, factor) > time)
+            .map(|index| &self.cues[index])
+            .collect()
+    }
+
+    /// When the cue at `index` ends, stretched by `factor`.
+    fn stretched_end(&self, index: usize, factor: f32) -> Duration {
+        let cue = &self.cues[index];
+        let stretched = cue.start + cue.end.saturating_sub(cue.start).mul_f32(factor);
+        if stretched <= cue.end {
+            return stretched;
+        }
+        let next = self.cues[index + 1..].iter().map(|other| other.start).find(|s| *s > cue.start);
+        next.map_or(stretched, |next| stretched.min(next.max(cue.end)))
+    }
+
     /// Whether the file styles its own text, so Embedded Sub Format on leaves it to libVLC.
     pub fn is_styled(&self) -> bool {
         self.styled

@@ -12,6 +12,7 @@ use super::SessionId;
 use super::resolve::{self, ORPHAN_LIFETIME, ResolveError};
 use crate::app::media::Media;
 use crate::db::media::{self, MediaId, Progress, Saved};
+use crate::db::subtitle_sync;
 use crate::db::{Database, now_ms};
 use crate::logging;
 
@@ -100,7 +101,8 @@ impl Worker {
             Job::SetWatched(media, watched) => self.set_watched(&media, watched),
             Job::Clear => {
                 self.sessions.clear();
-                media::clear(self.database.connection()).map(drop)
+                media::clear(self.database.connection())
+                    .and_then(|()| subtitle_sync::clear(self.database.connection()))
             }
             Job::ForgetPositions => media::forget_positions(self.database.connection()),
             Job::Database(work) => {

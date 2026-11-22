@@ -37,6 +37,27 @@ fn overlapping_cues_show_together_earliest_first() {
 }
 
 #[test]
+fn a_duration_factor_stretches_lines_up_to_the_next_one() {
+    let srt = "1\n00:00:01,000 --> 00:00:02,000\nOne\n\n\
+               2\n00:00:04,000 --> 00:00:05,000\nTwo\n";
+    let track = read("a.srt", srt);
+    let at = |millis, factor| -> Vec<String> {
+        track
+            .at_stretched(Duration::from_millis(millis), factor)
+            .into_iter()
+            .map(Cue::text)
+            .collect()
+    };
+    assert_eq!(at(2_500, 0.), Vec::<String>::new());
+    assert_eq!(at(2_500, 2.), ["One"]);
+    // Ten times as long would reach 11 s; it stops where Two starts.
+    assert_eq!(at(3_900, 10.), ["One"]);
+    assert_eq!(at(4_500, 10.), ["Two"]);
+    assert_eq!(at(13_900, 10.), ["Two"]);
+    assert_eq!(at(1_600, 0.5), Vec::<String>::new());
+}
+
+#[test]
 fn webvtt_skips_its_header_and_notes_and_reads_line_settings() {
     let vtt = "WEBVTT\n\nNOTE a comment\n\nintro\n00:01.000 --> 00:02.000 line:0\n\
                <v Roger>Top</v>\n\n00:03.000 --> 00:04.000 align:start\nBottom\n";

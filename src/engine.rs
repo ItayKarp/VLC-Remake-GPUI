@@ -20,6 +20,7 @@
 //! - [`media_options`]: how new media opens: stream quality, disc menu language and seek
 //!   precision (S5.7).
 //! - [`tags`]: a file's tags, tracks and cover, read without playing it (S4.3.1).
+//! - [`subtitle_sync`]: a subtitle track's delay, speed and duration factor (S6.3).
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 
 pub mod audio;
@@ -40,6 +41,7 @@ pub mod shutdown;
 pub mod sidecar;
 pub mod state;
 pub mod subtitle_style;
+pub mod subtitle_sync;
 pub mod subtitle_text;
 pub mod system_options;
 pub mod tags;

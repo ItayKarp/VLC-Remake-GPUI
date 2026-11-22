@@ -3,6 +3,7 @@
 
 mod audio;
 mod drawn;
+mod sync;
 mod tracks;
 
 use std::cell::RefCell;

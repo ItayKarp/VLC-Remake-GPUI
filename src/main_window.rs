@@ -47,6 +47,7 @@ mod settings_panel;
 mod shortcuts_dialog;
 mod speed;
 pub(crate) mod subtitle_style;
+mod subtitle_sync;
 #[cfg(test)]
 mod tests;
 mod title_bar;

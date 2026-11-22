@@ -26,6 +26,7 @@ impl Player {
         self.intent = if start.paused { Intent::Pause } else { Intent::Play };
         self.audio.user_took_over();
         self.info = Info::default();
+        self.push_subtitle_delay();
         self.track_choices.forget_media();
         self.position.reset();
         self.seeks.reset();
@@ -137,13 +138,6 @@ impl Player {
     pub fn set_audio_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
         self.controls.audio_delay = delay;
         self.with_backend(|backend| backend.set_audio_delay(delay));
-        cx.notify();
-    }
-
-    /// Delays subtitles against video.
-    pub fn set_subtitle_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
-        self.controls.subtitle_delay = delay;
-        self.with_backend(|backend| backend.set_subtitle_delay(delay));
         cx.notify();
     }
 

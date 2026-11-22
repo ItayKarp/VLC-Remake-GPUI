@@ -91,6 +91,7 @@ impl Player {
                 Pick::Track(id) => self.apply_track(kind, Some(id)),
             }
         }
+        self.push_subtitle_delay();
         cx.emit(PlayerEvent::TracksChanged);
     }
 

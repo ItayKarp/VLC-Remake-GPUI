@@ -9,8 +9,9 @@
 //!
 //! The Playback tab holds the speed (`playback.rs`). Its other designed rows (Show Subtitle
 //! Timeline on Seekbar, Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with their
-//! stories (S6.6, S8.13, S7.8) and are hidden until then, as are the Video, Audio and Subtitles
-//! tabs' settings (Stages 6 and 7). Those three tabs have a footer that stays put while they
+//! stories (S6.6, S8.13, S7.8) and are hidden until then, as are the Video and Audio tabs'
+//! settings (Stage 7). The Subtitles tab holds the subtitle defaults and the showing subtitle's
+//! synchronization (`subtitles.rs`, S6.3). Those three tabs have a footer that stays put while they
 //! scroll: the preset picker (S5.11), the same as at the foot of the Settings pages, and **Open
 //! Advanced Settings**, which opens the Settings window on the tab's page (S5.2.1). Picking a
 //! preset changes the defaults the session starts from, as changing them in Settings does.
@@ -19,7 +20,11 @@
 //! popover or menu, the window losing focus, its media going, and fullscreen. The track popover's
 //! Show Preferences opens it on the matching tab.
 
+mod number_row;
 mod playback;
+mod subtitle_defaults;
+mod subtitles;
+mod sync_rules;
 
 use gpui::{
     AppContext as _, Context, Div, Entity, FocusHandle, KeyDownEvent, MouseDownEvent, SharedString,
@@ -27,6 +32,8 @@ use gpui::{
 };
 
 pub(super) use playback::SpeedControls;
+
+use self::subtitles::SubtitleControls;
 
 use super::MainWindow;
 use super::bar_panel;
@@ -107,6 +114,8 @@ pub(super) struct SettingsPanel {
     /// The gear button, so pressing it doesn't count as an outside click.
     button: BoundsTracker,
     speed: SpeedControls,
+    /// The Subtitles tab's defaults and synchronization.
+    subtitles: SubtitleControls,
     /// The footer's preset picker.
     presets: Entity<PresetPicker>,
 }
@@ -119,6 +128,7 @@ impl SettingsPanel {
             focus: cx.focus_handle(),
             button: BoundsTracker::new(),
             speed: SpeedControls::new(window, cx),
+            subtitles: SubtitleControls::new(window, cx),
             presets: cx.new(|cx| PresetPicker::new(window, cx)),
         }
     }
@@ -200,6 +210,7 @@ impl MainWindow {
         }
         let body = match tab {
             PanelTab::Playback => self.render_playback_tab(p, window, cx),
+            PanelTab::Subtitles => self.render_subtitles_tab(p, window, cx),
             _ => note("Nothing to adjust here yet.", p),
         };
         let body = div()

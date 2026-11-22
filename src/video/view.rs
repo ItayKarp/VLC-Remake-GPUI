@@ -60,7 +60,7 @@ impl VideoView {
         slot.set_accepting(window.is_visible());
         let visibility = Self::follow_visibility(window, cx);
         // The aspect, the audio-only placeholder and the subtitles depend on what the player
-        // knows; subtitles change with the position while paused, when no frame comes.
+        // knows; subtitles change with the position and their sync while paused, when no frame comes.
         let changes = cx.subscribe(&player, |_, _, event: &PlayerEvent, cx| {
             let redraw = matches!(
                 event,
@@ -68,6 +68,7 @@ impl VideoView {
                     | PlayerEvent::StateChanged(_)
                     | PlayerEvent::PositionChanged(_)
                     | PlayerEvent::TracksChanged
+                    | PlayerEvent::SubtitleSyncChanged
             );
             if redraw {
                 cx.notify();
@@ -144,8 +145,8 @@ impl VideoView {
 
     /// The subtitle cues the app draws now, if any show.
     fn overlay(&self, cx: &App) -> Option<Overlay> {
-        let (cues, time) = self.player.read(cx).drawn_subtitles(Instant::now())?;
-        let cues: Vec<_> = cues.at(time).cloned().collect();
+        let player = self.player.read(cx);
+        let cues: Vec<_> = player.drawn_subtitles(Instant::now())?.into_iter().cloned().collect();
         if cues.is_empty() {
             return None;
         }
