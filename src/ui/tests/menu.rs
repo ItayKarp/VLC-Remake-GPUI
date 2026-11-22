@@ -4,8 +4,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpui::{
-    Context, DismissEvent, Entity, Render, Subscription, TestAppContext, VisualTestContext, Window,
-    div, prelude::*, px,
+    Context, DismissEvent, Entity, FocusHandle, Render, Subscription, TestAppContext,
+    VisualTestContext, Window, div, prelude::*, px,
 };
 
 use super::support::{draw, host, setup};
@@ -18,11 +18,13 @@ struct MenuHost {
     /// The open menu, and the subscription that clears it when it's dismissed.
     menu: Option<(Entity<ContextMenu>, Subscription)>,
     chosen: Chosen,
+    /// What had the keyboard before the menu opened, as the player does in the main window.
+    focus: FocusHandle,
 }
 
 impl Render for MenuHost {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().children(self.menu.as_ref().map(|(menu, _)| {
+        div().track_focus(&self.focus).size_full().children(self.menu.as_ref().map(|(menu, _)| {
             crate::ui::popover::at_position(gpui::point(px(10.), px(10.)), 1, menu.clone())
         }))
     }
@@ -35,8 +37,10 @@ fn pick(name: &'static str, chosen: &Chosen) -> impl Fn(&mut Window, &mut gpui::
 }
 
 fn open_menu(cx: &mut TestAppContext) -> (Entity<MenuHost>, &mut VisualTestContext) {
-    let (host, cx) = host(cx, |_, _| MenuHost { menu: None, chosen: Rc::default() });
+    let (host, cx) =
+        host(cx, |_, cx| MenuHost { menu: None, chosen: Rc::default(), focus: cx.focus_handle() });
     host.update_in(cx, |this, window, cx| {
+        this.focus.focus(window, cx);
         let items = vec![
             MenuItem::action("Play", pick("play", &this.chosen)),
             MenuItem::Separator,
@@ -46,6 +50,10 @@ fn open_menu(cx: &mut TestAppContext) -> (Entity<MenuHost>, &mut VisualTestConte
                 vec![
                     MenuItem::radio("Name", true, pick("name", &this.chosen)),
                     MenuItem::radio("Duration", false, pick("duration", &this.chosen)),
+                    MenuItem::submenu(
+                        "More",
+                        vec![MenuItem::action("Size", pick("size", &this.chosen))],
+                    ),
                 ],
             ),
         ];
@@ -101,4 +109,46 @@ fn escape_at_the_top_closes_the_menu(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("escape");
     draw(cx);
     assert!(host.read_with(cx, |h, _| h.menu.is_none()));
+}
+
+/// Whether the host has the keyboard back, and what was chosen.
+fn focus_and_choices(
+    host: &Entity<MenuHost>,
+    cx: &mut VisualTestContext,
+) -> (bool, Vec<&'static str>) {
+    host.update_in(cx, |h, window, _| (h.focus.is_focused(window), h.chosen.borrow().clone()))
+}
+
+#[gpui::test]
+fn a_keyboard_pick_gives_the_keyboard_back(cx: &mut TestAppContext) {
+    setup(cx);
+    let (host, cx) = open_menu(cx);
+    cx.simulate_keystrokes("down enter");
+    draw(cx);
+    assert_eq!(focus_and_choices(&host, cx), (true, vec!["play"]));
+}
+
+#[gpui::test]
+fn a_keyboard_pick_in_a_nested_submenu_gives_the_keyboard_back(cx: &mut TestAppContext) {
+    setup(cx);
+    let (host, cx) = open_menu(cx);
+    // Sort By (the last item) ▸ More (its last item) ▸ Size.
+    cx.simulate_keystrokes("up right");
+    draw(cx);
+    cx.simulate_keystrokes("up right");
+    draw(cx);
+    cx.simulate_keystrokes("enter");
+    draw(cx);
+    assert_eq!(focus_and_choices(&host, cx), (true, vec!["size"]));
+}
+
+#[gpui::test]
+fn escape_gives_the_keyboard_back(cx: &mut TestAppContext) {
+    setup(cx);
+    let (host, cx) = open_menu(cx);
+    cx.simulate_keystrokes("up right");
+    draw(cx);
+    cx.simulate_keystrokes("escape escape");
+    draw(cx);
+    assert_eq!(focus_and_choices(&host, cx), (true, vec![]));
 }
