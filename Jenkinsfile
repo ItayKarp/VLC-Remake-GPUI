@@ -1,16 +1,17 @@
 // CI for RedesignedVLC (S0.8.1): formatting, then clippy, the tests and a release build on
-// Linux, then SonarQube analysis with its quality gate. Results go to Discord.
+// Linux, then SonarQube analysis with its quality gate.
 //
 // Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
 // build agent, triggered by GitHub's push webhook for `main`. Windows and macOS aren't built
-// here: there are no agents for them.
+// here: there are no agents for them. Discord hears about builds from a service beside Jenkins
+// (`ci/discord_notifier`), which follows every stage live, so this file says nothing to it.
 //
 // Before the first run, set up Jenkins as the "Jenkins setup" block in `environment` below
-// says: the agent label, the SonarQube server and scanner, and the Discord webhook credential.
+// says: the agent label, and the SonarQube server and scanner.
 //
-// Plugins: Pipeline, Pipeline: Declarative (1.5 or later, for `matrix`), Multibranch Pipeline
-// with a GitHub or Git source, Timestamper, Credentials Binding, SonarQube Scanner and Discord
-// Notifier.
+// Plugins: Pipeline, Pipeline: Declarative (1.5 or later, for `matrix`), Pipeline Graph View
+// (the notifier reads its stage tree), Multibranch Pipeline with a GitHub or Git source,
+// Timestamper and SonarQube Scanner.
 //
 // The agent needs rustup, Git, pkg-config, cargo-llvm-cov and the GPUI build libraries
 // (Debian: libfontconfig-dev libvulkan1 libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev
@@ -42,10 +43,6 @@ pipeline {
         SONARQUBE_SERVER = 'sonarqube'
         // Manage Jenkins > Tools > SonarQube Scanner installations: the scanner's name.
         SONAR_SCANNER_TOOL = 'sonar-scanner'
-        // Credentials: a "Secret text" credential holding the Discord webhook URL.
-        DISCORD_WEBHOOK_CREDENTIALS_ID = 'discord-webhook-url'
-        // 'true' also posts passing builds; failures, unstable builds and fixes always post.
-        DISCORD_NOTIFY_ON_SUCCESS = 'false'
     }
 
     stages {
@@ -143,12 +140,6 @@ pipeline {
             }
         }
     }
-
-    post {
-        always {
-            notifyDiscord()
-        }
-    }
 }
 
 /**
@@ -193,26 +184,4 @@ String packageVersion(String manifest) {
     // NonCPS: a regex Matcher can't be saved between pipeline steps.
     def match = manifest =~ /(?m)^version\s*=\s*"([^"]+)"/
     return match.find() ? match.group(1) : 'unknown'
-}
-
-/** Posts the build's result to Discord: always for failures, unstable builds and fixes. */
-void notifyDiscord() {
-    def result = currentBuild.currentResult
-    def previous = currentBuild.previousBuild?.result
-    def fixed = result == 'SUCCESS' && previous != null && previous != 'SUCCESS'
-    if (result == 'SUCCESS' && !fixed && env.DISCORD_NOTIFY_ON_SUCCESS != 'true') {
-        return
-    }
-    def status = fixed ? 'fixed' : result.toLowerCase()
-    def branch = env.CHANGE_ID ? "PR #${env.CHANGE_ID} (${env.CHANGE_BRANCH})" : (env.BRANCH_NAME ?: 'unknown')
-    withCredentials([string(credentialsId: env.DISCORD_WEBHOOK_CREDENTIALS_ID, variable: 'DISCORD_WEBHOOK_URL')]) {
-        discordSend(
-            webhookURL: env.DISCORD_WEBHOOK_URL,
-            title: "${env.JOB_NAME} #${env.BUILD_NUMBER}: ${status}",
-            link: env.BUILD_URL,
-            result: result,
-            description: "Branch: ${branch}\nDuration: ${currentBuild.durationString.replace(' and counting', '')}",
-            footer: 'RedesignedVLC CI'
-        )
-    }
 }

@@ -1,0 +1,18 @@
+# Mirrors Jenkins builds into a Discord forum post. Install the notifier's files in
+# /opt/jenkins-discord-notifier and its settings in /etc/jenkins-discord-notifier.env.
+[Unit]
+Description=Jenkins to Discord build notifier
+After=network-online.target kiri.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/jenkins-discord-notifier/notifier.py
+EnvironmentFile=/etc/jenkins-discord-notifier.env
+# Runs as a throwaway user; systemd keeps its state in /var/lib/jenkins-discord-notifier.
+DynamicUser=yes
+StateDirectory=jenkins-discord-notifier
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
