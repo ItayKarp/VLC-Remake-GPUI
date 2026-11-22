@@ -11,17 +11,20 @@ use gpui::App;
 use crate::app;
 use crate::app::media::Media;
 use crate::network::links;
+use crate::privacy::exclusions::Exclusions;
 use crate::settings;
 
 /// The most items the list keeps, whatever the setting says.
 pub const MAX_COUNT: u32 = 100;
 
 /// Remembers `opened`, in the order opened, if the privacy setting allows it. Links with a
-/// user name or password are left out: settings files aren't a place for passwords.
+/// user name or password are left out: settings files aren't a place for passwords. So is what
+/// "Never remember items matching" names.
 pub fn record(opened: &[Media], cx: &mut App) {
+    let exclusions = Exclusions::from_settings(cx);
     let privacy = &settings::get(cx).prefs.privacy;
-    let opened: Vec<Media> =
-        opened.iter().filter(|media| !has_credentials(media)).cloned().collect();
+    let remembered = |media: &&Media| !has_credentials(media) && !exclusions.excludes(media);
+    let opened: Vec<Media> = opened.iter().filter(remembered).cloned().collect();
     if !privacy.save_recently_played || opened.is_empty() {
         return;
     }
@@ -42,6 +45,11 @@ pub fn items(cx: &App) -> Vec<Media> {
         .filter_map(|text| Media::from_stored(text))
         .take(limit(privacy.recent_media_count))
         .collect()
+}
+
+/// How many items are kept, shown or not (Clear History counts them while history is off too).
+pub fn stored_count(cx: &App) -> usize {
+    settings::get(cx).local.recent_media.len()
 }
 
 /// Forgets every recent item.

@@ -1,5 +1,7 @@
 //! Playing the queue (S3.1): opened items replace the queue, are added to its end or go right
-//! after the current item; the player then moves through it by itself.
+//! after the current item; the player then moves through it by itself. With "Start playing as
+//! soon as a file opens" off (S5.7.1), what the user opens waits paused at its start; the items
+//! after it still play on their own.
 //!
 //! At an item's end the next one plays, as Repeat and Shuffle say (S3.3), unless "Stop after
 //! each item" holds it; when the queue runs out, "When playback finishes" decides. An item that
@@ -22,7 +24,8 @@ use crate::ui::toast::{Level, Toast};
 
 impl MainWindow {
     /// Puts the media `resolved` found in the queue at `target` and plays it from its start
-    /// item, unless it was added while something else plays.
+    /// item (or holds it paused there, as Settings → Playback says), unless it was added while
+    /// something else plays.
     pub(super) fn play_resolved(
         &mut self,
         resolved: &mut Resolved,
@@ -46,7 +49,13 @@ impl MainWindow {
             }
         };
         if replace || !self.is_playing(cx) {
-            self.play(first_new + resolved.start, window, cx);
+            let paused = !settings::get(cx).prefs.player.start_playing;
+            self.play_from(
+                first_new + resolved.start,
+                Start { paused, ..Start::default() },
+                window,
+                cx,
+            );
         }
         cx.notify();
     }

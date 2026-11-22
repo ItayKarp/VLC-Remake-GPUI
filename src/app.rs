@@ -5,18 +5,22 @@
 //! Onboarding hands off by opening the main window *before* closing itself, because
 //! with `QuitMode::LastWindowClosed` closing the only window quits the app.
 
+pub mod audio_devices;
 pub mod cli;
 mod display;
 pub mod file_types;
 pub mod geometry;
+pub mod hardware_fallback;
 pub mod instance;
 pub mod media;
 mod not_responding;
 pub mod open;
+pub mod real_time;
 pub mod recent;
 pub mod request;
 pub mod screens;
 mod settings_window;
+mod system_options;
 mod video_window;
 
 use gpui::{
@@ -49,9 +53,12 @@ pub const MAIN_MIN_SIZE: (f32, f32) = (800., 500.);
 /// body scrolls.
 const ONBOARDING_MIN_SIZE: (f32, f32) = (900., 640.);
 
-/// Registers the app-wide action handlers. Key bindings and the macOS menu bar
-/// come from the keymap ([`crate::keymap::init`]).
+/// Hands Network and Performance to the player's libVLC, and registers the app-wide action
+/// handlers. Key bindings and the macOS menu bar come from the keymap
+/// ([`crate::keymap::init`]).
 pub fn init(cx: &mut App) {
+    system_options::init(cx);
+    hardware_fallback::init(cx);
     cx.on_action(|_: &Quit, cx| cx.quit());
     cx.on_action(|_: &CloseWindow, cx| {
         if let Some(window) = cx.active_window() {

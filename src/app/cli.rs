@@ -13,6 +13,8 @@ pub const COMPONENT_GALLERY: &str = "--component-gallery";
 pub const FULLSCREEN: &str = "--fullscreen";
 /// Adds the items to the queue instead of replacing it.
 pub const ENQUEUE: &str = "--enqueue";
+/// The file manager started this launch: the app's file associations pass it (S5.9.1).
+pub const STARTED_FROM_FILE: &str = "--started-from-file";
 /// macOS before 10.9 passed a process serial number to apps that Finder launched.
 const MACOS_PSN_PREFIX: &str = "-psn_";
 
@@ -44,6 +46,7 @@ impl Launch {
             COMPONENT_GALLERY => self.start = StartScreen::Gallery,
             FULLSCREEN => self.open.fullscreen = true,
             ENQUEUE => self.open.placement = Placement::Enqueue,
+            STARTED_FROM_FILE => self.from_file_manager = true,
             _ if flag.starts_with(MACOS_PSN_PREFIX) => {}
             _ => tracing::warn!("ignoring unknown command-line option {flag}"),
         }

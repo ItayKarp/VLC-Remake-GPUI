@@ -4,6 +4,7 @@
 use gpui::Context;
 
 use super::{Player, PlayerEvent};
+use crate::engine::media_options::MediaOptions;
 use crate::engine::tracks::auto::{self, Pick, TrackPreferences};
 use crate::engine::tracks::{Cycled, TrackId, TrackKind, Tracks, claim_added};
 
@@ -37,6 +38,14 @@ impl Player {
     /// the next track change on.
     pub fn set_track_preferences(&mut self, preferences: TrackPreferences) {
         self.track_choices.preferences = preferences;
+    }
+
+    /// Sets the options media opens with from the next open on (S5.7).
+    pub fn set_media_options(&mut self, options: MediaOptions) {
+        if self.media_options != options {
+            self.with_backend(|backend| backend.set_media_options(&options));
+            self.media_options = options;
+        }
     }
 
     /// Selects `track` for `kind`, or turns that kind off with `None`. Auto-selection leaves

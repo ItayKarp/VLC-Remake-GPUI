@@ -46,6 +46,7 @@ mod session;
 mod settings_panel;
 mod shortcuts_dialog;
 mod speed;
+mod subtitle_style;
 #[cfg(test)]
 mod tests;
 mod title_bar;
@@ -83,6 +84,7 @@ use crate::ui::{drop_target, menu::ContextMenu};
 use crate::video::VideoView;
 
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
+pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -214,13 +216,15 @@ impl MainWindow {
         self.show_pending_crash(cx);
     }
 
-    /// Follows the window: the theme, redraws, its geometry, focus and the GPU it renders with.
+    /// Follows the window: the theme, redraws, its geometry, focus, the GPU it renders with, and
+    /// whether the library is used.
     fn follow_window(window: &mut Window, cx: &mut Context<Self>) {
         theme::observe(window, cx);
         Self::redraw_on_changes(window, cx);
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
         Self::release_keys_on_blur(window, cx);
         Self::close_popovers_on_deactivate(window, cx);
+        Self::follow_library_switch(window, cx);
         crate::diagnostics::system::remember_gpu(window);
     }
 

@@ -27,8 +27,11 @@ pub(super) enum Job {
     End(SessionId),
     /// Mark `media` watched or unwatched.
     SetWatched(Media, bool),
-    /// Forget everything.
+    /// Forget everything, and stop recording the running sessions, so what plays now isn't
+    /// written back.
     Clear,
+    /// Forget every saved position.
+    ForgetPositions,
     /// Work on the database for a table history doesn't own (saved playlists).
     Database(super::DatabaseWork),
     /// Reply once every job sent before this one is done.
@@ -95,7 +98,11 @@ impl Worker {
                 Ok(())
             }
             Job::SetWatched(media, watched) => self.set_watched(&media, watched),
-            Job::Clear => media::clear(self.database.connection()).map(drop),
+            Job::Clear => {
+                self.sessions.clear();
+                media::clear(self.database.connection()).map(drop)
+            }
+            Job::ForgetPositions => media::forget_positions(self.database.connection()),
             Job::Database(work) => {
                 work(self.database.connection());
                 Ok(())

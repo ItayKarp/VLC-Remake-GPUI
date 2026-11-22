@@ -35,6 +35,7 @@ fn wanting(rig: &Rig, cx: &mut TestAppContext, audio: &str, subtitles: SubtitleM
         audio_languages: Language::parse(audio).into_iter().collect(),
         subtitle_languages: Vec::new(),
         subtitles,
+        ..TrackPreferences::default()
     };
     rig.run(cx, |player, _| player.set_track_preferences(preferences));
 }

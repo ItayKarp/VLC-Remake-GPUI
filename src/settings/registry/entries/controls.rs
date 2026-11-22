@@ -1,10 +1,14 @@
-//! Controls ("Mouse, Keyboard & Remote Controls"): skip amounts and the mouse over the video.
+//! Controls ("Mouse, Keyboard & Remote Controls"): the Keyboard Shortcuts dialog and resetting
+//! it, skip amounts, and the mouse over the video. Remotes come with S8.15.
 
 use super::super::def::{Control, SettingDef};
-use super::super::value::{Choice, SettingChoice, choice, number};
+use super::super::value::{Binding, Choice, SettingChoice, choice, number, toggle};
+use crate::keymap::reset::ask_to_reset_all;
+use crate::main_window::edit_keyboard_shortcuts;
 use crate::settings::registry::Category;
 use crate::settings::{ClickAction, DoubleClickAction, HorizontalWheelAction, WheelAction};
 
+const SHORTCUTS: (Category, &str) = (Category::Controls, "Keyboard Shortcuts");
 const SKIPS: (Category, &str) = (Category::Controls, "Skip Amounts");
 const MOUSE: (Category, &str) = (Category::Controls, "Mouse");
 /// A skip field's unit.
@@ -38,6 +42,24 @@ impl SettingChoice for HorizontalWheelAction {
 
 /// The Controls page's rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
+    SettingDef::new(
+        "edit_keyboard_shortcuts",
+        SHORTCUTS,
+        "Defaults",
+        Control::Button { label: "Edit Keyboard Shortcuts", action: edit_keyboard_shortcuts },
+        Binding::ACTION,
+    )
+    .info("Opens the list of shortcuts in the main window, where a pencil changes a key.")
+    .keywords(&["hotkeys", "keys", "keyboard", "bindings", "keymap"]),
+    SettingDef::new(
+        "reset_keyboard_shortcuts",
+        SHORTCUTS,
+        "Reset all shortcuts",
+        Control::Button { label: "Reset", action: ask_to_reset_all },
+        Binding::ACTION,
+    )
+    .info("Gives every command its default keys back, after asking.")
+    .keywords(&["hotkeys", "keys", "keyboard", "bindings", "defaults", "restore"]),
     SettingDef::new(
         "controls.skip.very_short",
         SKIPS,
@@ -117,4 +139,16 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          moves by the very short skip.",
     )
     .keywords(&["mouse", "trackpad", "seek"]),
+    SettingDef::new(
+        "controls.reverse_scroll",
+        MOUSE,
+        "Reverse scroll direction",
+        Control::Toggle,
+        toggle!(prefs.controls.reverse_scroll),
+    )
+    .info(
+        "Scrolling over the video turns the other way: down is louder and left seeks forward. \
+         The volume slider keeps its direction.",
+    )
+    .keywords(&["mouse", "wheel", "trackpad", "natural", "invert"]),
 ];

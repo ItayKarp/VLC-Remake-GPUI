@@ -3,8 +3,10 @@
 
 use std::path::Path;
 
+use super::audio::equalizer::Equalizer;
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, EventSender};
+use super::media_options::MediaOptions;
 use super::state::{ErrorKind, PlaybackState};
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -59,6 +61,10 @@ impl Backend for UnavailableBackend {
     fn refresh_audio_devices(&mut self) {}
 
     fn set_speaker_setup(&mut self, _: SpeakerSetup) {}
+
+    fn set_media_options(&mut self, _: &MediaOptions) {}
+
+    fn set_equalizer(&mut self, _: Option<Equalizer>) {}
 
     fn shut_down(self: Box<Self>) {}
 }

@@ -36,6 +36,8 @@ pub struct Windowing {
     pub(super) closing: bool,
     /// The item the now-playing notification last named (S5.4.3).
     pub(super) notice: NowPlayingNotice,
+    /// Media is opening whose video hasn't shown yet, for "Start videos in fullscreen" (S5.8.1).
+    pub(super) start_fullscreen: bool,
 }
 
 /// The video's own window.
@@ -123,6 +125,22 @@ impl MainWindow {
         self.windowing.separate = SeparateVideo::Open { handle, fullscreen, _closed: closed };
         // The setting may have changed, or playback stopped, while it opened.
         self.sync_video_window(window, cx);
+        self.start_fullscreen(window, cx);
+    }
+
+    /// Takes the window showing video fullscreen once its media's picture arrives, as Settings →
+    /// Video's "Start videos in fullscreen" says; once per opened media, so leaving fullscreen
+    /// sticks. A video window still opening goes fullscreen once it is open.
+    pub(super) fn start_fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.windowing.start_fullscreen
+            || matches!(self.windowing.separate, SeparateVideo::Opening)
+        {
+            return;
+        }
+        self.windowing.start_fullscreen = false;
+        if settings::get(cx).prefs.video.start_fullscreen && !self.video_is_fullscreen(window) {
+            self.toggle_fullscreen(window, cx);
+        }
     }
 
     /// The video's window went away. Unless this window closed it, the user did: playback

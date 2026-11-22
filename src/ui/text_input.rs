@@ -55,6 +55,16 @@ pub enum Look {
     Bare,
 }
 
+/// Whether the field shows what is typed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Echo {
+    /// The text as typed.
+    #[default]
+    Plain,
+    /// A bullet per character, and nothing to copy or cut: a password.
+    Masked,
+}
+
 /// How the next paint scrolls the text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scrolling {
@@ -82,6 +92,7 @@ pub struct TextInput {
     label: SharedString,
     validation: Validation,
     look: Look,
+    echo: Echo,
     disabled: bool,
     focus_handle: FocusHandle,
     /// The lines of a multi-line input that show at once; `None` for a single line.
@@ -122,6 +133,7 @@ impl TextInput {
             label: SharedString::default(),
             validation: Validation::None,
             look: Look::Framed,
+            echo: Echo::Plain,
             disabled: false,
             focus_handle,
             rows: None,
@@ -158,6 +170,12 @@ impl TextInput {
         self
     }
 
+    /// Shows a bullet per character and refuses to copy or cut: a single-line password field.
+    pub fn masked(mut self) -> Self {
+        self.echo = Echo::Masked;
+        self
+    }
+
     /// Sets the faint hint shown while the input is empty.
     pub fn with_placeholder(mut self, placeholder: impl Into<SharedString>) -> Self {
         self.placeholder = placeholder.into();
@@ -180,6 +198,16 @@ impl TextInput {
     /// The current text.
     pub fn text(&self) -> &str {
         self.state.text()
+    }
+
+    /// Changes the hint shown while the input is empty.
+    pub fn set_placeholder(
+        &mut self,
+        placeholder: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
+        self.placeholder = placeholder.into();
+        cx.notify();
     }
 
     /// Replaces the text from outside (not as a user edit); clears the undo history.

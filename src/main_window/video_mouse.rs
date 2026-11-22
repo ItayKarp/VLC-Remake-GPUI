@@ -113,12 +113,16 @@ impl MainWindow {
         }
     }
 
-    /// Seeks by the very short skip as the wheel turns sideways: left is back.
+    /// Seeks by the very short skip as the wheel turns sideways: left is back, unless the
+    /// scroll direction is reversed.
     fn scroll_seek(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
-        if settings::get(cx).prefs.controls.horizontal_wheel == HorizontalWheelAction::Nothing {
+        let controls = &settings::get(cx).prefs.controls;
+        if controls.horizontal_wheel == HorizontalWheelAction::Nothing {
             return;
         }
-        let way = match self.video_mouse.sideways.take(event.delta, event.touch_phase) {
+        let reverse = controls.reverse_scroll;
+        let turn = self.video_mouse.sideways.take(event.delta, event.touch_phase);
+        let way = match turn.map(|turn| turn.reversed_if(reverse)) {
             Some(Turn::Positive) => Way::Back,
             Some(Turn::Negative) => Way::Forward,
             None => return,

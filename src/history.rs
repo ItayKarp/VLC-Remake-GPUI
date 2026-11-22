@@ -92,9 +92,30 @@ impl History {
         self.send(Job::SetWatched(media, watched));
     }
 
-    /// Forgets every media's history (S1.7.5).
+    /// Forgets every media's history (S1.7.5). Running sessions stop recording.
     pub fn clear(&self) {
         self.send(Job::Clear);
+    }
+
+    /// Forgets every saved position, keeping plays and watched marks (S5.5).
+    pub fn forget_positions(&self) {
+        self.send(Job::ForgetPositions);
+    }
+
+    /// Runs `query` on the database and hands back its answer; `None` when it failed (it is
+    /// logged) or the thread is gone.
+    pub(crate) fn query<T: Send + 'static>(
+        &self,
+        name: &'static str,
+        query: impl FnOnce(&rusqlite::Connection) -> rusqlite::Result<T> + Send + 'static,
+    ) -> oneshot::Receiver<Option<T>> {
+        let (reply, answer) = oneshot::channel();
+        self.with_database(move |connection| {
+            let result = query(connection).inspect_err(|error| tracing::warn!("{name}: {error}"));
+            // The asker may be gone.
+            let _ = reply.send(result.ok());
+        });
+        answer
     }
 
     /// Runs `work` on the database, after the jobs sent before it.

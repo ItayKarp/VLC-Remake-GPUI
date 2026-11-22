@@ -23,7 +23,7 @@ use interprocess::local_socket::prelude::*;
 
 use super::request::{Launch, OpenRequest, StartScreen};
 use crate::app::media::Media;
-use crate::settings;
+use crate::settings::{self, LibrarySettings};
 pub use client::FORWARD_TIMEOUT;
 use lock::InstancePaths;
 pub use server::Server;
@@ -94,7 +94,7 @@ impl Inbox {
     /// the Dock icon), as a launch that replaces the queue.
     pub fn post_urls(&self, urls: &[String]) {
         let items: Vec<Media> = urls.iter().map(|url| Media::from_url(url)).collect();
-        let launch = Launch { open: OpenRequest::replace(items), start: StartScreen::Auto };
+        let launch = Launch { open: OpenRequest::replace(items), ..Launch::default() };
         self.sender.unbounded_send(Incoming { launch, ack: None }).ok();
     }
 }
@@ -114,13 +114,20 @@ pub enum Role {
 
 /// Becomes the running instance, or forwards `launch` to the one that is.
 pub fn acquire(launch: &Launch, inbox: &Inbox) -> Role {
-    if launch.start == StartScreen::Gallery || settings::peek().library.allow_multiple_instances {
+    if launch.start == StartScreen::Gallery || runs_alone(launch, &settings::peek().library) {
         return Role::Standalone;
     }
     let Some(paths) = InstancePaths::resolve() else {
         return Role::Standalone;
     };
     acquire_at(&paths, launch, inbox)
+}
+
+/// Whether the settings let `launch` open a window of its own (Settings → Library, S5.9.1):
+/// several windows are allowed, or the file manager started it and those launches may.
+fn runs_alone(launch: &Launch, library: &LibrarySettings) -> bool {
+    library.allow_multiple_instances
+        || (launch.from_file_manager && !library.one_window_from_file_manager)
 }
 
 // Each outcome logs in its own function: with `tracing`'s `log` feature (on in Linux
@@ -165,6 +172,18 @@ mod tests {
     use futures::StreamExt;
 
     use super::*;
+
+    #[test]
+    fn file_manager_launches_follow_their_own_setting() {
+        let plain = Launch::default();
+        let from_files = Launch { from_file_manager: true, ..Launch::default() };
+        let mut library = LibrarySettings::default();
+        assert!(!runs_alone(&plain, &library) && !runs_alone(&from_files, &library));
+        library.one_window_from_file_manager = false;
+        assert!(!runs_alone(&plain, &library) && runs_alone(&from_files, &library));
+        library.allow_multiple_instances = true;
+        assert!(runs_alone(&plain, &library));
+    }
 
     #[test]
     fn a_second_launch_is_forwarded_to_the_first() {

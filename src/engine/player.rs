@@ -17,6 +17,7 @@ use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::media_info::{Chapter, Metadata, VideoSize};
+use super::media_options::MediaOptions;
 use super::position::PositionTracker;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
@@ -109,6 +110,8 @@ pub struct Player {
     info: Info,
     audio: AudioState,
     track_choices: TrackChoices,
+    /// The options media opens with, as last given to the backend.
+    media_options: MediaOptions,
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
@@ -136,6 +139,7 @@ impl Player {
             info: Info::default(),
             audio: AudioState::default(),
             track_choices: TrackChoices::default(),
+            media_options: MediaOptions::default(),
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),

@@ -17,6 +17,7 @@ use crate::engine::backend::{self, Backend, BackendEvent, EventReceiver, EventSe
 use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
 use crate::engine::state::{ErrorKind, PlaybackState};
+use crate::engine::subtitle_style::SubtitleStyle;
 use crate::engine::tracks::{Track, TrackId, TrackKind, Tracks};
 use crate::engine::values::{BackendSeek, Generation, Start, StepDirection};
 
@@ -102,7 +103,8 @@ fn new_backend(events: EventSender) -> LibVlcBackend {
     // SAFETY: these tests are run one at a time (`--test-threads 1`, as the module comment
     // says), so no other thread reads the environment meanwhile.
     unsafe { super::runtime::prepare_environment() };
-    LibVlcBackend::new(events, None, AudioConfig::default()).expect("libVLC loads")
+    LibVlcBackend::new(events, None, AudioConfig::default(), &SubtitleStyle::default())
+        .expect("libVLC loads")
 }
 
 fn media(name: &str) -> PathBuf {
@@ -186,8 +188,10 @@ fn the_device_list_arrives_without_media_even_with_passthrough() {
     let (events, mut receiver) = backend::channel();
     // SAFETY: run one at a time, as above.
     unsafe { super::runtime::prepare_environment() };
-    let audio = AudioConfig { passthrough: true };
-    let backend = Box::new(LibVlcBackend::new(events, None, audio).expect("libVLC loads"));
+    let audio = AudioConfig { passthrough: true, ..AudioConfig::default() };
+    let backend = Box::new(
+        LibVlcBackend::new(events, None, audio, &SubtitleStyle::default()).expect("libVLC loads"),
+    );
     let deadline = Instant::now() + PATIENCE;
     let devices = loop {
         assert!(Instant::now() < deadline, "no device list");

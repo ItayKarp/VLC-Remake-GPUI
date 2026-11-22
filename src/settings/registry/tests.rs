@@ -177,10 +177,12 @@ fn restart_settings_are_noticed_until_put_back() {
 }
 
 #[test]
-fn colors_are_six_hex_digits() {
+fn colors_are_hex_or_names_and_kept_as_six_digits() {
+    let color = def("subtitles.text_color");
+    assert_eq!(color.accept(Value::Text("#f80".into())), Ok(Value::Text("#FF8800".into())));
+    assert_eq!(color.accept(Value::Text("white".into())), Ok(Value::Text("#FFFFFF".into())));
+    assert!(color.accept(Value::Text("FFA500".into())).is_err());
     assert_eq!(hex_color("#FFa500"), Some(0xFFA500));
-    assert_eq!(hex_color("FFA500"), None);
-    assert_eq!(hex_color("#FFF"), None);
     assert_eq!(trim(1.50), "1.5");
 }
 

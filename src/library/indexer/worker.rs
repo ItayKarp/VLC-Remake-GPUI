@@ -127,7 +127,20 @@ impl Worker {
             Command::Lookup(lookup) => self.extractor.set_lookup(lookup),
             Command::Resync(path) => self.resync(&path),
             Command::Changed(paths) => self.debounce.add(paths, Instant::now()),
+            Command::Suspend => self.suspend(),
         }
+    }
+
+    /// Lets go of every media folder without touching the database, so nothing is scanned,
+    /// watched or checked until the folders are set again.
+    fn suspend(&mut self) {
+        self.roots.clear();
+        self.states.clear();
+        self.unavailable.clear();
+        self.timers.recheck = None;
+        self.debounce = Debounce::default();
+        self.watcher.watch_only(&[]);
+        self.report();
     }
 
     fn run_due(&mut self, now: Instant) {

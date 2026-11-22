@@ -1,5 +1,6 @@
 //! [`VideoView`]: the video area. It redraws when the engine delivers a picture, paints it
-//! letterboxed on black, shows a placeholder for audio-only media, and toggles fullscreen on a
+//! letterboxed on black at Settings → Video's aspect ratio and crop (S5.8.1), shows a placeholder
+//! for audio-only media, saying so when Settings turned video off, and toggles fullscreen on a
 //! double-click (S1.4.1, S1.4.2, S1.4.4).
 
 use std::sync::Arc;
@@ -7,21 +8,26 @@ use std::sync::Arc;
 use futures::StreamExt as _;
 use futures::channel::mpsc::UnboundedReceiver;
 use gpui::{
-    App, ClickEvent, Context, Entity, Hsla, Subscription, Task, WeakEntity, Window,
+    App, ClickEvent, ContentMask, Context, Entity, Hsla, Subscription, Task, WeakEntity, Window,
     WindowVisibility, black, canvas, div, hsla, prelude::*, px,
 };
 
+use super::Output;
 use super::frame::Frame;
 use super::frame_slot::{Delivery, FrameSlot};
-use super::{Output, layout};
+use super::framing::{self, AspectRatio, Crop};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::keymap::actions::ToggleFullscreen;
+use crate::settings::{self, SettingsStore};
 
 /// What the placeholder for audio-only media says until music mode (Stage 8) shows artwork.
 const AUDIO_ONLY: &str = "♪";
 const PLACEHOLDER_SIZE: f32 = 64.;
 /// The placeholder's grey: readable on the black video area in both themes.
 const PLACEHOLDER_COLOR: Hsla = hsla(0., 0., 1., 0.35);
+/// Under the placeholder while Settings → Video turned video off, so a black screen has a reason.
+const VIDEO_OFF: &str = "Video is off in Settings → Video";
+const VIDEO_OFF_SIZE: f32 = 14.;
 
 /// The video area of the player.
 pub struct VideoView {
@@ -33,6 +39,8 @@ pub struct VideoView {
     /// The visibility of the window the view is in.
     visibility: Subscription,
     _changes: Subscription,
+    /// Redraws when the aspect ratio or crop changes.
+    _settings: Subscription,
 }
 
 impl VideoView {
@@ -59,6 +67,7 @@ impl VideoView {
             _follow: cx.spawn(async move |this, cx| follow_frames(woken, this, cx).await),
             visibility,
             _changes: changes,
+            _settings: cx.observe_global::<SettingsStore>(|_, cx| cx.notify()),
         }
     }
 
@@ -119,20 +128,13 @@ impl VideoView {
 impl Render for VideoView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.advance(window);
+        let video = &settings::get(cx).prefs.video;
+        let (framing, video_on) = ((video.aspect_ratio, video.crop), video.enabled);
         let picture = self.shown.clone().map(|frame| {
             let aspect = self.aspect(&frame, cx);
-            canvas(
-                |_, _, _| {},
-                move |bounds, (), window, _| {
-                    let placed = layout::letterbox(bounds, aspect, window.scale_factor());
-                    frame.paint(placed, window);
-                },
-            )
-            .size_full()
+            picture(frame, aspect, framing)
         });
-        let placeholder = self.is_audio_only(cx).then(|| {
-            div().text_size(px(PLACEHOLDER_SIZE)).text_color(PLACEHOLDER_COLOR).child(AUDIO_ONLY)
-        });
+        let placeholder = self.is_audio_only(cx).then(|| placeholder(video_on));
         div()
             .id("video")
             .size_full()
@@ -150,6 +152,32 @@ impl Render for VideoView {
             .children(picture)
             .children(placeholder)
     }
+}
+
+/// Paints `frame`, of display `aspect`, letterboxed at the aspect ratio and crop of `framing`.
+fn picture(frame: Frame, aspect: (u32, u32), framing: (AspectRatio, Crop)) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |bounds, (), window, _| {
+            let scale = window.scale_factor();
+            let framed = framing::frame(bounds, aspect, framing.0, framing.1, scale);
+            let mask = ContentMask { bounds: framed.shown };
+            window.with_content_mask(Some(mask), |window| frame.paint(framed.picture, window));
+        },
+    )
+    .size_full()
+}
+
+/// The audio-only placeholder, saying why when Settings turned video off.
+fn placeholder(video_on: bool) -> impl IntoElement {
+    let note = (!video_on).then(|| div().text_size(px(VIDEO_OFF_SIZE)).child(VIDEO_OFF));
+    div()
+        .flex()
+        .flex_col()
+        .items_center()
+        .text_color(PLACEHOLDER_COLOR)
+        .child(div().text_size(px(PLACEHOLDER_SIZE)).child(AUDIO_ONLY))
+        .children(note)
 }
 
 /// Redraws the view whenever the engine delivers, until the view is gone.

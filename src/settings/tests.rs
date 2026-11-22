@@ -5,5 +5,6 @@ mod crash;
 mod migration;
 mod paths;
 mod persistence;
+mod presets;
 mod recovery;
 mod support;

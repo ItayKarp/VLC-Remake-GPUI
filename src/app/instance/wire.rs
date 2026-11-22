@@ -95,7 +95,7 @@ fn decode(body: &[u8]) -> io::Result<Launch> {
     let fullscreen = cursor.byte()? != 0;
     let count = cursor.length()?;
     let items = (0..count).map(|_| cursor.item()).collect::<io::Result<_>>()?;
-    Ok(Launch { start, open: OpenRequest { items, placement, fullscreen } })
+    Ok(Launch { start, open: OpenRequest { items, placement, fullscreen }, ..Launch::default() })
 }
 
 fn put_len(out: &mut Vec<u8>, len: usize) {
@@ -167,6 +167,7 @@ mod tests {
                 placement: Placement::Enqueue,
                 fullscreen: true,
             },
+            ..Launch::default()
         };
         assert_eq!(round_trip(&launch), launch);
         assert_eq!(round_trip(&Launch::default()), Launch::default());

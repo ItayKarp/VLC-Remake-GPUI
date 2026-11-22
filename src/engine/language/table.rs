@@ -110,6 +110,11 @@ const LANGUAGES: &[Entry] = &[
     e("zh", "chi", "zho", "Chinese"),
 ];
 
+/// Every language in the table, in table order.
+pub(super) fn all() -> impl Iterator<Item = &'static Entry> {
+    LANGUAGES.iter()
+}
+
 /// The language with the lower-case code `code`, in any of its three forms.
 pub(super) fn find(code: &str) -> Option<&'static Entry> {
     LANGUAGES.iter().find(|entry| {

@@ -16,10 +16,15 @@
 //! category.
 
 mod advanced;
+mod color_picker;
 mod controls;
+mod equalizer;
 mod highlight;
+mod media_folders;
 mod options;
+mod preset_picker;
 mod row;
+mod secret;
 mod swatches;
 #[cfg(test)]
 mod tests;
@@ -27,11 +32,18 @@ mod widgets;
 
 use std::collections::HashSet;
 
-use gpui::{AnyElement, Context, IntoElement, Render, Subscription, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, Context, IntoElement, Render, SharedString, Subscription, Window, div, prelude::*,
+    px,
+};
+
+pub use self::preset_picker::PresetPicker;
+pub use self::row::PAGE_PADDING;
 
 use self::controls::RowState;
-use self::row::{PAGE_PADDING, RowLabel};
+use self::row::RowLabel;
 use self::widgets::Widgets;
+use crate::app::audio_devices::AudioDevices;
 use crate::settings::registry::{self, ApplyMode, Category, SettingDef, Value};
 use crate::settings::{self, Settings, SettingsStore};
 use crate::theme::{self, Palette};
@@ -51,6 +63,7 @@ pub struct SettingsPage {
     /// `NextMedia` rows changed on this page, which say when the change applies.
     edited: HashSet<&'static str>,
     _settings: Subscription,
+    _devices: Subscription,
 }
 
 impl SettingsPage {
@@ -61,6 +74,10 @@ impl SettingsPage {
             this.sync_widgets(window, cx);
             cx.notify();
         });
+        // Options rows list what the machine has; the audio devices change while Settings shows.
+        let devices = cx.observe_global_in::<AudioDevices>(window, |this, window, cx| {
+            this.sync_widgets(window, cx);
+        });
         let defs: Vec<_> = registry::in_category(category).collect();
         let widgets = Widgets::new(&defs, window, cx);
         let page = Self {
@@ -70,6 +87,7 @@ impl SettingsPage {
             widgets,
             edited: HashSet::new(),
             _settings: settings,
+            _devices: devices,
         };
         page.widgets.sync(&defs, window, cx);
         page
@@ -161,16 +179,29 @@ impl SettingsPage {
         cx: &mut Context<Self>,
     ) -> gpui::Div {
         let state = RowState { value: def.value(settings), enabled: def.is_enabled(settings) };
-        let note = self.edited.contains(def.key).then_some(NEXT_MEDIA_NOTE);
+        let hint = def.hint.and_then(|hint| hint(cx)).map(SharedString::from);
+        let edited = self.edited.contains(def.key).then_some(SharedString::from(NEXT_MEDIA_NOTE));
+        let note_is_danger = hint.is_some() && def.hint_tone == registry::HintTone::Danger;
+        let note = hint.or(edited);
         let label = RowLabel {
             key: def.key,
             label: def.label,
             highlights: highlight::ranges(def.label, &self.words),
             info: def.info,
             note,
+            note_is_danger,
             enabled: state.enabled,
         };
         let control = self.control(def, &state, p, cx);
+        if matches!(def.control, registry::Control::Equalizer | registry::Control::MediaFolders) {
+            // The panel is the row: the design gives the equalizer the page's width and no
+            // label, and the folder list, under its own heading, follows it. Dimmed like any
+            // row while its dependency isn't met.
+            return div()
+                .py(px(8.))
+                .when(!state.enabled, |panel| panel.opacity(row::DISABLED_OPACITY))
+                .child(control);
+        }
         row::row(&label, control, p)
     }
 

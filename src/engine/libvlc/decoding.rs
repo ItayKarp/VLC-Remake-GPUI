@@ -87,6 +87,12 @@ pub struct Restore {
 }
 
 impl Worker {
+    /// Keeps the crash marker ([`super::hardware`]) while the GPU decodes this media's video.
+    pub(super) fn mark_hardware(&self, tracks: &Tracks) {
+        let gpu_decodes = self.decoding == Decoding::Hardware && tracks.video.is_some();
+        super::hardware::decoding(self.source.as_ref().filter(|_| gpu_decodes));
+    }
+
     /// Notes whether `tracks` need software decoding, so the switch happens once that has
     /// lasted [`SWITCH_DELAY`].
     pub(super) fn watch_subtitles(&mut self, tracks: &Tracks, now: Instant) {
@@ -143,6 +149,7 @@ impl Worker {
         }
         self.add_slaves(media);
         self.decoding = Decoding::Software;
+        super::hardware::decoding(None);
         self.restore = Some(Restore { audio: tracks.audio, subtitle: tracks.subtitle });
         self.shared.switching.store(true, Ordering::Relaxed);
         self.replace_media(media);

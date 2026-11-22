@@ -62,6 +62,11 @@ fn save_report(dir: &Path, report: &str) {
     tracing::error!("crash: {outcome}");
 }
 
+/// Whether a run panicked and its report hasn't been shown yet; doesn't mark it shown.
+pub fn has_pending(logs: &Path) -> bool {
+    logs.join(PENDING_FILE).is_file()
+}
+
 /// The report the last run left behind, if it hasn't been shown yet. Taking it
 /// marks it shown.
 pub fn take_pending(logs: &Path) -> Option<PathBuf> {

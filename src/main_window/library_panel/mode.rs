@@ -8,6 +8,9 @@
 //!
 //! Full library mode keeps the route the sidebar was at, and from then on remembers its own
 //! (S4.5.6).
+//!
+//! With "Use the media library" off (S5.9.4) the library never shows: turning it off hides it and
+//! offers, in a toast, to delete what was indexed, which is otherwise kept for later.
 
 use std::path::Path;
 
@@ -16,13 +19,15 @@ use gpui::{Context, Div, Stateful, Window};
 use super::MainWindow;
 use super::file_menu::source_route;
 use crate::db::metadata::MediaKind;
+use crate::library;
 use crate::main_window::TITLE_BAR_HEIGHT;
 use crate::main_window::auto_hide::rules::Chrome;
 use crate::main_window::control_bar::CONTROL_BAR_HEIGHT;
 use crate::navigation::Presentation;
 use crate::navigation::route::Route;
-use crate::settings;
+use crate::settings::{self, SettingsStore};
 use crate::theme::Palette;
+use crate::ui::toast::{Level, Toast};
 
 impl MainWindow {
     /// The library while it shows: full library mode under the title bar, or the sidebar over
@@ -33,6 +38,9 @@ impl MainWindow {
         chrome: Chrome,
         cx: &mut Context<Self>,
     ) -> Option<Stateful<Div>> {
+        if !library::is_enabled(cx) {
+            return None;
+        }
         let top = if chrome.title_bar { TITLE_BAR_HEIGHT } else { 0. };
         let bottom = if chrome.controls { CONTROL_BAR_HEIGHT } else { 0. };
         let insets = match self.library_panel.shown? {
@@ -106,6 +114,9 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if shown.is_some() && !library::is_enabled(cx) {
+            return;
+        }
         let panel = &mut self.library_panel;
         panel.shown = shown;
         panel.close_menus();
@@ -118,5 +129,24 @@ impl MainWindow {
             self.focus_handle.focus(window, cx);
         }
         cx.notify();
+    }
+
+    /// Hides the library when "Use the media library" is turned off, and offers to delete what
+    /// it indexed (S5.9.4).
+    pub(in crate::main_window) fn follow_library_switch(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let mut was_enabled = library::is_enabled(cx);
+        cx.observe_global_in::<SettingsStore>(window, move |this, window, cx| {
+            let enabled = library::is_enabled(cx);
+            if std::mem::replace(&mut was_enabled, enabled) && !enabled {
+                this.show_library(None, window, cx);
+                let toast = Toast::new(Level::Info, "The library is off. Keep what it indexed?")
+                    .action("Delete Index", |_, cx| library::delete_index(cx));
+                this.show_toast(toast, cx);
+            }
+        })
+        .detach();
     }
 }

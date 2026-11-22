@@ -142,3 +142,24 @@ fn labels_come_from_the_keymap(cx: &mut TestAppContext) {
         assert_eq!(keymap::shortcut(&act::CustomizePlayer, cx), None);
     });
 }
+
+#[gpui::test]
+fn saved_shortcuts_replace_the_defaults_at_once(cx: &mut TestAppContext) {
+    let (player, cx) = open(cx);
+    let root = |p: &Player, _: &gpui::App| p.root.clone();
+    cx.update(|_, cx| {
+        let mut shortcuts = keymap::load(cx);
+        let play = keymap::custom::Shortcuts::index_of(&act::PlayPause).expect("a command");
+        let k = gpui::Keystroke::parse_with_os("k", keymap::os(cx)).expect("k parses");
+        shortcuts.set(play, vec![k]);
+        keymap::apply(&shortcuts, cx);
+    });
+    assert_eq!(press(&player, cx, root, "space"), NONE);
+    assert_eq!(press(&player, cx, root, "k"), ["play"]);
+    // The text input's own keys keep winning over the player's.
+    let input = |p: &Player, cx: &gpui::App| p.input.read(cx).focus_handle(cx);
+    assert_eq!(press(&player, cx, input, "k"), NONE);
+    cx.update(|_, cx| keymap::apply(&keymap::custom::Shortcuts::defaults(keymap::os(cx)), cx));
+    assert_eq!(press(&player, cx, root, "space"), ["play"]);
+    cx.update(|_, cx| assert_eq!(crate::settings::get(cx).prefs.keymap.bindings, []));
+}

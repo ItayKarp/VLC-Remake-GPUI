@@ -33,8 +33,12 @@ pub enum Command {
     Resync(PathBuf),
     /// The watcher saw these paths change.
     Changed(Vec<PathBuf>),
-    /// Read titles and covers from the internet too, or not (S4.3.4).
+    /// Read titles and covers from the internet too, or not (S4.3.4), or only from the file
+    /// (S5.9.2).
     Lookup(Lookup),
+    /// Stop indexing and watching every media folder, keeping what was indexed (the media
+    /// library was turned off, S5.9.4). A later [`Command::SetRoots`] starts again.
+    Suspend,
 }
 
 /// A media folder the settings ask for.

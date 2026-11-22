@@ -1,18 +1,65 @@
 //! Repeat, Shuffle and the end of the queue (S3.3) in the main window. The queue header's
 //! buttons, the video menu's Playlist ▸ and the commands all change the queue's own Repeat and
 //! Shuffle through here, so they always agree (S3.3.4); each change is said over the video.
-//! "Stop after each item" and "When playback finishes" are settings (Settings → Playback, S5.7),
-//! which the same menu edits until that screen exists.
+//! "Stop after each item" and "When playback finishes" are settings, which Settings → Playback
+//! (S5.7) and the same menu edit.
+//!
+//! Settings → Playback's Repeat and Shuffle rows edit the queue's own state too: the window copies
+//! it into the settings' [`LiveState`] mirror whenever it changes, and applies a change made
+//! there back to the queue. Whichever side changed last wins.
+
+use std::cell::Cell;
+use std::rc::Rc;
 
 use gpui::{App, Context, WeakEntity, Window};
 
 use super::MainWindow;
 use crate::assets::icons;
 use crate::queue::Repeat;
-use crate::settings::{self, WhenFinished};
+use crate::settings::{self, LiveState, SettingsStore, WhenFinished};
 use crate::ui::menu::MenuItem;
 
 impl MainWindow {
+    /// Keeps the queue's Repeat and Shuffle and Settings → Playback's rows in step, starting
+    /// from the queue's. `synced` is the state both last agreed on, so each side only acts on
+    /// its own changes.
+    pub(super) fn follow_play_order(&mut self, cx: &mut Context<Self>) {
+        let synced = Rc::new(Cell::new(settings::get(cx).live));
+        self.publish_play_order(&synced, cx);
+        let published = Rc::clone(&synced);
+        cx.observe_self(move |this, cx| this.publish_play_order(&published, cx)).detach();
+        cx.observe_global::<SettingsStore>(move |this, cx| this.take_play_order(&synced, cx))
+            .detach();
+    }
+
+    /// The queue's Repeat and Shuffle as the settings mirror them.
+    fn play_order(&self) -> LiveState {
+        LiveState { repeat: self.queue.repeat(), shuffle: self.queue.is_shuffled() }
+    }
+
+    /// The queue's Repeat or Shuffle changed: shows it in Settings.
+    fn publish_play_order(&mut self, synced: &Cell<LiveState>, cx: &mut Context<Self>) {
+        let current = self.play_order();
+        if current != synced.get() {
+            synced.set(current);
+            settings::update(cx, |s| s.live = current);
+        }
+    }
+
+    /// Settings → Playback changed Repeat or Shuffle: applies it to the queue.
+    fn take_play_order(&mut self, synced: &Cell<LiveState>, cx: &mut Context<Self>) {
+        let wanted = settings::get(cx).live;
+        if wanted == synced.get() {
+            return;
+        }
+        synced.set(wanted);
+        self.queue.set_repeat(wanted.repeat);
+        if wanted.shuffle != self.queue.is_shuffled() {
+            self.queue.set_shuffle(wanted.shuffle);
+        }
+        cx.notify();
+    }
+
     /// Moves Repeat to its next mode: Off, All, One.
     pub(super) fn cycle_repeat(&mut self, _: &mut Window, cx: &mut Context<Self>) {
         self.set_repeat(self.queue.repeat().cycled(), cx);
@@ -76,5 +123,46 @@ pub(super) fn repeat_button_look(repeat: Repeat) -> (&'static str, bool, &'stati
         Repeat::Off => (icons::REPEAT, false, "Repeat: Off"),
         Repeat::All => (icons::REPEAT, true, "Repeat: All"),
         Repeat::One => (icons::REPEAT_ONE, true, "Repeat: One"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::*;
+    use crate::main_window::tests::{main_view, open};
+
+    fn live(cx: &mut VisualTestContext) -> LiveState {
+        cx.update(|_, cx| settings::get(cx).live)
+    }
+
+    #[gpui::test]
+    fn the_queues_buttons_show_in_settings(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let main = main_view(cx);
+        main.update_in(cx, |main, window, cx| {
+            main.cycle_repeat(window, cx);
+            main.toggle_shuffle(window, cx);
+        });
+        cx.run_until_parked();
+        assert_eq!(live(cx), LiveState { repeat: Repeat::All, shuffle: true });
+    }
+
+    #[gpui::test]
+    fn settings_change_the_queues_own_repeat_and_shuffle(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        cx.update(|_, cx| {
+            settings::update(cx, |s| s.live = LiveState { repeat: Repeat::One, shuffle: true });
+        });
+        cx.run_until_parked();
+        let main = main_view(cx);
+        main.read_with(cx, |main, _| {
+            assert_eq!(main.queue.repeat(), Repeat::One);
+            assert!(main.queue.is_shuffled());
+        });
+        main.update_in(cx, MainWindow::cycle_repeat);
+        cx.run_until_parked();
+        assert_eq!(live(cx).repeat, Repeat::Off, "the button wins after a Settings change");
     }
 }

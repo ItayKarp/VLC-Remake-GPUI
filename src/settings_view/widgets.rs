@@ -13,10 +13,14 @@ use gpui::{
 };
 
 use super::SettingsPage;
+use super::color_picker::ColorPicker;
+use super::equalizer::EqualizerPanel;
+use super::media_folders::MediaFoldersPanel;
 use super::options::OptionsDropdown;
+use super::secret::SecretField;
 use crate::settings::{
     self, Settings,
-    registry::{Control, SettingDef, Value},
+    registry::{Control, Marks, SettingDef, Value},
 };
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::slider::{self, Slider, SliderModel};
@@ -25,9 +29,12 @@ use crate::ui::text_input::{self, TextInput, Validation};
 /// One row's stateful control.
 enum Widget {
     Dropdown(Entity<Dropdown>),
+    Equalizer(Entity<EqualizerPanel>),
+    MediaFolders(Entity<MediaFoldersPanel>),
     Options(OptionsDropdown),
     Slider(Entity<Slider>),
     Field(Entity<TextInput>),
+    Secret(Entity<SecretField>),
 }
 
 /// A control and the subscription to what the user does with it.
@@ -36,6 +43,8 @@ type Made = (Widget, Subscription);
 /// The stateful controls of a page's rows, by setting key.
 pub(super) struct Widgets {
     by_key: HashMap<&'static str, Widget>,
+    /// The squares beside color fields.
+    pickers: HashMap<&'static str, Entity<ColorPicker>>,
     subscriptions: Vec<Subscription>,
 }
 
@@ -46,7 +55,8 @@ impl Widgets {
         window: &mut Window,
         cx: &mut Context<SettingsPage>,
     ) -> Self {
-        let mut widgets = Self { by_key: HashMap::new(), subscriptions: Vec::new() };
+        let mut widgets =
+            Self { by_key: HashMap::new(), pickers: HashMap::new(), subscriptions: Vec::new() };
         for def in defs {
             let made = match def.control {
                 Control::Dropdown(_) => Some(make_dropdown(def, window, cx)),
@@ -55,11 +65,31 @@ impl Widgets {
                     Some((Widget::Options(options), subscription))
                 }
                 Control::Slider { .. } => make_slider(def, window, cx),
-                Control::Number { .. }
-                | Control::Text
-                | Control::Path(_)
-                | Control::HexColor
-                | Control::List => Some(make_field(def, window, cx)),
+                Control::HexColor => {
+                    widgets.pickers.insert(def.key, cx.new(|cx| ColorPicker::new(def, cx)));
+                    Some(make_field(def, window, cx))
+                }
+                Control::Number { .. } | Control::Text | Control::Path(_) | Control::List => {
+                    Some(make_field(def, window, cx))
+                }
+                Control::Equalizer => {
+                    let panel = cx.new(|cx| EqualizerPanel::new(window, cx));
+                    // The panel saves the gains itself.
+                    widgets.by_key.insert(def.key, Widget::Equalizer(panel));
+                    None
+                }
+                Control::MediaFolders => {
+                    let panel = cx.new(MediaFoldersPanel::new);
+                    // The list changes the folders itself.
+                    widgets.by_key.insert(def.key, Widget::MediaFolders(panel));
+                    None
+                }
+                Control::Secret(secret) => {
+                    let field = cx.new(|cx| SecretField::new(secret, def.label, window, cx));
+                    // The field saves to the keychain itself; the page only keeps it enabled.
+                    widgets.by_key.insert(def.key, Widget::Secret(field));
+                    None
+                }
                 _ => None,
             };
             if let Some((widget, subscription)) = made {
@@ -74,10 +104,18 @@ impl Widgets {
     pub(super) fn element(&self, def: &SettingDef) -> Option<AnyElement> {
         Some(match self.by_key.get(def.key)? {
             Widget::Dropdown(dropdown) => dropdown.clone().into_any_element(),
+            Widget::Equalizer(panel) => panel.clone().into_any_element(),
+            Widget::MediaFolders(panel) => panel.clone().into_any_element(),
             Widget::Options(options) => options.dropdown.clone().into_any_element(),
             Widget::Slider(slider) => slider.clone().into_any_element(),
             Widget::Field(field) => field.clone().into_any_element(),
+            Widget::Secret(field) => field.clone().into_any_element(),
         })
+    }
+
+    /// The square beside the row's color field, if it is one.
+    pub(super) fn picker(&self, key: &str) -> Option<&Entity<ColorPicker>> {
+        self.pickers.get(key)
     }
 
     /// The row's text field, if it has one.
@@ -129,6 +167,11 @@ fn sync_widget(
             slider.set_value(number, window, cx);
             slider.set_disabled(disabled, cx);
         }),
+        Widget::Secret(field) => field.update(cx, |field, cx| field.set_parent_off(disabled, cx)),
+        Widget::Equalizer(panel) => panel.update(cx, |panel, cx| panel.sync(window, cx)),
+        Widget::MediaFolders(panel) => {
+            panel.update(cx, |panel, cx| panel.set_enabled(!disabled, cx));
+        }
         Widget::Field(field) => field.update(cx, |field, cx| {
             field.set_disabled(disabled, cx);
             let text = def.format_value(&value);
@@ -166,8 +209,9 @@ fn make_slider(
         let model = SliderModel::new(range.min, range.max, range.step, default);
         let slider = Slider::new(def.label, model, window, cx).accent().format(format);
         match marks {
-            Some(every) => slider.marks(every, format),
-            None => slider,
+            Marks::Labelled(every, label) => slider.marks(every, label),
+            Marks::Ticks(every) => slider.bare_marks(every),
+            Marks::None => slider,
         }
     });
     let subscription = cx.subscribe(&slider, move |page, _, event: &slider::Changed, cx| {
@@ -182,7 +226,12 @@ fn make_field(
     cx: &mut Context<SettingsPage>,
 ) -> Made {
     let text = def.format_value(&def.value(settings::get(cx)));
-    let field = cx.new(|cx| TextInput::new(window, cx).with_text(text).with_label(def.label));
+    let field = cx.new(|cx| {
+        TextInput::new(window, cx)
+            .with_text(text)
+            .with_label(def.label)
+            .with_placeholder(def.placeholder)
+    });
     let subscription =
         cx.subscribe(&field, move |page, field, event: &text_input::Event, cx| match event {
             text_input::Event::Changed => {

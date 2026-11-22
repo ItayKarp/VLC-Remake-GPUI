@@ -34,13 +34,14 @@ const PASSTHROUGH: &str = "--spdif";
 const MMDEVICE_PASSTHROUGH: &str = "--mmdevice-passthrough=1";
 
 /// The libVLC instance arguments `config` adds.
-pub fn arguments(config: AudioConfig) -> Vec<&'static str> {
+pub fn arguments(config: AudioConfig) -> Vec<String> {
     let mut arguments = Vec::new();
     if config.passthrough {
-        arguments.push(PASSTHROUGH);
+        arguments.push(PASSTHROUGH.to_owned());
         #[cfg(windows)]
-        arguments.push(MMDEVICE_PASSTHROUGH);
+        arguments.push(MMDEVICE_PASSTHROUGH.to_owned());
     }
+    arguments.extend(super::audio_effects::arguments(&config.effects));
     arguments
 }
 

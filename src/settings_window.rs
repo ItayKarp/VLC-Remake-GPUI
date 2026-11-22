@@ -15,14 +15,26 @@
 //! the theme from the menu, the settings file) shows here at once. `app::open_settings` opens the
 //! window, and brings it forward rather than opening a second one.
 
+#[cfg(test)]
+mod audio_screenshot;
 mod chrome;
 mod keys;
+#[cfg(test)]
+mod library_screenshot;
+#[cfg(test)]
+mod playback_screenshot;
 #[cfg(test)]
 mod screenshots;
 mod search;
 mod sidebar;
 #[cfg(test)]
+mod subtitles_screenshot;
+#[cfg(test)]
+mod system_screenshots;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod video_screenshot;
 
 use std::collections::HashMap;
 
@@ -35,7 +47,7 @@ use self::keys::{Dismiss, FocusSearch, NextCategory, PreviousCategory};
 use self::search::Search;
 use self::sidebar::Sidebar;
 use crate::settings::{self, registry::Category};
-use crate::settings_view::SettingsPage;
+use crate::settings_view::{PAGE_PADDING, PresetPicker, SettingsPage};
 use crate::theme::{self, Palette};
 use crate::ui::focus;
 use crate::ui::text_input::{self, Look, TextInput};
@@ -46,6 +58,8 @@ pub use keys::bind_keys;
 const COMPACT_BELOW: f32 = 760.;
 /// The search field's width in a narrow window.
 const COMPACT_SEARCH_WIDTH: f32 = 200.;
+/// The space above and below the preset picker at the foot of a page.
+const PRESET_FOOTER_PADDING: f32 = 16.;
 
 /// The Settings window's view.
 pub struct SettingsWindow {
@@ -54,6 +68,8 @@ pub struct SettingsWindow {
     pages: HashMap<Category, Entity<SettingsPage>>,
     query: Entity<TextInput>,
     search: Search,
+    /// The preset picker at the foot of the pages presets cover (S5.11).
+    presets: Entity<PresetPicker>,
     focus_handle: FocusHandle,
     _query_events: Subscription,
 }
@@ -76,11 +92,13 @@ impl SettingsWindow {
         });
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window, cx);
+        let presets = cx.new(|cx| PresetPicker::new(window, cx));
         let mut this = Self {
             category,
             pages: HashMap::new(),
             query,
             search: Search::default(),
+            presets,
             focus_handle,
             _query_events: query_events,
         };
@@ -159,14 +177,23 @@ impl SettingsWindow {
             .flex_col()
             .py(px(chrome::MARGIN))
             .child(sidebar.render(p, cx));
-        let page = div().flex_1().min_w_0().ml(px(chrome::MARGIN)).bg(p.sidebar);
+        let footer = (self.category.has_presets() && !self.search.finds_nothing()).then(|| {
+            div()
+                .flex_none()
+                .px(px(PAGE_PADDING))
+                .py(px(PRESET_FOOTER_PADDING))
+                .border_t_1()
+                .border_color(p.divider)
+                .child(self.presets.clone())
+        });
+        let page = div().flex_1().min_w_0().flex().flex_col().ml(px(chrome::MARGIN)).bg(p.sidebar);
         div()
             .flex_1()
             .min_h_0()
             .flex()
             .pl(px(chrome::MARGIN))
             .child(sidebar)
-            .child(page.child(self.content(p, cx)))
+            .child(page.child(div().flex_1().min_h_0().child(self.content(p, cx))).children(footer))
     }
 
     /// The selected page, or the empty state when the search finds nothing.

@@ -135,6 +135,11 @@ impl Category {
         }
     }
 
+    /// Whether setting presets cover the page (S5.11), so it ends with the preset picker.
+    pub fn has_presets(self) -> bool {
+        matches!(self, Self::Playback | Self::Video | Self::Audio | Self::Subtitles)
+    }
+
     /// How the page is drawn.
     #[allow(dead_code, reason = "the Settings window (S5.2) picks hand-built pages")]
     pub fn layout(self) -> Layout {

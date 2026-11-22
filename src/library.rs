@@ -8,7 +8,10 @@
 //!
 //! - [`walk`], [`recognize`], [`placeholder`]: finding media files in a folder tree.
 //! - [`apply`], [`identify`]: writing what was found, and recognizing moved and copied files.
-//! - [`watch`], [`root_check`], [`progress`]: live updates, folder status, scan progress.
+//! - [`watch`], [`root_check`], [`progress`], [`root_text`]: live updates, folder status, scan
+//!   progress, and what a folder's row says about them.
+//! - [`folders`], [`system_folders`]: adding and removing media folders in Settings (S5.9.3),
+//!   and the OS folders never indexed.
 //! - [`extract`], [`artwork_cache`], [`folder_art`]: reading each media's tags and cover (S4.3).
 //! - [`episode`], [`display`], [`properties`]: what the views and Properties & Metadata show for
 //!   a media's tags.
@@ -27,6 +30,7 @@ pub mod extract;
 pub mod favorites;
 pub mod folder_art;
 pub mod folder_view;
+pub mod folders;
 pub mod frequency;
 pub mod home;
 pub mod identify;
@@ -38,9 +42,11 @@ pub mod progress;
 pub mod properties;
 pub mod recognize;
 pub mod root_check;
+pub mod root_text;
 pub mod search;
 pub mod sort;
 pub mod sources;
+pub mod system_folders;
 pub mod thumbnail_cache;
 pub mod thumbnailer;
 pub mod thumbnails;
@@ -74,6 +80,8 @@ pub struct Library {
     wanted: Vec<Wanted>,
     show_hidden: Option<bool>,
     lookup: Option<Lookup>,
+    /// Whether the indexer was last told the library is on.
+    enabled: Option<bool>,
 }
 
 impl Global for Library {}
@@ -99,6 +107,7 @@ pub fn init(cx: &mut App) {
         wanted: Vec::new(),
         show_hidden: None,
         lookup: None,
+        enabled: None,
     });
     cx.spawn(async move |cx| {
         while let Some(roots) = received.next().await {
@@ -138,42 +147,75 @@ pub fn replace_media_folder(old: &Path, new: PathBuf, cx: &mut App) {
 }
 
 /// Sends the indexer what the settings ask for now, if it changed, and offers the Music folder
-/// once onboarding is done (S4.2.7).
+/// once onboarding is done (S4.2.7). With the media library off (S5.9.4), the indexer is
+/// suspended instead: the folders stay in the database until the library is on again.
 fn follow_settings(cx: &mut App) {
     let settings = settings::get(cx);
+    let enabled = settings.prefs.library.enabled;
     let wanted = sources::wanted(&settings.local);
     let show_hidden = settings.prefs.library.show_hidden_files;
-    let lookup =
-        if settings.prefs.privacy.fetch_online_metadata { Lookup::Online } else { Lookup::Local };
+    let lookup = sources::lookup(&settings.prefs);
     let offer_music = sources::should_offer_music(&settings.local);
     let Some(library) = cx.try_global::<Library>() else { return };
-    let (old_wanted, old_hidden) = (library.wanted.clone(), library.show_hidden);
-    if old_hidden != Some(show_hidden) {
+    let roots = roots_command(library, enabled, &wanted);
+    if library.show_hidden != Some(show_hidden) {
         send(cx, Command::ShowHidden(show_hidden));
     }
     if library.lookup != Some(lookup) {
         send(cx, Command::Lookup(lookup));
     }
-    if old_wanted != wanted {
-        send(cx, Command::SetRoots(wanted.clone()));
+    if let Some(command) = roots {
+        send(cx, command);
     }
     cx.update_global::<Library, _>(|library, _| {
         library.wanted = wanted;
         library.show_hidden = Some(show_hidden);
         library.lookup = Some(lookup);
+        library.enabled = Some(enabled);
     });
     if offer_music {
-        // Marked first, so the settings change this causes doesn't offer it again.
-        settings::update(cx, |s| sources::add_music_folder(&mut s.local, None));
-        let music = cx.background_spawn(async { sources::music_folder() });
-        cx.spawn(async move |cx| {
-            let Some(music) = music.await else { return };
-            cx.update(|cx| {
-                settings::update(cx, |s| sources::add_music_folder(&mut s.local, Some(&music)));
-            });
-        })
-        .detach();
+        offer_music_folder(cx);
     }
+}
+
+/// What the indexer needs to hear about the media folders, if anything: suspend when the
+/// library was turned off, and the folders when they changed or the library was turned on.
+fn roots_command(library: &Library, enabled: bool, wanted: &[Wanted]) -> Option<Command> {
+    match (enabled, library.enabled) {
+        (false, Some(false)) => None,
+        (false, _) => Some(Command::Suspend),
+        (true, Some(true)) if library.wanted == wanted => None,
+        (true, _) => Some(Command::SetRoots(wanted.to_vec())),
+    }
+}
+
+/// Adds the OS Music folder to the library's music folders, once (S4.2.7).
+fn offer_music_folder(cx: &mut App) {
+    // Marked first, so the settings change this causes doesn't offer it again.
+    settings::update(cx, |s| sources::add_music_folder(&mut s.local, None));
+    let music = cx.background_spawn(async { sources::music_folder() });
+    cx.spawn(async move |cx| {
+        let Some(music) = music.await else { return };
+        cx.update(|cx| {
+            settings::update(cx, |s| sources::add_music_folder(&mut s.local, Some(&music)));
+        });
+    })
+    .detach();
+}
+
+/// Deletes what the library indexed, while it is off (S5.9.4): its media folders leave the
+/// database, with their files. The settings keep the folders, so turning the library on again
+/// indexes them anew.
+pub fn delete_index(cx: &App) {
+    if cx.try_global::<Library>().is_some_and(|library| library.enabled == Some(false)) {
+        send(cx, Command::SetRoots(Vec::new()));
+    }
+}
+
+/// Whether the media library is used (Settings → Library, S5.9.2): its views show and its
+/// folders are indexed.
+pub fn is_enabled(cx: &App) -> bool {
+    settings::get(cx).prefs.library.enabled
 }
 
 fn send(cx: &App, command: Command) {

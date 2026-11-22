@@ -13,18 +13,25 @@
 
 mod api;
 mod audio;
+mod audio_effects;
+mod certificates;
 mod control;
 mod decoding;
+mod equalizer;
 mod events;
 mod failure;
 mod frame_sink;
+pub mod hardware;
 pub mod lengths;
+mod media_options;
 pub mod options;
 mod prepare;
 pub mod preview;
 mod query;
 pub mod runtime;
 mod size_watch;
+mod subtitle_style;
+pub mod system_options;
 pub mod tags;
 #[cfg(test)]
 mod tests;
@@ -48,8 +55,11 @@ use self::events::Shared;
 use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
+use super::audio::equalizer::Equalizer;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
+use super::media_options::MediaOptions;
+use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use super::video::VideoSink;
@@ -104,16 +114,19 @@ pub struct LibVlcBackend {
 }
 
 impl LibVlcBackend {
-    /// Loads libVLC (once per process), creates an instance set up with `audio` and a media
-    /// player, and starts the worker thread that will report through `events` and send
+    /// Loads libVLC (once per process), creates an instance set up with `audio` and the
+    /// `subtitles` style and a media player, and starts the worker thread that will report through `events` and send
     /// pictures to `video` (or discard them, with `None`).
     pub fn new(
         events: EventSender,
         video: Option<Arc<dyn VideoSink>>,
         audio: AudioConfig,
+        subtitles: &SubtitleStyle,
     ) -> Result<Self> {
         let vlc = library()?;
-        let handles = new_handles(&vlc, video.is_some(), audio)?;
+        let mut setup = audio::arguments(audio);
+        setup.extend(subtitle_style::arguments(subtitles));
+        let handles = new_handles(&vlc, video.is_some(), &setup)?;
         let video = video.map(|sink| Arc::new(Vmem::new(sink)));
         if let Some(vmem) = &video {
             vmem::install(&vlc, handles.player, vmem);
@@ -210,6 +223,14 @@ impl Backend for LibVlcBackend {
         self.send(Command::SetSpeakerSetup(setup));
     }
 
+    fn set_media_options(&mut self, options: &MediaOptions) {
+        self.send(Command::SetMediaOptions(options.clone()));
+    }
+
+    fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
+        self.send(Command::SetEqualizer(equalizer));
+    }
+
     fn shut_down(mut self: Box<Self>) {
         let _ = self.worker.send(Message::Shutdown);
         if let Some(thread) = self.thread.take()
@@ -229,32 +250,18 @@ impl Drop for LibVlcBackend {
     }
 }
 
-/// A new libVLC instance with [`ARGUMENTS`], `audio`'s arguments and the user's startup options
-/// ([`options`]), and a media player on it; `with_video` false adds [`NO_VIDEO_ARGUMENT`]. An
-/// option this libVLC doesn't know fails the instance, so it is retried without the user's
-/// options, then without the audio ones.
-fn new_handles(vlc: &LibVlc, with_video: bool, audio: AudioConfig) -> Result<Handles> {
+/// A new libVLC instance with [`ARGUMENTS`], the `setup` arguments (audio and subtitle style),
+/// the Network and Performance settings ([`system_options`]) and the user's startup options
+/// ([`options`]), and a media player on it; `with_video` false adds [`NO_VIDEO_ARGUMENT`].
+fn new_handles(vlc: &LibVlc, with_video: bool, setup: &[String]) -> Result<Handles> {
     let video = (!with_video).then_some(NO_VIDEO_ARGUMENT);
-    let base: Vec<&str> = ARGUMENTS.into_iter().chain(video).collect();
-    let with_audio: Vec<&str> = base.iter().copied().chain(audio::arguments(audio)).collect();
-    let startup = options::startup();
-    let full: Vec<&str> =
-        with_audio.iter().copied().chain(startup.iter().map(String::as_str)).collect();
-    let instance = new_instance(vlc, &full)
-        .or_else(|error| {
-            if startup.is_empty() {
-                return Err(error);
-            }
-            tracing::warn!("libvlc: startup options refused ({error:#}); starting without them");
-            new_instance(vlc, &with_audio)
-        })
-        .or_else(|error| {
-            if with_audio.len() == base.len() {
-                return Err(error);
-            }
-            tracing::warn!("libvlc: audio options refused ({error:#}); starting without them");
-            new_instance(vlc, &base)
-        })?;
+    let system = system_options::arguments(&system_options::current());
+    let groups: [(&str, &[String]); 3] =
+        [("audio", setup), ("network and performance", &system), ("startup", options::startup())];
+    let instance = start_instance(vlc, video, &groups)?;
+    if !system_options::current().verify_certificates {
+        certificates::install(vlc, instance);
+    }
     // SAFETY: the instance is live.
     let player = unsafe { (vlc.api.libvlc_media_player_new)(instance) };
     if player.is_null() {
@@ -264,6 +271,34 @@ fn new_handles(vlc: &LibVlc, with_video: bool, audio: AudioConfig) -> Result<Han
         bail!("libvlc_media_player_new: {error}");
     }
     Ok(Handles { instance, player })
+}
+
+/// A new libVLC instance with every group of options. An option this libVLC doesn't know fails
+/// the instance, so it is retried without the last group, then the one before, and so on.
+fn start_instance(
+    vlc: &LibVlc,
+    video: Option<&str>,
+    groups: &[(&str, &[String])],
+) -> Result<*mut Instance> {
+    let mut count = groups.len();
+    loop {
+        let options = groups[..count].iter().flat_map(|(_, options)| options.iter());
+        let arguments: Vec<&str> =
+            ARGUMENTS.into_iter().chain(video).chain(options.map(String::as_str)).collect();
+        let error = match new_instance(vlc, &arguments) {
+            Ok(instance) => return Ok(instance),
+            Err(error) => error,
+        };
+        let Some(last) = groups[..count].iter().rposition(|(_, options)| !options.is_empty())
+        else {
+            return Err(error);
+        };
+        tracing::warn!(
+            "libvlc: {} options refused ({error:#}); starting without them",
+            groups[last].0
+        );
+        count = last;
+    }
 }
 
 /// A new libVLC instance started with `arguments`.

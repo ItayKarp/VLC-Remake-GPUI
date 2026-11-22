@@ -20,6 +20,7 @@ use super::vmem::Vmem;
 use crate::app::media::Media as Source;
 use crate::engine::audio::SpeakerSetup;
 use crate::engine::backend::{BackendEvent, Command};
+use crate::engine::media_options::MediaOptions;
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::engine::values::{Generation, Offset, Start};
 
@@ -84,6 +85,8 @@ pub struct Worker {
     pub(super) size_watch: SizeWatch,
     /// The forced speaker setup, re-applied to each media.
     pub(super) speaker_setup: SpeakerSetup,
+    /// The options each new media opens with.
+    pub(super) media_options: MediaOptions,
     /// When the output device list is read next.
     pub(super) devices: DeviceWatch,
     /// The open media's default tracks, as libVLC picked them.
@@ -117,6 +120,7 @@ impl Worker {
             video,
             size_watch: SizeWatch::default(),
             speaker_setup: SpeakerSetup::Automatic,
+            media_options: MediaOptions::default(),
             devices: DeviceWatch::default(),
             defaults: Defaults::default(),
             decoding: Decoding::default(),
@@ -178,11 +182,13 @@ impl Worker {
     /// Replaces the media with `source` and starts playing it (or holds it paused) from where
     /// `start` says, as open `generation`.
     pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
+        super::hardware::decoding(None);
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
         if !media.is_null() {
             self.add_start_options(media, start);
+            self.add_media_options(media);
         }
         // `set_media` stops the previous media first; its events still carry the old
         // generation, because the new one is published only afterwards.
@@ -264,6 +270,7 @@ impl Worker {
     }
 
     fn ended(&self) {
+        super::hardware::decoding(None);
         let state = if self.track_count() == 0 {
             PlaybackState::Error(ErrorKind::NoPlayableStreams)
         } else {
@@ -273,6 +280,7 @@ impl Worker {
     }
 
     fn failed(&self) {
+        super::hardware::decoding(None);
         let started = self.shared.started.load(Ordering::Relaxed);
         let kind = failure::classify(self.source.as_ref(), started);
         tracing::warn!("libvlc: playback failed ({kind:?}): {}", self.vlc.last_error());
@@ -314,6 +322,7 @@ impl Worker {
             (api.libvlc_media_player_release)(self.handles.player);
         }
         self.release_media();
+        super::hardware::decoding(None);
         // SAFETY: nothing uses the instance any more.
         unsafe { (self.vlc.api.libvlc_release)(self.handles.instance) };
         // The player is gone, so `vmem`'s callbacks can't run: the sink may be dropped now.

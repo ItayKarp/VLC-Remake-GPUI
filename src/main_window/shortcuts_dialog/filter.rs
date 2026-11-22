@@ -1,10 +1,11 @@
 //! The Keyboard Shortcuts dialog's rows and its search (S2.10.4), kept apart from drawing so
 //! they can be tested.
 
-use gpui::{App, SharedString};
+use gpui::{OperatingSystem, SharedString};
 
+use crate::keymap::custom::Shortcuts;
 use crate::keymap::sections::{SECTIONS, Section};
-use crate::keymap::{self, commands, menus};
+use crate::keymap::{commands, label, menus};
 
 /// Where the search looks: the dropdown beside the search field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,10 +40,14 @@ impl Field {
 /// One command's row.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Row {
+    /// The command's index in the command table.
+    pub index: usize,
     /// The command's name.
     pub label: &'static str,
     /// Its shortcuts as text, the primary one first.
     pub keys: Vec<SharedString>,
+    /// Whether its keys differ from the defaults.
+    pub changed: bool,
 }
 
 impl Row {
@@ -68,11 +73,16 @@ pub struct Group {
     pub rows: Vec<Row>,
 }
 
-/// Every section with its rows, leaving out commands whose stories haven't shipped (S2.9.4).
-pub fn groups(cx: &App) -> Vec<Group> {
+/// Every section with its rows as `shortcuts` has them, leaving out commands whose stories
+/// haven't shipped (S2.9.4).
+pub fn groups(shortcuts: &Shortcuts) -> Vec<Group> {
+    let mac = shortcuts.os() == OperatingSystem::Mac;
     let row = |action| {
-        let label = commands::find(action)?.label;
-        (!menus::is_pending(action)).then(|| Row { label, keys: keymap::shortcuts(action, cx) })
+        let index = Shortcuts::index_of(action)?;
+        let command = commands::find(action)?;
+        let keys = shortcuts.keys(index).iter().map(|key| label::text(key, mac).into()).collect();
+        let changed = !shortcuts.is_default(index);
+        (!menus::is_pending(action)).then_some(Row { index, label: command.label, keys, changed })
     };
     let group = |section: &Section| Group {
         title: section.title,
@@ -104,7 +114,8 @@ mod tests {
     use super::*;
 
     fn row(label: &'static str, keys: &[&'static str]) -> Row {
-        Row { label, keys: keys.iter().map(|key| SharedString::from(*key)).collect() }
+        let keys = keys.iter().map(|key| SharedString::from(*key)).collect();
+        Row { index: 0, label, keys, changed: false }
     }
 
     fn sample() -> Vec<Group> {

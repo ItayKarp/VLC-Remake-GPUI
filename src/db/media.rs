@@ -201,6 +201,29 @@ pub fn clear(connection: &mut Connection) -> rusqlite::Result<()> {
     transaction.commit()
 }
 
+/// How many media have something played to forget: a play, a position or a watched mark.
+pub fn count_with_history(connection: &Connection) -> rusqlite::Result<u32> {
+    connection.query_row(
+        "SELECT COUNT(*) FROM media
+         WHERE play_count > 0 OR position_ms IS NOT NULL OR watched OR last_played_ms IS NOT NULL",
+        [],
+        |row| row.get(0),
+    )
+}
+
+/// How many media have a position to resume from.
+pub fn count_positions(connection: &Connection) -> rusqlite::Result<u32> {
+    connection
+        .query_row("SELECT COUNT(*) FROM media WHERE position_ms IS NOT NULL", [], |row| row.get(0))
+}
+
+/// Forgets every saved position, keeping plays and watched marks (S5.5 edge case: turning off
+/// "Remember the playback position").
+pub fn forget_positions(connection: &Connection) -> rusqlite::Result<()> {
+    connection.execute("UPDATE media SET position_ms = NULL", [])?;
+    Ok(())
+}
+
 /// Reads a [`Saved`] from a row's first four columns: duration, position, watched, play count.
 pub(super) fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
     let duration: Option<i64> = row.get(0)?;

@@ -13,9 +13,18 @@ mod audio;
 mod controls;
 mod general;
 mod interface;
+mod keymap;
+mod library;
+mod live;
 mod miniplayer;
+mod network;
+mod performance;
 mod playback;
+mod presets;
+mod privacy;
+mod recording;
 mod subtitles;
+mod video;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -36,9 +45,21 @@ pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{
     AutoHide, DurationReadout, FitVideo, InterfaceSettings, NowPlayingNotification,
 };
+pub use keymap::{CustomBinding, KeymapSettings};
+pub use library::{ArtworkSource, LibrarySettings};
+pub use live::LiveState;
 pub use miniplayer::MiniplayerCorner;
-pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
-pub use subtitles::SubtitleSettings;
+pub use network::{Buffering, Caching, CipherPreference, NetworkSettings, proxy_url};
+pub use performance::{
+    ClockSynchronisation, Decoder, Encoder, HardwareDecoding, PerformanceSettings, PostProcessing,
+    SkipLoopFilter,
+};
+pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
+pub use presets::{Preset, PresetSettings};
+pub use privacy::PrivacySettings;
+pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
+pub use subtitles::{SizeValues, SubtitleSettings};
+pub use video::{PictureSettings, VideoSettings};
 
 /// Everything the app persists, as one in-memory value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -47,6 +68,8 @@ pub struct Settings {
     pub prefs: Preferences,
     /// Stays on this machine (`local.toml` in the local data dir).
     pub local: LocalState,
+    /// State that lives elsewhere but that Settings rows show and edit; never saved.
+    pub live: LiveState,
 }
 
 /// User preferences that follow the user between machines.
@@ -89,15 +112,32 @@ pub struct Preferences {
     /// Privacy preferences.
     #[serde(deserialize_with = "lenient")]
     pub privacy: PrivacySettings,
-    /// Custom key bindings.
+    /// Buffering, the proxy and TLS (S5.10.1).
+    #[serde(deserialize_with = "lenient")]
+    pub network: NetworkSettings,
+    /// Decoding, priority and the clock (S5.10.2).
+    #[serde(deserialize_with = "lenient")]
+    pub performance: PerformanceSettings,
+    /// Recording, casting and streaming out (S5.10.3).
+    #[serde(deserialize_with = "lenient")]
+    pub recording: RecordingSettings,
+    /// Custom key bindings (S5.6.3).
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
     /// Logging, crash reports and libVLC's startup options (S0.7, S5.3.4).
     #[serde(deserialize_with = "lenient")]
     pub diagnostics: DiagnosticsSettings,
+    /// Setting presets over the Playback, Video, Audio and Subtitles pages (S5.11). Change
+    /// them through `settings::presets`, which keeps the sections they cover in step.
+    #[serde(deserialize_with = "lenient")]
+    pub presets: PresetSettings,
 }
 
 /// State that only makes sense on this machine.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "unrelated flags of different features, not one state machine"
+)]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LocalState {
@@ -154,6 +194,22 @@ pub struct LocalState {
     /// "Skin file" (S5.4.4), as typed. Local: it is a path on this machine.
     #[serde(deserialize_with = "lenient")]
     pub skin_file: String,
+    /// "Save recordings to" (S5.10.3), as typed; empty means the OS Videos folder. Local: it is
+    /// a path on this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub recordings_folder: String,
+    /// "Rescan plugins" (S5.10.2) was asked for: the next launch has libVLC look for its plugins
+    /// again instead of trusting its cache, then clears this.
+    #[serde(deserialize_with = "lenient")]
+    pub rescan_plugins: bool,
+    /// Media VLC closed unexpectedly on while the GPU decoded it (S5.10.2), as paths or URLs:
+    /// they decode in software. Local: the GPU and the paths belong to this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub software_decoding: Vec<String>,
+    /// How many times VLC closed unexpectedly while each GPU and driver decoded video; at
+    /// `app::hardware_fallback`'s limit, hardware decoding is off for it.
+    #[serde(deserialize_with = "lenient")]
+    pub hardware_decoding_crashes: BTreeMap<String, u32>,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty
@@ -167,104 +223,6 @@ pub struct LibraryRoutes {
     /// Full library mode.
     #[serde(deserialize_with = "lenient")]
     pub full: String,
-}
-
-macro_rules! empty_sections {
-    ($($(#[$meta:meta])* $name:ident),* $(,)?) => {$(
-        $(#[$meta])*
-        #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-        #[serde(default)]
-        pub struct $name {}
-    )*};
-}
-
-empty_sections! {
-    /// Video preferences (Stage 7).
-    VideoSettings,
-    /// Custom key bindings (S0.5).
-    KeymapSettings,
-}
-
-/// Library preferences (Stage 4, S5.9).
-#[allow(
-    clippy::struct_excessive_bools,
-    reason = "independent switches, each its own row in Settings → Library"
-)]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LibrarySettings {
-    /// Lets every launch open its own window instead of handing its files to the
-    /// running one (S0.6.1). The opposite of "Only allow one VLC window" (S5.9.1).
-    #[serde(deserialize_with = "lenient")]
-    pub allow_multiple_instances: bool,
-    /// "When opening a folder: Include subfolders" (S5.9): whether opening a folder, or a
-    /// file's folder (S3.1.3), takes the media in its subfolders too.
-    #[serde(deserialize_with = "lenient")]
-    pub include_subfolders: bool,
-    /// "Show hidden files" (S5.9.1): whether the library indexes dot files and files the OS
-    /// marks hidden or system (S4.2.2).
-    #[serde(deserialize_with = "lenient")]
-    pub show_hidden_files: bool,
-    /// "Add to the playlist instead of replacing it" (S4.10.6): whether opening a library item
-    /// while something plays adds it to the end of the queue rather than replacing the queue.
-    #[serde(deserialize_with = "lenient")]
-    pub add_instead_of_replacing: bool,
-}
-
-impl Default for LibrarySettings {
-    fn default() -> Self {
-        Self {
-            allow_multiple_instances: false,
-            include_subfolders: true,
-            show_hidden_files: false,
-            add_instead_of_replacing: false,
-        }
-    }
-}
-
-/// Privacy preferences (Stage 5).
-#[allow(
-    clippy::struct_excessive_bools,
-    reason = "independent switches, each its own row in Settings → Privacy"
-)]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct PrivacySettings {
-    /// "Save recently played items" (S5.5.1). Also governs the OS recent documents
-    /// list (S0.6.5) and the playback history (S1.7): off, nothing is written to either.
-    #[serde(deserialize_with = "lenient")]
-    pub save_recently_played: bool,
-    /// Hides media file names in the log file, keeping only their extensions
-    /// (S0.7.1). The home directory is always replaced by `~`.
-    #[serde(deserialize_with = "lenient")]
-    pub redact_file_names_in_logs: bool,
-    /// How many items Open Recent keeps (S1.3.5); `0` keeps none.
-    #[serde(deserialize_with = "lenient")]
-    pub recent_media_count: u32,
-    /// "Remember the playback position" (S5.5.1): save where media was left, so it can resume
-    /// (S1.7). Plays are still counted while history is saved.
-    #[serde(deserialize_with = "lenient")]
-    pub remember_playback_position: bool,
-    /// "Fetch titles and cover art from the internet" (S5.5, S4.3.4): whether the library may
-    /// look covers up online for media without one. Off by default: nothing about the user's
-    /// files leaves the machine unless they turn it on.
-    #[serde(deserialize_with = "lenient")]
-    pub fetch_online_metadata: bool,
-}
-
-/// How many items Open Recent keeps by default.
-pub const DEFAULT_RECENT_MEDIA_COUNT: u32 = 10;
-
-impl Default for PrivacySettings {
-    fn default() -> Self {
-        PrivacySettings {
-            save_recently_played: true,
-            redact_file_names_in_logs: false,
-            recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
-            remember_playback_position: true,
-            fetch_online_metadata: false,
-        }
-    }
 }
 
 /// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens

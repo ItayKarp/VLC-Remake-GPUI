@@ -118,3 +118,31 @@ fn a_search_shows_matching_rows_and_opens_advanced_options_for_them(cx: &mut Tes
         cx.update(|window, cx| cx.new(|cx| SettingsPage::new(Category::Audio, window, cx)));
     assert!(open_now(&reopened, cx), "remembered for the session");
 }
+
+#[gpui::test]
+fn privacy_patterns_and_the_submission_url_are_checked_before_saving(cx: &mut TestAppContext) {
+    let (page, cx) = open(Category::Privacy, cx);
+    let patterns = field(&page, "privacy.never_remember", cx);
+    let saved = |cx: &mut VisualTestContext| {
+        cx.read(|cx| settings::get(cx).prefs.privacy.never_remember.clone())
+    };
+
+    submit(&patterns, "*.part, ep[1-", cx);
+    assert!(patterns.read_with(cx, |field, _| field.is_invalid()), "a broken set");
+    assert!(saved(cx).is_empty(), "no part of the list applies");
+
+    submit(&patterns, "*.part,  ~/Private/* ,", cx);
+    assert_eq!(saved(cx), ["*.part", "~/Private/*"]);
+    assert_eq!(patterns.read_with(cx, |field, _| field.text().to_owned()), "*.part, ~/Private/*");
+
+    // The last.fm rows wait for their toggle.
+    let url = field(&page, "privacy.lastfm.submission_url", cx);
+    let submit_on = registry::find("privacy.lastfm.submit").expect("a setting");
+    page.update(cx, |page, cx| page.write(submit_on, Value::Bool(true), cx));
+    cx.run_until_parked();
+    submit(&url, "ftp://example.com", cx);
+    assert!(url.read_with(cx, |field, _| field.is_invalid()));
+    submit(&url, "https://libre.fm/2.0/", cx);
+    let saved_url = cx.read(|cx| settings::get(cx).prefs.privacy.lastfm.submission_url.clone());
+    assert_eq!(saved_url, "https://libre.fm/2.0/");
+}

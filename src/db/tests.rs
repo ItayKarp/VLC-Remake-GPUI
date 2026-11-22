@@ -98,6 +98,28 @@ fn progress_plays_and_watched_are_saved() {
 }
 
 #[test]
+fn history_is_counted_and_positions_forgotten_alone() {
+    let mut database = Database::in_memory();
+    let connection = database.connection();
+    let played = media::insert(connection, &entry("a")).expect("insert");
+    media::insert(connection, &entry("never played")).expect("insert");
+    let count = |connection: &rusqlite::Connection| {
+        let history = media::count_with_history(connection).expect("count");
+        (history, media::count_positions(connection).expect("count"))
+    };
+    assert_eq!(count(connection), (0, 0));
+    media::record_play(connection, played, 100).expect("play");
+    let progress =
+        Progress { position: Some(secs(754)), duration: Some(secs(3_600)), watched: false };
+    media::save_progress(connection, played, progress, 200).expect("save");
+    assert_eq!(count(connection), (1, 1));
+
+    media::forget_positions(connection).expect("forget");
+    assert_eq!(count(connection), (1, 0));
+    assert_eq!(media::saved(connection, played).expect("saved").play_count, 1);
+}
+
+#[test]
 fn orphans_are_found_last_and_purged_when_old() {
     let mut database = Database::in_memory();
     let connection = database.connection();

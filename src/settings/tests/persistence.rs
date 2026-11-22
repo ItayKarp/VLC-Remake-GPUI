@@ -150,3 +150,15 @@ fn out_of_range_values_are_clamped_on_load_and_saved() {
     save(&mut state);
     assert!(dir.read("settings.toml").contains("max_volume_percent = 300"));
 }
+
+#[test]
+fn the_live_mirror_is_never_saved() {
+    let dir = TempDir::new();
+    let mut state = dir.load();
+    assert!(state.update(|s| s.live.shuffle = true), "observers still hear of it");
+    assert!(!state.is_dirty(), "nothing to write");
+    state.update(|s| s.prefs.player.seek_precisely = false);
+    save(&mut state);
+    assert!(!dir.read("settings.toml").contains("shuffle"));
+    assert!(!dir.load().settings.live.shuffle);
+}

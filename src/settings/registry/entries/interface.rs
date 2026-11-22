@@ -1,7 +1,7 @@
 //! Interface: when the controls hide, and the now-playing notification (S5.4.2, S5.4.3). The
 //! Skin and Window sections are in `window.rs`.
 
-use super::super::def::{Condition, Control, SettingDef};
+use super::super::def::{Condition, Control, Marks, SettingDef};
 use super::super::rules::trim;
 use super::super::value::{Binding, Choice, SettingChoice, Value, choice, toggle};
 use crate::settings::registry::Category;
@@ -69,7 +69,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         "interface.hide_controls_after_ms",
         CONTROLS,
         "Hide after",
-        Control::Slider { marks: None, format: seconds },
+        Control::Slider { marks: Marks::None, format: seconds },
         HIDE_AFTER,
     )
     .info("How long the pointer rests before the controls hide.")

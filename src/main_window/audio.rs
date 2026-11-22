@@ -1,14 +1,17 @@
-//! The main window's side of audio (S1.5): it sets a new player up from the audio settings,
-//! follows changes to them, remembers the volume, and tells the user when
+//! The main window's side of audio (S1.5): it sets a new player up from the audio settings
+//! (effects at its creation, S5.8.2), follows changes to them (the equalizer at once), remembers the volume, and tells the user when
 //! the device that played disappears or there is no device at all.
 
 use gpui::{Context, Entity, Subscription};
 
 use super::MainWindow;
+use crate::app::audio_devices;
+use crate::engine::audio::effects::AudioEffects;
+use crate::engine::audio::equalizer::{Equalizer, GAIN_RANGE};
 use crate::engine::audio::{AudioConfig, AudioPolicy, OutputDevice};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::values::{MAX_VOLUME, MIN_MAX_VOLUME, Volume};
-use crate::settings::{self, Settings, SettingsStore, StartupVolume};
+use crate::settings::{self, AudioSettings, Settings, SettingsStore, StartupVolume};
 use crate::ui::toast::{Level, Toast};
 
 /// The lowest and highest "Volume step", in percent.
@@ -26,7 +29,8 @@ pub(super) struct AudioWatch {
 impl MainWindow {
     /// The backend's audio setup, from the settings.
     pub(super) fn audio_config(cx: &Context<Self>) -> AudioConfig {
-        AudioConfig { passthrough: settings::get(cx).prefs.audio.passthrough }
+        let audio = &settings::get(cx).prefs.audio;
+        AudioConfig { passthrough: audio.passthrough, effects: effects(audio) }
     }
 
     /// Sets a new `player` up from the settings, at the startup volume, and follows later
@@ -59,6 +63,8 @@ impl MainWindow {
                 self.show_toast(Toast::new(Level::Info, text), cx);
             }
             PlayerEvent::AudioDevicesChanged => {
+                let devices = player.read(cx).audio_devices().to_vec();
+                audio_devices::set(&devices, cx);
                 let none = player.read(cx).has_no_audio_device();
                 if none && !self.audio.warned_no_device {
                     let text = "No audio device: media plays without sound.";
@@ -77,10 +83,34 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
     player.set_max_volume(max_volume(settings), cx);
     player.set_audio_device(OutputDevice::from_id(&settings.local.audio.output_device), cx);
     player.set_speaker_setup(audio.speaker_setup, cx);
+    player.set_equalizer(audio.equalizer.then(|| equalizer(audio)));
     player.set_audio_policy(AudioPolicy {
         pause_on_device_loss: audio.pause_on_device_disconnect,
         pause_when_corked: settings.prefs.player.pause_when_another_app_uses_audio,
     });
+}
+
+/// The loudness filters and effects the backend starts with.
+fn effects(audio: &AudioSettings) -> AudioEffects {
+    AudioEffects {
+        normalize: audio.normalize_loudness.then_some(audio.loudness_target),
+        night_mode: audio.night_mode,
+        replay_gain: audio.replay_gain,
+        replay_gain_preamp: audio.replay_gain_preamp,
+        equalizer_two_pass: audio.equalizer_two_pass,
+        spatial: audio.spatial_audio.then_some(audio.spatial_mode),
+        stereo_widening: audio.stereo_widening,
+    }
+}
+
+/// The equalizer's gains, each kept within libVLC's range.
+fn equalizer(audio: &AudioSettings) -> Equalizer {
+    let (low, high) = GAIN_RANGE;
+    let gains = audio.equalizer_gains();
+    Equalizer {
+        preamp: gains.preamp.clamp(low, high),
+        bands: gains.bands.map(|band| band.clamp(low, high)),
+    }
 }
 
 /// "Maximum volume", kept within 100% to 300%.

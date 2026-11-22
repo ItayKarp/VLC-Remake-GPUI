@@ -48,6 +48,15 @@ impl Language {
     }
 }
 
+/// Every language with a name, sorted by it: what a language picker offers.
+pub fn known() -> Vec<Language> {
+    let mut languages: Vec<(&str, Language)> = table::all()
+        .map(|entry| (entry.name, Language { code: entry.canonical().to_owned() }))
+        .collect();
+    languages.sort_by_key(|(name, _)| *name);
+    languages.into_iter().map(|(_, language)| language).collect()
+}
+
 /// Reads a list of language settings, skipping blanks and duplicates, in order.
 pub fn parse_list(tags: &[String]) -> Vec<Language> {
     let mut languages: Vec<Language> = Vec::new();

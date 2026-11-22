@@ -8,7 +8,7 @@ use gpui::{
 };
 
 use super::layout::{Lines, Shaping};
-use super::{Scrolling, TextInput};
+use super::{Echo, Scrolling, TextInput};
 use crate::theme::{self, Palette};
 
 /// Room kept between the caret and the right edge, so the caret isn't clipped.
@@ -171,8 +171,9 @@ fn shape_text(input: &TextInput, palette: &Palette, window: &Window) -> Lines {
         underline: None,
         strikethrough: None,
     };
-    let marked = input.state.marked().filter(|_| !value.is_empty());
-    Lines::shape(&Shaping { text, run, marked }, window)
+    let bullets = input.echo == Echo::Masked && !value.is_empty();
+    let marked = input.state.marked().filter(|_| !value.is_empty() && !bullets);
+    Lines::shape(&Shaping { text, run, marked, masked: bullets }, window)
 }
 
 /// The scroll that keeps the caret at `caret` in view after it moved, or else the last scroll,

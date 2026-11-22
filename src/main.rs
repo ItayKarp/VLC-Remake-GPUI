@@ -20,6 +20,7 @@ mod onboarding;
 mod opening;
 mod playlists;
 mod power;
+mod privacy;
 mod queue;
 #[cfg(test)]
 mod screenshot_test;

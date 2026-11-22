@@ -1,25 +1,32 @@
 //! The registry's rows, one file per category, and the checks they share.
 //!
-//! Categories whose settings don't exist yet (Video, Network, Performance, Recording, Extensions)
-//! have no file: their stories add one along with the settings.
+//! Extensions has no file: its add-ons list waits for the extension system (S8.14, D19).
 
 mod audio;
+mod audio_effects;
 mod controls;
 mod diagnostics;
 mod general;
 mod interface;
 mod library;
+mod network;
+mod performance;
+mod play_order;
 mod playback;
 mod privacy;
+mod recording;
+mod subtitle_style;
 mod subtitles;
+mod video;
 mod window;
 
 use super::def::SettingDef;
 use super::value::Value;
 use crate::engine::language::Language;
 
-/// Every category's rows, in sidebar order (General and Interface in two parts each).
-pub(super) static PAGES: [&[SettingDef]; 10] = [
+/// Every category's rows, in sidebar order (General, Interface and Playback in two parts each,
+/// Audio in three, Subtitles in two).
+pub(super) static PAGES: [&[SettingDef]; 18] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
     window::ENTRIES,
@@ -27,9 +34,17 @@ pub(super) static PAGES: [&[SettingDef]; 10] = [
     privacy::ENTRIES,
     controls::ENTRIES,
     playback::ENTRIES,
+    play_order::ENTRIES,
+    video::ENTRIES,
     audio::ENTRIES,
+    audio_effects::ENTRIES,
+    audio::LANGUAGE_ENTRIES,
     subtitles::ENTRIES,
+    subtitle_style::ENTRIES,
     library::ENTRIES,
+    network::ENTRIES,
+    performance::ENTRIES,
+    recording::ENTRIES,
 ];
 
 /// Checks that every entry of a language list is a language code.

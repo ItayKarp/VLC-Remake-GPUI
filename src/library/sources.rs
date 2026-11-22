@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 
 use super::indexer::Wanted;
 use crate::db::roots::RootKind;
-use crate::settings::LocalState;
+use crate::engine::tags::Lookup;
+use crate::settings::{ArtworkSource, LocalState, Preferences};
 
 /// The media folders `local` asks for, video first: none before onboarding is done.
 pub fn wanted(local: &LocalState) -> Vec<Wanted> {
@@ -24,6 +25,17 @@ pub fn wanted(local: &LocalState) -> Vec<Wanted> {
         }
     }
     wanted
+}
+
+/// Where titles and covers may come from: Library's "Fetch titles and artwork" (S5.9.2), with
+/// Privacy's "Fetch titles and cover art from the internet" as the master switch for the
+/// internet (S5.5.2).
+pub fn lookup(prefs: &Preferences) -> Lookup {
+    match prefs.library.artwork_source {
+        ArtworkSource::File => Lookup::File,
+        ArtworkSource::Internet if prefs.privacy.fetch_online_metadata => Lookup::Online,
+        ArtworkSource::Folder | ArtworkSource::Internet => Lookup::Local,
+    }
 }
 
 /// Whether the Music folder still has to be offered: onboarding is done and it wasn't yet.
@@ -71,6 +83,18 @@ mod tests {
         let found: Vec<(PathBuf, RootKind)> =
             wanted(&local).into_iter().map(|w| (w.path, w.kind)).collect();
         assert_eq!(found, [("/v".into(), RootKind::Video), ("/m".into(), RootKind::Music)]);
+    }
+
+    #[test]
+    fn the_internet_is_used_only_while_privacy_allows_it() {
+        let mut prefs = Preferences::default();
+        assert_eq!(lookup(&prefs), Lookup::Local);
+        prefs.library.artwork_source = ArtworkSource::Internet;
+        assert_eq!(lookup(&prefs), Lookup::Local);
+        prefs.privacy.fetch_online_metadata = true;
+        assert_eq!(lookup(&prefs), Lookup::Online);
+        prefs.library.artwork_source = ArtworkSource::File;
+        assert_eq!(lookup(&prefs), Lookup::File);
     }
 
     #[test]

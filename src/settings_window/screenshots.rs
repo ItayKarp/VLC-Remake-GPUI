@@ -1,5 +1,6 @@
-//! Screenshot tests of the General and Interface pages against `settings/screens/global/global_01.png`
-//! and `settings/screens/interface/interface_01.png`.
+//! Screenshot tests of the General, Interface, Privacy and Controls pages against
+//! `settings/screens/global/global_01.png`, `settings/screens/interface/interface_01.png`,
+//! `settings/screens/privacy/privacy.png` and `settings/screens/controls/controls.png`.
 
 use gpui::AppContext as _;
 
@@ -54,6 +55,53 @@ fn the_interface_page_matches_the_design() {
     let failure = screenshot_test::check(&shot, |window, cx| {
         super::bind_keys(cx);
         cx.new(|cx| SettingsWindow::new(Category::Interface, window, cx))
+    });
+    assert!(failure.is_none(), "{}", failure.unwrap_or_default());
+}
+
+/// The Privacy page's share of differing pixels: the text, the password row's hint (which names
+/// the missing keychain where there is none) and the submission URL's default address, which the
+/// design leaves empty, and the Advanced Options bar it doesn't draw. Measured near 3.2% on macOS
+/// (November 2026).
+const MAX_PRIVACY_MISMATCH: f64 = 0.045;
+
+#[test]
+fn the_privacy_page_matches_the_design() {
+    let strip = if cfg!(target_os = "macos") { TITLE_BAR_HEIGHT } else { 0. };
+    let shot = Shot {
+        name: "settings-privacy",
+        design: "docs/ui/settings/screens/privacy/privacy.png".into(),
+        design_origin: DESIGN_ORIGIN,
+        window: (DESIGN_SIZE.0, DESIGN_SIZE.1 + strip),
+        skip_top: strip,
+        max_mismatch: MAX_PRIVACY_MISMATCH,
+    };
+    let failure = screenshot_test::check(&shot, |window, cx| {
+        super::bind_keys(cx);
+        cx.new(|cx| SettingsWindow::new(Category::Privacy, window, cx))
+    });
+    assert!(failure.is_none(), "{}", failure.unwrap_or_default());
+}
+
+/// The Controls page's share of differing pixels: the text, the info icons, the two Keyboard
+/// Shortcuts buttons, which fit their labels where the design stretches them, and the Remotes
+/// rows, which come with S8.15. Measured near 3.4% on macOS (November 2026).
+const MAX_CONTROLS_MISMATCH: f64 = 0.045;
+
+#[test]
+fn the_controls_page_matches_the_design() {
+    let strip = if cfg!(target_os = "macos") { TITLE_BAR_HEIGHT } else { 0. };
+    let shot = Shot {
+        name: "settings-controls",
+        design: "docs/ui/settings/screens/controls/controls.png".into(),
+        design_origin: DESIGN_ORIGIN,
+        window: (DESIGN_SIZE.0, DESIGN_SIZE.1 + strip),
+        skip_top: strip,
+        max_mismatch: MAX_CONTROLS_MISMATCH,
+    };
+    let failure = screenshot_test::check(&shot, |window, cx| {
+        super::bind_keys(cx);
+        cx.new(|cx| SettingsWindow::new(Category::Controls, window, cx))
     });
     assert!(failure.is_none(), "{}", failure.unwrap_or_default());
 }

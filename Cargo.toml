@@ -62,6 +62,11 @@ notify = { version = "8", default-features = false, features = ["macos_fsevent"]
 # others and moving it to another display (S5.4.1). The version must match GPUI's.
 raw-window-handle = "0.6"
 
+# The last.fm password (S5.5.3) lives in the OS keychain, never in a settings file: Keychain
+# Services on macOS, Credential Manager on Windows, the Secret Service (over zbus, pure Rust)
+# elsewhere.
+keyring = "4"
+
 # Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
 # primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must
 # match GPUI's (`=0.3.2`).
@@ -77,6 +82,9 @@ objc2-foundation = { version = "=0.3.2", default-features = false, features = ["
 # already builds zbus 5.
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
+# Asks whether this process may run real-time threads before libVLC is told to (S5.10.2): with
+# `--rt-priority` libVLC can't start its threads where that is refused.
+libc = "0.2"
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"

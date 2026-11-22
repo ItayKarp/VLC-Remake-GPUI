@@ -8,6 +8,7 @@ use std::ffi::{CStr, c_char, c_float, c_int, c_uint, c_void};
 use anyhow::{Context as _, Result};
 use libloading::Library;
 
+use super::certificates::{DialogCallbacks, DialogId};
 use super::runtime::Runtime;
 
 /// Declares an opaque libVLC handle type.
@@ -26,6 +27,8 @@ opaque! {
     MediaPlayer;
     /// `libvlc_event_manager_t`.
     EventManager;
+    /// `libvlc_equalizer_t`.
+    AudioEqualizer;
 }
 
 /// `libvlc_event_t`: the event type, its sender, and a union of per-type payloads.
@@ -231,6 +234,15 @@ libvlc_api! {
     libvlc_audio_output_device_list_release: fn(*mut AudioOutputDevice);
     libvlc_audio_output_device_set: fn(Player, *const c_char, *const c_char);
     libvlc_audio_set_channel: fn(Player, c_int) -> c_int;
+    libvlc_audio_equalizer_new: fn() -> *mut AudioEqualizer;
+    libvlc_audio_equalizer_new_from_preset: fn(c_uint) -> *mut AudioEqualizer;
+    libvlc_audio_equalizer_release: fn(*mut AudioEqualizer);
+    libvlc_audio_equalizer_set_preamp: fn(*mut AudioEqualizer, c_float) -> c_int;
+    libvlc_audio_equalizer_get_preamp: fn(*mut AudioEqualizer) -> c_float;
+    libvlc_audio_equalizer_set_amp_at_index: fn(*mut AudioEqualizer, c_float, c_uint) -> c_int;
+    libvlc_audio_equalizer_get_amp_at_index: fn(*mut AudioEqualizer, c_uint) -> c_float;
+    libvlc_audio_equalizer_get_preset_count: fn() -> c_uint;
+    libvlc_media_player_set_equalizer: fn(Player, *mut AudioEqualizer) -> c_int;
     libvlc_video_set_callbacks: fn(
         Player,
         LockCallback,
@@ -239,6 +251,9 @@ libvlc_api! {
         *mut c_void
     );
     libvlc_video_set_format_callbacks: fn(Player, FormatCallback, Option<CleanupCallback>);
+    libvlc_dialog_set_callbacks: fn(*mut Instance, *const DialogCallbacks, *mut c_void);
+    libvlc_dialog_post_action: fn(*mut DialogId, c_int) -> c_int;
+    libvlc_dialog_dismiss: fn(*mut DialogId) -> c_int;
 }
 
 /// The libVLC libraries, core first, by their file names on this OS.

@@ -143,3 +143,29 @@ fn a_multi_line_input_takes_enter_and_moves_by_line(cx: &mut TestAppContext) {
     cx.simulate_keystrokes(submit);
     assert_eq!(*submitted.borrow(), 1);
 }
+
+#[gpui::test]
+fn a_masked_input_takes_typing_but_gives_nothing_to_copy(cx: &mut TestAppContext) {
+    setup(cx);
+    let (input, cx) = host(cx, |window, cx| TextInput::new(window, cx).masked());
+    cx.update(|window, cx| input.read(cx).focus_handle(cx).focus(window, cx));
+    draw(cx);
+    cx.simulate_input("pässwörd");
+    draw(cx);
+    assert_eq!(input.read_with(cx, |input, _| input.text().to_owned()), "pässwörd");
+
+    cx.update(|_, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string("before".into())));
+    cx.simulate_keystrokes(if cfg!(target_os = "macos") {
+        "cmd-a cmd-c cmd-x"
+    } else {
+        "ctrl-a ctrl-c ctrl-x"
+    });
+    draw(cx);
+    let clipboard = cx.update(|_, cx| cx.read_from_clipboard().and_then(|item| item.text()));
+    assert_eq!(clipboard.as_deref(), Some("before"));
+    assert_eq!(input.read_with(cx, |input, _| input.text().to_owned()), "pässwörd", "not cut");
+    // The caret moves by character over the bullets, multi-byte ones included.
+    cx.simulate_keystrokes("end left backspace");
+    draw(cx);
+    assert_eq!(input.read_with(cx, |input, _| input.text().to_owned()), "pässwöd");
+}

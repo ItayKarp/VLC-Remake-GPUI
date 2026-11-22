@@ -1,6 +1,8 @@
 //! Audio output (S1.5): the devices a backend can play through, which one the user wants, how
 //! speakers are set up, and how the player routes around a device that disappears.
 
+pub mod effects;
+pub mod equalizer;
 pub mod hotplug;
 
 use serde::{Deserialize, Serialize};
@@ -53,10 +55,12 @@ pub enum SpeakerSetup {
 
 /// Audio choices a backend makes once, when it is created. Changes apply to the next backend
 /// (the next launch).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct AudioConfig {
     /// Send AC3 and DTS undecoded to the receiver (HDMI, S/PDIF) where the device takes them.
     pub passthrough: bool,
+    /// The loudness filters, replay gain and effects.
+    pub effects: effects::AudioEffects,
 }
 
 /// What the player does on its own when the audio situation changes.

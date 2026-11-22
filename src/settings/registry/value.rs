@@ -155,6 +155,12 @@ impl FromNumber for u32 {
     }
 }
 
+impl FromNumber for i32 {
+    fn from_number(number: f64) -> Self {
+        number.round() as i32
+    }
+}
+
 impl FromNumber for f32 {
     fn from_number(number: f64) -> Self {
         number as f32

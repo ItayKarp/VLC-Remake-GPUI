@@ -2,7 +2,7 @@
 //! position, Repeat and Shuffle as they change and when the app quits, and the first window of a
 //! launch brings them back paused (see [`crate::session::restore`]).
 //!
-//! It all follows two settings: "Continue where you left off" (`prefs.player.restore_session`)
+//! It all follows two settings: "Bring back the last queue" (`prefs.player.restore_session`)
 //! and, because the queue is a list of what was played, "Save recently played items"
 //! (`prefs.privacy.save_recently_played`). With either off, nothing is saved or restored, and
 //! what was saved is forgotten.
@@ -43,7 +43,8 @@ pub(super) struct SessionWatch {
 }
 
 impl MainWindow {
-    /// Saves the session whenever the window changes and when the app quits.
+    /// Saves the session whenever the window changes and when the app quits, and keeps the
+    /// queue's Repeat and Shuffle in step with Settings → Playback (S5.7.3).
     pub(super) fn set_up_session(&mut self, cx: &mut Context<Self>) {
         self.session.enabled = saving_on(cx);
         self.session.changes = Some(cx.observe_self(Self::session_changed));
@@ -53,6 +54,7 @@ impl MainWindow {
             this.write_session(snapshot, cx);
             async {}
         }));
+        self.follow_play_order(cx);
     }
 
     /// Brings back the last session, unless `request` replaces the queue anyway. Added items
@@ -76,6 +78,8 @@ impl MainWindow {
             self.queue.set_current(index);
         }
         self.queue.set_shuffle(session.shuffle);
+        // Settings → Playback shows the restored Repeat and Shuffle.
+        cx.notify();
         match (restored.load, session.current) {
             (Load::Paused(at), Some(index)) => {
                 self.skip_resume_offer(self.queue.entries()[index].media.clone());
@@ -215,7 +219,7 @@ impl MainWindow {
 #[cfg(test)]
 mod tests;
 
-/// Whether the session is saved and restored: "Continue where you left off" and "Save recently
+/// Whether the session is saved and restored: "Bring back the last queue" and "Save recently
 /// played items" are both on.
 fn saving_on(cx: &App) -> bool {
     let prefs = &settings::get(cx).prefs;
