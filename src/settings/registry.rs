@@ -23,7 +23,7 @@ pub(crate) mod value;
 )]
 pub use category::Layout;
 pub use category::{Category, Group};
-pub use def::{ApplyMode, Control, PathPick, SettingDef};
+pub use def::{ApplyMode, Control, MachineChoice, OptionsSource, PathPick, SettingDef};
 #[cfg(test)]
 pub use rules::search;
 pub use rules::{hex_color, sanitize, search_words};

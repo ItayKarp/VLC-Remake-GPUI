@@ -1,4 +1,5 @@
-//! A screenshot test of the General page against `settings/screens/global/global_01.png`.
+//! Screenshot tests of the General and Interface pages against `settings/screens/global/global_01.png`
+//! and `settings/screens/interface/interface_01.png`.
 
 use gpui::AppContext as _;
 
@@ -30,6 +31,29 @@ fn the_general_page_matches_the_design() {
     let failure = screenshot_test::check(&shot, |window, cx| {
         super::bind_keys(cx);
         cx.new(|cx| SettingsWindow::new(Category::General, window, cx))
+    });
+    assert!(failure.is_none(), "{}", failure.unwrap_or_default());
+}
+
+/// The Interface page's share of differing pixels: the text, the Skin section, which builds
+/// without the `skins` feature leave out (D19) so every row sits higher, and the Hide after
+/// slider at 3 s rather than the design's 0.5 s. Measured near 5.3% on macOS (November 2026).
+const MAX_INTERFACE_MISMATCH: f64 = 0.065;
+
+#[test]
+fn the_interface_page_matches_the_design() {
+    let strip = if cfg!(target_os = "macos") { TITLE_BAR_HEIGHT } else { 0. };
+    let shot = Shot {
+        name: "settings-interface",
+        design: "docs/ui/settings/screens/interface/interface_01.png".into(),
+        design_origin: DESIGN_ORIGIN,
+        window: (DESIGN_SIZE.0, DESIGN_SIZE.1 + strip),
+        skip_top: strip,
+        max_mismatch: MAX_INTERFACE_MISMATCH,
+    };
+    let failure = screenshot_test::check(&shot, |window, cx| {
+        super::bind_keys(cx);
+        cx.new(|cx| SettingsWindow::new(Category::Interface, window, cx))
     });
     assert!(failure.is_none(), "{}", failure.unwrap_or_default());
 }

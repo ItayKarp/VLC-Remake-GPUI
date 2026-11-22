@@ -1,13 +1,14 @@
-//! Interface: the title bar and when the controls hide.
+//! Interface: when the controls hide, and the now-playing notification (S5.4.2, S5.4.3). The
+//! Skin and Window sections are in `window.rs`.
 
 use super::super::def::{Condition, Control, SettingDef};
 use super::super::rules::trim;
 use super::super::value::{Binding, Choice, SettingChoice, Value, choice, toggle};
 use crate::settings::registry::Category;
-use crate::settings::{AutoHide, DurationReadout};
+use crate::settings::{AutoHide, DurationReadout, NowPlayingNotification};
 
-const WINDOW: (Category, &str) = (Category::Interface, "Window");
 const CONTROLS: (Category, &str) = (Category::Interface, "Playback Controls");
+const NOTIFICATIONS: (Category, &str) = (Category::Interface, "Notifications and System Tray");
 /// Milliseconds in the second "Hide after" is shown in.
 const MS_PER_SECOND: f64 = 1000.;
 
@@ -17,6 +18,15 @@ impl SettingChoice for AutoHide {
         Choice::new("in_fullscreen_only", "In fullscreen only"),
         Choice::new("always", "Always"),
         Choice::new("never", "Never"),
+    ];
+}
+
+impl SettingChoice for NowPlayingNotification {
+    const VALUES: &'static [Self] = &[Self::Never, Self::InBackground, Self::Always];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("never", "Never"),
+        Choice::new("in_background", "When VLC is in the background"),
+        Choice::new("always", "Always"),
     ];
 }
 
@@ -43,18 +53,6 @@ fn seconds(value: f64) -> String {
 
 /// The Interface page's rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
-    SettingDef::new(
-        "interface.show_file_name_in_title_bar",
-        WINDOW,
-        "Show the file name in the title bar",
-        Control::Toggle,
-        toggle!(prefs.interface.show_file_name_in_title_bar),
-    )
-    .info(
-        "Names the media playing in the title bar and the window's title. Off, they always say \
-         VLC Media Player.",
-    )
-    .keywords(&["window title", "caption"]),
     SettingDef::new(
         "interface.auto_hide_controls",
         CONTROLS,
@@ -111,4 +109,16 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .keywords(&["remaining time", "duration", "countdown"])
     .advanced(),
+    SettingDef::new(
+        "interface.now_playing_notification",
+        NOTIFICATIONS,
+        "Show what starts playing",
+        Control::Dropdown(NowPlayingNotification::CHOICES),
+        choice!(prefs.interface.now_playing_notification),
+    )
+    .info(
+        "Shows a system notification with the title of each item as it starts playing. In the \
+         background means only while you are using another app.",
+    )
+    .keywords(&["notify", "notification", "popup", "track change", "now playing"]),
 ];

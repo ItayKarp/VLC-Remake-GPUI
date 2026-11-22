@@ -15,6 +15,7 @@ use super::frame::Frame;
 use super::frame_slot::{Delivery, FrameSlot};
 use super::{Output, layout};
 use crate::engine::player::{Player, PlayerEvent};
+use crate::keymap::actions::ToggleFullscreen;
 
 /// What the placeholder for audio-only media says until music mode (Stage 8) shows artwork.
 const AUDIO_ONLY: &str = "♪";
@@ -29,7 +30,9 @@ pub struct VideoView {
     shown: Option<Frame>,
     player: Entity<Player>,
     _follow: Task<()>,
-    _subscriptions: [Subscription; 2],
+    /// The visibility of the window the view is in.
+    visibility: Subscription,
+    _changes: Subscription,
 }
 
 impl VideoView {
@@ -54,8 +57,24 @@ impl VideoView {
             shown: None,
             player,
             _follow: cx.spawn(async move |this, cx| follow_frames(woken, this, cx).await),
-            _subscriptions: [visibility, changes],
+            visibility,
+            _changes: changes,
         }
+    }
+
+    /// Lets go of `window`, which the view is leaving for another (the video's own window,
+    /// S5.4.1): frees what that window keeps for the picture on screen.
+    pub fn leave(&mut self, window: &mut Window) {
+        if let Some(shown) = self.shown.take() {
+            shown.release(window);
+        }
+    }
+
+    /// The view now shows in `window`: takes pictures while that window shows.
+    pub fn arrive(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.slot.set_accepting(window.is_visible());
+        self.visibility = Self::follow_visibility(window, cx);
+        cx.notify();
     }
 
     /// Takes pictures only while the window shows (S1.4.4): a minimized or covered window
@@ -122,10 +141,10 @@ impl Render for VideoView {
             .flex()
             .items_center()
             .justify_center()
-            // Straight to the window: the keyboard's held-key gate doesn't apply to clicks.
-            .on_click(|event: &ClickEvent, window, _| {
+            // The window it is in decides which screen fullscreen goes to (S5.4.1).
+            .on_click(|event: &ClickEvent, window, cx| {
                 if event.click_count() == 2 {
-                    window.toggle_fullscreen();
+                    window.dispatch_action(Box::new(ToggleFullscreen), cx);
                 }
             })
             .children(picture)

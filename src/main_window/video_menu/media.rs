@@ -35,7 +35,8 @@ impl MainWindow {
         window: &Window,
         cx: &App,
     ) -> MenuItem {
-        let fullscreen = if window.is_fullscreen() { "Exit Fullscreen" } else { "Fullscreen" };
+        let fullscreen =
+            if self.video_is_fullscreen(window) { "Exit Fullscreen" } else { "Fullscreen" };
         let mut items: Vec<MenuItem> = self
             .loaded_player(cx)
             .map(|player| track_menu(TrackKind::Video, &player, cx))

@@ -69,10 +69,11 @@ impl MainWindow {
         player
     }
 
-    /// The video area, while the player has media loaded.
+    /// The video area, while the player has media loaded and its video plays in this window.
     pub(super) fn showing_video(&self, cx: &App) -> Option<Entity<VideoView>> {
         let (player, _) = self.player.as_ref()?;
-        player.read(cx).state().is_active().then(|| self.video.clone()).flatten()
+        let here = !self.windowing.separate.is_separate();
+        (here && player.read(cx).state().is_active()).then(|| self.video.clone()).flatten()
     }
 
     /// Re-checks whether the display should stay awake when the window shows or hides.
@@ -108,6 +109,7 @@ impl MainWindow {
                     self.skips.played();
                 }
                 self.found_playing(*state, cx);
+                self.notify_now_playing(*state, cx);
                 self.attach_pending_audio(cx);
                 let busy = matches!(
                     state,
@@ -116,9 +118,16 @@ impl MainWindow {
                 library::thumbnails::set_playing(player.entity_id(), busy, cx);
                 self.reset_seek_bar(*state);
                 self.update_display_sleep(window, cx);
+                self.sync_video_window(window, cx);
                 cx.notify();
             }
-            PlayerEvent::VideoSizeChanged(_) => self.update_display_sleep(window, cx),
+            PlayerEvent::VideoSizeChanged(size) => {
+                self.update_display_sleep(window, cx);
+                self.sync_video_window(window, cx);
+                if let Some(size) = size {
+                    self.fit_to_video((size.width as f32, size.height as f32), window, cx);
+                }
+            }
             // The title bar names the media by its title tag (S2.1.2).
             PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),
@@ -163,7 +172,7 @@ impl MainWindow {
         }
         let (player, _) = self.player.as_ref()?;
         let player = player.read(cx);
-        let name = player.media().map(Media::display_name).unwrap_or_default();
+        let name = player.media().map_or_default(Media::display_name);
         let text = match player.state() {
             PlaybackState::Idle => return None,
             PlaybackState::Opening => return Some((format!("Opening {name}…").into(), true)),

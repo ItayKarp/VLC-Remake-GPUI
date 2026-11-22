@@ -144,7 +144,13 @@ impl Expander<'_> {
             tracing::warn!("playlist: nested deeper than {MAX_DEPTH}; skipped");
             return;
         }
-        if let Err(error) = self.expand(path, format, depth + 1) {
+        self.expand_nested(path, format, depth + 1);
+    }
+
+    /// Expands the nested playlist at `path`, `depth` levels down; skipped (logged) when it
+    /// can't be read.
+    fn expand_nested(&mut self, path: &Path, format: PlaylistFormat, depth: usize) {
+        if let Err(error) = self.expand(path, format, depth) {
             tracing::warn!("playlist: skipped {}: {error:?}", crate::logging::path(path));
         }
     }

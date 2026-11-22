@@ -56,8 +56,8 @@ impl MainWindow {
     /// Opens what was asked for (S0.6.2, S1.3): switches to fullscreen if asked, then resolves
     /// the items in the background and plays them, replacing the list or adding to it.
     pub fn open(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
-        if request.fullscreen && !window.is_fullscreen() {
-            window.toggle_fullscreen();
+        if request.fullscreen && !self.video_is_fullscreen(window) {
+            self.toggle_fullscreen(window, cx);
         }
         if request.items.is_empty() {
             return;

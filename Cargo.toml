@@ -13,6 +13,8 @@ x11 = ["gpui/x11", "gpui_platform/x11"]
 # macOS: compile the Metal shaders when the app starts instead of at build time, for Macs
 # without Xcode's Metal toolchain (`xcodebuild -downloadComponent MetalToolchain` installs it).
 runtime_shaders = ["gpui_platform/runtime_shaders"]
+# Settings → Interface's Skin rows (S5.4.4, D19). Off until a skinning system exists (S8.14).
+skins = []
 
 [dependencies]
 # GPUI from our Zed fork (github.com/ItayKarp/zed), pinned to one commit (S0.8.2). The fork is
@@ -40,7 +42,10 @@ libloading = "0.8"
 url = "2"
 # Reading XSPF and ASX playlists (S1.3.4).
 quick-xml = "0.41"
-tracing = "0.1"
+# `log` is on everywhere because a Linux-only dependency turns it on there, and it adds
+# branches to every event macro: without it macOS clippy scores `cognitive_complexity` lower
+# than Linux CI does.
+tracing = { version = "0.1", features = ["log"] }
 # BGRA video frames become GPUI `RenderImage`s, which hold `image` frames (S1.4.1). Library
 # covers (S4.3) are decoded from JPEG or PNG and cached, downscaled, as JPEG.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
@@ -53,6 +58,9 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 # built for `url`, so it adds nothing to compile.
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
+# The OS window behind a GPUI window, for what GPUI has no call for: keeping a window above the
+# others and moving it to another display (S5.4.1). The version must match GPUI's.
+raw-window-handle = "0.6"
 
 # Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
 # primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must
@@ -61,7 +69,9 @@ notify = { version = "8", default-features = false, features = ["macos_fsevent"]
 objc2-core-foundation = { version = "=0.3.2", features = ["CFDictionary", "CFNumber", "CFString"] }
 objc2-core-video = { version = "=0.3.2", features = ["CVBase", "CVBuffer", "CVImageBuffer", "CVPixelBuffer", "CVPixelBufferPool", "CVReturn"] }
 # Hides the pointer with the auto-hidden controls (S2.8.1); GPUI only hides it while typing.
-objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSCursor"] }
+# Keeps windows above the others and moves them (S5.4.1).
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSCursor", "NSResponder", "NSView", "NSWindow"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSGeometry"] }
 
 # Asks the desktop's screen saver not to start during video (S1.4.3). GPUI's portal support
 # already builds zbus 5.

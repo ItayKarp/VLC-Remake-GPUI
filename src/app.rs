@@ -8,14 +8,16 @@
 pub mod cli;
 mod display;
 pub mod file_types;
-mod geometry;
+pub mod geometry;
 pub mod instance;
 pub mod media;
 mod not_responding;
 pub mod open;
 pub mod recent;
 pub mod request;
+pub mod screens;
 mod settings_window;
+mod video_window;
 
 use gpui::{
     App, DisplayId, SharedString, TitlebarOptions, WindowBounds, WindowHandle, WindowOptions,
@@ -34,6 +36,7 @@ use request::{Launch, OpenRequest};
 
 pub use display::preferred_display;
 pub use settings_window::open_settings;
+pub use video_window::{VIDEO_WINDOW_MIN_SIZE, VideoWindowRequest, open_video_window};
 
 /// The app id the desktop environment groups our windows by.
 const APP_ID: &str = "org.redesignedvlc.app";
@@ -41,7 +44,7 @@ const APP_ID: &str = "org.redesignedvlc.app";
 /// The main window's default size (S0.3.5).
 const MAIN_DEFAULT_SIZE: (f32, f32) = (1280., 800.);
 /// The main window's minimum size, unless the display is smaller.
-const MAIN_MIN_SIZE: (f32, f32) = (800., 500.);
+pub const MAIN_MIN_SIZE: (f32, f32) = (800., 500.);
 /// Onboarding shrinks to fit small screens, down to this size (S0.2.7); below it the
 /// body scrolls.
 const ONBOARDING_MIN_SIZE: (f32, f32) = (900., 640.);
@@ -59,6 +62,12 @@ pub fn init(cx: &mut App) {
     });
     crate::settings_window::bind_keys(cx);
     cx.on_action(|_: &OpenSettings, cx| cx.defer(|cx| open_settings(None, cx)));
+    // Clicking the now-playing notification brings VLC forward (S5.4.3).
+    cx.on_system_notification_response(|response, cx| {
+        if response.tag == crate::main_window::NOW_PLAYING_TAG {
+            cx.activate(true);
+        }
+    });
     cx.on_action(|_: &RunSetupAgain, cx| {
         let display = preferred_display(cx);
         cx.defer(move |cx| run_setup_again(display, cx));
@@ -184,6 +193,10 @@ impl Placement {
         display: Option<DisplayId>,
         cx: &App,
     ) -> Self {
+        // "Remember window size and position" off: every window opens centered (S5.4.1).
+        let forgotten = settings::WindowGeometry::default();
+        let remembered = settings::get(cx).prefs.interface.remember_window_geometry;
+        let saved = if remembered { saved } else { &forgotten };
         let fallback = visible_bounds(display, cx);
         let displays: Vec<(DisplayId, Rect)> =
             cx.displays().iter().map(|d| (d.id(), Rect::from_gpui(d.visible_bounds()))).collect();
@@ -322,7 +335,8 @@ fn visible_bounds(display: Option<DisplayId>, cx: &App) -> Rect {
         .map_or(Rect::new(0., 0., 1280., 800.), |d| Rect::from_gpui(d.visible_bounds()))
 }
 
-/// Remembers a window's geometry whenever it moves or resizes (S0.2.9).
+/// Remembers a window's geometry whenever it moves or resizes (S0.2.9), while "Remember window
+/// size and position" is on (S5.4.1).
 pub fn save_geometry_on_change<V: 'static>(
     window: &mut gpui::Window,
     cx: &mut Context<V>,
@@ -330,7 +344,8 @@ pub fn save_geometry_on_change<V: 'static>(
 ) {
     cx.observe_window_bounds(window, move |_, window, cx| {
         let geometry = geometry::to_saved(window.window_bounds());
-        if geometry.width > 0. && geometry.height > 0. {
+        let remembered = settings::get(cx).prefs.interface.remember_window_geometry;
+        if remembered && geometry.width > 0. && geometry.height > 0. {
             settings::update(cx, |s| *slot(s) = geometry);
         }
     })

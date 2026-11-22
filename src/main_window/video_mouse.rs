@@ -43,7 +43,7 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let over_bars = self.chrome(window, cx).controls && self.pointer_over_bars(window);
+        let over_bars = self.chrome(window, cx).controls && self.pointer_over_bars(window, cx);
         self.video_mouse.armed = event.button == MouseButton::Left
             && !event.first_mouse
             && !over_bars
@@ -96,7 +96,7 @@ impl MainWindow {
         // The first click's play or pause is off.
         self.video_mouse.clicks += 1;
         if settings::get(cx).prefs.controls.double_click == DoubleClickAction::ToggleFullscreen {
-            window.toggle_fullscreen();
+            self.toggle_fullscreen(window, cx);
         }
     }
 

@@ -18,6 +18,7 @@
 mod advanced;
 mod controls;
 mod highlight;
+mod options;
 mod row;
 mod swatches;
 #[cfg(test)]

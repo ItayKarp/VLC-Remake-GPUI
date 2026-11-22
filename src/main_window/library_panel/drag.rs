@@ -37,7 +37,7 @@ impl DraggedMedia {
     pub(in crate::main_window) fn paths(&self, cx: &App) -> &[PathBuf] {
         self.paths.get_or_init(|| {
             let main = self.main.upgrade();
-            main.map(|main| main.read(cx).dragged_paths(self.index, cx)).unwrap_or_default()
+            main.map_or_default(|main| main.read(cx).dragged_paths(self.index, cx))
         })
     }
 

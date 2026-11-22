@@ -33,9 +33,10 @@ pub use paths::{Locations, cache_dir, default_media_folder, display_path};
 )]
 pub use schema::{
     AudioSettings, AutoHide, ClickAction, ControlsSettings, DoubleClickAction, DurationReadout,
-    HorizontalWheelAction, InterfaceLanguage, LibraryRoutes, LocalState, MiniplayerCorner,
-    PlayerSettings, Preferences, QueueSiblings, ResumePolicy, Settings, SkipLength, StartupVolume,
-    WheelAction, WhenFinished, WindowGeometry, WindowMode,
+    FitVideo, HorizontalWheelAction, InterfaceLanguage, LibraryRoutes, LocalState,
+    MiniplayerCorner, NowPlayingNotification, PlayerSettings, Preferences, QueueSiblings,
+    ResumePolicy, Settings, SkipLength, StartupVolume, WheelAction, WhenFinished, WindowGeometry,
+    WindowMode,
 };
 pub use store::Notice;
 use store::SettingsState;

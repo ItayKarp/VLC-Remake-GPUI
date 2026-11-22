@@ -15,6 +15,7 @@ use gpui::{
 };
 
 use crate::assets::icons;
+use crate::keymap::actions::ToggleFullscreen;
 use crate::theme::Palette;
 
 /// The height of the title strip we draw in place of the OS title bar.
@@ -135,11 +136,12 @@ fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> AnyEle
         // Linux has no native hit-testing for these areas, and Fullscreen has none
         // anywhere, so handle clicks too.
         .when(!cfg!(target_os = "windows") || button == Caption::Fullscreen, |this| {
-            this.on_click(move |_, window, _| match button {
+            this.on_click(move |_, window, cx| match button {
                 Caption::Close => window.remove_window(),
                 Caption::Minimize => window.minimize_window(),
                 Caption::Maximize => window.zoom_window(),
-                Caption::Fullscreen => window.toggle_fullscreen(),
+                // The window decides which screen fullscreen goes to (S5.4.1).
+                Caption::Fullscreen => window.dispatch_action(Box::new(ToggleFullscreen), cx),
             })
         })
         .child(

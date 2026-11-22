@@ -38,7 +38,9 @@ impl MainWindow {
             .on_mouse_down(MouseButton::Right, cx.listener(Self::on_video_right_click))
             .child(self.auto_hide.video_area.element())
             .child(video);
-        let moves_window = self.auto_hide.hide_ui && !window.is_fullscreen();
+        // Without window decorations (S5.4.1) there is no title bar to drag either.
+        let bare = self.auto_hide.hide_ui || !self.chrome(window, cx).title_bar;
+        let moves_window = bare && !window.is_fullscreen();
         div().size_full().child(if moves_window { window_chrome::drags_window(area) } else { area })
     }
 }

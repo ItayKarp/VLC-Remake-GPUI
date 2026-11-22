@@ -96,21 +96,26 @@ struct Writer<'a> {
 impl Writer<'_> {
     fn take(&mut self, event: Walked) {
         match event {
-            Walked::Listed(listing) => {
-                self.found += listing.files.len();
-                self.batch.push(listing);
-                let files: usize = self.batch.iter().map(|listing| listing.files.len()).sum();
-                if files >= BATCH_FILES || self.batch.len() >= BATCH_LISTINGS {
-                    self.flush();
-                }
-            }
-            Walked::Unreadable(dir, std::io::ErrorKind::PermissionDenied) => {
-                tracing::debug!("library: can't read {}", crate::logging::path(&dir));
-                self.outcome.unreadable.push(dir);
-            }
-            Walked::Unreadable(dir, kind) => {
-                tracing::debug!("library: skipped {}: {kind}", crate::logging::path(&dir));
-            }
+            Walked::Listed(listing) => self.add(listing),
+            Walked::Unreadable(dir, kind) => self.skip(dir, kind),
+        }
+    }
+
+    /// Skips a folder the walk couldn't read; one the user may not read is reported back.
+    fn skip(&mut self, dir: PathBuf, kind: std::io::ErrorKind) {
+        tracing::debug!("library: skipped {}: {kind}", crate::logging::path(&dir));
+        if kind == std::io::ErrorKind::PermissionDenied {
+            self.outcome.unreadable.push(dir);
+        }
+    }
+
+    /// Batches `listing`, writing the batch once it is big enough.
+    fn add(&mut self, listing: Listing) {
+        self.found += listing.files.len();
+        self.batch.push(listing);
+        let files: usize = self.batch.iter().map(|listing| listing.files.len()).sum();
+        if files >= BATCH_FILES || self.batch.len() >= BATCH_LISTINGS {
+            self.flush();
         }
     }
 

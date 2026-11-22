@@ -54,6 +54,8 @@ pub struct Prefs {
     pub auto_hide: AutoHide,
     /// "Show controls in fullscreen".
     pub show_in_fullscreen: bool,
+    /// "Show window decorations" (S5.4.1): off, the player has no title bar.
+    pub decorations: bool,
 }
 
 /// The window's chrome for a [`Situation`].
@@ -97,7 +99,8 @@ impl Situation {
             Layout::Docked
         };
         let controls = self.controls_show();
-        Chrome { layout, title_bar: controls && !self.fullscreen, controls }
+        let title_bar = controls && !self.fullscreen && self.prefs.decorations;
+        Chrome { layout, title_bar, controls }
     }
 
     fn controls_show(self) -> bool {

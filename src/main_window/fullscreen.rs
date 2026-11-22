@@ -19,9 +19,9 @@ use crate::keymap::commands;
 impl MainWindow {
     /// Adds the fullscreen action handlers to `root`.
     pub(super) fn fullscreen_actions(root: Div, cx: &mut Context<Self>) -> Div {
-        root.on_action(cx.listener(|this, action: &ToggleFullscreen, window, _| {
+        root.on_action(cx.listener(|this, action: &ToggleFullscreen, window, cx| {
             if this.admit(action) {
-                window.toggle_fullscreen();
+                this.toggle_fullscreen(window, cx);
             }
         }))
         .on_action(cx.listener(Self::exit_fullscreen))
@@ -42,13 +42,13 @@ impl MainWindow {
             }
             return;
         }
-        if !window.is_fullscreen() {
+        if !self.video_is_fullscreen(window) {
             cx.propagate();
             return;
         }
         // A held Escape must not re-enter fullscreen while the OS is still animating out of it.
         if self.admit(action) {
-            window.toggle_fullscreen();
+            self.toggle_fullscreen(window, cx);
         }
     }
 

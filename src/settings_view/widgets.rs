@@ -13,6 +13,7 @@ use gpui::{
 };
 
 use super::SettingsPage;
+use super::options::OptionsDropdown;
 use crate::settings::{
     self, Settings,
     registry::{Control, SettingDef, Value},
@@ -24,6 +25,7 @@ use crate::ui::text_input::{self, TextInput, Validation};
 /// One row's stateful control.
 enum Widget {
     Dropdown(Entity<Dropdown>),
+    Options(OptionsDropdown),
     Slider(Entity<Slider>),
     Field(Entity<TextInput>),
 }
@@ -48,6 +50,10 @@ impl Widgets {
         for def in defs {
             let made = match def.control {
                 Control::Dropdown(_) => Some(make_dropdown(def, window, cx)),
+                Control::Options(source) => {
+                    let (options, subscription) = OptionsDropdown::new(def, source, window, cx);
+                    Some((Widget::Options(options), subscription))
+                }
                 Control::Slider { .. } => make_slider(def, window, cx),
                 Control::Number { .. }
                 | Control::Text
@@ -68,6 +74,7 @@ impl Widgets {
     pub(super) fn element(&self, def: &SettingDef) -> Option<AnyElement> {
         Some(match self.by_key.get(def.key)? {
             Widget::Dropdown(dropdown) => dropdown.clone().into_any_element(),
+            Widget::Options(options) => options.dropdown.clone().into_any_element(),
             Widget::Slider(slider) => slider.clone().into_any_element(),
             Widget::Field(field) => field.clone().into_any_element(),
         })
@@ -112,6 +119,11 @@ fn sync_widget(
             dropdown.set_selected(choice_index(def, &value), cx);
             dropdown.set_disabled(disabled, cx);
         }),
+        Widget::Options(options) => {
+            if let Control::Options(source) = def.control {
+                options.sync(def, source, settings, cx);
+            }
+        }
         Widget::Slider(slider) => slider.update(cx, |slider, cx| {
             let Value::Number(number) = value else { return };
             slider.set_value(number, window, cx);

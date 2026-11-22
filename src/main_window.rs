@@ -31,6 +31,7 @@ mod network_stream;
 mod new_playlist;
 mod notice;
 mod now_playing;
+mod now_playing_notice;
 mod opening;
 mod osd;
 mod play_order;
@@ -53,6 +54,7 @@ mod tracks;
 mod transport;
 mod video_menu;
 mod video_mouse;
+mod video_window;
 mod viewport;
 mod volume_slider;
 mod wheel;
@@ -62,7 +64,7 @@ use gpui::{
     Subscription, Window, div, prelude::*, px,
 };
 
-use self::auto_hide::rules::Layout;
+use self::auto_hide::rules::Chrome;
 use crate::app;
 use crate::app::request::OpenRequest;
 use crate::engine::player::Player;
@@ -79,6 +81,8 @@ use crate::ui::popover::BoundsTracker;
 use crate::ui::toast::{Toast, Toasts};
 use crate::ui::{drop_target, menu::ContextMenu};
 use crate::video::VideoView;
+
+pub use self::now_playing_notice::NOW_PLAYING_TAG;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -149,6 +153,8 @@ pub struct MainWindow {
     auto_hide: auto_hide::AutoHide,
     /// Dialogs over the window (About VLC, S2.9.6).
     modals: Entity<ModalLayer>,
+    /// Settings → Interface's Window section and notification for this window (S5.4).
+    windowing: video_window::Windowing,
 }
 
 impl MainWindow {
@@ -156,8 +162,6 @@ impl MainWindow {
     /// notices.
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::follow_window(window, cx);
-        let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
-
         let mut this = Self {
             queue: Queue::default(),
             skips: Skips::default(),
@@ -174,7 +178,7 @@ impl MainWindow {
             _visibility: Self::follow_visibility(window, cx),
             notices: Self::take_notices(cx),
             focus_handle: cx.focus_handle(),
-            open_button,
+            open_button: cx.focus_handle().tab_stop(true).tab_index(0),
             menu: None,
             menu_button: BoundsTracker::new(),
             repeat: RepeatGate::default(),
@@ -193,6 +197,7 @@ impl MainWindow {
             os_title: String::new(),
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
+            windowing: video_window::Windowing::default(),
         };
         this.start(request, window, cx);
         this
@@ -223,7 +228,11 @@ impl MainWindow {
     /// the window is maximized, restored or goes fullscreen (the Maximize/Restore icon, the
     /// layout).
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
-        cx.observe_global::<settings::SettingsStore>(|_, cx| cx.notify()).detach();
+        cx.observe_global_in::<settings::SettingsStore>(window, |this, window, cx| {
+            this.sync_video_window(window, cx);
+            cx.notify();
+        })
+        .detach();
         cx.observe_global::<crate::library::Library>(|_, cx| cx.notify()).detach();
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
     }
@@ -271,18 +280,18 @@ impl MainWindow {
     fn render_content(
         &self,
         p: &theme::Palette,
-        layout: Layout,
+        chrome: Chrome,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let (top, bottom) = content_insets(layout);
+        let (top, bottom) = viewport::content_insets(chrome);
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
             Some(video) => area
                 .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
                     this.scroll_on_video(event, window, cx);
                 }))
-                .child(self.video_area(viewport::framed(video, p, layout), window, cx))
+                .child(self.video_area(viewport::framed(video, p, chrome), window, cx))
                 .children(self.render_osd(p, cx)),
             None => area.child(
                 div()
@@ -310,15 +319,6 @@ impl MainWindow {
     }
 }
 
-/// How far the content area is from the window's top and bottom: the bars' heights while they
-/// are docked, nothing while they float or hide.
-fn content_insets(layout: Layout) -> (f32, f32) {
-    match layout {
-        Layout::Docked => (TITLE_BAR_HEIGHT, control_bar::CONTROL_BAR_HEIGHT),
-        Layout::Floating | Layout::Fullscreen => (0., 0.),
-    }
-}
-
 impl MainWindow {
     /// The menus that are open: `…`, the bar's overflow, the queue's sort, the video's and the
     /// library sidebar's.
@@ -336,6 +336,7 @@ impl MainWindow {
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
+        self.windowing.prefs.sync(window, cx);
         self.release_previews(window);
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
@@ -362,7 +363,7 @@ impl Render for MainWindow {
             .bg(p.background)
             .text_color(p.text)
             // Full library mode takes the content area; what plays shows in the miniplayer.
-            .children((!full).then(|| self.render_content(&p, chrome.layout, window, cx)))
+            .children((!full).then(|| self.render_content(&p, chrome, window, cx)))
             .children(self.render_library(&p, chrome, cx))
             .children(chrome.title_bar.then(|| self.render_title_bar(&p, window, cx)))
             .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
