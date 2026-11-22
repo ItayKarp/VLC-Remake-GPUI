@@ -11,6 +11,7 @@ mod dialog;
 mod events;
 mod menu;
 mod overlays;
+mod settings_page;
 mod widgets;
 
 use gpui::{
@@ -18,6 +19,7 @@ use gpui::{
     Window, div, prelude::*, px,
 };
 
+use self::settings_page::SettingsDemo;
 use self::widgets::Widgets;
 use super::menu::ContextMenu;
 use super::popover::{self, BoundsTracker};
@@ -32,6 +34,7 @@ pub struct Gallery {
     section_open: bool,
     banner_visible: bool,
     widgets: Widgets,
+    settings_demo: SettingsDemo,
     menu: Option<(Point<Pixels>, Entity<ContextMenu>, Subscription)>,
     popover: PopoverState,
     status: SharedString,
@@ -79,6 +82,7 @@ impl Gallery {
         theme::observe(window, cx);
         let widgets = Widgets::new(window, cx);
         let subscriptions = events::subscribe(&widgets, cx);
+        let settings_demo = SettingsDemo::new(window, cx);
         popover::close_on_deactivate(window, cx, |this: &mut Self, _, cx| {
             this.popover.open = false;
             cx.notify();
@@ -92,6 +96,7 @@ impl Gallery {
             section_open: true,
             banner_visible: true,
             widgets,
+            settings_demo,
             menu: None,
             popover: PopoverState { open: false, trigger: BoundsTracker::new() },
             status: "Tab through the controls; arrow keys move inside groups.".into(),
@@ -154,6 +159,7 @@ impl Gallery {
             )
             .child(self.overlays(p, cx))
             .child(self.grid(p))
+            .child(self.settings_demo.render(p))
     }
 }
 

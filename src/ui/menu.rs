@@ -115,6 +115,13 @@ impl ContextMenu {
         self.move_highlight(Move::First, cx);
     }
 
+    /// Each item's label and whether it can be chosen, in order; separators are left out.
+    #[cfg(test)]
+    pub fn entries(&self) -> Vec<(String, bool)> {
+        let entries = self.items.iter().filter_map(|item| Some((item.label()?, item.selectable())));
+        entries.map(|(label, selectable)| (label.to_string(), selectable)).collect()
+    }
+
     fn move_highlight(&mut self, movement: Move, cx: &mut Context<Self>) {
         let items = &self.items;
         self.highlighted =

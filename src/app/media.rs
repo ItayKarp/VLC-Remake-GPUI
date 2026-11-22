@@ -74,13 +74,14 @@ impl Media {
         stored_path::decode(text).map(Media::File)
     }
 
-    /// A short name for the window title and lists: the file name, or the URL.
+    /// A short name for the window title and lists: the file name, or the URL with any
+    /// password in it masked.
     pub fn display_name(&self) -> String {
         match self {
             Media::File(path) => {
                 path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
             }
-            Media::Url(url) => url.clone(),
+            Media::Url(url) => crate::network::links::masked(url),
         }
     }
 }

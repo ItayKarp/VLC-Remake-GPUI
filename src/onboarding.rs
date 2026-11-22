@@ -7,6 +7,10 @@
 //! Finish saves, then hands off to the main window (S0.2.2). Until then the choices
 //! live only in this view, so closing early saves nothing and the next launch starts
 //! again at step 1 (S0.2.4).
+//!
+//! Run again once setup was done ("Run setup again", S0.2.5, S5.3.5), it starts from the current
+//! choices and offers **Cancel**: Cancel, Escape on step 1 and closing the window return to the
+//! main window with nothing changed.
 
 mod appearance;
 mod dev_overrides;
@@ -54,6 +58,8 @@ pub struct Onboarding {
     theme: ThemeMode,
     accent: Accent,
     finish: FinishState,
+    /// Whether setup was done before, so Cancel returns to the main window.
+    rerun: bool,
     focus_handle: FocusHandle,
 }
 
@@ -80,6 +86,12 @@ impl Onboarding {
 
         // Start from whatever is saved, so running setup again keeps earlier choices.
         let saved = settings::get(cx);
+        let rerun = saved.local.onboarding_complete;
+        if rerun {
+            window.on_window_should_close(cx, |window, cx| {
+                finish::reopen_main_window(window, cx).is_ok()
+            });
+        }
         let mut this = Self {
             step: Step::Welcome,
             media_folder: saved
@@ -91,6 +103,7 @@ impl Onboarding {
             theme: saved.prefs.theme,
             accent: saved.prefs.accent,
             finish: FinishState::Idle,
+            rerun,
             focus_handle,
         };
         overrides.apply(&mut this);
@@ -131,6 +144,7 @@ impl Onboarding {
         }
         match event.keystroke.key.as_str() {
             "enter" if self.finish != FinishState::Saving => self.go_next(window, cx),
+            "escape" if self.step == Step::Welcome && self.rerun => self.cancel(window, cx),
             "escape" | "backspace" if self.step != Step::Welcome => self.go_back(cx),
             "left" if self.step == Step::Appearance => self.cycle_accent(-1, cx),
             "right" if self.step == Step::Appearance => self.cycle_accent(1, cx),

@@ -94,7 +94,7 @@ fn cover(source: ArtworkSource) -> &'static str {
 }
 
 /// A file size as file managers show it: `532 bytes`, `1.4 MB`.
-fn size(bytes: u64) -> String {
+pub fn size(bytes: u64) -> String {
     let mut value = bytes as f64;
     if value < KILO {
         return format!("{bytes} bytes");

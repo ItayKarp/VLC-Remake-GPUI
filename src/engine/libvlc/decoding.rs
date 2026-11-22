@@ -27,9 +27,47 @@ pub(super) const SOFTWARE_DECODING: [&str; 2] = [":codec=avcodec,any", ":avcodec
 /// How long a subtitle stays shown before the media is reopened to draw it.
 const SWITCH_DELAY: Duration = Duration::from_millis(300);
 /// `libvlc_media_slave_type_subtitle`.
-pub(super) const SLAVE_SUBTITLE: c_int = 0;
+const SLAVE_SUBTITLE: c_int = 0;
+/// `libvlc_media_slave_type_audio`.
+const SLAVE_AUDIO: c_int = 1;
 /// `libvlc_media_slave_priority`'s highest value, as for files the user picks.
 const SLAVE_PRIORITY_USER: u32 = 4;
+
+/// A file the user added to the open media: a subtitle, or an audio track (S4.8.1).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Slave {
+    /// Whether it is subtitles or audio.
+    pub kind: SlaveKind,
+    /// The file.
+    pub path: std::path::PathBuf,
+}
+
+/// What an added file holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlaveKind {
+    /// Subtitles.
+    Subtitle,
+    /// An audio track.
+    Audio,
+}
+
+impl SlaveKind {
+    /// libVLC's `libvlc_media_slave_type_t` for it.
+    pub(super) fn libvlc_type(self) -> c_int {
+        match self {
+            Self::Subtitle => SLAVE_SUBTITLE,
+            Self::Audio => SLAVE_AUDIO,
+        }
+    }
+
+    /// The kind of track the file adds.
+    pub(super) fn track_kind(self) -> TrackKind {
+        match self {
+            Self::Subtitle => TrackKind::Subtitle,
+            Self::Audio => TrackKind::Audio,
+        }
+    }
+}
 
 /// How the open media's video is decoded.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -154,27 +192,28 @@ impl Worker {
         format!(":start-time={:.3}", millis.max(0) as f64 / 1000.0)
     }
 
-    /// Opens the subtitle files the user added with the reopened media. They get the same
-    /// track ids as before, since they are added in the same order after the same tracks.
+    /// Opens the subtitle and audio files the user added with the reopened media. They get the
+    /// same track ids as before, since they are added in the same order after the same tracks.
     fn add_slaves(&self, media: *mut Media) {
-        for uri in self.slaves.iter().filter_map(|path| subtitle_uri(path)) {
+        for slave in &self.slaves {
+            let Some(uri) = file_uri(&slave.path) else { continue };
             // SAFETY: the media is live and `uri` is NUL-terminated.
             let added = unsafe {
                 (self.vlc.api.libvlc_media_slaves_add)(
                     media,
-                    SLAVE_SUBTITLE,
+                    slave.kind.libvlc_type(),
                     SLAVE_PRIORITY_USER,
                     uri.as_ptr(),
                 )
             };
             if added != 0 {
-                tracing::warn!("libvlc: couldn't carry a subtitle file over");
+                tracing::warn!("libvlc: couldn't carry an added {:?} file over", slave.kind);
             }
         }
     }
 }
 
-/// The `file://` URI libVLC takes for a subtitle file at `path`.
-pub(super) fn subtitle_uri(path: &Path) -> Option<CString> {
+/// The `file://` URI libVLC takes for a subtitle or audio file at `path`.
+pub(super) fn file_uri(path: &Path) -> Option<CString> {
     url::Url::from_file_path(path).ok().and_then(|uri| CString::new(uri.as_str()).ok())
 }

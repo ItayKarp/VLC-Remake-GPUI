@@ -108,6 +108,7 @@ impl MainWindow {
                     self.skips.played();
                 }
                 self.found_playing(*state, cx);
+                self.attach_pending_audio(cx);
                 let busy = matches!(
                     state,
                     PlaybackState::Opening | PlaybackState::Buffering | PlaybackState::Playing

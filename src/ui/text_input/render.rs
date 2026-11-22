@@ -6,13 +6,20 @@ use gpui::{
 };
 
 use super::element::TextElement;
-use super::keys::CONTEXT;
+use super::keys::{CONTEXT, MULTI_LINE_CONTEXT};
 use super::{Look, TextInput, Validation};
 use crate::theme::{self, Palette};
 use crate::ui::{focus, metrics};
 
 /// A disabled input is drawn faded, like the kit's other disabled controls.
 const DISABLED_OPACITY: f32 = 0.4;
+
+/// The framed field's text size and line height.
+const TEXT_SIZE: f32 = 14.;
+const LINE_HEIGHT: f32 = 20.;
+/// The framed field's height with one line, and the space around a multi-line field's text.
+const SINGLE_LINE_HEIGHT: f32 = 32.;
+const MULTI_LINE_PADDING: f32 = 10.;
 
 impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -44,16 +51,21 @@ impl TextInput {
             .base()
             .w_full()
             .when(invalid, |field| field.text_color(palette.danger))
-            .when(!self.disabled, |field| Self::interactive(field, cx))
+            .when(!self.disabled, |field| self.interactive(field, cx))
             .child(TextElement { input: cx.entity() });
         div().w_full().child(field)
     }
 
     /// The focusable, labelled element both looks build on.
     fn base(&self) -> Stateful<Div> {
+        let context = if self.rows.is_some() {
+            focus::context(&[CONTEXT, MULTI_LINE_CONTEXT, focus::CONTROL, focus::TYPING])
+        } else {
+            focus::context(&[CONTEXT, focus::CONTROL, focus::TYPING])
+        };
         div()
             .id("text-input")
-            .key_context(focus::context(&[CONTEXT, focus::CONTROL, focus::TYPING]))
+            .key_context(context)
             .track_focus(&self.focus_handle)
             .role(accesskit::Role::TextInput)
             .aria_label(self.label.clone())
@@ -64,26 +76,33 @@ impl TextInput {
     /// The framed field, red-bordered when `invalid`.
     fn field(&self, palette: &Palette, invalid: bool, cx: &mut Context<Self>) -> Stateful<Div> {
         let enabled = !self.disabled;
-        self.base()
-            .h(px(32.))
+        let field = match self.rows {
+            Some(rows) => self
+                .base()
+                .h(px(rows as f32 * LINE_HEIGHT + 2. * MULTI_LINE_PADDING))
+                .py(px(MULTI_LINE_PADDING - 2.))
+                .items_start(),
+            None => self.base().h(px(SINGLE_LINE_HEIGHT)).items_center(),
+        };
+        field
             .w_full()
             .flex()
-            .items_center()
             .px(px(10.))
             .rounded(px(metrics::RADIUS))
             .bg(palette.well)
             .border_2()
             .border_color(if invalid { palette.danger } else { palette.well })
-            .text_size(px(14.))
-            .line_height(px(20.))
+            .text_size(px(TEXT_SIZE))
+            .line_height(px(LINE_HEIGHT))
             .text_color(palette.text)
-            .when(enabled, |field| Self::interactive(field, cx))
+            .when(enabled, |field| self.interactive(field, cx))
             .when(!enabled, |field| field.opacity(DISABLED_OPACITY))
             .child(TextElement { input: cx.entity() })
     }
 
     /// Wires the field's actions and mouse handlers; only an enabled input gets them.
-    fn interactive(field: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
+    fn interactive(&self, field: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
+        let field = if self.rows.is_some() { Self::multi_line_actions(field, cx) } else { field };
         field
             .cursor(CursorStyle::IBeam)
             .on_action(cx.listener(Self::backspace))

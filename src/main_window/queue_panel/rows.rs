@@ -19,6 +19,7 @@ use super::MainWindow;
 use crate::app::media::Media;
 use crate::assets::icons;
 use crate::main_window::control_bar::clock::tabular_digits;
+use crate::main_window::library_panel::DraggedMedia;
 use crate::queue::{EntryId, Length, row_duration};
 use crate::theme::{self, Palette};
 use crate::ui::icon::icon;
@@ -43,9 +44,17 @@ pub(super) struct DraggedEntries {
     label: SharedString,
 }
 
-/// What follows the pointer while rows are dragged.
-struct DragPreview {
+/// What follows the pointer while rows (or the library's media) are dragged: their name, or
+/// "N items".
+pub(in crate::main_window) struct DragPreview {
     label: SharedString,
+}
+
+impl DragPreview {
+    /// A preview saying `label`.
+    pub(in crate::main_window) fn new(label: SharedString) -> Self {
+        Self { label }
+    }
 }
 
 impl Render for DragPreview {
@@ -101,6 +110,7 @@ impl MainWindow {
         .size_full();
         let area = div()
             .id("queue-rows-area")
+            .debug_selector(|| "queue-rows-area".into())
             .relative()
             .flex_1()
             .min_h_0()
@@ -109,7 +119,7 @@ impl MainWindow {
         Self::accept_drops(area, cx).child(list).children((len == 0).then(|| empty_note(p)))
     }
 
-    /// Follows drags of rows and files over `area` and takes their drops.
+    /// Follows drags of rows, files and the library's media over `area` and takes their drops.
     fn accept_drops(area: Stateful<gpui::Div>, cx: &mut Context<Self>) -> Stateful<gpui::Div> {
         area.on_drag_move(cx.listener(|this, event: &DragMoveEvent<DraggedEntries>, _, cx| {
             this.track_drop_slot(event.event.position, event.bounds, cx);
@@ -120,8 +130,14 @@ impl MainWindow {
         .on_drop(cx.listener(|this, dragged: &DraggedEntries, window, cx| {
             this.drop_rows(&dragged.ids, window, cx);
         }))
+        .on_drag_move(cx.listener(|this, event: &DragMoveEvent<DraggedMedia>, _, cx| {
+            this.track_drop_slot(event.event.position, event.bounds, cx);
+        }))
         .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
-            this.drop_files(paths, window, cx);
+            this.drop_files(paths.paths(), window, cx);
+        }))
+        .on_drop(cx.listener(|this, dragged: &DraggedMedia, window, cx| {
+            this.drop_files(dragged.paths(cx), window, cx);
         }))
     }
 

@@ -89,7 +89,7 @@ impl ContextMenu {
             .reserve_icon(any_icons)
             .height(ROW_HEIGHT);
         let selectable = item.selectable() || submenu_open;
-        let reason = item.disabled_reason().filter(|_| !submenu_open).cloned();
+        let reason = item.hover_text().filter(|_| !submenu_open).cloned();
         div()
             .id(i)
             .relative()
@@ -144,8 +144,8 @@ fn option_row(item: &MenuItem, submenu_open: bool) -> Option<OptionRow> {
                 .disabled(*disabled)
                 .check_column(false)
         }
-        MenuItem::Check { label, checked, disabled, .. } => {
-            OptionRow::new("row", label.clone()).checked(*checked).disabled(*disabled)
+        MenuItem::Check { label, icon, checked, disabled, .. } => {
+            OptionRow::new("row", label.clone()).icon(*icon).checked(*checked).disabled(*disabled)
         }
         MenuItem::Submenu { label, icon, items, .. } => OptionRow::new("row", label.clone())
             .icon(*icon)

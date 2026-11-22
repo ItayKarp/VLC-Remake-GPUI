@@ -117,6 +117,10 @@ actions!(
         Slower,
         /// Play at normal speed.
         NormalSpeed,
+        /// Play the audio 50 ms sooner against the video (S4.8.1).
+        AudioDelayEarlier,
+        /// Play the audio 50 ms later against the video (S4.8.1).
+        AudioDelayLater,
         /// Raise the volume.
         VolumeUp,
         /// Lower the volume.
@@ -135,6 +139,10 @@ actions!(
         ToggleQueue,
         /// Show or hide the file browser.
         ToggleFileBrowser,
+        /// Go back to the library's previous place (S4.5.2).
+        GoBack,
+        /// Go forward to the library place gone back from (S4.5.2).
+        GoForward,
         /// Save the current frame as an image.
         Snapshot,
         /// Start or stop recording.

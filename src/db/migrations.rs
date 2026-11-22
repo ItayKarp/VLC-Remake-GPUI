@@ -9,7 +9,7 @@ use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
 pub(super) const MIGRATIONS: &[&str] =
-    &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION, THUMBNAILS];
+    &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION, THUMBNAILS, super::search::MIGRATION, HOME];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "
@@ -204,6 +204,18 @@ const THUMBNAILS: &str = "
     ALTER TABLE thumbnails ADD COLUMN used_ms INTEGER NOT NULL DEFAULT 0;
     CREATE INDEX thumbnails_key ON thumbnails (cache_key);
     ALTER TABLE media ADD COLUMN no_thumbnail_ms INTEGER;
+";
+
+/// Version 8 (S4.9): what Home needs to rank and hide.
+///
+/// - `visits.score` is a visit count that fades with time ([`crate::library::frequency`]), as it
+///   stood at `last_visited_ms`. Existing counts start as scores.
+/// - `media.hidden_from_home_ms` is when "Remove from Continue Watching" took a media off Home.
+///   It comes back once played after that; its progress is never touched.
+const HOME: &str = "
+    ALTER TABLE visits ADD COLUMN score REAL NOT NULL DEFAULT 0;
+    UPDATE visits SET score = count;
+    ALTER TABLE media ADD COLUMN hidden_from_home_ms INTEGER;
 ";
 
 /// The schema version this build writes.

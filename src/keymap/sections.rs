@@ -68,6 +68,8 @@ pub const SECTIONS: &[Section] = &[
             &act::VolumeDown,
             &act::CycleAudioTrack,
             &act::CycleSubtitleTrack,
+            &act::AudioDelayEarlier,
+            &act::AudioDelayLater,
         ],
     },
     Section { title: "Capture", actions: &[&act::Snapshot, &act::Record] },
@@ -87,6 +89,8 @@ pub const SECTIONS: &[Section] = &[
         title: "Library",
         actions: &[
             &act::Search,
+            &act::GoBack,
+            &act::GoForward,
             &act::MarkWatched,
             &act::MarkUnwatched,
             &act::ClearHistory,

@@ -54,15 +54,12 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
 /// (S2.9.4); their keys say "Coming soon" in debug builds. Remove a command from here when it
 /// gets its effect.
 pub const PENDING: &[&dyn Action] = &[
-    &act::OpenNetworkStream, // S4.11
     &act::OpenDisc,          // S8.9
     &act::OpenCaptureDevice, // S8.9
     &act::Convert,           // S8.10
     &act::CustomizePlayer,   // S8.7
-    &act::OpenSettings,      // S5.2
     &act::Record,            // S8.6
     &act::Snapshot,          // S8.4
-    &act::ToggleFileBrowser, // S4.10
     &act::NextProgram,       // S8.9
 ];
 

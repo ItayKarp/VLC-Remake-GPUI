@@ -53,8 +53,12 @@ impl Frame {
     /// Frees what GPUI keeps for this picture once it is replaced. Each BGRA frame is a new
     /// atlas entry, so without this the atlas grows forever (ADR 0001, limit 7).
     pub fn release(self, window: &mut Window) {
-        if let Self::Image(image) = self {
-            window.drop_image(image).ok();
+        match self {
+            Self::Image(image) => {
+                window.drop_image(image).ok();
+            }
+            #[cfg(target_os = "macos")]
+            Self::Surface(_) => {}
         }
     }
 }

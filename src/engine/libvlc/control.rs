@@ -1,12 +1,12 @@
 //! Carries out the player's commands with libVLC calls, on the worker thread.
 
 use std::ffi::c_int;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use super::decoding::{SLAVE_SUBTITLE, subtitle_uri};
+use super::decoding::{Slave, SlaveKind, file_uri};
 use super::worker::{Refresh, Worker};
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::tracks::{TrackId, TrackKind};
@@ -56,7 +56,8 @@ impl Worker {
                     self.subtitle_delay = delay;
                     self.apply_delays();
                 }
-                Command::AddSubtitle(path) => self.add_subtitle(&path),
+                Command::AddSubtitle(path) => self.add_slave(SlaveKind::Subtitle, path),
+                Command::AddAudio(path) => self.add_slave(SlaveKind::Audio, path),
                 Command::SetAudioDevice(device) => self.set_audio_device(&device),
                 Command::RefreshAudioDevices => self.poll_devices(),
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
@@ -132,27 +133,28 @@ impl Worker {
 }
 
 impl Worker {
-    /// Adds a subtitle file as a slave of the open media and selects it. libVLC takes a URI.
-    fn add_subtitle(&mut self, path: &Path) {
-        let Some(uri) = subtitle_uri(path) else {
-            tracing::warn!("libvlc: can't make a subtitle URI from {}", crate::logging::path(path));
+    /// Adds a subtitle or audio file as a slave of the open media and selects it. libVLC
+    /// takes a URI.
+    fn add_slave(&mut self, kind: SlaveKind, path: PathBuf) {
+        let Some(uri) = file_uri(&path) else {
+            tracing::warn!("libvlc: can't make a URI from {}", crate::logging::path(&path));
             return;
         };
-        self.defaults.commanded(TrackKind::Subtitle);
+        self.defaults.commanded(kind.track_kind());
         let api = &self.vlc.api;
         // SAFETY: the player is live and `uri` is NUL-terminated for the call.
         let added = unsafe {
             (api.libvlc_media_player_add_slave)(
                 self.handles.player,
-                SLAVE_SUBTITLE,
+                kind.libvlc_type(),
                 uri.as_ptr(),
                 true,
             )
         };
         if added == 0 {
-            self.slaves.push(path.to_path_buf());
+            self.slaves.push(Slave { kind, path });
         } else {
-            tracing::warn!("libvlc: couldn't add the subtitle: {}", self.vlc.last_error());
+            tracing::warn!("libvlc: couldn't add the {kind:?} file: {}", self.vlc.last_error());
         }
         self.refresh(Refresh::Tracks);
     }

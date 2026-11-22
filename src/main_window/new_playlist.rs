@@ -23,6 +23,7 @@ use gpui::{
 use self::files::Adding;
 use crate::app::media::Media;
 use crate::playlists::{self, Draft, thumbnail};
+use crate::settings;
 use crate::ui::modal::{Dialog, DialogButton, ModalLayer};
 use crate::ui::text_input::{self, TextInput};
 
@@ -141,9 +142,10 @@ impl NewPlaylistDialog {
         window.defer(cx, move |window, cx| on_save(draft, window, cx));
     }
 
-    /// Cancel, ✕ and Escape: closes, after asking when the user added files.
+    /// Cancel, ✕ and Escape: closes, after asking when the user added files and confirmations
+    /// are on (S5.3.3).
     fn cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.added_files {
+        if !self.added_files || !settings::get(cx).prefs.startup.show_dialogs {
             cx.emit(DismissEvent);
             return;
         }

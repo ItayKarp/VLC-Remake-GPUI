@@ -75,7 +75,6 @@ pub fn init(store: Box<dyn Store>, covers: Option<ArtworkCache>, cancel: Cancel,
 
 /// Tells the thumbnailer which media are on screen, in order: those it hasn't answered about
 /// come first, and work for media no longer on screen is dropped (S4.4.4).
-#[allow(dead_code, reason = "the library views (S4.6) are its first callers")]
 pub fn show(media: &[MediaId], cx: &mut App) {
     if !cx.has_global::<Thumbnails>() {
         return;
@@ -89,7 +88,6 @@ pub fn show(media: &[MediaId], cx: &mut App) {
 }
 
 /// What to draw for `media`.
-#[allow(dead_code, reason = "the library views (S4.6) are its first callers")]
 pub fn status(media: MediaId, cx: &App) -> Status<'_> {
     let known = cx.try_global::<Thumbnails>().and_then(|service| service.known.get(&media));
     match known {

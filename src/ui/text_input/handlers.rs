@@ -132,37 +132,37 @@ impl TextInput {
         self.moved(window, cx);
     }
 
-    /// Moves the caret to the start.
+    /// Moves the caret to the start of its line.
     pub(super) fn home(&mut self, _: &Home, window: &mut Window, cx: &mut Context<Self>) {
-        self.state.move_to(0);
+        self.state.move_to(self.state.line_start(self.state.cursor()));
         self.moved(window, cx);
     }
 
-    /// Moves the caret to the end.
+    /// Moves the caret to the end of its line.
     pub(super) fn end(&mut self, _: &End, window: &mut Window, cx: &mut Context<Self>) {
-        self.state.move_to(usize::MAX);
+        self.state.move_to(self.state.line_end(self.state.cursor()));
         self.moved(window, cx);
     }
 
-    /// Extends the selection to the start.
+    /// Extends the selection to the start of the caret's line.
     pub(super) fn select_to_home(
         &mut self,
         _: &SelectToHome,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.state.select_to(0);
+        self.state.select_to(self.state.line_start(self.state.cursor()));
         self.moved(window, cx);
     }
 
-    /// Extends the selection to the end.
+    /// Extends the selection to the end of the caret's line.
     pub(super) fn select_to_end(
         &mut self,
         _: &SelectToEnd,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.state.select_to(usize::MAX);
+        self.state.select_to(self.state.line_end(self.state.cursor()));
         self.moved(window, cx);
     }
 
@@ -224,16 +224,15 @@ impl TextInput {
     }
 
     /// The text offset under a window position, from the last painted layout.
-    fn index_for_position(&self, position: Point<Pixels>) -> usize {
-        let (Some(bounds), Some(line)) = (self.last_bounds.as_ref(), self.last_layout.as_ref())
+    pub(super) fn index_for_position(&self, position: Point<Pixels>) -> usize {
+        let (Some(bounds), Some(lines)) = (self.last_bounds.as_ref(), self.last_layout.as_ref())
         else {
             return 0;
         };
         if self.state.text().is_empty() {
             return 0;
         }
-        let x = position.x - bounds.left() + self.scroll_x;
-        line.closest_index_for_x(x)
+        lines.index_for(position - bounds.origin + self.scroll)
     }
 
     /// Places the caret, or selects a word (double-click) or everything (triple-click).

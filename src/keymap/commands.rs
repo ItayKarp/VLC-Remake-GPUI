@@ -101,6 +101,20 @@ pub const COMMANDS: &[Command] = &[
     cmd("Open Capture Device", AppArea, keys(&["secondary-shift-c"]), &act::OpenCaptureDevice),
     cmd("Convert", AppArea, keys(&["secondary-r"]), &act::Convert),
     cmd("Search", Library, keys(&["secondary-f"]), &act::Search),
+    // Alt+Left and Alt+Right seek in the player; the library's are deeper in the key context, so
+    // they win while it has focus.
+    cmd(
+        "Back",
+        Library,
+        Keys::PerOs { mac: &["cmd-[", "alt-left"], others: &["alt-left"] },
+        &act::GoBack,
+    ),
+    cmd(
+        "Forward",
+        Library,
+        Keys::PerOs { mac: &["cmd-]", "alt-right"], others: &["alt-right"] },
+        &act::GoForward,
+    ),
     cmd("Toggle fullscreen", Player, keys(&["f"]), &act::ToggleFullscreen),
     cmd("Exit fullscreen", Player, keys(&["escape"]), &act::ExitFullscreen),
     cmd("Show playback position and time", Player, keys(&["t"]), &act::ShowTime),
@@ -138,6 +152,9 @@ pub const COMMANDS: &[Command] = &[
     held("Decrease volume", keys(&["down"]), &act::VolumeDown),
     cmd("Cycle audio track", Player, keys(&["b"]), &act::CycleAudioTrack),
     cmd("Cycle subtitle track", Player, keys(&["v"]), &act::CycleSubtitleTrack),
+    // VLC's keys; a held key keeps moving the audio.
+    held("Audio delay earlier", keys(&["j"]), &act::AudioDelayEarlier),
+    held("Audio delay later", keys(&["k"]), &act::AudioDelayLater),
     cmd("Take a snapshot", Player, keys(&["shift-s"]), &act::Snapshot),
     cmd("Record", Player, keys(&["shift-r"]), &act::Record),
     // The context-menu key ("menu") exists on Windows and Linux keyboards.
@@ -147,7 +164,7 @@ pub const COMMANDS: &[Command] = &[
     cmd(
         "Settings",
         AppArea,
-        Keys::PerOs { mac: &["cmd-,"], others: &["ctrl-p"] },
+        Keys::PerOs { mac: &["cmd-,"], others: &["ctrl-p", "ctrl-,"] },
         &act::OpenSettings,
     ),
     cmd("About VLC", AppArea, keys(&["shift-f1"]), &act::About),

@@ -174,30 +174,35 @@ pub fn set(connection: &Connection, id: MediaId, metadata: &Metadata) -> rusqlit
     Ok(())
 }
 
+/// The `media` columns [`read_from`] reads, in its order.
+pub(super) const COLUMNS: &str = "media.kind, media.title, media.artist, media.album,
+    media.album_artist, media.track_number, media.disc_number, media.genre, media.year,
+    media.codecs, media.width, media.height";
+
 /// What is known about media `id`.
 pub fn get(connection: &Connection, id: MediaId) -> rusqlite::Result<Metadata> {
-    connection.query_row(
-        "SELECT kind, title, artist, album, album_artist, track_number, disc_number, genre, year,
-             codecs, width, height
-         FROM media WHERE id = ?1",
-        [id.0],
-        read,
-    )
+    connection.query_row(&format!("SELECT {COLUMNS} FROM media WHERE id = ?1"), [id.0], read)
 }
 
 fn read(row: &Row<'_>) -> rusqlite::Result<Metadata> {
-    let (width, height): (Option<u32>, Option<u32>) = (row.get(10)?, row.get(11)?);
+    read_from(row, 0)
+}
+
+/// The library columns that [`COLUMNS`] lists, from column `first` on.
+pub(super) fn read_from(row: &Row<'_>, first: usize) -> rusqlite::Result<Metadata> {
+    let at = |offset: usize| first + offset;
+    let (width, height): (Option<u32>, Option<u32>) = (row.get(at(10))?, row.get(at(11))?);
     Ok(Metadata {
-        kind: row.get(0)?,
-        title: row.get(1)?,
-        artist: row.get(2)?,
-        album: row.get(3)?,
-        album_artist: row.get(4)?,
-        track_number: row.get(5)?,
-        disc_number: row.get(6)?,
-        genre: row.get(7)?,
-        year: row.get(8)?,
-        codecs: row.get(9)?,
+        kind: row.get(at(0))?,
+        title: row.get(at(1))?,
+        artist: row.get(at(2))?,
+        album: row.get(at(3))?,
+        album_artist: row.get(at(4))?,
+        track_number: row.get(at(5))?,
+        disc_number: row.get(at(6))?,
+        genre: row.get(at(7))?,
+        year: row.get(at(8))?,
+        codecs: row.get(at(9))?,
         resolution: width.zip(height).map(|(width, height)| Resolution { width, height }),
     })
 }

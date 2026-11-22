@@ -3,8 +3,8 @@
 //! item to a playlist and lists the saved ones ([`menu`]) to play, queue, rename, duplicate or
 //! delete, and export to a file ([`export`]). Import Playlist… saves playlist files ([`import`]).
 //!
-//! The library's Playlists section (S3.5.2), the playlist view (S3.5.3) and the playlist context
-//! menu (S4.8.3) come with Stage 4; until then these menus are the way to the saved playlists.
+//! The library's Playlists section lists them too, each with the playlist menu (S4.8.3); Rename,
+//! Duplicate and Delete are only here until the playlist view (S3.5.3) offers them.
 
 mod export;
 mod import;
@@ -19,6 +19,7 @@ use crate::app::request::{OpenRequest, Placement};
 use crate::db::playlists::{PlaylistId, Summary};
 use crate::keymap::actions::{ImportPlaylist, NewPlaylist, SaveQueueAsPlaylist};
 use crate::playlists::{self, Deleted};
+use crate::settings;
 use crate::ui::modal::{Dialog, DialogButton};
 use crate::ui::text_input::TextInput;
 use crate::ui::toast::{Level, Toast};
@@ -74,15 +75,20 @@ impl MainWindow {
     }
 
     /// Adds `media` at the end of playlist `summary`.
-    fn add_to_playlist(
+    pub(super) fn add_to_playlist(
         summary: &Summary,
-        media: Media,
+        media: &[Media],
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let added = playlists::add(summary.id, &[media], cx);
+        let added = playlists::add(summary.id, media, cx);
         let title = summary.title.clone();
-        Self::report_playlists(added, move |()| format!("Added to “{title}”."), window, cx);
+        let what = match media.len() {
+            1 => String::new(),
+            count => format!("{count} items "),
+        };
+        let done = move |()| format!("Added {what}to “{title}”.");
+        Self::report_playlists(added, done, window, cx);
     }
 
     /// Asks for playlist `summary`'s new title, and renames it.
@@ -116,13 +122,18 @@ impl MainWindow {
         Self::report_playlists(copied, |title| format!("Made a copy named “{title}”."), window, cx);
     }
 
-    /// Asks before deleting playlist `summary`.
+    /// Asks before deleting playlist `summary`, or deletes it at once when confirmations are off
+    /// (S5.3.3); the toast offers Undo either way.
     fn confirm_delete_playlist(
         &mut self,
         summary: &Summary,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !settings::get(cx).prefs.startup.show_dialogs {
+            Self::delete_playlist(summary.id, cx);
+            return;
+        }
         let main = cx.entity().downgrade();
         let id = summary.id;
         let delete = DialogButton::new("Delete").primary().on_click(move |_, cx| {
@@ -148,7 +159,7 @@ impl MainWindow {
     }
 
     /// Once `task` is done, says what it did with `done`, or that it failed.
-    fn report_playlists<T: 'static>(
+    pub(super) fn report_playlists<T: 'static>(
         task: Task<Option<T>>,
         done: impl FnOnce(T) -> String + 'static,
         window: &mut Window,

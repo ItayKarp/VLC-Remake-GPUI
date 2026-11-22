@@ -201,7 +201,8 @@ pub fn clear(connection: &mut Connection) -> rusqlite::Result<()> {
     transaction.commit()
 }
 
-fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
+/// Reads a [`Saved`] from a row's first four columns: duration, position, watched, play count.
+pub(super) fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
     let duration: Option<i64> = row.get(0)?;
     let position: Option<i64> = row.get(1)?;
     Ok(Saved {
@@ -210,6 +211,12 @@ fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
         watched: row.get(2)?,
         play_count: row.get(3)?,
     })
+}
+
+/// A `media` time column as a time: 0 is what rows from before the column existed hold, and
+/// says nothing.
+pub(super) fn known_time(millis: Option<i64>) -> Option<i64> {
+    millis.filter(|&millis| millis > 0)
 }
 
 fn stamp_columns(stamp: Option<FileStamp>) -> (Option<i64>, Option<i64>) {

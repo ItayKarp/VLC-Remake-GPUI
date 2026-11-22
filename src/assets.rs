@@ -77,6 +77,7 @@ icons! {
     // The track popover (S2.6).
     VIDEO => "video.svg",
     REFRESH => "refresh.svg",
+    REPLAY => "replay.svg",
     EDIT => "edit.svg",
     ADD => "add.svg",
     ARROW_LEFT => "arrow-left.svg",
@@ -85,8 +86,7 @@ icons! {
     ARROW_DOWN => "arrow-down.svg",
     THEME_SYSTEM => "theme-system.svg",
     MORE => "more.svg",
-    /// The sidebar toggle arrives with the library (Stage 4).
-    #[allow(dead_code, reason = "the sidebar toggle arrives with the library (Stage 4)")]
+    /// The title bar's library sidebar toggle.
     SIDEBAR => "sidebar.svg",
     FOLDER => "folder.svg",
     FILE => "file.svg",
@@ -138,6 +138,43 @@ icons! {
     /// A song without a cover (S4.4.3; not in the icon set): two beamed notes, as the designs'
     /// placeholder tile draws them.
     MUSIC_NOTE => "music-note.svg",
+    // The library's rail and header (S4.5). Each section has an outline icon and a filled one;
+    // the filled one is orange at the section's root and grey deeper in it.
+    HOME => "home.svg",
+    HOME_FILLED => "home-filled.svg",
+    VIDEOS => "videos.svg",
+    VIDEOS_FILLED => "videos-filled.svg",
+    SONGS => "songs.svg",
+    SONGS_FILLED => "songs-filled.svg",
+    STREAMING_FILLED => "streaming-filled.svg",
+    /// Playlists' filled rail icon: the playlist glyph with heavier strokes (the set's "active").
+    PLAYLIST_FILLED => "playlist-filled.svg",
+    POP_OUT => "pop-out.svg",
+    /// The View button and menu (`view_options`): a grid of tiles, and a list of rows.
+    GRID_VIEW => "grid-view.svg",
+    LIST_VIEW => "list-view.svg",
+    // Music's categories (`sidebar-music`).
+    MUSIC => "music.svg",
+    ALBUM => "album.svg",
+    ARTIST => "artist.svg",
+    GENRE => "genre.svg",
+    // The library's file, folder and playlist menus (S4.8).
+    FAVORITE => "favorite.svg",
+    /// Mark as Watched: [`two_tone::CHECK_BOX`]'s two layers in one file, as menus draw one color.
+    CHECK_BOX_FULL => "check-box-full.svg",
+    NEW_FOLDER => "new-folder.svg",
+    SAVE => "save.svg",
+    // The Settings window's sidebar (S5.2.2); the other categories reuse icons above.
+    /// General and Performance: three sliders (`preferences` in the icon set).
+    PREFERENCES => "preferences.svg",
+    /// Interface: a pointer.
+    INTERFACE => "interface.svg",
+    /// Privacy: a shield.
+    PRIVACY => "privacy.svg",
+    /// Recording: a record button.
+    RECORD => "record.svg",
+    /// Extensions: a puzzle piece (`plugins` in the icon set).
+    PLUGINS => "plugins.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

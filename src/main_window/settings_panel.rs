@@ -7,7 +7,7 @@
 //! stories (S6.6, S8.13, S7.8) and are hidden until then, as are the Video, Audio and Subtitles
 //! tabs' settings (Stages 6 and 7). Those three tabs have a footer that stays put while they
 //! scroll: **Default Preset**, disabled until presets exist (S5.11), and **Open Advanced
-//! Settings**, disabled until the Settings window exists (S5.2).
+//! Settings**, which opens the Settings window on the tab's page (S5.2.1).
 //!
 //! It closes like the track popover: an outside click, Escape, the gear again, opening another
 //! popover or menu, the window losing focus, its media going, and fullscreen. The track popover's
@@ -27,6 +27,7 @@ use super::bar_panel;
 use super::track_popover::tab_icon;
 use crate::assets::icons;
 use crate::engine::tracks::TrackKind;
+use crate::settings::registry::Category;
 use crate::theme::Palette;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::focus;
@@ -60,6 +61,16 @@ impl PanelTab {
             TrackKind::Video => Self::Video,
             TrackKind::Audio => Self::Audio,
             TrackKind::Subtitle => Self::Subtitles,
+        }
+    }
+
+    /// The Settings window's page with the tab's defaults.
+    fn category(self) -> Category {
+        match self {
+            Self::Playback => Category::Playback,
+            Self::Video => Category::Video,
+            Self::Audio => Category::Audio,
+            Self::Subtitles => Category::Subtitles,
         }
     }
 
@@ -187,7 +198,7 @@ impl MainWindow {
             .min_h_0()
             .overflow_y_scroll()
             .child(body);
-        let footer = (tab != PanelTab::Playback).then(|| footer(bar_panel::width(window), p));
+        let footer = (tab != PanelTab::Playback).then(|| footer(tab, bar_panel::width(window), p));
         Some(
             bar_panel::surface("settings-panel", DESIGN_HEIGHT, window, p)
                 .track_focus(&self.settings_panel.focus)
@@ -244,16 +255,16 @@ impl MainWindow {
     }
 }
 
-/// The footer of the Video, Audio and Subtitles tabs. Both controls wait for what they open:
-/// presets (S5.11) and the Settings window (S5.2).
-fn footer(width: f32, p: &Palette) -> Div {
+/// The footer of the Video, Audio and Subtitles tabs. Default Preset waits for presets (S5.11);
+/// Open Advanced Settings opens `tab`'s page in the Settings window.
+fn footer(tab: PanelTab, width: f32, p: &Palette) -> Div {
     let inner = width - 2. * FOOTER_PADDING;
     let preset = Button::new("default-preset", "Default Preset").width(inner).disabled(true);
     let advanced = Button::new("open-advanced-settings", "Open Advanced Settings")
         .icon(icons::SETTINGS)
         .style(ButtonStyle::Ghost)
         .width(inner)
-        .disabled(true);
+        .on_click(move |_, _, cx| crate::app::open_settings(Some(tab.category()), cx));
     div()
         .flex_none()
         .flex()

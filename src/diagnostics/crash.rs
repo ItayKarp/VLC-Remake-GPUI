@@ -10,6 +10,7 @@ use std::fs;
 use std::io;
 use std::panic::{self, PanicHookInfo};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::system;
@@ -25,6 +26,15 @@ const REPORT_EXTENSION: &str = "txt";
 const REPORTS_KEPT: usize = 10;
 /// The exit code after a crash, the same as an unhandled Rust panic's.
 const CRASH_EXIT_CODE: i32 = 101;
+
+/// "Developer mode" (S5.3.4), mirrored here so the panic hook never needs the settings.
+static DEVELOPER_MODE: AtomicBool = AtomicBool::new(false);
+
+/// Records whether developer mode is on. Reports written meanwhile say so, so crash statistics
+/// can leave out crashes in unstable features.
+pub fn set_developer_mode(on: bool) {
+    DEVELOPER_MODE.store(on, Ordering::Relaxed);
+}
 
 /// Installs the panic hook. With no `logs` folder, panics are still logged and
 /// printed, but no report is written.
@@ -69,11 +79,13 @@ fn report(info: &PanicHookInfo<'_>, backtrace: &Backtrace) -> String {
     let text = format!(
         "VLC crash report\n\
          Version: {}\nOS: {}\nGPU: {}\nlibVLC: {}\n\
-         Thread: {}\nLocation: {location}\nMessage: {}\n\nBacktrace:\n{backtrace}\n",
+         Developer mode: {}\nThread: {}\nLocation: {location}\nMessage: {}\n\n\
+         Backtrace:\n{backtrace}\n",
         system::VERSION,
         system::os(),
         system::gpu(),
         system::loaded_libvlc_version(),
+        if DEVELOPER_MODE.load(Ordering::Relaxed) { "on" } else { "off" },
         thread.name().unwrap_or("unnamed"),
         message(info),
     );

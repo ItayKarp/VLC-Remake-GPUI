@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use rusqlite::{Connection, Row, params};
 
 use super::folders::{self, FolderId};
-use super::media::{FileStamp, MediaId};
+use super::media::{self, FileStamp, MediaId, Saved};
+use super::metadata::{self, Metadata};
 use crate::library::path_key::{Case, PathKey};
 use crate::settings::stored_path;
 
@@ -55,6 +56,22 @@ pub struct Unidentified {
     pub stamp: FileStamp,
 }
 
+/// A file in a folder as the library views list it (S4.6): its name, and what the library knows
+/// of its media.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Listed {
+    /// The file's name in its folder.
+    pub name: PathBuf,
+    /// The media its content is; `None` until identified.
+    pub media: Option<MediaId>,
+    /// What the history remembers of it.
+    pub saved: Saved,
+    /// Its kind (video or audio, once probed) and tags, once read (S4.3).
+    pub metadata: Metadata,
+    /// When its media joined the library, in milliseconds since the epoch, if known.
+    pub added_ms: Option<i64>,
+}
+
 /// Writes what a scan saw of a file in `folder`, adding it or updating the one there.
 pub fn put(
     connection: &Connection,
@@ -86,6 +103,31 @@ pub fn put(
 /// The files in `folder`, in name order.
 pub fn in_folder(connection: &Connection, folder: FolderId) -> rusqlite::Result<Vec<File>> {
     select(connection, "files.folder_id = ?1 ORDER BY files.key", folder.0)
+}
+
+/// The files in `folder`, with their media's kind and history, for the views.
+pub fn listed(connection: &Connection, folder: FolderId) -> rusqlite::Result<Vec<Listed>> {
+    let mut statement = connection.prepare(&format!(
+        "SELECT media.duration_ms, media.position_ms, COALESCE(media.watched, 0),
+             COALESCE(media.play_count, 0), files.name, files.media_id, media.added_ms, {columns}
+         FROM files LEFT JOIN media ON media.id = files.media_id
+         WHERE files.folder_id = ?1",
+        // A file not identified yet has no media row, so no kind either.
+        columns = metadata::COLUMNS.replacen("media.kind", "COALESCE(media.kind, 'unknown')", 1)
+    ))?;
+    let rows = statement.query_map([folder.0], read_listed)?;
+    let rows: Vec<Option<Listed>> = rows.collect::<Result<_, _>>()?;
+    Ok(rows.into_iter().flatten().collect())
+}
+
+/// A row of [`listed`], or `None` when its name was stored by another OS family.
+fn read_listed(row: &Row<'_>) -> rusqlite::Result<Option<Listed>> {
+    let saved = media::read_saved(row)?;
+    let name: String = row.get(4)?;
+    let media = row.get::<_, Option<i64>>(5)?.map(MediaId);
+    let added_ms = media::known_time(row.get(6)?);
+    let metadata = metadata::read_from(row, 7)?;
+    Ok(stored_path::decode(&name).map(|name| Listed { name, media, saved, metadata, added_ms }))
 }
 
 /// Every file whose content is `media`: each place the library shows it.

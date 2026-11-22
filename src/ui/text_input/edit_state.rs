@@ -1,4 +1,5 @@
-//! The editing rules of a single-line input, with no GPUI types so they're unit tested.
+//! The editing rules of a text input, single-line or multi-line, with no GPUI types so they're
+//! unit tested.
 
 use std::ops::Range;
 use std::time::Instant;
@@ -9,7 +10,7 @@ use super::boundaries::{
 use super::history::{EditKind, History, Snapshot};
 use super::utf16;
 
-/// Text, selection and undo history of a single-line input.
+/// Text, selection and undo history of a text input.
 #[derive(Clone, Debug, Default)]
 pub struct EditState {
     text: String,
@@ -21,6 +22,8 @@ pub struct EditState {
     marked: Option<Range<usize>>,
     history: History,
     max_len: Option<usize>,
+    /// Line breaks are kept (as `\n`) instead of becoming spaces.
+    multi_line: bool,
 }
 
 impl EditState {
@@ -51,6 +54,16 @@ impl EditState {
         self.marked.as_ref()
     }
 
+    /// Keeps line breaks from now on: the input holds several lines.
+    pub fn set_multi_line(&mut self) {
+        self.multi_line = true;
+    }
+
+    /// Whether line breaks are kept.
+    pub fn is_multi_line(&self) -> bool {
+        self.multi_line
+    }
+
     /// Limits the text to `max` characters; insertions past it are truncated.
     pub fn set_max_len(&mut self, max: usize) {
         self.max_len = Some(max);
@@ -68,7 +81,7 @@ impl EditState {
 
     /// Replaces the whole text (from outside, not the user); clears history.
     pub fn set_text(&mut self, text: &str) {
-        self.text = single_line(text);
+        self.text = self.normalize(text);
         self.selection = self.text.len()..self.text.len();
         self.reversed = false;
         self.marked = None;
@@ -166,11 +179,12 @@ impl EditState {
     }
 
     /// Replaces `range` (or the selection) with `new_text`, as typing or pasting
-    /// does. Newlines become spaces; the max length truncates what's inserted.
+    /// does. In a single-line input newlines become spaces; the max length truncates what's
+    /// inserted.
     pub fn replace(&mut self, range: Option<Range<usize>>, new_text: &str, now: Instant) -> bool {
         let range = range.or_else(|| self.marked.clone()).unwrap_or_else(|| self.selection.clone());
         let range = clamp_boundary(&self.text, range.start)..clamp_boundary(&self.text, range.end);
-        let new_text = self.fit_to_room(single_line(new_text), &range);
+        let new_text = self.fit_to_room(self.normalize(new_text), &range);
         if range.is_empty() && new_text.is_empty() {
             return false;
         }
@@ -186,6 +200,29 @@ impl EditState {
         self.reversed = false;
         self.marked = None;
         true
+    }
+
+    /// `text` with its line breaks as this input keeps them: `\n` in a multi-line input,
+    /// spaces in a single-line one.
+    fn normalize(&self, text: &str) -> String {
+        if self.multi_line {
+            text.replace("\r\n", "\n").replace('\r', "\n")
+        } else {
+            single_line(text)
+        }
+    }
+
+    /// Where the line holding `offset` starts: 0 in a single-line input.
+    pub fn line_start(&self, offset: usize) -> usize {
+        let offset = offset.min(self.text.len());
+        self.text[..offset].rfind('\n').map_or(0, |at| at + 1)
+    }
+
+    /// Where the line holding `offset` ends, before its line break: the text's end in a
+    /// single-line input.
+    pub fn line_end(&self, offset: usize) -> usize {
+        let offset = offset.min(self.text.len());
+        self.text[offset..].find('\n').map_or(self.text.len(), |at| offset + at)
     }
 
     /// Truncates `new_text` so replacing `range` with it keeps within the max length.
@@ -488,5 +525,18 @@ mod tests {
         s.backspace(false, at(0));
         assert!(s.text().chars().count() < before);
         assert!(s.text().is_char_boundary(s.text().len()));
+    }
+
+    #[test]
+    fn a_multi_line_input_keeps_line_breaks() {
+        let mut s = EditState::new("");
+        s.set_multi_line();
+        s.replace(None, "one\r\ntwo\rthree", at(0));
+        assert_eq!(s.text(), "one\ntwo\nthree");
+        assert_eq!((s.line_start(5), s.line_end(5)), (4, 7));
+        assert_eq!((s.line_start(0), s.line_end(0)), (0, 3));
+        assert_eq!(s.line_end(99), s.text().len());
+        let single = EditState::new("one\ntwo");
+        assert_eq!((single.line_start(5), single.line_end(0)), (0, 7));
     }
 }

@@ -29,12 +29,16 @@ pub enum MenuItem {
     Check {
         /// The text shown.
         label: SharedString,
+        /// An icon path from `assets::icons`.
+        icon: Option<&'static str>,
         /// Shows the ✓.
         checked: bool,
         /// Greyed out and skipped by the keyboard.
         disabled: bool,
         /// Why it is disabled, shown on hover.
         reason: Option<SharedString>,
+        /// What it means, shown on hover while it is enabled.
+        hint: Option<SharedString>,
         /// Runs after the menu closes.
         on_select: Activate,
     },
@@ -77,9 +81,11 @@ impl MenuItem {
     ) -> Self {
         MenuItem::Check {
             label: label.into(),
+            icon: None,
             checked,
             disabled: false,
             reason: None,
+            hint: None,
             on_select: Rc::new(on_select),
         }
     }
@@ -92,9 +98,11 @@ impl MenuItem {
     ) -> Self {
         MenuItem::Check {
             label: label.into(),
+            icon: None,
             checked: selected,
             disabled: false,
             reason: None,
+            hint: None,
             on_select: Rc::new(on_select),
         }
     }
@@ -104,11 +112,13 @@ impl MenuItem {
         MenuItem::Submenu { label: label.into(), icon: None, items, reason: None }
     }
 
-    /// Adds an icon to an action or submenu; other items ignore it.
+    /// Adds an icon to an action, a check item or a submenu; a separator ignores it.
     pub fn icon(mut self, path: &'static str) -> Self {
         match &mut self {
-            MenuItem::Action { icon, .. } | MenuItem::Submenu { icon, .. } => *icon = Some(path),
-            _ => {}
+            MenuItem::Action { icon, .. }
+            | MenuItem::Check { icon, .. }
+            | MenuItem::Submenu { icon, .. } => *icon = Some(path),
+            MenuItem::Separator => {}
         }
         self
     }
@@ -143,8 +153,25 @@ impl MenuItem {
         self
     }
 
-    /// What hovering the item says: why it is disabled, while it is.
-    pub(super) fn disabled_reason(&self) -> Option<&SharedString> {
+    /// Explains what a check item means, on hover ("By the date added to the library"); other
+    /// items ignore it.
+    pub fn hint(mut self, text: impl Into<SharedString>) -> Self {
+        if let MenuItem::Check { hint, .. } = &mut self {
+            *hint = Some(text.into());
+        }
+        self
+    }
+
+    /// What hovering the item says: why it is disabled while it is, else its hint.
+    pub(super) fn hover_text(&self) -> Option<&SharedString> {
+        match self {
+            MenuItem::Check { hint: Some(hint), .. } if self.selectable() => Some(hint),
+            _ => self.disabled_reason(),
+        }
+    }
+
+    /// Why the item is disabled, while it is.
+    fn disabled_reason(&self) -> Option<&SharedString> {
         match self {
             MenuItem::Action { reason, .. }
             | MenuItem::Check { reason, .. }
@@ -209,6 +236,14 @@ mod tests {
         assert_eq!(reason(&disabled), Some("No media playing"));
         let check = MenuItem::check("Mute", false, |_, _| {}).disabled(true).why_disabled("No");
         assert_eq!(reason(&check), Some("No"));
+    }
+
+    #[test]
+    fn a_hint_shows_while_enabled() {
+        let check = MenuItem::radio("Newest First", false, |_, _| {}).hint("By date added");
+        assert_eq!(check.hover_text().map(AsRef::as_ref), Some("By date added"));
+        let disabled = check.disabled(true).why_disabled("No");
+        assert_eq!(disabled.hover_text().map(AsRef::as_ref), Some("No"));
     }
 
     #[test]

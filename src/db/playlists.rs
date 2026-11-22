@@ -19,7 +19,13 @@ pub struct Summary {
     pub title: String,
     /// How many items it has.
     pub len: usize,
+    /// Every item is a URL, and there is one at least: Network lists it (S4.11.2).
+    pub streams_only: bool,
 }
+
+/// What a location that is a URL looks like: `scheme://…`, the scheme starting with a letter
+/// and two characters long at least. A stored path never does (`Media::to_stored`).
+const URL_GLOB: &str = "[A-Za-z]?*://*";
 
 /// A whole playlist: what creating, duplicating and undoing a delete write.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -35,12 +41,20 @@ pub struct Stored {
 /// Every playlist, by title (ignoring case), then oldest first.
 pub fn list(connection: &Connection) -> rusqlite::Result<Vec<Summary>> {
     let mut statement = connection.prepare(
-        "SELECT id, title, (SELECT COUNT(*) FROM playlist_items WHERE playlist_id = id)
+        "SELECT id, title,
+             (SELECT COUNT(*) FROM playlist_items WHERE playlist_id = id),
+             (SELECT COUNT(*) FROM playlist_items WHERE playlist_id = id AND location GLOB ?1)
          FROM playlists ORDER BY title COLLATE NOCASE, id",
     )?;
-    let rows = statement.query_map([], |row| {
+    let rows = statement.query_map([URL_GLOB], |row| {
         let len: i64 = row.get(2)?;
-        Ok(Summary { id: PlaylistId(row.get(0)?), title: row.get(1)?, len: len as usize })
+        let urls: i64 = row.get(3)?;
+        Ok(Summary {
+            id: PlaylistId(row.get(0)?),
+            title: row.get(1)?,
+            len: len as usize,
+            streams_only: len > 0 && urls == len,
+        })
     })?;
     rows.collect()
 }
@@ -158,7 +172,10 @@ mod tests {
         let loaded = load(c, id).expect("load").expect("it exists");
         assert_eq!(loaded.locations, ["/b", "/a", "/c"]);
         assert_eq!(loaded.thumbnail.as_deref(), Some("/t.png"));
-        assert_eq!(list(c).expect("list"), [Summary { id, title: "Mix".into(), len: 3 }]);
+        assert_eq!(
+            list(c).expect("list"),
+            [Summary { id, title: "Mix".into(), len: 3, streams_only: false }]
+        );
     }
 
     #[test]

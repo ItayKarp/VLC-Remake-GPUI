@@ -9,6 +9,9 @@
 //! over. Fullscreen drops the title bar; with "Show controls in fullscreen" off the control bar
 //! only shows there when the I key asks for it, and Escape leaves fullscreen.
 //!
+//! The library sidebar over the video hides with the controls, and the pointer over it, or one
+//! of its menus, holds them (S4.10.1). Full library mode has no control bar and hides nothing.
+//!
 //! The rules are in `rules.rs`; this module feeds them the window's state.
 
 pub(super) mod rules;
@@ -34,7 +37,7 @@ use crate::ui::popover::BoundsTracker;
 pub struct AutoHide {
     timer: IdleTimer,
     /// The pointer's position while it is over the window.
-    pointer: Option<Point<Pixels>>,
+    pub(super) pointer: Option<Point<Pixels>>,
     anchor: PointerAnchor,
     /// Hide UI mode (S2.8.2): only the video shows.
     pub(super) hide_ui: bool,
@@ -55,6 +58,7 @@ struct Seen {
     /// The window was fullscreen.
     fullscreen: bool,
     /// What the native title bar (the macOS traffic lights) was last set to.
+    #[cfg(target_os = "macos")]
     native_title_bar: Option<bool>,
 }
 
@@ -69,6 +73,7 @@ impl MainWindow {
             idle: self.auto_hide.timer.is_idle(),
             held: self.controls_held(window, cx),
             summoned: self.auto_hide.summoned,
+            full_library: self.library_panel.is_full(),
             prefs: Prefs {
                 auto_hide: interface.auto_hide_controls,
                 show_in_fullscreen: interface.show_controls_in_fullscreen,
@@ -100,6 +105,7 @@ impl MainWindow {
             self.auto_hide.timer.cancel();
         }
         let chrome = self.chrome(window, cx);
+        #[cfg(target_os = "macos")]
         self.sync_native_title_bar(chrome.title_bar || window.is_fullscreen(), window);
         if !chrome.controls {
             self.control_bar.close_overflow();
@@ -112,6 +118,7 @@ impl MainWindow {
     }
 
     /// Shows or hides the native title bar (macOS's traffic lights) with ours.
+    #[cfg(target_os = "macos")]
     fn sync_native_title_bar(&mut self, shown: bool, window: &Window) {
         if self.auto_hide.seen.native_title_bar != Some(shown) {
             self.auto_hide.seen.native_title_bar = Some(shown);
@@ -223,6 +230,7 @@ impl MainWindow {
     fn controls_held(&self, window: &Window, cx: &App) -> bool {
         self.playback_holds(cx)
             || self.pointer_over_bars(window)
+            || self.pointer_over_library(window)
             || self.has_open_overlay()
             || self.seek_bar.is_scrubbing()
             || self.volume_slider.is_dragging()
@@ -255,6 +263,7 @@ impl MainWindow {
             || self.settings_panel.is_open()
             || self.queue_panel.is_open()
             || self.control_bar.is_editing_time()
+            || self.library_panel.has_open_menu()
     }
 
     /// Keyboard focus is on one of the window's controls (Tab reached it), not the player.

@@ -1,15 +1,14 @@
 //! The element that paints the text, selection, caret and IME underline, and registers the
 //! platform input handler.
 
-use std::ops::Range;
-
 use gpui::{
     App, Bounds, ContentMask, ElementId, ElementInputHandler, Entity, GlobalElementId,
-    InspectorElementId, LayoutId, PaintQuad, Pixels, ShapedLine, SharedString, Style, TextAlign,
-    TextRun, UnderlineStyle, Window, fill, point, prelude::*, px, relative, size,
+    InspectorElementId, LayoutId, PaintQuad, Pixels, Point, SharedString, Style, TextRun, Window,
+    fill, point, prelude::*, px, relative, size,
 };
 
-use super::TextInput;
+use super::layout::{Lines, Shaping};
+use super::{Scrolling, TextInput};
 use crate::theme::{self, Palette};
 
 /// Room kept between the caret and the right edge, so the caret isn't clipped.
@@ -18,16 +17,13 @@ const CARET_MARGIN: Pixels = px(2.);
 /// How wide the caret is drawn.
 const CARET_WIDTH: Pixels = px(1.5);
 
-/// Thickness of the underline under an IME composition.
-const COMPOSITION_UNDERLINE: Pixels = px(1.);
-
 /// The placeholder is drawn fainter than muted text, so it never reads as a value.
 const PLACEHOLDER_OPACITY: f32 = 0.7;
 
 /// A selection in an unfocused input stays visible, but only just.
 const UNFOCUSED_SELECTION_OPACITY: f32 = 0.15;
 
-/// Paints a [`TextInput`]'s line of text.
+/// Paints a [`TextInput`]'s text.
 pub(super) struct TextElement {
     /// The input whose state is painted.
     pub(super) input: Entity<TextInput>,
@@ -35,10 +31,10 @@ pub(super) struct TextElement {
 
 /// What [`TextElement::prepaint`] works out for [`TextElement::paint`].
 pub(super) struct PrepaintState {
-    line: Option<ShapedLine>,
+    lines: Option<Lines>,
     cursor: Option<PaintQuad>,
-    selection: Option<PaintQuad>,
-    scroll_x: Pixels,
+    selection: Vec<PaintQuad>,
+    scroll: Point<Pixels>,
 }
 
 impl Element for TextElement {
@@ -62,7 +58,11 @@ impl Element for TextElement {
     ) -> (LayoutId, ()) {
         let mut style = Style::default();
         style.size.width = relative(1.).into();
-        style.size.height = window.line_height().into();
+        style.size.height = if self.input.read(cx).state.is_multi_line() {
+            relative(1.).into()
+        } else {
+            window.line_height().into()
+        };
         (window.request_layout(style, [], cx), ())
     }
 
@@ -79,31 +79,31 @@ impl Element for TextElement {
         let input = self.input.read(cx);
         let state = &input.state;
         let focused = input.focus_handle.is_focused(window);
-        let line = shape_text(input, &palette, window);
-        let caret_x =
-            if state.text().is_empty() { px(0.) } else { line.x_for_index(state.cursor()) };
-        let scroll_x = scroll_to_caret(input.scroll_x, caret_x, bounds.size.width, line.width);
+        let lines = shape_text(input, &palette, window);
+        let caret =
+            if state.text().is_empty() { Point::default() } else { lines.position(state.cursor()) };
+        let scroll = scroll_into_view(input, &lines, caret, bounds);
+        let origin = bounds.origin - scroll;
 
         let selection = state.selection();
         let (selection, cursor) = if selection.is_empty() || state.text().is_empty() {
-            let caret = Bounds::new(
-                point(bounds.left() + caret_x - scroll_x, bounds.top()),
-                size(CARET_WIDTH, bounds.size.height),
-            );
-            (None, focused.then(|| fill(caret, palette.accent_fg)))
+            let caret = Bounds::new(origin + caret, size(CARET_WIDTH, lines.line_height()));
+            (Vec::new(), focused.then(|| fill(caret, palette.accent_fg)))
         } else {
-            let span = Span {
-                left: line.x_for_index(selection.start) - scroll_x,
-                right: line.x_for_index(selection.end) - scroll_x,
-            };
             let color = if focused {
                 palette.selection
             } else {
                 palette.selection.opacity(UNFOCUSED_SELECTION_OPACITY)
             };
-            (Some(fill(span.bounds(bounds), color)), None)
+            let spans = lines.spans(&selection).into_iter();
+            (
+                spans
+                    .map(|span| fill(Bounds::new(span.origin + origin, span.size), color))
+                    .collect(),
+                None,
+            )
         };
-        PrepaintState { line: Some(line), cursor, selection, scroll_x }
+        PrepaintState { lines: Some(lines), cursor, selection, scroll }
     }
 
     fn paint(
@@ -125,29 +125,14 @@ impl Element for TextElement {
         window.with_content_mask(Some(ContentMask { bounds }), |window| {
             paint_contents(prepaint, bounds, window, cx);
         });
-        let line = prepaint.line.take();
-        let scroll_x = prepaint.scroll_x;
+        let lines = prepaint.lines.take();
+        let scroll = prepaint.scroll;
         self.input.update(cx, |input, _| {
-            input.last_layout = line;
+            input.last_layout = lines;
             input.last_bounds = Some(bounds);
-            input.scroll_x = scroll_x;
+            input.scroll = scroll;
+            input.scrolling = Scrolling::Free;
         });
-    }
-}
-
-/// A horizontal stretch of the line, relative to the element's left edge.
-struct Span {
-    left: Pixels,
-    right: Pixels,
-}
-
-impl Span {
-    /// The span's rectangle, the full height of `bounds`.
-    fn bounds(&self, bounds: Bounds<Pixels>) -> Bounds<Pixels> {
-        Bounds::from_corners(
-            point(bounds.left() + self.left, bounds.top()),
-            point(bounds.left() + self.right, bounds.bottom()),
-        )
     }
 }
 
@@ -158,13 +143,11 @@ fn paint_contents(
     window: &mut Window,
     cx: &mut App,
 ) {
-    if let Some(selection) = prepaint.selection.take() {
-        window.paint_quad(selection);
+    for span in prepaint.selection.drain(..) {
+        window.paint_quad(span);
     }
-    if let Some(line) = prepaint.line.as_ref() {
-        let origin = point(bounds.left() - prepaint.scroll_x, bounds.top());
-        // A failed paint only loses this frame's text; the next frame tries again.
-        line.paint(origin, window.line_height(), TextAlign::Left, None, window, cx).ok();
+    if let Some(lines) = prepaint.lines.as_ref() {
+        lines.paint(bounds.origin - prepaint.scroll, window, cx);
     }
     if let Some(cursor) = prepaint.cursor.take() {
         window.paint_quad(cursor);
@@ -172,7 +155,7 @@ fn paint_contents(
 }
 
 /// Shapes the input's text, or its placeholder when empty, with any IME composition underlined.
-fn shape_text(input: &TextInput, palette: &Palette, window: &Window) -> ShapedLine {
+fn shape_text(input: &TextInput, palette: &Palette, window: &Window) -> Lines {
     let style = window.text_style();
     let value = input.state.text();
     let (text, color) = if value.is_empty() {
@@ -189,36 +172,42 @@ fn shape_text(input: &TextInput, palette: &Palette, window: &Window) -> ShapedLi
         strikethrough: None,
     };
     let marked = input.state.marked().filter(|_| !value.is_empty());
-    let runs = match marked {
-        Some(marked) => composition_runs(&run, marked),
-        None => vec![run],
-    };
-    let font_size = style.font_size.to_pixels(window.rem_size());
-    window.text_system().shape_line(text, font_size, &runs, None)
+    Lines::shape(&Shaping { text, run, marked }, window)
 }
 
-/// Splits `run` in three so the `marked` composition in the middle is underlined.
-fn composition_runs(run: &TextRun, marked: &Range<usize>) -> Vec<TextRun> {
-    let underline =
-        UnderlineStyle { color: Some(run.color), thickness: COMPOSITION_UNDERLINE, wavy: false };
-    [
-        TextRun { len: marked.start, ..run.clone() },
-        TextRun { len: marked.end - marked.start, underline: Some(underline), ..run.clone() },
-        TextRun { len: run.len - marked.end, ..run.clone() },
-    ]
-    .into_iter()
-    .filter(|run| run.len > 0)
-    .collect()
+/// The scroll that keeps the caret at `caret` in view after it moved, or else the last scroll,
+/// kept within the text.
+fn scroll_into_view(
+    input: &TextInput,
+    lines: &Lines,
+    caret: Point<Pixels>,
+    bounds: Bounds<Pixels>,
+) -> Point<Pixels> {
+    let follow = input.scrolling == Scrolling::ToCaret;
+    let x = Axis { scroll: input.scroll.x, view: bounds.size.width, content: lines.width() };
+    let y = Axis { scroll: input.scroll.y, view: bounds.size.height, content: lines.height() };
+    point(
+        x.scroll_to(follow.then_some((caret.x, CARET_MARGIN)), CARET_MARGIN),
+        y.scroll_to(follow.then_some((caret.y, lines.line_height())), px(0.)),
+    )
 }
 
-/// The horizontal scroll that keeps the caret at `caret_x` in view, starting from `scroll_x`.
-fn scroll_to_caret(scroll_x: Pixels, caret_x: Pixels, width: Pixels, line_width: Pixels) -> Pixels {
-    let scroll_x = if caret_x - scroll_x > width - CARET_MARGIN {
-        caret_x - width + CARET_MARGIN
-    } else if caret_x < scroll_x {
-        caret_x
-    } else {
-        scroll_x
-    };
-    scroll_x.max(px(0.)).min((line_width - width + CARET_MARGIN).max(px(0.)))
+/// One direction's scrolling: where it is, how much shows, and how much there is.
+struct Axis {
+    scroll: Pixels,
+    view: Pixels,
+    content: Pixels,
+}
+
+impl Axis {
+    /// The scroll that shows `caret` (its start and its size) when given, else the current one,
+    /// within the content plus `margin`.
+    fn scroll_to(&self, caret: Option<(Pixels, Pixels)>, margin: Pixels) -> Pixels {
+        let scroll = match caret {
+            Some((at, extent)) if at + extent - self.scroll > self.view => at + extent - self.view,
+            Some((at, _)) if at < self.scroll => at,
+            _ => self.scroll,
+        };
+        scroll.max(px(0.)).min((self.content - self.view + margin).max(px(0.)))
+    }
 }

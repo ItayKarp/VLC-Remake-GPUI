@@ -4,7 +4,6 @@
 //! the UI, and nothing calls libVLC from inside its own callbacks.
 
 use std::ffi::CString;
-use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, PoisonError};
@@ -12,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::audio::DeviceWatch;
-use super::decoding::{Decoding, Restore};
+use super::decoding::{Decoding, Restore, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
 use super::size_watch::{SIZE_POLL, SizeWatch};
@@ -91,8 +90,8 @@ pub struct Worker {
     pub(super) defaults: Defaults,
     /// How the open media's video is decoded; see [`super::decoding`].
     pub(super) decoding: Decoding,
-    /// The subtitle files added to the open media, in order.
-    pub(super) slaves: Vec<PathBuf>,
+    /// The subtitle and audio files added to the open media, in order.
+    pub(super) slaves: Vec<Slave>,
     /// The tracks to select again after switching to software decoding.
     pub(super) restore: Option<Restore>,
     /// When to switch to software decoding for a shown subtitle.

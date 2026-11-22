@@ -11,17 +11,20 @@
 
 mod audio;
 mod controls;
+mod general;
 mod interface;
+mod miniplayer;
 mod playback;
 mod subtitles;
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
 use super::lenient::lenient;
+use super::registry::Category;
 use super::stored_path;
-use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
@@ -29,7 +32,9 @@ pub use controls::{
     ClickAction, ControlsSettings, DoubleClickAction, HorizontalWheelAction, SkipLength,
     WheelAction,
 };
+pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
+pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
 pub use subtitles::SubtitleSettings;
 
@@ -46,12 +51,18 @@ pub struct Settings {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
+    /// The interface language (S5.3.2).
+    #[serde(deserialize_with = "lenient")]
+    pub language: InterfaceLanguage,
     /// Light, dark, or following the system.
     #[serde(deserialize_with = "lenient")]
     pub theme: ThemeMode,
     /// The accent color.
     #[serde(deserialize_with = "lenient")]
     pub accent: Accent,
+    /// Startup and dialogs (S5.3.3).
+    #[serde(deserialize_with = "lenient")]
+    pub startup: StartupSettings,
     /// The window and its title bar.
     #[serde(deserialize_with = "lenient")]
     pub interface: InterfaceSettings,
@@ -79,7 +90,7 @@ pub struct Preferences {
     /// Custom key bindings.
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
-    /// Logging and crash reports (S0.7).
+    /// Logging, crash reports and libVLC's startup options (S0.7, S5.3.4).
     #[serde(deserialize_with = "lenient")]
     pub diagnostics: DiagnosticsSettings,
 }
@@ -113,6 +124,40 @@ pub struct LocalState {
     /// The output device and last volume (S1.5).
     #[serde(deserialize_with = "lenient")]
     pub audio: LocalAudio,
+    /// Where the library was last, per presentation (S4.5.6). Local: routes name folders.
+    #[serde(deserialize_with = "lenient")]
+    pub library_routes: LibraryRoutes,
+    /// The library sections shown as a grid (S4.6.4, S4.7.4), by name, as
+    /// `navigation::view` writes them; the others show as lists.
+    #[serde(deserialize_with = "lenient")]
+    pub library_grid: Vec<String>,
+    /// How each library place sorts when it isn't its default (S4.7.2): the sort's name by the
+    /// place's route, as `navigation::sort` writes them. Local: routes name folders.
+    #[serde(deserialize_with = "lenient")]
+    pub library_sorts: BTreeMap<String, String>,
+    /// The corner full library mode's miniplayer card was last docked in (S4.10.5).
+    #[serde(deserialize_with = "lenient")]
+    pub miniplayer_corner: MiniplayerCorner,
+    /// The page the Settings window last showed (S5.2.2).
+    #[serde(deserialize_with = "lenient")]
+    pub settings_category: Category,
+    /// "Log file" (S5.3.4): where the log is written, as typed; empty means the default,
+    /// `logs/vlc.log` next to this file. Local: it is a path on this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub log_file: String,
+}
+
+/// The library's last route in each presentation, as `navigation::stored` writes routes. Empty
+/// means Home.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibraryRoutes {
+    /// The sidebar overlay over the player.
+    #[serde(deserialize_with = "lenient")]
+    pub overlay: String,
+    /// Full library mode.
+    #[serde(deserialize_with = "lenient")]
+    pub full: String,
 }
 
 macro_rules! empty_sections {
@@ -151,11 +196,20 @@ pub struct LibrarySettings {
     /// marks hidden or system (S4.2.2).
     #[serde(deserialize_with = "lenient")]
     pub show_hidden_files: bool,
+    /// "Add to the playlist instead of replacing it" (S4.10.6): whether opening a library item
+    /// while something plays adds it to the end of the queue rather than replacing the queue.
+    #[serde(deserialize_with = "lenient")]
+    pub add_instead_of_replacing: bool,
 }
 
 impl Default for LibrarySettings {
     fn default() -> Self {
-        Self { allow_multiple_instances: false, include_subfolders: true, show_hidden_files: false }
+        Self {
+            allow_multiple_instances: false,
+            include_subfolders: true,
+            show_hidden_files: false,
+            add_instead_of_replacing: false,
+        }
     }
 }
 
@@ -202,15 +256,6 @@ impl Default for PrivacySettings {
             fetch_online_metadata: false,
         }
     }
-}
-
-/// Logging and crash reports (S0.7). `RUST_LOG` overrides the level.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct DiagnosticsSettings {
-    /// How much goes into the log file.
-    #[serde(deserialize_with = "lenient")]
-    pub log_level: LogLevel,
 }
 
 /// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens

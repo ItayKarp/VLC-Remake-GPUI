@@ -1,7 +1,7 @@
 //! Finishing onboarding: saving the choices, then handing off to the main window
 //! (S0.2.2, S0.2.3).
 
-use gpui::{Context, SharedString, Window};
+use gpui::{App, Context, SharedString, Window};
 
 use super::Onboarding;
 use crate::app;
@@ -22,7 +22,12 @@ impl Onboarding {
     fn apply_choices(&self, settings: &mut Settings, complete: bool) {
         settings.prefs.theme = self.theme;
         settings.prefs.accent = self.accent;
-        settings.local.media_folders = vec![self.media_folder.clone()];
+        // The folder shown is the first media folder; others added in Settings stay.
+        let chosen = self.media_folder.clone();
+        let others =
+            settings.local.media_folders.iter().skip(1).filter(|folder| **folder != chosen);
+        let others: Vec<_> = others.cloned().collect();
+        settings.local.media_folders = std::iter::once(chosen).chain(others).collect();
         settings.local.onboarding_complete = complete;
     }
 
@@ -65,12 +70,18 @@ impl Onboarding {
         self.hand_off(window, cx);
     }
 
+    /// Cancel, when setup is run again: back to the main window, nothing saved.
+    pub(super) fn cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.finish != FinishState::Saving {
+            self.hand_off(window, cx);
+        }
+    }
+
     /// Opens the main window, then closes onboarding. The other order would quit the
     /// app, since closing the last window quits.
     fn hand_off(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let display = window.display(cx).map(|d| d.id());
-        match app::open_main_window(display, app::open::take_pending(cx), cx) {
-            Ok(_) => window.remove_window(),
+        match reopen_main_window(window, cx) {
+            Ok(()) => window.remove_window(),
             Err(err) => {
                 tracing::error!("onboarding: couldn't open the main window: {err:#}");
                 self.finish = FinishState::Failed("Couldn't open the main window.".into());
@@ -86,4 +97,10 @@ impl Onboarding {
             _ => None,
         }
     }
+}
+
+/// Opens the main window on onboarding's display, with any files opened meanwhile.
+pub(super) fn reopen_main_window(window: &Window, cx: &mut App) -> anyhow::Result<()> {
+    let display = window.display(cx).map(|d| d.id());
+    app::open_main_window(display, app::open::take_pending(cx), cx).map(drop)
 }

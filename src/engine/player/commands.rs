@@ -161,6 +161,20 @@ impl Player {
         true
     }
 
+    /// Adds the audio file at `path` to the open media as a track and plays it (S4.8.1's Add
+    /// Audio Tracks). Returns `false`, and does nothing, when no media is open to add it to.
+    pub fn add_audio(&mut self, path: &Path, cx: &mut Context<Self>) -> bool {
+        if !self.state.is_active() {
+            return false;
+        }
+        // The backend plays the added file: auto-selection must not switch away from it.
+        self.track_choices.user_picked(TrackKind::Audio);
+        self.with_backend(|backend| backend.add_audio(path));
+        cx.emit(PlayerEvent::TracksChanged);
+        cx.notify();
+        true
+    }
+
     /// The seek the backend should do for `target`, given what is known about the media.
     fn resolve(&self, target: SeekTarget) -> Option<BackendSeek> {
         let duration = self.position.duration();

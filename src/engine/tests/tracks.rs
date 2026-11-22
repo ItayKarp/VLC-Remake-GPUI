@@ -126,3 +126,21 @@ fn an_added_subtitle_file_stays_shown(cx: &mut TestAppContext) {
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].track, Some(TrackId(7)));
 }
+
+#[gpui::test]
+fn an_added_audio_file_plays_and_stays_chosen(cx: &mut TestAppContext) {
+    let rig = Rig::new(cx, MockMedia::manual());
+    let path = std::path::Path::new("/tmp/dub.mka");
+    assert!(!rig.player.update(cx, |player, cx| player.add_audio(path, cx)), "nothing is open");
+    open_with(&rig, cx, movie());
+    rig.emit(cx, BackendEvent::State(crate::engine::state::PlaybackState::Playing));
+    rig.mock.take_commands();
+    assert!(rig.player.update(cx, |player, cx| player.add_audio(path, cx)));
+    assert_eq!(rig.mock.take_commands(), [Command::AddAudio(path.to_path_buf())]);
+    let mut added = movie();
+    added.all.push(track(8, TrackKind::Audio, "und"));
+    added.audio = Some(TrackId(8));
+    rig.emit(cx, BackendEvent::Tracks(added));
+    // Auto-selection leaves the added track playing.
+    assert_eq!(rig.mock.take_commands(), []);
+}

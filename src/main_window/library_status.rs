@@ -1,6 +1,6 @@
 //! The library's media folders in the empty state, until the library views exist (S4.5, S4.6)
 //! and Settings → Library lists them (S5.9.3): each folder's status and scan progress
-//! (S4.2.1, S4.2.6), with Resync (S4.2.5, until the folder menu of S4.8.2), and a way out when
+//! (S4.2.1, S4.2.6), with Resync (S4.2.5; the folder menu of S4.8.2 has it too), and a way out when
 //! the onboarding folder doesn't exist.
 
 use std::path::{Path, PathBuf};

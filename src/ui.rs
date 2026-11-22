@@ -38,7 +38,6 @@ pub mod tabs;
 #[cfg(test)]
 mod tests;
 pub mod text_input;
-#[allow(dead_code, reason = "the library views (S4.6) are its first callers")]
 pub mod thumbnail;
 pub mod toast;
 pub mod toggle;

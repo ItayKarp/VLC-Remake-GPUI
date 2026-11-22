@@ -52,6 +52,8 @@ impl Backend for UnavailableBackend {
 
     fn add_subtitle(&mut self, _: &Path) {}
 
+    fn add_audio(&mut self, _: &Path) {}
+
     fn set_audio_device(&mut self, _: &OutputDevice) {}
 
     fn refresh_audio_devices(&mut self) {}

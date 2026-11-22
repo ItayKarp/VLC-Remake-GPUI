@@ -139,3 +139,14 @@ fn symlinked_file_is_written_through() {
     assert!(fs::symlink_metadata(dir.path("settings.toml")).unwrap().file_type().is_symlink());
     assert_eq!(dir.read("dotfiles/settings.toml"), "a = 2\n");
 }
+
+#[test]
+fn out_of_range_values_are_clamped_on_load_and_saved() {
+    let dir = TempDir::new();
+    dir.write("settings.toml", "schema_version = 1\n[audio]\nmax_volume_percent = 999\n");
+    let mut state = dir.load();
+    assert_eq!(state.settings.prefs.audio.max_volume_percent, 300);
+    assert!(state.is_dirty());
+    save(&mut state);
+    assert!(dir.read("settings.toml").contains("max_volume_percent = 300"));
+}

@@ -3,14 +3,16 @@
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use rusqlite::Connection;
 
 use crate::db::activity::{self, Favorite, Place};
 use crate::db::files::{self, Scanned};
 use crate::db::folders::{self, FolderId};
-use crate::db::media::{self, Entry, FileStamp, MediaId};
+use crate::db::media::{self, Entry, FileStamp, MediaId, Progress};
 use crate::db::metadata::{self, MediaKind, Metadata, Resolution};
+use crate::db::played;
 use crate::db::playlists::{self, Stored};
 use crate::db::roots::{self, RootKind, RootStatus};
 use crate::db::{Database, now_ms};
@@ -160,8 +162,11 @@ fn plays_and_visits_feed_home() {
     for (id, at) in [(song, 1), (song, 2), (other, 3), (video, 4)] {
         media::record_play(c, id, at).expect("play");
     }
-    assert_eq!(activity::recently_played(c, MediaKind::Audio, 10).expect("query"), [other, song]);
-    assert_eq!(activity::frequent_artists(c, 10).expect("query"), ["Band", "Solo"]);
+    // Files have a stamp; streams don't, and aren't listed.
+    c.execute("UPDATE media SET size = 1", []).expect("stamp");
+    let recent = played::recent(c, MediaKind::Audio, 10).expect("query");
+    assert_eq!(recent.iter().map(|played| played.media).collect::<Vec<_>>(), [other, song]);
+    assert_eq!(activity::frequent_artists(c, 4, 10).expect("query"), ["Band", "Solo"]);
 
     roots::add(c, Path::new("/v"), RootKind::Video, Case::Sensitive, 1).expect("add");
     let folder = folders::find(c, Path::new("/v"), Case::Sensitive).expect("find").expect("root");
@@ -169,8 +174,64 @@ fn plays_and_visits_feed_home() {
     for place in [Place::Folder(folder), Place::Playlist(playlist), Place::Folder(folder)] {
         activity::record_visit(c, place, now_ms()).expect("visit");
     }
-    assert_eq!(activity::frequent_folders(c, 5).expect("query"), [folder]);
-    assert_eq!(activity::frequent_playlists(c, 5).expect("query"), [playlist]);
+    assert_eq!(activity::frequent_folders(c, now_ms(), 5).expect("query"), [folder]);
+    assert_eq!(activity::frequent_playlists(c, now_ms(), 5).expect("query"), [playlist]);
+}
+
+#[test]
+fn a_habit_from_long_ago_ranks_below_a_recent_one() {
+    const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+    let mut database = Database::in_memory();
+    let c = database.connection();
+    let (old, new) = (
+        playlists::insert(c, None, &Stored::default(), 1).expect("playlist"),
+        playlists::insert(c, None, &Stored::default(), 1).expect("playlist"),
+    );
+    for _ in 0..20 {
+        activity::record_visit(c, Place::Playlist(old), 0).expect("visit");
+    }
+    for day in 360..365 {
+        activity::record_visit(c, Place::Playlist(new), day * DAY_MS).expect("visit");
+    }
+    assert_eq!(activity::frequent_playlists(c, 365 * DAY_MS, 5).expect("query"), [new, old]);
+    assert_eq!(activity::frequent_playlists(c, 0, 5).expect("query")[0], old);
+}
+
+#[test]
+fn continue_watching_lists_partway_media_until_removed() {
+    let mut database = Database::in_memory();
+    let c = database.connection();
+    let file = |identity: &str| {
+        let entry = Entry {
+            identity: identity.into(),
+            location: format!("/v/{identity}.mkv"),
+            stamp: Some(STAMP),
+        };
+        media::insert(c, &entry).expect("insert media")
+    };
+    let (partway, done, fresh) = (file("partway"), file("done"), file("fresh"));
+    let progress = |seconds| Progress {
+        position: Some(Duration::from_secs(seconds)),
+        duration: Some(Duration::from_secs(100)),
+        watched: false,
+    };
+    media::save_progress(c, partway, progress(30), 10).expect("save");
+    media::save_progress(c, done, progress(40), 20).expect("save");
+    media::set_watched(c, done, true).expect("watched");
+    media::insert(c, &Entry { identity: "url:x".into(), location: "x".into(), stamp: None })
+        .expect("stream");
+    let listed = |c: &Connection| -> Vec<MediaId> {
+        played::in_progress(c, 10).expect("query").iter().map(|played| played.media).collect()
+    };
+    assert_eq!(listed(c), [partway]);
+    assert_eq!(played::in_progress(c, 10).expect("query")[0].path, Path::new("/v/partway.mkv"));
+    assert_eq!(played::one(c, fresh).expect("query").map(|played| played.media), Some(fresh));
+
+    played::hide_in_progress(c, partway, 15).expect("hide");
+    assert_eq!(listed(c), []);
+    assert_eq!(media::saved(c, partway).expect("kept").position, Some(Duration::from_secs(30)));
+    media::save_progress(c, partway, progress(35), 16).expect("played again");
+    assert_eq!(listed(c), [partway]);
 }
 
 #[test]
@@ -213,6 +274,6 @@ fn clearing_history_keeps_the_library() {
     assert_eq!((saved.watched, saved.play_count), (false, 0));
     assert_eq!(metadata::get(c, indexed).expect("tags").title.as_deref(), Some("A"));
     assert_eq!(activity::is_favorite(c, Favorite::Media(loved)), Ok(true));
-    assert_eq!(activity::recently_played(c, MediaKind::Unknown, 5).expect("query"), []);
-    assert_eq!(activity::frequent_folders(c, 5).expect("query"), []);
+    assert_eq!(played::recent(c, MediaKind::Unknown, 5).expect("query"), []);
+    assert_eq!(activity::frequent_folders(c, now_ms(), 5).expect("query"), []);
 }
