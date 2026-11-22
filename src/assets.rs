@@ -135,6 +135,9 @@ icons! {
     DRAG_HANDLE => "drag-handle.svg",
     // Saved playlists (S3.5).
     PLAYLIST => "playlist.svg",
+    /// A song without a cover (S4.4.3; not in the icon set): two beamed notes, as the designs'
+    /// placeholder tile draws them.
+    MUSIC_NOTE => "music-note.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.

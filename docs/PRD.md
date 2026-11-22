@@ -1021,17 +1021,17 @@ Design facts the stories rely on:
 **Depends on:** S4.2, S1.1  **Size:** M  **Design refs:** list rows with 64×64 thumbnails; the grid in `player_03`; the seek thumbnail (S2)
 
 **Subtasks**
-- [ ] S4.4.1 A background thumbnailer takes a frame at about 10–20% of the duration (avoiding black intros) and skips black or uniform frames.
-- [ ] S4.4.2 Disk cache in the cache dir, keyed by media identity plus size class (list 64 px, grid about 240 px, HiDPI ×2), with LRU eviction and a size cap.
-- [ ] S4.4.3 Placeholders while generating: grey (`#303030`) for video, a green music-note tile for audio without art (as in the designs), and a playlist glyph for playlists.
-- [ ] S4.4.4 Priority queue: items visible on screen first, and cancel work for items that scroll away.
+- [x] S4.4.1 A background thumbnailer takes a frame at about 10–20% of the duration (avoiding black intros) and skips black or uniform frames. *(`library/thumbnailer/` runs on a thread of its own; `engine/libvlc/thumbnail.rs` grabs with a third muted libVLC instance (software decoding, `:start-time`, the first picture shown, 8 s timeout), sharing the seek preview's `frame_sink.rs`. `thumbnailer/pick.rs` tries 15%, 25%, 10%, then 40% of the length (30 s, 10 s, 2 s when it's unknown) and keeps the first picture that is neither black (mean luma under 24) nor flat (deviation under 10), else the most varied one. Videos only: songs use their cover (S4.3). It fills the cache in the background, newest media first, 250 ms apart, looking for new videos every 15 s.)*
+- [x] S4.4.2 Disk cache in the cache dir, keyed by media identity plus size class (list 64 px, grid about 240 px, HiDPI ×2), with LRU eviction and a size cap. *(`library/thumbnail_cache.rs`: `cache/thumbnails/`, JPEG, each picture cropped to fill its tile. List tiles are 32×32 logical (64 px in the 2× designs); grid tiles 320×180, as `player_03` draws them, not 240. Videos are keyed by a hash of their identity, songs by their cover's key, so an album shares its pictures. Migration 6 adds `thumbnails.bytes` and `used_ms`; showing a thumbnail touches it, and past 256 MB the least recently shown are deleted down to 90%. A deleted folder is recreated and its pictures made again.)*
+- [x] S4.4.3 Placeholders while generating: grey (`#303030`) for video, a green music-note tile for audio without art (as in the designs), and a playlist glyph for playlists. *(`ui/thumbnail.rs`: `ThumbnailTile` draws the picture for the display's scale, or the placeholder; colors sampled from `sidebar-home`, with light-theme counterparts that no design shows. The note (`music-note.svg`) isn't in the icon set and is redrawn after the design. Screenshot tests compare the song and video tiles with the designs. The views (S4.6) are its first callers.)*
+- [x] S4.4.4 Priority queue: items visible on screen first, and cancel work for items that scroll away. *(`library/thumbnails.rs` is the views' API: `show(on_screen)` whenever that changes, `status(media)` to draw. `thumbnailer/queue.rs`: what is on screen comes first, in order; a new list replaces the old, and a running grab stops between tries once its media scrolled away. The views (S4.6) are its first callers.)*
 
 **Edge cases**
-- A file the decoder crashes or hangs on: run the thumbnailer with a timeout (ideally in a separate process, so one bad file can't kill the app), and mark the file "no thumbnail" so it isn't retried every launch.
-- Audio-only files: use artwork, never try to grab a frame.
-- DRM or corrupt files: show the placeholder and log.
-- The cache dir was deleted while the app runs: recreate it lazily.
-- Thousands of thumbnails at once on first index: throttle CPU and GPU use, and pause during active playback so playback never stutters.
+- A file the decoder crashes or hangs on: run the thumbnailer with a timeout (ideally in a separate process, so one bad file can't kill the app), and mark the file "no thumbnail" so it isn't retried every launch. *(Partly: in process, with an 8 s timeout per grab. `media.no_thumbnail_ms` is set before each try and cleared on success, so a file that fails, or crashes the app, isn't tried again until Resync. A separate process isn't done; a libVLC hang in `stop` would stop thumbnails for the session.)*
+- Audio-only files: use artwork, never try to grab a frame. *(Done.)*
+- DRM or corrupt files: show the placeholder and log. *(Done: no picture means the placeholder, for good.)*
+- The cache dir was deleted while the app runs: recreate it lazily. *(Done.)*
+- Thousands of thumbnails at once on first index: throttle CPU and GPU use, and pause during active playback so playback never stutters. *(Done: one grab at a time, in software, 250 ms apart; the background work waits while any player opens, buffers or plays. What is on screen is still made during playback.)*
 
 ---
 

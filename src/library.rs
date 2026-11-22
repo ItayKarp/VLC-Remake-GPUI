@@ -12,6 +12,7 @@
 //! - [`extract`], [`artwork_cache`], [`folder_art`]: reading each media's tags and cover (S4.3).
 //! - [`episode`], [`display`], [`properties`]: what the views and Properties & Metadata show for
 //!   a media's tags.
+//! - [`thumbnails`], [`thumbnailer`], [`thumbnail_cache`]: the views' thumbnails (S4.4).
 
 pub mod apply;
 pub mod artwork_cache;
@@ -30,6 +31,9 @@ pub mod properties;
 pub mod recognize;
 pub mod root_check;
 pub mod sources;
+pub mod thumbnail_cache;
+pub mod thumbnailer;
+pub mod thumbnails;
 pub mod walk;
 pub mod watch;
 #[allow(dead_code, reason = "the library's model (S4.1); the views (S4.6) are its first callers")]
@@ -75,8 +79,10 @@ pub fn init(cx: &mut App) {
         let _ = reports.unbounded_send(roots);
     });
     let cache = settings::cache_dir().map(|dir| ArtworkCache::new(dir.join(ARTWORK_DIR_NAME)));
-    let extractor = Extractor::new(tags::default_reader(), cache);
+    let thumbnail_store = Box::new(history.database());
+    let extractor = Extractor::new(tags::default_reader(), cache.clone());
     let commands = indexer::spawn(Box::new(history.database()), extractor, report, cancel.clone());
+    thumbnails::init(thumbnail_store, cache, cancel.clone(), cx);
     cx.set_global(Library {
         commands,
         roots: Vec::new(),

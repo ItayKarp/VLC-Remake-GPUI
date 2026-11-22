@@ -1,7 +1,8 @@
 //! The local SQLite database (S1.7.1): `library.db` in the data dir, holding the playback history
 //! ([`media`]), saved playlists ([`playlists`]) and the library (S4.1): its media folders and
-//! their files ([`roots`], [`folders`], [`files`]), what is known about each media ([`metadata`]) and its cover ([`artwork`]), and
-//! plays, visits and favorites ([`activity`]).
+//! their files ([`roots`], [`folders`], [`files`]), what is known about each media
+//! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
+//! and favorites ([`activity`]).
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -25,6 +26,7 @@ pub mod roots;
 #[cfg(test)]
 mod tests;
 mod text_enum;
+pub mod thumbnails;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

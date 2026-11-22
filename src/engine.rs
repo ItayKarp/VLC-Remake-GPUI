@@ -18,6 +18,7 @@
 //! - [`preview`]: seek-bar preview pictures from a second, muted decoder (S2.3.3).
 //! - [`lengths`]: how long queued media is, read without playing it (S3.2.2).
 //! - [`tags`]: a file's tags, tracks and cover, read without playing it (S4.3.1).
+//! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 
 pub mod audio;
 pub mod backend;
@@ -36,6 +37,7 @@ pub mod state;
 pub mod tags;
 #[cfg(test)]
 mod tests;
+pub mod thumbnail;
 pub mod tracks;
 mod unavailable;
 pub mod values;

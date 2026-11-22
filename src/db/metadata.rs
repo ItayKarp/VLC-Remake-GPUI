@@ -137,9 +137,13 @@ pub fn set_probed(connection: &Connection, id: MediaId, now_ms: i64) -> rusqlite
     Ok(())
 }
 
-/// Asks for media `id`'s metadata to be read again (its file was identified again).
+/// Asks for media `id`'s metadata to be read again (its file was identified again), and its
+/// thumbnail to be tried again if the thumbnailer gave up on it (S4.4).
 pub fn reprobe(connection: &Connection, id: MediaId) -> rusqlite::Result<()> {
-    connection.execute("UPDATE media SET probed_ms = NULL WHERE id = ?1", [id.0])?;
+    connection.execute(
+        "UPDATE media SET probed_ms = NULL, no_thumbnail_ms = NULL WHERE id = ?1",
+        [id.0],
+    )?;
     Ok(())
 }
 

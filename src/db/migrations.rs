@@ -8,7 +8,8 @@ use rusqlite::Connection;
 use super::Unusable;
 
 /// Each migration's SQL, oldest first. The schema version is how many have run.
-pub(super) const MIGRATIONS: &[&str] = &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION];
+pub(super) const MIGRATIONS: &[&str] =
+    &[MEDIA, PLAYLISTS, LIBRARY, INDEXING, EXTRACTION, THUMBNAILS];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).
 const MEDIA: &str = "
@@ -188,6 +189,21 @@ const INDEXING: &str = "
 const EXTRACTION: &str = "
     ALTER TABLE media ADD COLUMN probed_ms INTEGER;
     CREATE INDEX media_unprobed ON media (id) WHERE probed_ms IS NULL;
+";
+
+/// Version 6 (S4.4): what the thumbnail cache needs to evict, and what not to try again.
+///
+/// - `thumbnails.bytes` and `used_ms` size the cache and find its least recently shown images.
+///   One cached image can serve several media (an album's tracks share a cover), so rows are
+///   counted per `cache_key`.
+/// - `media.no_thumbnail_ms` is set when the thumbnailer starts on a media and cleared when it
+///   succeeds, so a file it gave up on, or that crashed the app, isn't tried on every launch.
+///   Identifying the file again (Resync) clears it, like `probed_ms`.
+const THUMBNAILS: &str = "
+    ALTER TABLE thumbnails ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE thumbnails ADD COLUMN used_ms INTEGER NOT NULL DEFAULT 0;
+    CREATE INDEX thumbnails_key ON thumbnails (cache_key);
+    ALTER TABLE media ADD COLUMN no_thumbnail_ms INTEGER;
 ";
 
 /// The schema version this build writes.

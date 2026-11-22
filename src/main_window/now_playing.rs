@@ -19,6 +19,7 @@ use crate::app::media::Media;
 use crate::engine;
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::{ErrorKind, PlaybackState};
+use crate::library;
 use crate::power::Playback;
 use crate::theme::Palette;
 use crate::ui::button::Button;
@@ -55,6 +56,12 @@ impl MainWindow {
         let player = cx.new(|cx| Player::new(backend, cx));
         Self::start_at_default_speed(&player, cx);
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
+        // A player closed while playing mustn't hold the thumbnailer back (S4.4).
+        let id = player.entity_id();
+        cx.observe_release(&player, move |_, _, cx| {
+            library::thumbnails::set_playing(id, false, cx);
+        })
+        .detach();
         self.video = Some(cx.new(|cx| VideoView::new(output, player.clone(), window, cx)));
         self.player = Some((player.clone(), events));
         self.set_up_audio(&player, cx);
@@ -87,7 +94,7 @@ impl MainWindow {
 
     fn on_player_event(
         &mut self,
-        _: &Entity<Player>,
+        player: &Entity<Player>,
         event: &PlayerEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -101,6 +108,11 @@ impl MainWindow {
                     self.skips.played();
                 }
                 self.found_playing(*state, cx);
+                let busy = matches!(
+                    state,
+                    PlaybackState::Opening | PlaybackState::Buffering | PlaybackState::Playing
+                );
+                library::thumbnails::set_playing(player.entity_id(), busy, cx);
                 self.reset_seek_bar(*state);
                 self.update_display_sleep(window, cx);
                 cx.notify();
