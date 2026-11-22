@@ -109,6 +109,8 @@ actions!(
         NextProgram,
         /// Switch to the next subtitle track.
         CycleSubtitleTrack,
+        /// Ask for subtitle files to add to the playing media (S6.1.4).
+        AddSubtitleFile,
         /// Switch to the next audio track.
         CycleAudioTrack,
         /// Play a quarter faster.

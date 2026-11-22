@@ -147,7 +147,10 @@ mod tests {
     #[test]
     fn media_options_follow_the_playback_settings() {
         let mut settings = Settings::default();
-        assert_eq!(media_options(&settings), MediaOptions::default());
+        let mut defaults = media_options(&settings);
+        assert!(defaults.subtitles.converted.is_some(), "converted files go to the cache");
+        defaults.subtitles.converted = None;
+        assert_eq!(defaults, MediaOptions::default());
         settings.prefs.player.video_quality = VideoQuality::High;
         settings.prefs.player.menu_language = "fra".into();
         settings.prefs.player.seek_precisely = false;

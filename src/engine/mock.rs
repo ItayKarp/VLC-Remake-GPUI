@@ -216,6 +216,10 @@ impl Backend for MockBackend {
         self.record(Command::AddSubtitle(path.to_path_buf()));
     }
 
+    fn load_subtitle(&mut self, path: &Path) {
+        self.record(Command::LoadSubtitle(path.to_path_buf()));
+    }
+
     fn add_audio(&mut self, path: &Path) {
         self.record(Command::AddAudio(path.to_path_buf()));
     }

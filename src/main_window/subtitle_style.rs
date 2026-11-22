@@ -2,9 +2,11 @@
 //! with, and how each new media finds and reads subtitle files.
 
 use crate::engine::subtitle_style::{BLACK, SubtitleLoading, SubtitleStyle, TextSize, WHITE};
-use crate::settings::registry;
+use crate::settings::{self, registry};
 use crate::settings::{SizeValues, SubtitleSettings};
 
+/// The cache folder subtitle files converted to UTF-8 go in.
+const CONVERTED_DIR_NAME: &str = "subtitles";
 /// The highest opacity percentage, fully opaque.
 const FULL_PERCENT: u32 = 100;
 
@@ -26,11 +28,13 @@ pub(super) fn style(subtitles: &SubtitleSettings) -> SubtitleStyle {
     }
 }
 
-/// Which subtitle files load with new media, and their encoding.
+/// Which subtitle files load with new media, their encoding, and where copies converted to
+/// UTF-8 go (S6.1.6).
 pub(super) fn loading(subtitles: &SubtitleSettings) -> SubtitleLoading {
     SubtitleLoading {
         files: subtitles.load_files.then_some(subtitles.file_matching),
         encoding: subtitles.text_encoding.trim().to_owned(),
+        converted: settings::cache_dir().map(|dir| dir.join(CONVERTED_DIR_NAME)),
     }
 }
 

@@ -13,6 +13,7 @@
 //! category of the Settings window instead: the popover and the panel change the playing media,
 //! the Settings window the defaults.
 
+mod files;
 mod sections;
 
 use gpui::{

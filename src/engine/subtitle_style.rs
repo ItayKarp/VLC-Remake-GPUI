@@ -2,10 +2,15 @@
 //! found and read (Loading Subtitles, Text encoding).
 //!
 //! libVLC 3's text renderer reads its style once, when the player's instance is made, so the
-//! style applies from the next launch. Styled (ASS/SSA) subtitles keep their own look. Finding
-//! and decoding subtitle files are options of each media.
+//! style applies from the next launch. Styled (ASS/SSA) subtitles keep their own look. Which
+//! subtitle files load is decided as each media opens ([`super::sidecar`]), and their encoding
+//! is an option of each media.
+
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+
+use super::subtitle_text::EncodingChoice;
 
 /// White, the renderer's default text color.
 pub const WHITE: u32 = 0x00FF_FFFF;
@@ -112,7 +117,8 @@ impl Outline {
     }
 }
 
-/// "File name matching": which subtitle files next to a video load with it.
+/// "File name matching": which subtitle files next to a video load with it
+/// ([`super::sidecar`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FileMatching {
@@ -127,23 +133,21 @@ pub enum FileMatching {
     AnyInFolder,
 }
 
-impl FileMatching {
-    /// libVLC's `sub-autodetect-fuzzy`: 4 is the strictest, 1 takes any file.
-    pub fn libvlc_value(self) -> u32 {
-        match self {
-            Self::Exact => 4,
-            Self::TitleWithExtra => 3,
-            Self::ContainingTitle => 2,
-            Self::AnyInFolder => 1,
-        }
-    }
-}
-
 /// How each media looks for and reads subtitle files.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SubtitleLoading {
     /// Which files next to the media load with it; `None` loads none.
     pub files: Option<FileMatching>,
-    /// The character set text subtitles are read in (`Windows-1255`); empty guesses.
+    /// The character set text subtitles are read in (`Windows-1255`); empty guesses each file's
+    /// ([`super::subtitle_text`]).
     pub encoding: String,
+    /// The folder copies of subtitle files converted to UTF-8 go in; `None` converts none.
+    pub converted: Option<PathBuf>,
+}
+
+impl SubtitleLoading {
+    /// How a file's encoding is decided when the user hasn't chosen one for it.
+    pub fn encoding_choice(&self) -> EncodingChoice {
+        if self.encoding.is_empty() { EncodingChoice::Guess } else { EncodingChoice::Setting }
+    }
 }

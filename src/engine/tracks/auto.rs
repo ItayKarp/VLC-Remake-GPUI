@@ -4,13 +4,14 @@
 //!   default, else the first. Without a match, the "Default audio track" by position (S5.7.2),
 //!   else the backend's own choice.
 //! - Subtitles, when shown: a full (not forced) track in the first preferred language that has
-//!   one; else the "Default subtitle track" by position; else whatever the backend chose (the
-//!   container's default). A position past the media's last track is ignored. With nothing shown, a
+//!   one; else the "Default subtitle track" by position; else the first full track from a
+//!   subtitle file beside the video, as VLC shows `Movie.srt` over the container's own; else
+//!   whatever the backend chose (the container's default). A position past the media's last track is ignored. With nothing shown, a
 //!   forced track in the audio's language, which carries the signs and foreign lines a viewer of
 //!   that audio needs.
 //! - Subtitles set to forced only: the forced track in the audio's language, or off.
 
-use super::{Track, TrackId, TrackKind, Tracks};
+use super::{Origin, Track, TrackId, TrackKind, Tracks};
 use crate::engine::language::Language;
 
 /// Whether new media shows subtitles ("Enable subtitles" in Settings → Subtitles).
@@ -81,6 +82,10 @@ pub fn subtitle(tracks: &Tracks, preferences: &TrackPreferences) -> Pick {
         }
         if let Some(id) = nth(tracks, TrackKind::Subtitle, preferences.subtitle_track) {
             return Pick::Track(id);
+        }
+        let from_file = |track: &&Track| track.origin == Origin::File && !track.forced;
+        if let Some(track) = tracks.of(TrackKind::Subtitle).find(from_file) {
+            return Pick::Track(track.id);
         }
         if tracks.subtitle.is_some() {
             return Pick::Keep;
@@ -218,5 +223,20 @@ mod tests {
         assert_eq!(subtitle(&movie, &none), Pick::Keep);
         assert_eq!(Pick::Track(TrackId(5)).against(TrackKind::Subtitle, &movie), Pick::Keep);
         assert_eq!(Pick::Off.against(TrackKind::Subtitle, &movie), Pick::Off);
+    }
+
+    #[test]
+    fn a_full_file_beside_the_video_wins_over_the_containers_choice() {
+        let mut movie = movie();
+        movie.subtitle = Some(TrackId(3));
+        let file = |track: Track| Track { origin: Origin::File, ..track };
+        movie.all.push(file(forced(6, "en")));
+        movie.all.push(file(track(7, TrackKind::Subtitle, "")));
+        let none = preferences(&[], &[], SubtitleMode::Show);
+        assert_eq!(subtitle(&movie, &none), Pick::Track(TrackId(7)));
+        let french = preferences(&[], &["fr"], SubtitleMode::Show);
+        assert_eq!(subtitle(&movie, &french), Pick::Track(TrackId(5)), "a language wins");
+        let forced_only = preferences(&[], &[], SubtitleMode::ForcedOnly);
+        assert_eq!(subtitle(&movie, &forced_only), Pick::Track(TrackId(4)));
     }
 }

@@ -36,8 +36,10 @@ mod position;
 mod preflight;
 pub mod preview;
 pub mod shutdown;
+pub mod sidecar;
 pub mod state;
 pub mod subtitle_style;
+pub mod subtitle_text;
 pub mod system_options;
 pub mod tags;
 #[cfg(test)]

@@ -28,6 +28,8 @@ pub use color::hex_color;
 pub use def::{
     ApplyMode, Control, HintTone, MachineChoice, Marks, OptionsSource, PathPick, SettingDef,
 };
+/// The text encodings subtitles can be read in, Automatic first.
+pub(crate) use entries::subtitles::ENCODINGS as TEXT_ENCODINGS;
 #[cfg(test)]
 pub use rules::search;
 pub use rules::{sanitize, search_words};

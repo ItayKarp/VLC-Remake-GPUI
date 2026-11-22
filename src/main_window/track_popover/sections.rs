@@ -1,14 +1,13 @@
 //! The track popover's tabs: **Embedded Tracks** ("None" and each track, S2.6.2) on every tab,
-//! **Output Device** on Audio (S2.6.3) and **External Tracks** on Subtitles (S2.6.4).
+//! **Output Device** on Audio (S2.6.3) and **External Tracks** on Subtitles (S2.6.4, in
+//! `files.rs`).
 //!
 //! Each frame reads the player afresh, so a track list or device list that changes while the
 //! popover is open updates in place; each tab scrolls on its own and keeps its place.
 
-use std::path::PathBuf;
-
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, PathPromptOptions, SharedString,
-    Stateful, Window, accesskit, div, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, SharedString, Stateful, accesskit, div,
+    prelude::*, px,
 };
 
 use crate::assets::icons;
@@ -16,27 +15,25 @@ use crate::engine::audio::{AudioDevice, OutputDevice};
 use crate::engine::player::Player;
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
 use crate::main_window::MainWindow;
-use crate::opening::kind::{self, Kind};
 use crate::settings;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
 use crate::ui::focus;
 use crate::ui::icon::icon;
-use crate::ui::toast::{Level, Toast};
 
 /// A choice's height, and its text size.
-const ROW_HEIGHT: f32 = 44.;
-const ROW_TEXT: f32 = 14.;
+pub(super) const ROW_HEIGHT: f32 = 44.;
+pub(super) const ROW_TEXT: f32 = 14.;
 /// A section header's height, and its text size.
 const HEADER_HEIGHT: f32 = 48.;
 const HEADER_TEXT: f32 = 13.;
 /// The header's and notes' distance from the popover's left edge.
 const INSET: f32 = 28.;
 /// The ✓'s size, and the space it keeps on unchecked rows.
-const CHECK: f32 = 24.;
+pub(super) const CHECK: f32 = 24.;
 /// The header buttons' side and icon size.
-const HEADER_BUTTON: f32 = 28.;
-const HEADER_ICON: f32 = 20.;
+pub(super) const HEADER_BUTTON: f32 = 28.;
+pub(super) const HEADER_ICON: f32 = 20.;
 /// The divider between two sections.
 const DIVIDER: f32 = 2.;
 
@@ -142,53 +139,14 @@ impl MainWindow {
             .children(rows)
     }
 
-    /// The subtitle files added to the media, with edit and add buttons.
-    fn render_files(
-        files: &[SubtitleFile],
-        tracks: &Tracks,
-        p: &Palette,
+    pub(super) fn select_track(
+        &self,
+        kind: TrackKind,
+        track: Option<TrackId>,
         cx: &mut Context<Self>,
-    ) -> Div {
-        // Editing opens the Add Subtitles dialog, which comes with S6.4.
-        let edit = IconButton::new("edit-subtitles", icons::EDIT, "Edit subtitle files")
-            .size(HEADER_BUTTON, HEADER_ICON)
-            .disabled(true);
-        let add = IconButton::new("add-subtitles", icons::ADD, "Add a subtitle file")
-            .size(HEADER_BUTTON, HEADER_ICON)
-            .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
-                Self::prompt_for_subtitles(window, cx);
-            }));
-        let selected = tracks.selected(TrackKind::Subtitle);
-        let rows = files.iter().enumerate().map(|(index, file)| {
-            let track = file.track;
-            choice_row(("file", index), file.name().into(), track.is_some() && track == selected, p)
-                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    this.select_file(track, cx);
-                }))
-                .into_any_element()
-        });
-        let empty = files.is_empty().then(|| note("No subtitle files added.", p));
-        section(p)
-            .child(header(
-                "External Tracks",
-                vec![edit.into_any_element(), add.into_any_element()],
-                p,
-            ))
-            .children(empty)
-            .children(rows)
-    }
-
-    fn select_track(&self, kind: TrackKind, track: Option<TrackId>, cx: &mut Context<Self>) {
+    ) {
         if let Some(player) = self.loaded_player(cx) {
             player.update(cx, |player, cx| player.select_track(kind, track, cx));
-        }
-    }
-
-    /// Shows the subtitle file whose track is `track`. A file whose track isn't listed yet
-    /// has nothing to select.
-    fn select_file(&self, track: Option<TrackId>, cx: &mut Context<Self>) {
-        if track.is_some() {
-            self.select_track(TrackKind::Subtitle, track, cx);
         }
     }
 
@@ -196,38 +154,6 @@ impl MainWindow {
         if let Some((player, _)) = &self.player {
             player.update(cx, |player, _| Player::refresh_audio_devices(player));
         }
-    }
-
-    /// Asks for subtitle files to add to the playing media.
-    pub(in crate::main_window) fn prompt_for_subtitles(
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let paths = cx.prompt_for_paths(PathPromptOptions {
-            files: true,
-            directories: false,
-            multiple: true,
-            prompt: Some("Add".into()),
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            let Ok(Ok(Some(paths))) = paths.await else {
-                return;
-            };
-            this.update(cx, |this, cx| this.add_subtitle_files(paths, cx)).ok();
-        })
-        .detach();
-    }
-
-    /// Adds the subtitle files among `paths`, and says which ones aren't subtitles.
-    fn add_subtitle_files(&mut self, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
-        let (subtitles, others): (Vec<PathBuf>, Vec<PathBuf>) =
-            paths.into_iter().partition(|path| kind::by_extension(path) == Some(Kind::Subtitle));
-        if let Some(other) = others.first() {
-            let name = SubtitleFile::new(other.clone()).name();
-            let text = format!("{name} isn't a subtitle file.");
-            self.show_toast(Toast::new(Level::Info, text), cx);
-        }
-        self.attach_subtitles(&subtitles, cx);
     }
 }
 
@@ -237,12 +163,12 @@ fn choose_device(device: &OutputDevice, cx: &mut App) {
 }
 
 /// A section of the popover: a header and its choices.
-fn section(p: &Palette) -> Div {
+pub(super) fn section(p: &Palette) -> Div {
     div().py(px(8.)).flex().flex_col().text_color(p.text)
 }
 
 /// A section's muted title, with its buttons at the right end.
-fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette) -> Div {
+pub(super) fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette) -> Div {
     div()
         .h(px(HEADER_HEIGHT))
         .flex_none()
@@ -258,7 +184,7 @@ fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette) -> Div {
 }
 
 /// A muted line of explanation under a header.
-fn note(text: &'static str, p: &Palette) -> Div {
+pub(super) fn note(text: &'static str, p: &Palette) -> Div {
     div().px(px(INSET)).pb(px(8.)).text_size(px(HEADER_TEXT)).text_color(p.text_muted).child(text)
 }
 

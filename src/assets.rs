@@ -72,6 +72,11 @@ icons! {
     VOLUME_MUTED => "volume-muted.svg",
     AUDIO => "audio.svg",
     SUBTITLES => "subtitles.svg",
+    /// A subtitle file in the track popover's External Tracks (S6.1.5; `subtitle` in the
+    /// settings categories' icons).
+    SUBTITLE_FILE => "subtitle-file.svg",
+    /// Switching to another subtitle file (S6.1.5).
+    SWAP => "swap.svg",
     SETTINGS => "settings.svg",
     LIST => "list.svg",
     // The track popover (S2.6).

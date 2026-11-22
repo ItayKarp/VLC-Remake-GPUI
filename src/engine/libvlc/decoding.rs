@@ -5,7 +5,7 @@
 //! over hardware-decoded video never appear. Software decoding costs far more CPU, so media
 //! opens with hardware decoding, and only once a subtitle shows over video does the worker
 //! reopen it in software: at the same position, paused if it was, with the same tracks and the
-//! subtitle files the user added. The player doesn't see the reopen: the callback hides its
+//! subtitle and audio files added to it. The player doesn't see the reopen: the callback hides its
 //! opening and stopping, and the track list waits until the selection is restored.
 //!
 //! A subtitle must stay shown for [`SWITCH_DELAY`] first: libVLC picks one by itself as playback
@@ -33,7 +33,8 @@ const SLAVE_AUDIO: c_int = 1;
 /// `libvlc_media_slave_priority`'s highest value, as for files the user picks.
 const SLAVE_PRIORITY_USER: u32 = 4;
 
-/// A file the user added to the open media: a subtitle, or an audio track (S4.8.1).
+/// A file added to the open media: a subtitle the user added or one found beside the video
+/// (S6.1), or an audio track (S4.8.1).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Slave {
     /// Whether it is subtitles or audio.
@@ -199,7 +200,7 @@ impl Worker {
         format!(":start-time={:.3}", millis.max(0) as f64 / 1000.0)
     }
 
-    /// Opens the subtitle and audio files the user added with the reopened media. They get the
+    /// Opens the subtitle and audio files added to the old one with the reopened media. They get the
     /// same track ids as before, since they are added in the same order after the same tracks.
     fn add_slaves(&self, media: *mut Media) {
         for slave in &self.slaves {

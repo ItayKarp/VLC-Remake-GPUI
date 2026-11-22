@@ -66,8 +66,9 @@ use super::video::VideoSink;
 use crate::app::media::Media;
 
 /// The arguments every libVLC instance starts with: the file name would otherwise be drawn into
-/// the video when it starts.
-const ARGUMENTS: [&str; 1] = ["--no-video-title-show"];
+/// the video when it starts, and the app finds subtitle files beside the video itself
+/// ([`super::sidecar`]) to know which track came from which file.
+const ARGUMENTS: [&str; 2] = ["--no-video-title-show", "--no-sub-autodetect-file"];
 /// Added without a video sink: decode and discard video.
 const NO_VIDEO_ARGUMENT: &str = "--vout=vdummy";
 
@@ -205,6 +206,10 @@ impl Backend for LibVlcBackend {
 
     fn add_subtitle(&mut self, path: &Path) {
         self.send(Command::AddSubtitle(path.to_path_buf()));
+    }
+
+    fn load_subtitle(&mut self, path: &Path) {
+        self.send(Command::LoadSubtitle(path.to_path_buf()));
     }
 
     fn add_audio(&mut self, path: &Path) {

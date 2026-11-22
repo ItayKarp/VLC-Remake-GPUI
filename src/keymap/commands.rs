@@ -160,6 +160,7 @@ pub const COMMANDS: &[Command] = &[
     held("Decrease volume", keys(&["down"]), &act::VolumeDown),
     cmd("Cycle audio track", Player, keys(&["b"]), &act::CycleAudioTrack),
     cmd("Cycle subtitle track", Player, keys(&["v"]), &act::CycleSubtitleTrack),
+    cmd("Add subtitle file", Player, NONE, &act::AddSubtitleFile),
     // VLC's keys; a held key keeps moving the audio.
     held("Audio delay earlier", keys(&["j"]), &act::AudioDelayEarlier),
     held("Audio delay later", keys(&["k"]), &act::AudioDelayLater),

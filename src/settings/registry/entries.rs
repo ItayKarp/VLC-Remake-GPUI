@@ -16,7 +16,7 @@ mod playback;
 mod privacy;
 mod recording;
 mod subtitle_style;
-mod subtitles;
+pub(super) mod subtitles;
 mod video;
 mod window;
 

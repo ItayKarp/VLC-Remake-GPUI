@@ -91,7 +91,13 @@ pub fn mac_menu_bar() -> Vec<Menu> {
                 plain(&act::VolumeDown, "Decrease Volume"),
             ],
         ),
-        menu("Subtitle", [plain(&act::CycleSubtitleTrack, "Next Subtitle Track")]),
+        menu(
+            "Subtitle",
+            [
+                plain(&act::CycleSubtitleTrack, "Next Subtitle Track"),
+                item(&act::AddSubtitleFile, "Add Subtitle File…"),
+            ],
+        ),
         menu(
             "View",
             [

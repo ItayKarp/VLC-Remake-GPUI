@@ -1,7 +1,7 @@
 //! The player's shortcuts in the main window (S0.5.2, S0.5.6). Every player
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
-//! keys (S1.5.1), track cycling (S1.6.2, B and V), the transport (S2.2: Space, S, P, N),
+//! keys (S1.5.1), track cycling (S1.6.2, B and V), adding a subtitle file (S6.1.4, unbound), the transport (S2.2: Space, S, P, N),
 //! seeking (S2.3.4: the arrows with their modifiers, Home and End), the speed (S2.7.3: `[`,
 //! `]` and `=`), the audio delay (S4.8.1: J and K), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
 //! (S2.9: Shift+F10 and the context-menu key), frame stepping (`,` and `.`) and T (S2.10.3)
@@ -50,6 +50,7 @@ impl MainWindow {
             cx,
             [
                 CycleSubtitleTrack,
+                AddSubtitleFile,
                 CycleAudioTrack,
                 AudioDelayEarlier,
                 AudioDelayLater,
@@ -182,6 +183,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::VolumeDown, |this, window, cx| this.step_volume(VolumeChange::Down, window, cx)),
     (&act::CycleAudioTrack, |this, _, cx| this.cycle_track(TrackKind::Audio, cx)),
     (&act::CycleSubtitleTrack, |this, _, cx| this.cycle_track(TrackKind::Subtitle, cx)),
+    (&act::AddSubtitleFile, |_, window, cx| MainWindow::prompt_for_subtitles(window, cx)),
     (&act::AudioDelayEarlier, |this, _, cx| this.shift_audio_delay(Shift::Earlier, cx)),
     (&act::AudioDelayLater, |this, _, cx| this.shift_audio_delay(Shift::Later, cx)),
     (&act::Faster, |this, window, cx| this.change_speed(SpeedChange::Faster, window, cx)),

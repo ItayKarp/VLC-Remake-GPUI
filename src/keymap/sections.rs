@@ -68,6 +68,7 @@ pub const SECTIONS: &[Section] = &[
             &act::VolumeDown,
             &act::CycleAudioTrack,
             &act::CycleSubtitleTrack,
+            &act::AddSubtitleFile,
             &act::AudioDelayEarlier,
             &act::AudioDelayLater,
         ],

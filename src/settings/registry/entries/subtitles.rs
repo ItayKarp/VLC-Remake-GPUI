@@ -13,8 +13,9 @@ const LOADING: (Category, &str) = (Category::Subtitles, "Loading Subtitles");
 /// The Text encoding choice that guesses, stored as an empty encoding.
 const AUTOMATIC: &str = "auto";
 
-/// "Text encoding": libVLC's character set names, and what each is for.
-static ENCODINGS: &[Choice] = &[
+/// "Text encoding": libVLC's character set names, and what each is for; the first is Automatic.
+/// The video menu's Text Encoding offers the same for one file (S6.1.6).
+pub(crate) static ENCODINGS: &[Choice] = &[
     Choice::new(AUTOMATIC, "Automatic"),
     Choice::new("UTF-8", "Unicode (UTF-8)"),
     Choice::new("UTF-16", "Unicode (UTF-16)"),
@@ -122,7 +123,10 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.subtitles.load_files),
     )
-    .info("Loads subtitle files next to a video with it, as File name matching says.")
+    .info(
+        "Loads subtitle files next to a video, and in a Subs or Subtitles folder beside it, as \
+         File name matching says. A language in the name (Movie.en.srt) counts as the track's.",
+    )
     .applies(ApplyMode::NextMedia)
     .keywords(&["srt", "autoload", "external", "folder"]),
     SettingDef::new(

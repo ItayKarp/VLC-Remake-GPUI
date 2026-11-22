@@ -32,6 +32,14 @@ impl Language {
         Some(Self { code })
     }
 
+    /// Recognizes `word` only when it is a known language's code (`en`, `heb`) or English name
+    /// ("English"), ignoring case: what a word in a file name may mean, where [`Self::parse`]
+    /// would take any short word for a code.
+    pub fn recognize(word: &str) -> Option<Self> {
+        let entry = table::find(&word.to_ascii_lowercase()).or_else(|| table::by_name(word))?;
+        Some(Self { code: entry.canonical().to_owned() })
+    }
+
     /// The normalized code (`en`, or `tlh` for a language without a 639-1 code).
     pub fn code(&self) -> &str {
         &self.code
@@ -98,6 +106,16 @@ mod tests {
         assert_eq!(Language::parse("he").unwrap().name(), "Hebrew");
         assert_eq!(Language::parse("tlh").unwrap().name(), "TLH");
         assert_eq!(Language::parse("Klingon").unwrap().name(), "Klingon");
+    }
+
+    #[test]
+    fn only_known_words_are_recognized() {
+        let code = |word| Language::recognize(word).map(|language| language.code().to_owned());
+        assert_eq!(code("HEB").as_deref(), Some("he"));
+        assert_eq!(code("english").as_deref(), Some("en"));
+        for word in ["sdh", "720p", "forced", "x"] {
+            assert_eq!(code(word), None, "{word:?}");
+        }
     }
 
     #[test]

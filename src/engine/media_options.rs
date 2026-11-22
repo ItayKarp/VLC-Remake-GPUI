@@ -46,7 +46,7 @@ impl Default for MediaOptions {
             deinterlace: Deinterlacing::default(),
             subtitles: SubtitleLoading {
                 files: Some(FileMatching::default()),
-                encoding: String::new(),
+                ..SubtitleLoading::default()
             },
         }
     }

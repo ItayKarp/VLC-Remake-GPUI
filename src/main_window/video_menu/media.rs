@@ -5,23 +5,26 @@
 //! - **Audio:** Audio Track ▸, Audio Device ▸ (as in the track popover, S2.6.3), Stereo Mode ▸
 //!   (Settings → Audio "Speaker setup"), Mute, and the volume keys' commands. The visualizer
 //!   comes with S7.8.
-//! - **Subtitle:** Subtitle Track ▸ (added files by their names), Add Subtitle File…, and the
-//!   subtitle delay in 50 ms steps, said over the video.
+//! - **Subtitle:** Subtitle Track ▸ (files by their names), Add Subtitle File…, Text Encoding ▸
+//!   for the file showing (S6.1.6), and the subtitle delay in 50 ms steps, said over the video.
 //!
 //! A track menu lists "None" and each track of its kind with the playing one checked, like the
 //! track popover; picking one counts as the user's pick (S2.6.2).
 
+use encoding_rs::Encoding;
 use gpui::{App, Context, Entity, WeakEntity, Window};
 
 use super::{NOTHING_PLAYING, on_main, run};
 use crate::assets::icons;
 use crate::engine::audio::{OutputDevice, SpeakerSetup};
 use crate::engine::player::Player;
+use crate::engine::sidecar;
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind};
 use crate::engine::values::Offset;
 use crate::keymap::actions as act;
 use crate::main_window::MainWindow;
 use crate::settings;
+use crate::settings::registry::TEXT_ENCODINGS;
 use crate::ui::menu::MenuItem;
 
 /// How much one Increase or Decrease Delay moves the subtitles, as VLC's G and H keys do.
@@ -80,9 +83,8 @@ impl MainWindow {
         };
         let items = vec![
             track_menu(TrackKind::Subtitle, &player, cx),
-            on_main(main, "Add Subtitle File…", |_, window, cx| {
-                MainWindow::prompt_for_subtitles(window, cx);
-            }),
+            run(main, &act::AddSubtitleFile, "Add Subtitle File…", cx),
+            encoding_menu(&player, cx),
             MenuItem::Separator,
             step("Increase Delay", DELAY_STEP_MS),
             step("Decrease Delay", -DELAY_STEP_MS),
@@ -134,6 +136,46 @@ fn track_menu(kind: TrackKind, player: &Entity<Player>, cx: &App) -> MenuItem {
             .collect()
     };
     MenuItem::submenu(title, items).why_disabled(why)
+}
+
+/// Text Encoding ▸ (S6.1.6): what the subtitle file showing is read in. Automatic names the
+/// encoding it found; picking one reads the file again in it.
+fn encoding_menu(player: &Entity<Player>, cx: &App) -> MenuItem {
+    let read = player.read(cx);
+    let shown = read.tracks().subtitle;
+    let file = read.subtitle_files().iter().find(|file| shown.is_some() && file.track == shown);
+    let Some((file, track)) = file.filter(|file| sidecar::is_text(&file.path)).zip(shown) else {
+        return MenuItem::submenu("Text Encoding", Vec::new())
+            .why_disabled("The subtitles showing aren't from a text file");
+    };
+    let reread = |encoding: Option<&'static Encoding>| {
+        let player = player.clone();
+        move |_: &mut Window, cx: &mut App| {
+            player.update(cx, |player, cx| player.reread_subtitle(track, encoding, cx));
+        }
+    };
+    let automatic = match file.encoding.filter(|_| !file.encoding_chosen) {
+        Some(found) => format!("Automatic: {}", encoding_label(found)),
+        None => "Automatic".to_owned(),
+    };
+    let mut items = vec![MenuItem::radio(automatic, !file.encoding_chosen, reread(None))];
+    items.push(MenuItem::Separator);
+    let listed = TEXT_ENCODINGS.iter().skip(1).filter_map(|choice| {
+        Encoding::for_label(choice.id.as_bytes()).map(|encoding| (choice.label, encoding))
+    });
+    items.extend(listed.map(|(label, encoding)| {
+        let checked = file.encoding_chosen && file.encoding == Some(encoding);
+        MenuItem::radio(label, checked, reread(Some(encoding)))
+    }));
+    MenuItem::submenu("Text Encoding", items)
+}
+
+/// What Settings → Subtitles calls `encoding` ("Hebrew (Windows-1255)"), or its own name.
+fn encoding_label(encoding: &'static Encoding) -> String {
+    let listed = TEXT_ENCODINGS
+        .iter()
+        .find(|choice| Encoding::for_label(choice.id.as_bytes()) == Some(encoding));
+    listed.map_or_else(|| encoding.name().to_owned(), |choice| choice.label.to_owned())
 }
 
 /// Audio Device ▸: the system default and each device, the one sound goes to checked.

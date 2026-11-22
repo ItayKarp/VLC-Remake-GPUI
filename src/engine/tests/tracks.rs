@@ -4,6 +4,7 @@
 use gpui::TestAppContext;
 
 use super::Rig;
+use crate::app::media::Media;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::language::Language;
 use crate::engine::mock::MockMedia;
@@ -115,9 +116,10 @@ fn an_added_subtitle_file_stays_shown(cx: &mut TestAppContext) {
     wanting(&rig, cx, "", SubtitleMode::ForcedOnly);
     open_with(&rig, cx, movie());
     rig.emit(cx, BackendEvent::State(crate::engine::state::PlaybackState::Playing));
-    let path = std::path::Path::new("/tmp/movie.srt");
-    assert!(rig.player.update(cx, |player, cx| player.add_subtitle(path, cx)));
     rig.mock.take_commands();
+    let path = std::path::Path::new("/tmp/movie.srt");
+    rig.run(cx, |player, cx| assert!(player.add_subtitle(path, cx)));
+    assert_eq!(rig.mock.take_commands(), [Command::AddSubtitle(path.to_path_buf())]);
     let mut added = movie();
     added.all.push(track(7, TrackKind::Subtitle, "und"));
     added.subtitle = Some(TrackId(7));
@@ -144,4 +146,74 @@ fn an_added_audio_file_plays_and_stays_chosen(cx: &mut TestAppContext) {
     rig.emit(cx, BackendEvent::Tracks(added));
     // Auto-selection leaves the added track playing.
     assert_eq!(rig.mock.take_commands(), []);
+}
+
+#[gpui::test]
+fn subtitle_files_beside_the_video_load_with_their_languages(cx: &mut TestAppContext) {
+    let dir = std::env::temp_dir().join(format!("rvlc-player-sidecars-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let srt = "1\n00:00:01,000 --> 00:00:02,000\nHi\n";
+    std::fs::write(dir.join("Movie.mkv"), "video").unwrap();
+    std::fs::write(dir.join("Movie.srt"), srt).unwrap();
+    std::fs::write(dir.join("Movie.he.srt"), srt).unwrap();
+    let rig = Rig::new(cx, MockMedia::manual());
+    let preferences = TrackPreferences {
+        subtitle_languages: Language::parse("heb").into_iter().collect(),
+        ..TrackPreferences::default()
+    };
+    rig.run(cx, |player, _| player.set_track_preferences(preferences));
+    let movie_path = dir.join("Movie.mkv");
+    rig.run(cx, |player, cx| player.open(Media::File(movie_path), cx));
+    let loaded = |commands: Vec<Command>| -> Vec<String> {
+        let names = commands.into_iter().filter_map(|command| match command {
+            Command::LoadSubtitle(path) => Some(path.file_name()?.to_string_lossy().into_owned()),
+            _ => None,
+        });
+        names.collect()
+    };
+    assert_eq!(loaded(rig.mock.take_commands()), Vec::<String>::new(), "wait for the media's");
+    // The media's own tracks, the embedded subtitles among them, are listed first: the files
+    // load then, and don't take them for their own.
+    rig.emit(cx, BackendEvent::Tracks(movie()));
+    assert_eq!(loaded(rig.mock.take_commands()), ["Movie.srt", "Movie.he.srt"]);
+    let files = rig.player.read_with(cx, |player, _| player.subtitle_files().to_vec());
+    assert!(files.iter().all(|file| file.track.is_none()));
+
+    let mut listed = movie();
+    listed.all.push(track(6, TrackKind::Subtitle, ""));
+    listed.all.push(track(7, TrackKind::Subtitle, ""));
+    rig.emit(cx, BackendEvent::Tracks(listed));
+    assert_eq!(selected(&rig, cx, TrackKind::Subtitle), Some(TrackId(7)), "the Hebrew file");
+    let label = rig.player.read_with(cx, |player, _| player.tracks().label(TrackId(7)));
+    assert_eq!(label.as_deref(), Some("Hebrew"));
+}
+
+#[gpui::test]
+fn a_file_read_again_replaces_its_track(cx: &mut TestAppContext) {
+    let rig = Rig::new(cx, MockMedia::manual());
+    open_with(&rig, cx, movie());
+    rig.emit(cx, BackendEvent::State(crate::engine::state::PlaybackState::Playing));
+    let path = std::path::Path::new("/tmp/movie.srt");
+    rig.run(cx, |player, cx| assert!(player.add_subtitle(path, cx)));
+    let mut added = movie();
+    added.all.push(track(7, TrackKind::Subtitle, ""));
+    added.subtitle = Some(TrackId(7));
+    rig.emit(cx, BackendEvent::Tracks(added.clone()));
+    rig.mock.take_commands();
+
+    let hebrew = encoding_rs::WINDOWS_1255;
+    rig.run(cx, |player, cx| player.reread_subtitle(TrackId(7), Some(hebrew), cx));
+    // The file can't be read here, so it loads as it is, again.
+    assert_eq!(rig.mock.take_commands(), [Command::AddSubtitle(path.to_path_buf())]);
+    added.all.push(track(8, TrackKind::Subtitle, ""));
+    added.subtitle = Some(TrackId(8));
+    rig.emit(cx, BackendEvent::Tracks(added));
+    let (tracks, files) = rig
+        .player
+        .read_with(cx, |player, _| (player.tracks().clone(), player.subtitle_files().to_vec()));
+    assert!(tracks.get(TrackId(7)).is_none(), "the old track is left out");
+    assert_eq!(tracks.subtitle, Some(TrackId(8)));
+    assert_eq!(files.len(), 1);
+    assert_eq!((files[0].track, files[0].encoding_chosen), (Some(TrackId(8)), true));
 }

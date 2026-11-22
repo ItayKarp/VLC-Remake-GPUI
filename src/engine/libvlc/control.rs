@@ -61,8 +61,9 @@ impl Worker {
                     self.subtitle_delay = delay;
                     self.apply_delays();
                 }
-                Command::AddSubtitle(path) => self.add_slave(SlaveKind::Subtitle, path),
-                Command::AddAudio(path) => self.add_slave(SlaveKind::Audio, path),
+                Command::AddSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Shown),
+                Command::LoadSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Listed),
+                Command::AddAudio(path) => self.add_slave(SlaveKind::Audio, path, Attach::Shown),
                 Command::SetAudioDevice(device) => self.set_audio_device(&device),
                 Command::RefreshAudioDevices => self.poll_devices(),
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
@@ -139,23 +140,37 @@ impl Worker {
     }
 }
 
+/// Shortens the subtitle commands' lines.
+const SUBTITLE: SlaveKind = SlaveKind::Subtitle;
+
+/// Whether an added file's track is selected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Attach {
+    /// Selected: a file the user added.
+    Shown,
+    /// Only listed: a file found beside the video, which the player's auto-selection may pick.
+    Listed,
+}
+
 impl Worker {
-    /// Adds a subtitle or audio file as a slave of the open media and selects it. libVLC
-    /// takes a URI.
-    fn add_slave(&mut self, kind: SlaveKind, path: PathBuf) {
+    /// Adds a subtitle or audio file as a slave of the open media, selected as `attach` says.
+    /// libVLC takes a URI.
+    fn add_slave(&mut self, kind: SlaveKind, path: PathBuf, attach: Attach) {
         let Some(uri) = file_uri(&path) else {
             tracing::warn!("libvlc: can't make a URI from {}", crate::logging::path(&path));
             return;
         };
-        self.defaults.commanded(kind.track_kind());
-        if self.attach_slave(kind, &uri) {
+        if attach == Attach::Shown {
+            self.defaults.commanded(kind.track_kind());
+        }
+        if self.attach_slave(kind, &uri, attach) {
             self.slaves.push(Slave { kind, path });
         }
         self.refresh(Refresh::Tracks);
     }
 
-    /// Hands `uri` to libVLC as a selected `kind` slave. False (logged) when libVLC refuses it.
-    fn attach_slave(&self, kind: SlaveKind, uri: &CStr) -> bool {
+    /// Hands `uri` to libVLC as a `kind` slave. False (logged) when libVLC refuses it.
+    fn attach_slave(&self, kind: SlaveKind, uri: &CStr, attach: Attach) -> bool {
         let api = &self.vlc.api;
         // SAFETY: the player is live and `uri` is NUL-terminated for the call.
         let added = unsafe {
@@ -163,7 +178,7 @@ impl Worker {
                 self.handles.player,
                 kind.libvlc_type(),
                 uri.as_ptr(),
-                true,
+                attach == Attach::Shown,
             )
         };
         if added != 0 {

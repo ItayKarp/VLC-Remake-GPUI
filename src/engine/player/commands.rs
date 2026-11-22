@@ -9,7 +9,7 @@ use super::{Info, Intent, Player, PlayerEvent};
 use crate::app::media::Media;
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
-use crate::engine::tracks::{SubtitleFile, TrackKind};
+use crate::engine::tracks::TrackKind;
 use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, Start, StepDirection};
 
 impl Player {
@@ -46,6 +46,7 @@ impl Player {
         if let (Some(backend), Some(media)) = (self.backend.as_deref_mut(), &self.media) {
             backend.open(media, start, self.generation);
         }
+        self.find_sidecars(cx);
     }
 
     /// Plays: resumes when paused, restarts the media when it ended or was stopped.
@@ -144,21 +145,6 @@ impl Player {
         self.controls.subtitle_delay = delay;
         self.with_backend(|backend| backend.set_subtitle_delay(delay));
         cx.notify();
-    }
-
-    /// Adds the subtitle file at `path` to the open media and shows it (a dropped `.srt`).
-    /// Returns `false`, and does nothing, when no media is open to add it to.
-    pub fn add_subtitle(&mut self, path: &Path, cx: &mut Context<Self>) -> bool {
-        if !self.state.is_active() {
-            return false;
-        }
-        // The backend shows the added file: auto-selection must not turn it off.
-        self.track_choices.user_picked(TrackKind::Subtitle);
-        self.with_backend(|backend| backend.add_subtitle(path));
-        self.info.subtitle_files.push(SubtitleFile::new(path.to_path_buf()));
-        cx.emit(PlayerEvent::TracksChanged);
-        cx.notify();
-        true
     }
 
     /// Adds the audio file at `path` to the open media as a track and plays it (S4.8.1's Add

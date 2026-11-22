@@ -4,6 +4,7 @@
 mod audio;
 mod commands;
 mod receive;
+mod subtitle_files;
 mod tracks;
 
 use std::time::Duration;
@@ -21,7 +22,7 @@ use super::media_options::MediaOptions;
 use super::position::PositionTracker;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
-use super::tracks::{SubtitleFile, Tracks};
+use super::tracks::{SubtitleFile, TrackId, Tracks};
 use super::values::{Generation, Offset, Rate, Volume};
 use crate::app::media::Media;
 
@@ -90,8 +91,14 @@ struct Info {
     /// How full the input cache is, 0.0 to 100.0.
     buffer_fill: f32,
     tracks: Tracks,
-    /// The subtitle files the user added to this media.
+    /// The subtitle files found beside this media or added by the user, in the order they were
+    /// loaded.
     subtitle_files: Vec<SubtitleFile>,
+    /// Subtitle files ready to load, waiting for the media's own tracks to be listed.
+    waiting_files: Vec<subtitle_files::Pending>,
+    /// Tracks of subtitle files read again in another encoding: libVLC can't remove a file's
+    /// track, so the player leaves them out.
+    retired_tracks: Vec<TrackId>,
     video_size: Option<VideoSize>,
     chapters: Vec<Chapter>,
     metadata: Metadata,
@@ -115,6 +122,8 @@ pub struct Player {
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
+    /// The subtitle files being prepared to load, in order (`subtitle_files.rs`).
+    subtitle_loads: Option<Task<()>>,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -143,6 +152,7 @@ impl Player {
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),
+            subtitle_loads: None,
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

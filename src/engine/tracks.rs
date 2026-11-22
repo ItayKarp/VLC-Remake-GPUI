@@ -13,7 +13,10 @@ mod label;
 
 use std::path::PathBuf;
 
+use encoding_rs::Encoding;
+
 use super::language::Language;
+use super::sidecar::Sidecar;
 
 /// The kind of elementary stream a track carries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -51,6 +54,18 @@ pub struct Track {
     /// A forced subtitle: only the lines in another language than the audio (signs, foreign
     /// dialogue).
     pub forced: bool,
+    /// Where the track comes from.
+    pub origin: Origin,
+}
+
+/// Where a track comes from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Origin {
+    /// The media itself.
+    #[default]
+    Media,
+    /// A subtitle file found beside the video or added by the user.
+    File,
 }
 
 impl Track {
@@ -65,6 +80,7 @@ impl Track {
             channels: None,
             default: false,
             forced: false,
+            origin: Origin::Media,
         }
     }
 }
@@ -158,19 +174,41 @@ impl Tracks {
     }
 }
 
-/// A subtitle file the user added to the open media (a drop, or "+" in the track popover).
+/// A subtitle file of the open media: found beside the video (S6.1), or added by the user (a
+/// drop, or "+" in the track popover).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SubtitleFile {
     /// Where the file is.
     pub path: PathBuf,
     /// The subtitle track it became, once the backend lists it.
     pub track: Option<TrackId>,
+    /// The language its name gives, for a track the file doesn't tag.
+    pub language: Option<Language>,
+    /// Its name marks it forced.
+    pub forced: bool,
+    /// The encoding its text is read in, when known (S6.1.6).
+    pub encoding: Option<&'static Encoding>,
+    /// The user chose [`Self::encoding`] for this file, rather than it being guessed.
+    pub encoding_chosen: bool,
 }
 
 impl SubtitleFile {
-    /// A file just added, whose track isn't listed yet.
+    /// A file the user just added, whose track isn't listed yet.
     pub fn new(path: PathBuf) -> Self {
-        Self { path, track: None }
+        Self {
+            path,
+            track: None,
+            language: None,
+            forced: false,
+            encoding: None,
+            encoding_chosen: false,
+        }
+    }
+
+    /// A file just found beside the video, whose track isn't listed yet.
+    pub fn found(sidecar: Sidecar) -> Self {
+        let Sidecar { path, language, forced } = sidecar;
+        Self { language, forced, ..Self::new(path) }
     }
 
     /// The file's name, as the track popover lists it.
@@ -198,6 +236,24 @@ pub fn claim_added(files: &mut [SubtitleFile], before: &Tracks, after: &Tracks) 
     let waiting = files.iter_mut().filter(|file| file.track.is_none());
     for (file, id) in waiting.zip(&added[added.len() - taken..]) {
         file.track = Some(*id);
+    }
+}
+
+/// Marks the tracks `files` became as coming from a file, with the language and forced flag
+/// their names give. libVLC tags a file's track with the last word of its name
+/// (`forced` for `Movie.fr.forced.srt`), so the name's language wins, and a tag that names no
+/// language is dropped. The backend lists the tracks afresh each time, so this runs on every
+/// list.
+pub fn describe_files(files: &[SubtitleFile], tracks: &mut Tracks) {
+    for file in files {
+        let Some(track) = file.track.and_then(|id| tracks.all.iter_mut().find(|t| t.id == id))
+        else {
+            continue;
+        };
+        track.origin = Origin::File;
+        track.forced |= file.forced;
+        let tagged = track.language.take().filter(|tag| Language::recognize(tag.code()).is_some());
+        track.language = file.language.clone().or(tagged);
     }
 }
 
@@ -267,5 +323,31 @@ mod tests {
         let mut waiting = vec![SubtitleFile::new("c.srt".into())];
         claim_added(&mut waiting, &after, &after);
         assert_eq!(waiting[0].track, None);
+    }
+
+    #[test]
+    fn a_files_name_gives_its_tracks_language() {
+        let mut list = tracks(TrackKind::Subtitle, &[3, 4, 5, 6], None);
+        list.all[1].language = Language::parse("fr");
+        list.all[2].language = Language::parse("forced");
+        list.all[3].language = Language::parse("de");
+        let file = |id, language| SubtitleFile {
+            track: Some(TrackId(id)),
+            language: Language::parse(language),
+            forced: true,
+            ..SubtitleFile::new("a.srt".into())
+        };
+        describe_files(&[file(3, "he"), file(4, "en"), file(5, ""), file(6, "")], &mut list);
+        let described: Vec<_> = list
+            .all
+            .iter()
+            .map(|track| (track.language.as_ref().map(Language::code), track.forced, track.origin))
+            .collect();
+        let forced_file = |code| (code, true, Origin::File);
+        assert_eq!(
+            described,
+            [Some("he"), Some("en"), None, Some("de")].map(forced_file),
+            "a tag that is no language goes"
+        );
     }
 }

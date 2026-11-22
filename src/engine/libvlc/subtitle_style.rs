@@ -2,7 +2,7 @@
 //! [`SubtitleLoading`] as per-media options. Values left at libVLC's defaults add nothing.
 
 use crate::engine::subtitle_style::{
-    BLACK, FileMatching, OPAQUE, Outline, SubtitleLoading, SubtitleStyle, TextSize, WHITE,
+    BLACK, OPAQUE, Outline, SubtitleLoading, SubtitleStyle, TextSize, WHITE,
 };
 
 /// The renderer's arguments for `style`.
@@ -40,32 +40,26 @@ pub fn arguments(style: &SubtitleStyle) -> Vec<String> {
     arguments
 }
 
-/// The per-media options for `loading`.
+/// The per-media options for `loading`: the encoding. Which files load is the player's
+/// ([`crate::engine::sidecar`]); libVLC's own detection is off.
 pub fn media_options(loading: &SubtitleLoading) -> Vec<String> {
-    let mut options = Vec::new();
-    match loading.files {
-        None => options.push(":no-sub-autodetect-file".to_owned()),
-        Some(FileMatching::TitleWithExtra) => {}
-        Some(matching) => {
-            options.push(format!(":sub-autodetect-fuzzy={}", matching.libvlc_value()));
-        }
-    }
-    if !loading.encoding.is_empty() {
-        options.push(format!(":subsdec-encoding={}", loading.encoding));
-    }
-    options
+    let encoding =
+        (!loading.encoding.is_empty()).then(|| format!(":subsdec-encoding={}", loading.encoding));
+    encoding.into_iter().collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::subtitle_style::RelativeSize;
+    use crate::engine::subtitle_style::{FileMatching, RelativeSize};
 
     #[test]
     fn the_default_style_and_loading_add_nothing() {
         assert_eq!(arguments(&SubtitleStyle::default()), Vec::<String>::new());
-        let loading =
-            SubtitleLoading { files: Some(FileMatching::TitleWithExtra), encoding: String::new() };
+        let loading = SubtitleLoading {
+            files: Some(FileMatching::TitleWithExtra),
+            ..SubtitleLoading::default()
+        };
         assert_eq!(media_options(&loading), Vec::<String>::new());
     }
 
@@ -99,14 +93,10 @@ mod tests {
     }
 
     #[test]
-    fn loading_off_strict_matching_and_an_encoding() {
-        let off = SubtitleLoading { files: None, encoding: "Windows-1255".into() };
-        assert_eq!(
-            media_options(&off),
-            [":no-sub-autodetect-file", ":subsdec-encoding=Windows-1255"]
-        );
-        let exact = SubtitleLoading { files: Some(FileMatching::Exact), encoding: String::new() };
-        assert_eq!(media_options(&exact), [":sub-autodetect-fuzzy=4"]);
+    fn an_encoding_is_its_option() {
+        let encoding =
+            SubtitleLoading { encoding: "Windows-1255".into(), ..SubtitleLoading::default() };
+        assert_eq!(media_options(&encoding), [":subsdec-encoding=Windows-1255"]);
     }
 }
 
