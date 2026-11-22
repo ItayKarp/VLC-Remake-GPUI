@@ -19,6 +19,7 @@ use crate::app::request::{OpenRequest, Placement};
 use crate::db::playlists::{PlaylistId, Summary};
 use crate::keymap::actions::{ImportPlaylist, NewPlaylist, SaveQueueAsPlaylist};
 use crate::playlists::{self, Deleted};
+use crate::settings;
 use crate::ui::modal::{Dialog, DialogButton};
 use crate::ui::text_input::TextInput;
 use crate::ui::toast::{Level, Toast};
@@ -121,13 +122,18 @@ impl MainWindow {
         Self::report_playlists(copied, |title| format!("Made a copy named “{title}”."), window, cx);
     }
 
-    /// Asks before deleting playlist `summary`.
+    /// Asks before deleting playlist `summary`, or deletes it at once when confirmations are off
+    /// (S5.3.3); the toast offers Undo either way.
     fn confirm_delete_playlist(
         &mut self,
         summary: &Summary,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !settings::get(cx).prefs.startup.show_dialogs {
+            Self::delete_playlist(summary.id, cx);
+            return;
+        }
         let main = cx.entity().downgrade();
         let id = summary.id;
         let delete = DialogButton::new("Delete").primary().on_click(move |_, cx| {

@@ -5,6 +5,7 @@
 
 mod audio;
 mod controls;
+mod diagnostics;
 mod general;
 mod interface;
 mod library;
@@ -16,9 +17,10 @@ use super::def::SettingDef;
 use super::value::Value;
 use crate::engine::language::Language;
 
-/// Every category's rows, in sidebar order.
-pub(super) static PAGES: [&[SettingDef]; 8] = [
+/// Every category's rows, in sidebar order (General in two parts).
+pub(super) static PAGES: [&[SettingDef]; 9] = [
     general::ENTRIES,
+    diagnostics::ENTRIES,
     interface::ENTRIES,
     privacy::ENTRIES,
     controls::ENTRIES,

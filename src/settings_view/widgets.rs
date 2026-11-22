@@ -51,7 +51,7 @@ impl Widgets {
                 Control::Slider { .. } => make_slider(def, window, cx),
                 Control::Number { .. }
                 | Control::Text
-                | Control::Path
+                | Control::Path(_)
                 | Control::HexColor
                 | Control::List => Some(make_field(def, window, cx)),
                 _ => None,
@@ -210,6 +210,19 @@ impl SettingsPage {
                 false
             }
         }
+    }
+
+    /// Puts `text` in the row's field and saves it as if it were typed and confirmed (a path
+    /// from Browse), showing why under the field when it is refused.
+    pub(super) fn commit_text(
+        &mut self,
+        def: &'static SettingDef,
+        text: String,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(field) = self.widgets.field(def.key).cloned() else { return };
+        field.update(cx, |field, cx| field.set_text(text, cx));
+        self.commit_field(def, &field, cx);
     }
 
     /// The field wrapped so Escape puts the saved value back before anything else handles it.

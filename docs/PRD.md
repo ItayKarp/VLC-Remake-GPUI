@@ -1239,16 +1239,16 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S5.2, S0.3, S0.7  **Size:** M  **Design refs:** `global_01.png`, `global_02.png`
 
 **Subtasks**
-- [ ] S5.3.1 **Theme** (Dark | Light | System) and **Accent color** (9 swatches) edit the same settings onboarding wrote, live, in every window. **Decision:** the order differs between screens (onboarding is Light/Dark/System, Settings is Dark/Light/System). Pick one.
-- [ ] S5.3.2 **Interface language** dropdown (depends on S9.2 i18n). A change re-renders live where possible, otherwise it's `Restart`.
-- [ ] S5.3.3 Startup: **Show confirmation and error dialogs**, **Check for updates automatically** (S9.5).
-- [ ] S5.3.4 Diagnostics: **Developer mode**, **Save a log**, **Log file** (path picker), **Log details** (Errors only, …). Advanced: **Show minor warnings**, **Additional command line options**, **Log format**, **Collect playback statistics**.
-- [ ] S5.3.5 Add **Run setup again** (re-opens onboarding pre-filled with the current values; Cancel returns without changes).
+- [x] S5.3.1 **Theme** (Dark | Light | System) and **Accent color** (9 swatches) edit the same settings onboarding wrote, live, in every window. **Decision:** the order differs between screens (onboarding is Light/Dark/System, Settings is Dark/Light/System). Pick one. *(Decided (D6): Light, Dark, System everywhere, from `ThemeMode::ALL`. Rows in `registry/entries/general.rs`; every window follows the theme global.)*
+- [x] S5.3.2 **Interface language** dropdown (depends on S9.2 i18n). A change re-renders live where possible, otherwise it's `Restart`. *(`prefs.language`: "Same as the system" (the default, per S9.2.4) and English, the only language until S9.2 adds translations and decides live versus `Restart`.)*
+- [x] S5.3.3 Startup: **Show confirmation and error dialogs**, **Check for updates automatically** (S9.5). *(`prefs.startup`. Dialogs are on by default, unlike the design's static OFF, since off skips the existing confirmations (discarding a new playlist with files, deleting a playlist, which keeps its Undo toast); errors are toasts, not dialogs. Updates default off; S9.5 reads the setting.)*
+- [x] S5.3.4 Diagnostics: **Developer mode**, **Save a log**, **Log file** (path picker), **Log details** (Errors only, …). Advanced: **Show minor warnings**, **Additional command line options**, **Log format**, **Collect playback statistics**. *(`registry/entries/diagnostics.rs`. Logging is reconfigured live (`logging::configure`): Save a log off writes no file; Log file (machine-local, `local.log_file`, empty for `logs/vlc.log`) rolls over beside itself, and Browse asks where to save; Log details, Log file and Log format depend on Save a log; Log format is plain text or JSON lines; Show minor warnings logs GPUI's warnings, otherwise only its errors. Additional options and statistics (`--no-stats` when off) are libVLC options for the player's instance, `Restart`. Developer mode adds an advanced "Component gallery (unstable)" row. The Hide file names row stays here until S5.5.)*
+- [x] S5.3.5 Add **Run setup again** (re-opens onboarding pre-filled with the current values; Cancel returns without changes). *(A Setup row in Startup. It closes the main and Settings windows; once setup was done, onboarding offers Cancel, and Cancel, Escape on step 1 and closing the window reopen the main window unchanged. Finishing keeps media folders other than the first.)*
 
 **Edge cases**
-- The log file path points to a folder that doesn't exist, a read-only location, a network share that disconnects, or a file another program holds open: validate on change and fall back to the default log location with a warning.
-- "Additional command line options" holds invalid flags: validate them against the backend's known options and show the parsing error inline. Never pass them to a shell.
-- Developer mode exposes unstable features: label them, and ignore them in crash statistics.
+- The log file path points to a folder that doesn't exist, a read-only location, a network share that disconnects, or a file another program holds open: validate on change and fall back to the default log location with a warning. *(The field refuses a relative path, a folder or a missing folder. The file is opened on its own thread; when it can't be, the default file is used and a warning logged. A write failing later loses that event only.)*
+- "Additional command line options" holds invalid flags: validate them against the backend's known options and show the parsing error inline. Never pass them to a shell. *(`engine/libvlc/options.rs` splits them (quotes keep spaces), requires `--name[=value]`, refuses options that take over interfaces or video output, and, with libVLC loaded, creates a trial instance to ask libVLC; errors show under the field. They reach `libvlc_new` as an argument list. If libVLC still refuses them at startup, the player starts without them.)*
+- Developer mode exposes unstable features: label them, and ignore them in crash statistics. *(Labeled "(unstable)"; crash reports carry a `Developer mode: on/off` line to filter on.)*
 
 ---
 
@@ -2143,7 +2143,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D3 | Default keymap (the designs conflict; table below) | S0.5, S2.10, S5.6 | **Decided (S0.5):** N/P for next/previous, Shift+R record, Shift+S snapshot; no Ctrl+C or Ctrl+F for menu items |
 | D4 | First launch was triggered by opening a file | S0.2.6 | **Decided:** play the file now, run onboarding on the next plain launch |
 | D5 | Settings as a separate window or an in-app modal | S5.2.1 | **Decided (S5.2):** a separate window |
-| D6 | Theme option order (Light/Dark/System versus Dark/Light/System) | S5.3.1 | One order everywhere (Light, Dark, System matches the code) |
+| D6 | Theme option order (Light/Dark/System versus Dark/Light/System) | S5.3.1 | **Decided (S5.3):** Light, Dark, System everywhere |
 | D7 | Music source, given that onboarding only asks for one folder | S4.2.7 | Auto-add the OS Music folder if it exists |
 | D8 | Window title rule while playing | S2.1.2, S4.10 | The media title while media is loaded, otherwise "VLC Media Player" |
 | D9 | Meaning of dimmed text and the watched bar | S4.6 | Dim = watched only; the bar shows real progress, full width when watched |

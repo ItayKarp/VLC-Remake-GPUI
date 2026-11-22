@@ -36,7 +36,7 @@ pub enum ThemeMode {
 }
 
 impl ThemeMode {
-    /// Every mode, in the order onboarding shows them.
+    /// Every mode, in the order every theme picker shows them (D6: Light, Dark, System).
     pub const ALL: [ThemeMode; 3] = [ThemeMode::Light, ThemeMode::Dark, ThemeMode::System];
 
     /// The name shown to the user.

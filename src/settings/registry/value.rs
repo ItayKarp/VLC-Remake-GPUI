@@ -16,7 +16,6 @@ pub enum Value {
     /// A number, in the unit the row shows.
     Number(f64),
     /// Free text: a path, a color, a pattern.
-    #[allow(dead_code, reason = "text, path and color rows come with S5.3–S5.12")]
     Text(String),
     /// Several entries, most important first (preferred languages).
     List(Vec<String>),
@@ -73,6 +72,25 @@ pub struct Binding {
     pub set: Setter,
 }
 
+impl Binding {
+    /// A button row's binding: it holds no value.
+    pub const ACTION: Self = Self { get: |_| Value::Bool(false), set: |_, _| {} };
+}
+
+/// A [`Binding`] for a `String` field: `text!(local.log_file)`.
+macro_rules! text {
+    ($($field:ident).+) => {
+        $crate::settings::registry::Binding {
+            get: |s| $crate::settings::registry::Value::Text(s.$($field).+.clone()),
+            set: |s, value| {
+                if let $crate::settings::registry::Value::Text(text) = value {
+                    s.$($field).+ = text;
+                }
+            },
+        }
+    };
+}
+
 /// A [`Binding`] for a `bool` field: `toggle!(prefs.player.stop_after_each_item)`.
 macro_rules! toggle {
     ($($field:ident).+) => {
@@ -123,7 +141,7 @@ macro_rules! choice {
     };
 }
 
-pub(crate) use {choice, number, toggle};
+pub(crate) use {choice, number, text, toggle};
 
 /// Converts a row's number to a field's numeric type.
 pub(crate) trait FromNumber {

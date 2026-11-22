@@ -19,6 +19,7 @@ mod events;
 mod failure;
 mod frame_sink;
 pub mod lengths;
+pub mod options;
 mod prepare;
 pub mod preview;
 mod query;
@@ -223,22 +224,32 @@ impl Drop for LibVlcBackend {
     }
 }
 
-/// A new libVLC instance with [`ARGUMENTS`] and `audio`'s arguments, and a media player on it;
-/// `with_video` false adds [`NO_VIDEO_ARGUMENT`]. An audio argument this libVLC doesn't know
-/// fails the instance, so it is retried without them.
+/// A new libVLC instance with [`ARGUMENTS`], `audio`'s arguments and the user's startup options
+/// ([`options`]), and a media player on it; `with_video` false adds [`NO_VIDEO_ARGUMENT`]. An
+/// option this libVLC doesn't know fails the instance, so it is retried without the user's
+/// options, then without the audio ones.
 fn new_handles(vlc: &LibVlc, with_video: bool, audio: AudioConfig) -> Result<Handles> {
     let video = (!with_video).then_some(NO_VIDEO_ARGUMENT);
     let base: Vec<&str> = ARGUMENTS.into_iter().chain(video).collect();
-    let audio_arguments = audio::arguments(audio);
-    let instance = if audio_arguments.is_empty() {
-        new_instance(vlc, &base)?
-    } else {
-        let full: Vec<&str> = base.iter().copied().chain(audio_arguments).collect();
-        new_instance(vlc, &full).or_else(|error| {
+    let with_audio: Vec<&str> = base.iter().copied().chain(audio::arguments(audio)).collect();
+    let startup = options::startup();
+    let full: Vec<&str> =
+        with_audio.iter().copied().chain(startup.iter().map(String::as_str)).collect();
+    let instance = new_instance(vlc, &full)
+        .or_else(|error| {
+            if startup.is_empty() {
+                return Err(error);
+            }
+            tracing::warn!("libvlc: startup options refused ({error:#}); starting without them");
+            new_instance(vlc, &with_audio)
+        })
+        .or_else(|error| {
+            if with_audio.len() == base.len() {
+                return Err(error);
+            }
             tracing::warn!("libvlc: audio options refused ({error:#}); starting without them");
             new_instance(vlc, &base)
-        })?
-    };
+        })?;
     // SAFETY: the instance is live.
     let player = unsafe { (vlc.api.libvlc_media_player_new)(instance) };
     if player.is_null() {
@@ -254,8 +265,9 @@ fn new_handles(vlc: &LibVlc, with_video: bool, audio: AudioConfig) -> Result<Han
 fn new_instance(vlc: &LibVlc, arguments: &[&str]) -> Result<*mut Instance> {
     let arguments: Vec<CString> = arguments
         .iter()
-        .map(|argument| CString::new(*argument).expect("no NUL in constants"))
-        .collect();
+        .map(|argument| CString::new(*argument))
+        .collect::<Result<_, _>>()
+        .context("an option holds a NUL character")?;
     let pointers: Vec<_> = arguments.iter().map(|argument| argument.as_ptr()).collect();
     // SAFETY: `pointers` holds NUL-terminated strings that outlive the call.
     let instance: *mut Instance =

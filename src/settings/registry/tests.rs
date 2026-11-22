@@ -191,3 +191,44 @@ fn every_category_but_hand_built_ones_lists_in_the_sidebar() {
     assert_eq!(Category::Extensions.layout(), Layout::HandBuilt);
     assert!(all().all(|def| def.category.layout() == Layout::Rows));
 }
+
+#[test]
+fn the_log_rows_follow_save_a_log() {
+    let mut settings = Settings::default();
+    for key in ["log_file", "diagnostics.log_level", "diagnostics.log_format"] {
+        assert!(def(key).is_enabled(&settings), "{key}");
+    }
+    settings.prefs.diagnostics.save_log = false;
+    for key in ["log_file", "diagnostics.log_level", "diagnostics.log_format"] {
+        assert!(!def(key).is_enabled(&settings), "{key}");
+    }
+}
+
+#[test]
+fn a_log_file_needs_an_existing_folder() {
+    let log_file = def("log_file");
+    let missing = std::env::temp_dir().join("rvlc-no-such-folder").join("vlc.log");
+    let missing = Value::Text(missing.to_string_lossy().into_owned());
+    assert!(log_file.accept(missing).is_err());
+    let fine = std::env::temp_dir().join("rvlc-test.log").to_string_lossy().into_owned();
+    assert!(log_file.accept(Value::Text(fine)).is_ok());
+    assert!(log_file.accept(Value::Text(String::new())).is_ok());
+}
+
+#[test]
+fn startup_options_are_checked_and_apply_at_restart() {
+    let options = def("diagnostics.extra_options");
+    assert_eq!(options.apply, ApplyMode::Restart);
+    assert!(options.accept(Value::Text("--intf=qt".into())).is_err());
+    assert!(options.accept(Value::Text("not-an-option".into())).is_err());
+    let mut before = Settings::default();
+    let now = before.clone();
+    before.prefs.diagnostics.collect_statistics = false;
+    assert!(needs_restart(&before, &now));
+}
+
+#[test]
+fn the_theme_reads_light_dark_system_everywhere() {
+    let ids: Vec<_> = def("theme").choices().iter().map(|choice| choice.id).collect();
+    assert_eq!(ids, ["light", "dark", "system"]);
+}

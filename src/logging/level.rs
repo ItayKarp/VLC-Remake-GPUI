@@ -32,10 +32,11 @@ impl LogLevel {
     }
 }
 
-/// An `EnvFilter` directive: `crate_target` at `level`, other crates at `level` but
-/// no more verbose than warnings.
-pub(super) fn directive(level: LogLevel, crate_target: &str) -> String {
-    let others = level.min(LogLevel::Warn);
+/// An `EnvFilter` directive: `crate_target` at `level`, other crates (GPUI) at `level` but no
+/// more verbose than warnings with `minor_warnings`, and errors only without.
+pub(super) fn directive(level: LogLevel, minor_warnings: bool, crate_target: &str) -> String {
+    let loudest = if minor_warnings { LogLevel::Warn } else { LogLevel::Error };
+    let others = level.min(loudest);
     format!("{},{crate_target}={}", others.as_str(), level.as_str())
 }
 
@@ -45,8 +46,13 @@ mod tests {
 
     #[test]
     fn other_crates_stay_at_warnings_when_ours_are_verbose() {
-        assert_eq!(directive(LogLevel::Debug, "vlc"), "warn,vlc=debug");
-        assert_eq!(directive(LogLevel::Error, "vlc"), "error,vlc=error");
+        assert_eq!(directive(LogLevel::Debug, true, "vlc"), "warn,vlc=debug");
+        assert_eq!(directive(LogLevel::Error, true, "vlc"), "error,vlc=error");
+    }
+
+    #[test]
+    fn without_minor_warnings_other_crates_log_only_errors() {
+        assert_eq!(directive(LogLevel::Debug, false, "vlc"), "error,vlc=debug");
     }
 
     #[test]

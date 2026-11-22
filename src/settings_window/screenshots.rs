@@ -10,9 +10,9 @@ use crate::window_chrome::TITLE_BAR_HEIGHT;
 /// The window inside the design PNG's drop shadow, in the PNG's pixels and in logical pixels.
 const DESIGN_ORIGIN: (u32, u32) = (30, 30);
 const DESIGN_SIZE: (f32, f32) = (1048., 860.);
-/// The share of pixels allowed to differ: the text, as the design uses Inter, and the rows the
-/// design draws that have no setting yet (Interface language, updates, logging). Measured near
-/// 3.5% on macOS (November 2026).
+/// The share of pixels allowed to differ: the text, as the design uses Inter, the theme order
+/// (D6 puts Light first), and the Run Setup Again row the design doesn't draw, which moves
+/// Diagnostics down. Measured near 4.6% on macOS (November 2026).
 const MAX_MISMATCH: f64 = 0.06;
 
 #[test]

@@ -1,12 +1,13 @@
 //! A log file that rolls over by size: `vlc.log` is the newest, then `vlc.1.log`
-//! and so on, and the oldest is deleted once there are [`FILE_COUNT`] of them.
+//! and so on, and the oldest is deleted once there are [`FILE_COUNT`] of them. A log file
+//! the user picked rolls the same way: `debug.txt`, `debug.1.txt`, …
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-/// The newest log file's name.
-const FILE_NAME: &str = "vlc.log";
+/// The default log file's name.
+pub(super) const FILE_NAME: &str = "vlc.log";
 /// How large one file grows before it rolls over.
 const MAX_FILE_BYTES: u64 = 5 * 1024 * 1024;
 /// How many files are kept, the current one included.
@@ -14,7 +15,7 @@ const FILE_COUNT: usize = 5;
 
 /// A size-capped, rolling log file.
 pub(super) struct RollingFile {
-    dir: PathBuf,
+    path: PathBuf,
     file: File,
     written: u64,
     max_bytes: u64,
@@ -22,24 +23,32 @@ pub(super) struct RollingFile {
 }
 
 impl RollingFile {
-    /// Opens (or creates) `vlc.log` in `dir`, appending to it.
-    pub(super) fn open(dir: &Path) -> io::Result<Self> {
-        Self::with_limits(dir, MAX_FILE_BYTES, FILE_COUNT)
+    /// Opens (or creates) the log file at `path`, appending to it. Its folder is created if it
+    /// is missing.
+    pub(super) fn open(path: &Path) -> io::Result<Self> {
+        Self::with_limits(path, MAX_FILE_BYTES, FILE_COUNT)
     }
 
-    fn with_limits(dir: &Path, max_bytes: u64, count: usize) -> io::Result<Self> {
-        fs::create_dir_all(dir)?;
-        let file = OpenOptions::new().create(true).append(true).open(dir.join(FILE_NAME))?;
+    fn with_limits(path: &Path, max_bytes: u64, count: usize) -> io::Result<Self> {
+        if let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+            fs::create_dir_all(dir)?;
+        }
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
         let written = file.metadata()?.len();
-        Ok(Self { dir: dir.to_owned(), file, written, max_bytes, count })
+        Ok(Self { path: path.to_owned(), file, written, max_bytes, count })
     }
 
+    /// The file `index` roll-overs old: the file itself, then `stem.1.ext` and so on.
     fn name(&self, index: usize) -> PathBuf {
         if index == 0 {
-            self.dir.join(FILE_NAME)
-        } else {
-            self.dir.join(format!("vlc.{index}.log"))
+            return self.path.clone();
         }
+        let stem = self.path.file_stem().unwrap_or_default().to_string_lossy();
+        let name = match self.path.extension() {
+            Some(extension) => format!("{stem}.{index}.{}", extension.to_string_lossy()),
+            None => format!("{stem}.{index}"),
+        };
+        self.path.with_file_name(name)
     }
 
     /// Shifts every file up by one, dropping the oldest, and starts a new one.
@@ -91,7 +100,7 @@ mod tests {
     #[test]
     fn rolls_over_at_the_size_cap_and_keeps_a_fixed_number_of_files() {
         let dir = temp_dir("cap");
-        let mut log = RollingFile::with_limits(&dir, 10, 3).unwrap();
+        let mut log = RollingFile::with_limits(&dir.join(FILE_NAME), 10, 3).unwrap();
         for line in ["aaaaaaaa\n", "bbbbbbbb\n", "cccccccc\n", "dddddddd\n"] {
             log.write_all(line.as_bytes()).unwrap();
         }
@@ -106,8 +115,9 @@ mod tests {
     #[test]
     fn appends_to_the_existing_file_and_counts_its_size() {
         let dir = temp_dir("append");
-        RollingFile::with_limits(&dir, 10, 2).unwrap().write_all(b"12345678\n").unwrap();
-        RollingFile::with_limits(&dir, 10, 2).unwrap().write_all(b"abc\n").unwrap();
+        let path = dir.join(FILE_NAME);
+        RollingFile::with_limits(&path, 10, 2).unwrap().write_all(b"12345678\n").unwrap();
+        RollingFile::with_limits(&path, 10, 2).unwrap().write_all(b"abc\n").unwrap();
         assert_eq!(fs::read_to_string(dir.join("vlc.log")).unwrap(), "abc\n");
         assert_eq!(fs::read_to_string(dir.join("vlc.1.log")).unwrap(), "12345678\n");
         fs::remove_dir_all(dir).ok();
@@ -118,7 +128,18 @@ mod tests {
         let dir = temp_dir("blocked");
         fs::create_dir_all(dir.parent().unwrap()).unwrap();
         fs::write(&dir, b"a file, not a folder").unwrap();
-        assert!(RollingFile::open(&dir).is_err());
+        assert!(RollingFile::open(&dir.join(FILE_NAME)).is_err());
         fs::remove_file(dir).ok();
+    }
+
+    #[test]
+    fn a_picked_file_rolls_over_next_to_itself() {
+        let dir = temp_dir("picked");
+        let mut log = RollingFile::with_limits(&dir.join("debug.txt"), 10, 2).unwrap();
+        log.write_all(b"aaaaaaaa\n").unwrap();
+        log.write_all(b"bbbbbbbb\n").unwrap();
+        assert_eq!(fs::read_to_string(dir.join("debug.txt")).unwrap(), "bbbbbbbb\n");
+        assert_eq!(fs::read_to_string(dir.join("debug.1.txt")).unwrap(), "aaaaaaaa\n");
+        fs::remove_dir_all(dir).ok();
     }
 }

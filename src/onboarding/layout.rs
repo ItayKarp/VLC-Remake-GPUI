@@ -30,6 +30,7 @@ impl Onboarding {
             .flex()
             .flex_row()
             .gap(px(8.))
+            .when(self.rerun, |this| this.child(cancel_button(cx)))
             .when(show_back, |this| this.child(back_button(cx)))
             .child(
                 Button::new("next", next_label)
@@ -41,6 +42,14 @@ impl Onboarding {
                     ),
             )
     }
+}
+
+/// Cancel, offered when setup is run again: returns to the main window with nothing changed.
+fn cancel_button(cx: &mut Context<Onboarding>) -> Button {
+    Button::new("cancel", "Cancel")
+        .style(ButtonStyle::Filled)
+        .width(NAV_BUTTON_WIDTH)
+        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.cancel(window, cx)))
 }
 
 /// The Back button, which returns to the previous step.

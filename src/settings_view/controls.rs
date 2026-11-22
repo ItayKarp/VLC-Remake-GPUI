@@ -2,6 +2,7 @@
 //! settings on every render, and the stateful widgets with what goes beside them (a path's Browse
 //! button, a color's square).
 
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use gpui::{AnyElement, App, Context, PathPromptOptions, Window, div, prelude::*, px};
@@ -10,7 +11,7 @@ use super::SettingsPage;
 use super::swatches::{SelectHandler, SwatchRow, swatches};
 use crate::settings::{
     self,
-    registry::{self, Control, SettingDef, Value},
+    registry::{self, Control, PathPick, SettingDef, Value},
 };
 use crate::theme::Palette;
 use crate::ui::button::Button;
@@ -81,7 +82,7 @@ impl SettingsPage {
         }
         let field = Self::field_with_escape(def, element, cx);
         match def.control {
-            Control::Path => with_browse(def, field, enabled, cx),
+            Control::Path(pick) => with_browse(def, pick, field, enabled, cx),
             Control::HexColor => with_color_square(def, field, cx),
             _ => field,
         }
@@ -104,35 +105,66 @@ fn index_of(def: &SettingDef, id: &str) -> usize {
 /// A path field and its Browse button.
 fn with_browse(
     def: &'static SettingDef,
+    pick: PathPick,
     field: AnyElement,
     enabled: bool,
     cx: &mut Context<SettingsPage>,
 ) -> AnyElement {
     let browse = Button::new("browse", "Browse")
         .disabled(!enabled)
-        .on_click(cx.listener(move |_, _, _, cx| browse_for(def, cx)));
+        .on_click(cx.listener(move |_, _, _, cx| browse_for(def, pick, cx)));
     div()
         .w_full()
         .flex()
         .items_start()
         .gap(px(BESIDE_GAP))
-        .child(field)
-        .child(browse)
+        .child(div().flex_1().min_w_0().child(field))
+        .child(div().flex_none().child(browse))
         .into_any_element()
 }
 
-/// Asks for a file and saves its path for `def`.
-fn browse_for(def: &'static SettingDef, cx: &mut Context<SettingsPage>) {
-    let options =
-        PathPromptOptions { files: true, directories: false, multiple: false, prompt: None };
-    let chosen = cx.prompt_for_paths(options);
+/// Asks for a file, or where to save one, and saves its path for `def`. A path the setting
+/// refuses shows why under the field.
+fn browse_for(def: &'static SettingDef, pick: PathPick, cx: &mut Context<SettingsPage>) {
+    let chosen = match pick {
+        PathPick::ExistingFile => {
+            let options = PathPromptOptions {
+                files: true,
+                directories: false,
+                multiple: false,
+                prompt: None,
+            };
+            let paths = cx.prompt_for_paths(options);
+            cx.background_spawn(async move {
+                paths.await.ok()?.ok()?.and_then(|paths| paths.into_iter().next())
+            })
+        }
+        PathPick::NewFile { name } => {
+            let start = start_folder(def, cx);
+            let path = cx.prompt_for_new_path(&start, Some(name));
+            cx.background_spawn(async move { path.await.ok()?.ok()? })
+        }
+    };
     cx.spawn(async move |page, cx| {
-        let Ok(Ok(Some(paths))) = chosen.await else { return };
-        let Some(path) = paths.into_iter().next() else { return };
+        let Some(path) = chosen.await else { return };
         let text = path.to_string_lossy().into_owned();
-        page.update(cx, |page, cx| page.write(def, Value::Text(text), cx)).ok();
+        page.update(cx, |page, cx| page.commit_text(def, text, cx)).ok();
     })
     .detach();
+}
+
+/// Where a save dialog starts: the folder of the saved path, else the home folder.
+fn start_folder(def: &SettingDef, cx: &App) -> PathBuf {
+    let saved = match def.value(settings::get(cx)) {
+        Value::Text(text) => PathBuf::from(text.trim()),
+        _ => PathBuf::new(),
+    };
+    saved
+        .parent()
+        .filter(|dir| dir.is_dir())
+        .map(Path::to_path_buf)
+        .or_else(dirs::home_dir)
+        .unwrap_or_default()
 }
 
 /// A color field and a square of the saved color.

@@ -272,9 +272,9 @@ fn correct_dpi_drift<V: 'static>(
     handle
 }
 
-/// "Run setup again" (S0.2.5): opens onboarding and closes the main window(s).
-/// Finishing opens a fresh main window; closing onboarding early quits, and the
-/// previous settings stay as they were.
+/// "Run setup again" (S0.2.5, S5.3.5): opens onboarding and closes the main and Settings
+/// windows. Finishing or cancelling opens a fresh main window; cancelling keeps the settings as
+/// they were.
 pub fn run_setup_again(display: Option<DisplayId>, cx: &mut App) {
     if let Err(err) = open_onboarding(display, cx) {
         tracing::error!("couldn't open onboarding: {err:#}");
@@ -282,8 +282,10 @@ pub fn run_setup_again(display: Option<DisplayId>, cx: &mut App) {
         return;
     }
     for handle in cx.windows() {
-        if let Some(main) = handle.downcast::<MainWindow>() {
-            main.update(cx, |_, window, _| window.remove_window()).ok();
+        let replaced = handle.downcast::<MainWindow>().is_some()
+            || handle.downcast::<crate::settings_window::SettingsWindow>().is_some();
+        if replaced {
+            handle.update(cx, |_, window, _| window.remove_window()).ok();
         }
     }
 }

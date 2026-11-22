@@ -11,6 +11,7 @@
 
 mod audio;
 mod controls;
+mod general;
 mod interface;
 mod miniplayer;
 mod playback;
@@ -24,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use super::lenient::lenient;
 use super::registry::Category;
 use super::stored_path;
-use crate::logging::LogLevel;
 use crate::theme::{Accent, ThemeMode};
 
 pub use audio::{AudioSettings, LocalAudio, StartupVolume};
@@ -32,6 +32,7 @@ pub use controls::{
     ClickAction, ControlsSettings, DoubleClickAction, HorizontalWheelAction, SkipLength,
     WheelAction,
 };
+pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
 pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
@@ -50,12 +51,18 @@ pub struct Settings {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
+    /// The interface language (S5.3.2).
+    #[serde(deserialize_with = "lenient")]
+    pub language: InterfaceLanguage,
     /// Light, dark, or following the system.
     #[serde(deserialize_with = "lenient")]
     pub theme: ThemeMode,
     /// The accent color.
     #[serde(deserialize_with = "lenient")]
     pub accent: Accent,
+    /// Startup and dialogs (S5.3.3).
+    #[serde(deserialize_with = "lenient")]
+    pub startup: StartupSettings,
     /// The window and its title bar.
     #[serde(deserialize_with = "lenient")]
     pub interface: InterfaceSettings,
@@ -83,7 +90,7 @@ pub struct Preferences {
     /// Custom key bindings.
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
-    /// Logging and crash reports (S0.7).
+    /// Logging, crash reports and libVLC's startup options (S0.7, S5.3.4).
     #[serde(deserialize_with = "lenient")]
     pub diagnostics: DiagnosticsSettings,
 }
@@ -134,6 +141,10 @@ pub struct LocalState {
     /// The page the Settings window last showed (S5.2.2).
     #[serde(deserialize_with = "lenient")]
     pub settings_category: Category,
+    /// "Log file" (S5.3.4): where the log is written, as typed; empty means the default,
+    /// `logs/vlc.log` next to this file. Local: it is a path on this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub log_file: String,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty
@@ -245,15 +256,6 @@ impl Default for PrivacySettings {
             fetch_online_metadata: false,
         }
     }
-}
-
-/// Logging and crash reports (S0.7). `RUST_LOG` overrides the level.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct DiagnosticsSettings {
-    /// How much goes into the log file.
-    #[serde(deserialize_with = "lenient")]
-    pub log_level: LogLevel,
 }
 
 /// Window geometry per window kind (S0.2.9). Onboarding isn't remembered: it opens

@@ -24,19 +24,26 @@ pub enum Control {
     /// A number field showing `unit` after the value ("10 s").
     Number { unit: &'static str },
     /// A text field.
-    #[allow(dead_code, reason = "text rows come with S5.3–S5.12")]
     Text,
-    /// A path field with a Browse button.
-    #[allow(dead_code, reason = "path rows come with S5.3 (Log file) and S5.4 (Skin file)")]
-    Path,
+    /// A path field with a Browse button that picks as `PathPick` says.
+    Path(PathPick),
     /// A `#RRGGBB` field with a color square.
     #[allow(dead_code, reason = "color rows come with S6 (subtitle colors)")]
     HexColor,
-    /// A button that runs `action` ("Clear history now").
-    #[allow(dead_code, reason = "button rows come with S5.5 and S5.6")]
+    /// A button that runs `action` ("Run Setup Again…"); its binding is [`Binding::ACTION`].
     Button { label: &'static str, action: fn(&mut gpui::Window, &mut gpui::App) },
     /// A comma-separated list of entries.
     List,
+}
+
+/// What a path row's Browse button asks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PathPick {
+    /// A file that exists (a skin).
+    #[allow(dead_code, reason = "the skin file row comes with S5.4")]
+    ExistingFile,
+    /// Where to write a file, which may not exist yet (a log); `name` is suggested.
+    NewFile { name: &'static str },
 }
 
 /// The numbers a numeric setting allows, in the unit its row shows.
