@@ -1,20 +1,22 @@
-//! The grid view (S4.6.4): tiles with the name below, as in full library mode (`player_03`),
-//! two to a line in the sidebar overlay. A card's tile is its thumbnail with the list's watched
-//! bar, hover play button and `•••`; a row's (a folder, a category's name, "+ Add") is its icon
-//! on a plain tile, and it opens on one click as in the list.
+//! Lines of items side by side (S4.6.4, S4.10.2): the grid view's tiles with the name below, two
+//! to a line in the sidebar overlay and as many as fit in full library mode (`player_03`), and
+//! full library mode's list in columns (`player_04`). A card's tile is its thumbnail with the
+//! list's watched bar, hover play button and `•••`; a row's (a folder, a category's name, "+
+//! Add") is its icon on a plain tile, and it opens on one click as in the list.
 //!
-//! Each line of tiles is one item of the listing's `uniform_list`, so a grid of 10,000 cards
-//! draws only the lines on screen.
+//! Each line is one item of the listing's `uniform_list`, so a grid of 10,000 cards draws only
+//! the lines on screen. [`layout`](super::layout) decides how many items a line holds.
 
 use std::ops::Range;
 
 use gpui::{AnyElement, ClickEvent, Context, Div, Stateful, div, prelude::*, px};
 
+use super::MainWindow;
 use super::card::{self, GROUP};
 use super::drag;
+use super::layout::{CELL_PAD, NAME_GAP, NAME_HEIGHT};
 use super::listing::{Body, Item, Items, card_key};
 use super::row::{self, ROW_TEXT, Row};
-use super::{INSET, MainWindow, PANEL_WIDTH};
 use crate::db::media::MediaId;
 use crate::db::thumbnails::SizeClass;
 use crate::library::folder_view::Card;
@@ -23,28 +25,11 @@ use crate::ui::icon::icon;
 use crate::ui::list::row_items;
 use crate::ui::metrics;
 
-/// Tiles to a line in the sidebar overlay.
-pub(super) const COLUMNS: usize = 2;
-/// The space between a line's tiles, and around each tile's contents (the selection's fill).
-const GAP: f32 = 8.;
-const CELL_PAD: f32 = 4.;
-/// A tile's width with its padding, and its picture's: the panel's width shared out.
-const CELL_WIDTH: f32 = (PANEL_WIDTH - 2. * INSET - GAP) / COLUMNS as f32;
-const TILE_WIDTH: f32 = CELL_WIDTH - 2. * CELL_PAD;
-/// Pictures are 16:9, as the grid's thumbnails are (`player_03`).
-const TILE_HEIGHT: f32 = TILE_WIDTH * 9. / 16.;
-/// The name's line under the picture, and the gap above it.
-const NAME_GAP: f32 = 6.;
-const NAME_HEIGHT: f32 = 20.;
-/// The space between lines.
-const LINE_GAP: f32 = 8.;
-/// A line of tiles' height.
-pub(super) const LINE_HEIGHT: f32 = 2. * CELL_PAD + TILE_HEIGHT + NAME_GAP + NAME_HEIGHT + LINE_GAP;
 /// A row's icon on its tile.
 const ROW_TILE_ICON: f32 = 32.;
 
 impl MainWindow {
-    /// The lines of tiles in `lines`, and the thumbnailer told what is on screen.
+    /// The lines in `lines`, and the thumbnailer told what is on screen.
     pub(super) fn render_lines(
         &mut self,
         lines: Range<usize>,
@@ -52,10 +37,11 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let Body::Items(items) = self.listing(cx) else { return Vec::new() };
+        let shape = self.library_shape(cx);
         let len = items.len();
         let on_screen: Vec<MediaId> = lines
             .clone()
-            .flat_map(|line| row_items(line, COLUMNS, len))
+            .flat_map(|line| row_items(line, shape.columns, len))
             .filter_map(|index| match items.get(index)? {
                 Item::Card(card) => card.media,
                 Item::Row(_) => None,
@@ -66,7 +52,7 @@ impl MainWindow {
         elements
     }
 
-    /// Line `line`: its items' tiles, side by side.
+    /// Line `line`: its items side by side, as tiles or as list rows.
     fn render_line(
         &self,
         line: usize,
@@ -74,26 +60,54 @@ impl MainWindow {
         p: &Palette,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let tiles = row_items(line, COLUMNS, items.len()).filter_map(|index| {
-            Some(match items.get(index)? {
-                Item::Row(row) => self.render_row_tile(index, row, p, cx),
-                Item::Card(card) => self.render_card_tile(index, card, p, cx),
+        let shape = self.library_shape(cx);
+        let cells = row_items(line, shape.columns, items.len()).filter_map(|index| {
+            let item = items.get(index)?;
+            Some(match item {
+                Item::Row(row) if shape.is_grid() => {
+                    self.render_row_tile(Tile::new(index, shape.tile()), row, p, cx)
+                }
+                Item::Card(card) if shape.is_grid() => {
+                    self.render_card_tile(Tile::new(index, shape.tile()), card, p, cx)
+                }
+                item => self.render_list_cell(index, &item, p, cx),
             })
         });
-        let tiles: Vec<_> = tiles.collect();
-        div().h(px(LINE_HEIGHT)).flex().gap(px(GAP)).children(tiles).into_any_element()
+        let cells: Vec<_> = cells.collect();
+        div().h(px(shape.line_height)).flex().gap(px(shape.gap)).children(cells).into_any_element()
     }
 
-    fn render_card_tile(
+    /// Item `index` as a list row in its column (full library mode's list, `player_04`).
+    fn render_list_cell(
         &self,
         index: usize,
+        item: &Item<'_>,
+        p: &Palette,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let element = match item {
+            Item::Row(row) => {
+                let selected = self.library_panel.selection.contains(&row.key());
+                row.render(index, selected, p, cx).into_any_element()
+            }
+            Item::Card(card) => self.render_card(index, card, p, cx).into_any_element(),
+        };
+        let width = self.library_shape(cx).cell_width;
+        div().flex_none().w(px(width)).child(element).into_any_element()
+    }
+
+    /// A card's tile: its picture with `•••` on its corner, and its name; on Home its artist
+    /// under that.
+    pub(super) fn render_card_tile(
+        &self,
+        tile: Tile,
         card: &Card,
         p: &Palette,
         cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
+    ) -> AnyElement {
+        let index = tile.index;
         let selected = self.library_panel.selection.contains(&card_key(card));
-        let picture =
-            card::thumbnail_stack(card, SizeClass::Grid, (TILE_WIDTH, TILE_HEIGHT), p, cx);
+        let picture = card::thumbnail_stack(card, SizeClass::Grid, tile.picture, p, cx);
         // `•••` sits on the picture's corner, over the hover's scrim, leaving the name the
         // tile's width.
         let more = div().absolute().top(px(CELL_PAD)).right_0().child(card::more_button(
@@ -103,23 +117,32 @@ impl MainWindow {
         ));
         let picture = picture.child(more);
         let name = name_line().child(card::card_name(card, p));
-        let cell = card::card_events(cell(("library-tile", index), selected, p), index, cx);
-        drag::draggable(cell, index, cx).child(picture).child(name)
+        let artist = card.tags.artist.clone().filter(|_| tile.artist);
+        let artist = artist.map(|artist| {
+            name_line().text_color(p.text_muted).child(div().min_w_0().truncate().child(artist))
+        });
+        let frame = cell(("library-tile", index), tile.width(), selected, p);
+        let cell = card::card_events(frame, index, cx);
+        let cell = drag::draggable(cell, index, cx).child(picture).child(name);
+        cell.children(artist).into_any_element()
     }
 
-    fn render_row_tile(
+    /// A row's tile: its icon on a plain picture, and its name; one click follows it.
+    pub(super) fn render_row_tile(
         &self,
-        index: usize,
+        tile: Tile,
         row: &Row,
         p: &Palette,
         cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
+    ) -> AnyElement {
+        let index = tile.index;
         let selected = self.library_panel.selection.contains(&row.key());
+        let (tile_width, tile_height) = tile.picture;
         let (hover, strong) = (p.hover, p.text_strong);
         let target = row.target().clone();
         let picture = div()
-            .w(px(TILE_WIDTH))
-            .h(px(TILE_HEIGHT))
+            .w(px(tile_width))
+            .h(px(tile_height))
             .rounded(px(metrics::RADIUS))
             .bg(p.control)
             .flex()
@@ -130,7 +153,8 @@ impl MainWindow {
             let more = card::more_button(index, p.icon, cx);
             picture.child(div().absolute().top(px(CELL_PAD)).right_0().child(more))
         });
-        let cell = drag::drop_target(cell(("library-row-tile", index), selected, p), row, p, cx);
+        let frame = cell(("library-row-tile", index), tile.width(), selected, p);
+        let cell = drag::drop_target(frame, row, p, cx);
         row::menu_events(cell, row, index, cx)
             .group(GROUP)
             .hover(move |style| style.bg(hover).text_color(strong))
@@ -140,15 +164,39 @@ impl MainWindow {
             }))
             .child(picture)
             .child(name_line().child(div().min_w_0().truncate().child(row.label().clone())))
+            .into_any_element()
     }
 }
 
-/// A tile's frame: its width and padding, filled when `selected`.
-fn cell(id: impl Into<gpui::ElementId>, selected: bool, p: &Palette) -> Stateful<Div> {
+/// Which item a tile draws and how big its picture is.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Tile {
+    /// The item's index in the listing.
+    pub(super) index: usize,
+    /// The picture's width and height.
+    pub(super) picture: (f32, f32),
+    /// A song's artist shows under its name (Home's Listen Again, `player_07`).
+    pub(super) artist: bool,
+}
+
+impl Tile {
+    /// Item `index`'s tile with a `picture` sized picture.
+    pub(super) fn new(index: usize, picture: (f32, f32)) -> Self {
+        Self { index, picture, artist: false }
+    }
+
+    /// The tile's width with its padding.
+    fn width(self) -> f32 {
+        self.picture.0 + 2. * CELL_PAD
+    }
+}
+
+/// A tile's frame: `width` wide with its padding, filled when `selected`.
+fn cell(id: impl Into<gpui::ElementId>, width: f32, selected: bool, p: &Palette) -> Stateful<Div> {
     div()
         .id(id)
         .flex_none()
-        .w(px(CELL_WIDTH))
+        .w(px(width))
         .p(px(CELL_PAD))
         .flex()
         .flex_col()
@@ -162,16 +210,4 @@ fn cell(id: impl Into<gpui::ElementId>, selected: bool, p: &Palette) -> Stateful
 /// The line under a tile's picture that holds its name.
 fn name_line() -> Div {
     div().h(px(NAME_HEIGHT)).flex().items_center()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn two_tiles_fill_the_panel() {
-        let used = COLUMNS as f32 * CELL_WIDTH + GAP;
-        assert!((used - (PANEL_WIDTH - 2. * INSET)).abs() < f32::EPSILON);
-        assert!((TILE_WIDTH / TILE_HEIGHT - 16. / 9.).abs() < 1e-4);
-    }
 }

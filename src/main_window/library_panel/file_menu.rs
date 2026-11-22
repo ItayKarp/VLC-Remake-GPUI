@@ -127,7 +127,7 @@ fn show_in_folder_label() -> &'static str {
 /// The library route of `folder`, holding media of `kind`: inside one of the `media` folders
 /// it is in Videos, inside one of the `music` folders in Songs, the one matching `kind` first.
 /// `None` outside every one.
-fn source_route(
+pub(super) fn source_route(
     folder: &Path,
     kind: MediaKind,
     (media, music): (&[PathBuf], &[PathBuf]),

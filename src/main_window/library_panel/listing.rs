@@ -165,7 +165,7 @@ impl MainWindow {
         self.reload_home(cx);
         let route = self.library_panel.history.current().clone();
         let sort = self.library_sort(cx);
-        let read = if !self.library_panel.open {
+        let read = if !self.library_panel.is_open() {
             None
         } else if let Some(folder) = route.folder() {
             let sort = sort.unwrap_or(Sort::TitleAscending);

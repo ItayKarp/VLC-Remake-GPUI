@@ -40,6 +40,9 @@ pub struct Situation {
     pub held: bool,
     /// The "Show interface controls in fullscreen" key asked for them.
     pub summoned: bool,
+    /// Full library mode (S4.10.2): the library fills the window, so there is no control bar
+    /// and nothing to hide it over.
+    pub full_library: bool,
     /// The user's choices.
     pub prefs: Prefs,
 }
@@ -72,16 +75,20 @@ impl Situation {
             AutoHide::InFullscreenOnly => self.fullscreen,
             AutoHide::Never => false,
         };
-        self.video && applies
+        self.video && applies && !self.full_library
     }
 
     /// Whether the idle timer runs: the controls, or at least the cursor, hide after a rest.
     pub fn idles(self) -> bool {
-        self.auto_hides() || (self.video && self.hide_ui)
+        self.auto_hides() || (self.video && self.hide_ui && !self.full_library)
     }
 
     /// The layout, and which bars show.
     pub fn chrome(self) -> Chrome {
+        if self.full_library {
+            let layout = if self.fullscreen { Layout::Fullscreen } else { Layout::Docked };
+            return Chrome { layout, title_bar: !self.fullscreen, controls: false };
+        }
         let layout = if self.fullscreen {
             Layout::Fullscreen
         } else if self.hide_ui || (self.auto_hides() && self.prefs.auto_hide == AutoHide::Always) {

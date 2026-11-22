@@ -15,8 +15,10 @@ use gpui::{
 use super::{MainWindow, TITLE_BAR_HEIGHT};
 use crate::app::media::Media;
 use crate::assets::icons;
+use crate::db::metadata::MediaKind;
 use crate::keymap;
 use crate::keymap::actions::ToggleFileBrowser;
+use crate::library::folder_view::kind_by_extension;
 use crate::settings;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
@@ -50,8 +52,9 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let title = SharedString::from(self.title(cx));
-        let folder = self.chip_folder(cx);
-        let chip_name = folder.as_deref().map(folder_name);
+        // Full library mode shows where the library is in its own breadcrumb (`player_03`).
+        let folder = self.chip_folder(cx).filter(|_| !self.library_panel.is_full());
+        let chip_name = folder.as_ref().map(|(folder, _)| folder_name(folder));
         let fitted = fit::fit(&fit::Widths {
             window: f32::from(window.viewport_size().width),
             left: left_inset() + 3. * BAR_BUTTON + 3. * BAR_GAP,
@@ -81,21 +84,24 @@ impl MainWindow {
         text::window_title(loaded, settings::get(cx).prefs.interface.show_file_name_in_title_bar)
     }
 
-    /// The folder the chip names: the loaded file's (none for a URL), or with nothing loaded
-    /// the first media folder.
-    fn chip_folder(&self, cx: &App) -> Option<PathBuf> {
+    /// The folder the chip names and the kind of media it holds: the loaded file's (none for a
+    /// URL), or with nothing loaded the first media folder.
+    fn chip_folder(&self, cx: &App) -> Option<(PathBuf, MediaKind)> {
         let player = self.player.as_ref().map(|(player, _)| player.read(cx));
-        match player.filter(|player| player.state().is_active()).and_then(|p| p.media()) {
-            Some(media) => media.as_path()?.parent().map(Path::to_path_buf),
-            None => settings::get(cx).local.media_folders.first().cloned(),
+        let loaded = player.filter(|player| player.state().is_active()).and_then(|p| p.media());
+        if let Some(media) = loaded {
+            let file = media.as_path()?;
+            return Some((file.parent()?.to_path_buf(), kind_by_extension(file)));
         }
+        let folder = settings::get(cx).local.media_folders.first().cloned()?;
+        Some((folder, MediaKind::Video))
     }
 
     /// The logo, the `…` menu button, the sidebar toggle and, when there's room, the folder.
     fn render_left_group(
         &self,
         p: &Palette,
-        chip: Option<(PathBuf, SharedString)>,
+        chip: Option<((PathBuf, MediaKind), SharedString)>,
         cx: &mut Context<Self>,
     ) -> Div {
         div()
@@ -110,7 +116,7 @@ impl MainWindow {
             .child(self.sidebar_toggle(cx))
             .when_some(chip, |left, (folder, name)| {
                 left.child(div().mx(px(DIVIDER_MARGIN)).w(px(1.)).h(px(16.)).bg(p.divider))
-                    .child(folder_chip(p, folder, name))
+                    .child(folder_chip(p, folder, name, cx))
             })
     }
 
@@ -164,10 +170,15 @@ fn logo(p: &Palette) -> Div {
         .child(svg().path(icons::LOGO_SMALL).size(px(BAR_ICON)).text_color(p.accent_fg))
 }
 
-/// The folder chip (S2.1.3). The library opens at the folder once it exists (S4.10); until
-/// then the chip opens the folder in the system's file manager.
-fn folder_chip(p: &Palette, folder: PathBuf, name: SharedString) -> Stateful<Div> {
+/// The folder chip (S2.1.3): opens the library at the folder (S4.10).
+fn folder_chip(
+    p: &Palette,
+    (folder, kind): (PathBuf, MediaKind),
+    name: SharedString,
+    cx: &mut Context<MainWindow>,
+) -> Stateful<Div> {
     let hover = p.button_hover;
+    let tooltip = folder.display().to_string();
     let chip = div()
         .id("folder-chip")
         .flex()
@@ -184,10 +195,12 @@ fn folder_chip(p: &Palette, folder: PathBuf, name: SharedString) -> Stateful<Div
         .cursor_pointer()
         .occlude()
         .hover(move |style| style.bg(hover))
-        .tooltip(tooltip::text(folder.display().to_string(), None::<SharedString>))
+        .tooltip(tooltip::text(tooltip, None::<SharedString>))
         // Pressing the chip must not start a window drag in the bar underneath.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .on_click(move |_, _, cx| cx.open_with_system(&folder))
+        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+            this.show_library_folder(&folder, kind, window, cx);
+        }))
         .child(svg().path(icons::FOLDER).size(px(BAR_ICON)).flex_none().text_color(p.icon))
         .child(
             div()

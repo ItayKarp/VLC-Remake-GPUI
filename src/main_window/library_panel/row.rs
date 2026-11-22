@@ -178,7 +178,10 @@ impl MainWindow {
     pub(super) fn follow(&mut self, target: Target, window: &mut Window, cx: &mut Context<Self>) {
         match target {
             Target::Go(route) => self.navigate(route, cx),
-            Target::Play(media) => self.open(OpenRequest::replace(vec![media]), window, cx),
+            Target::Play(media) => {
+                let placement = self.library_placement(cx);
+                self.open(OpenRequest::placed(vec![media], placement), window, cx);
+            }
             Target::Add(folders) => add_menu::add_folder(cx.entity().downgrade(), folders, cx),
         }
     }

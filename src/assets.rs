@@ -77,6 +77,7 @@ icons! {
     // The track popover (S2.6).
     VIDEO => "video.svg",
     REFRESH => "refresh.svg",
+    REPLAY => "replay.svg",
     EDIT => "edit.svg",
     ADD => "add.svg",
     ARROW_LEFT => "arrow-left.svg",

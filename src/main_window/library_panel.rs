@@ -1,19 +1,20 @@
-//! The library sidebar over the player (S4.5, S4.6; `player_02`, `library/sidebar/*`): the icon
-//! rail ([`rail`]), and a panel with back and forward, the breadcrumb ([`crumbs`]), the item count
-//! ([`header`]) and what the current route lists ([`listing`]): Home's sections ([`home`]), rows ([`row`]) and media cards
-//! ([`card`]) in the order [`sort_menu`] picks, or the same as tiles ([`grid`],
-//! chosen with [`view_menu`]), or what a search finds ([`search_field`]), or why there is
-//! nothing ([`empty`]),
-//! browsed with the mouse and the keyboard ([`browse`]), and dragged out ([`drag`]). Cards,
-//! folders and playlists have menus ([`item_menu`]: [`file_menu`], [`folder_menu`],
-//! [`playlist_menu`]).
+//! The library over the player (S4.5, S4.6; `player_02`, `library/sidebar/*`) and as full library
+//! mode (S4.10; `player_03`–`07`). The sidebar is the icon rail ([`rail`]) and a panel with back
+//! and forward, the breadcrumb ([`crumbs`]), the item count ([`header`]) and what the current
+//! route lists ([`listing`]): Home's sections ([`home`]), rows ([`row`]) and media cards
+//! ([`card`]) in the order [`sort_menu`] picks, or the same as tiles ([`grid`], chosen with
+//! [`view_menu`]), or what a search finds ([`search_field`]), or why there is nothing
+//! ([`empty`]), browsed with the mouse and the keyboard ([`browse`]), and dragged out
+//! ([`drag`]). Cards, folders and playlists have menus ([`item_menu`]: [`file_menu`],
+//! [`folder_menu`], [`playlist_menu`]). Full library mode ([`full`]) shows the same listing
+//! across the window, laid out for its width ([`layout`]).
 //!
-//! The title bar's sidebar toggle and L show and hide it. The navigation model is
-//! [`crate::navigation`]; the panel keeps a [`NavHistory`] and remembers the overlay's last
-//! route across launches. A Videos or Songs folder lists its subfolders and its media; Music's
-//! categories, playlists and History list the places they lead to and what they play. Mouse buttons 4
-//! and 5, Alt+Left and Alt+Right (and Cmd+[ and ] on macOS) go back and forward while the
-//! panel has the keyboard.
+//! The title bar's sidebar toggle and L show and hide the sidebar, and its pop-out switches to
+//! full library mode ([`mode`]). The navigation model is [`crate::navigation`]; the library keeps
+//! a [`NavHistory`] and remembers each presentation's last route across launches. A Videos or
+//! Songs folder lists its subfolders and its media; Music's categories, playlists and History
+//! list the places they lead to and what they play. Mouse buttons 4 and 5, Alt+Left and
+//! Alt+Right (and Cmd+[ and ] on macOS) go back and forward while the library has the keyboard.
 
 mod add_menu;
 mod browse;
@@ -23,11 +24,14 @@ mod drag;
 mod empty;
 mod file_menu;
 mod folder_menu;
+mod full;
 mod grid;
 mod header;
 mod home;
 mod item_menu;
+mod layout;
 mod listing;
+mod mode;
 mod playlist_menu;
 mod rail;
 mod row;
@@ -45,6 +49,7 @@ use gpui::{
 };
 
 use self::item_menu::ItemMenu;
+use self::layout::Shape;
 use self::listing::FolderListing;
 use self::search_field::SearchField;
 use self::selection::Selection;
@@ -56,6 +61,7 @@ use crate::library::thumbnails::Thumbnails;
 use crate::navigation::Presentation;
 use crate::navigation::history::{NavHistory, Step};
 use crate::navigation::route::Route;
+use crate::navigation::view::View;
 use crate::playlists;
 use crate::settings;
 use crate::theme::Palette;
@@ -64,17 +70,20 @@ use crate::ui::menu::ContextMenu;
 use crate::ui::popover::BoundsTracker;
 
 /// The rail's width, and the panel's beside it (`player_02`).
-const RAIL_WIDTH: f32 = 50.;
-const PANEL_WIDTH: f32 = 377.;
+pub(super) const RAIL_WIDTH: f32 = 50.;
+pub(super) const PANEL_WIDTH: f32 = 377.;
 /// The panel's side padding.
 const INSET: f32 = 20.;
 
 /// A menu the panel opened, and the subscription that forgets it once dismissed.
 type OpenMenu = Option<(Entity<ContextMenu>, Subscription)>;
 
-/// The sidebar's state: whether it shows, where it is, and its menus.
+/// The library's state: how it shows, where it is, and its menus.
 pub(super) struct LibraryPanel {
-    open: bool,
+    /// How the library shows, while it does: over the player or as full library mode.
+    shown: Option<Presentation>,
+    /// The window's width when last drawn, which the listing's layout follows.
+    window_width: f32,
     history: NavHistory,
     focus: FocusHandle,
     /// What the folder the route shows holds, read in the background.
@@ -115,14 +124,15 @@ impl LibraryPanel {
         cx.observe_global::<crate::library::Library>(MainWindow::reload_folder).detach();
         // Thumbnails show as they arrive.
         cx.observe_global::<Thumbnails>(|this, cx| {
-            if this.library_panel.open {
+            if this.library_panel.is_open() {
                 cx.notify();
             }
         })
         .detach();
         let routes = &settings::get(cx).local.library_routes;
         Self {
-            open: false,
+            shown: None,
+            window_width: 0.,
             history: NavHistory::new(Presentation::Overlay.last_route(routes)),
             focus: cx.focus_handle(),
             folder: None,
@@ -146,9 +156,43 @@ impl LibraryPanel {
         }
     }
 
-    /// Whether the sidebar shows.
+    /// Whether the library shows, over the player or as full library mode.
     pub(super) fn is_open(&self) -> bool {
-        self.open
+        self.shown.is_some()
+    }
+
+    /// Whether full library mode shows (S4.10.2).
+    pub(super) fn is_full(&self) -> bool {
+        self.shown == Some(Presentation::Full)
+    }
+
+    /// How the library shows, or would show when opened: over the player.
+    fn presentation(&self) -> Presentation {
+        self.shown.unwrap_or(Presentation::Overlay)
+    }
+
+    /// Whether one of the library's menus is open.
+    pub(super) fn has_open_menu(&self) -> bool {
+        self.item_menu.is_some()
+            || self.crumb_menu.is_some()
+            || self.add_menu.is_some()
+            || self.sort_menu.is_some()
+            || self.view_menu.is_some()
+    }
+
+    /// Closes the library's menus.
+    fn close_menus(&mut self) {
+        self.crumb_menu = None;
+        self.add_menu = None;
+        self.item_menu = None;
+        self.sort_menu = None;
+        self.view_menu = None;
+    }
+
+    /// How the listing lays out `view` at the window's width.
+    fn shape(&self, view: View) -> Shape {
+        let presentation = self.presentation();
+        Shape::fit(layout::list_width(self.window_width, presentation), view, presentation)
     }
 }
 
@@ -162,26 +206,6 @@ fn exists(route: &Route, cx: &App) -> bool {
 }
 
 impl MainWindow {
-    /// Shows or hides the sidebar (the title bar toggle and L).
-    pub(super) fn toggle_library_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let panel = &mut self.library_panel;
-        panel.open = !panel.open;
-        panel.crumb_menu = None;
-        panel.add_menu = None;
-        panel.item_menu = None;
-        panel.sort_menu = None;
-        panel.view_menu = None;
-        panel.search = None;
-        if panel.open {
-            self.reload_folder(cx);
-            let handle = self.library_panel.list_focus.clone();
-            window.defer(cx, move |window, cx| handle.focus(window, cx));
-        } else if self.library_panel.focus.contains_focused(window, cx) {
-            self.focus_handle.focus(window, cx);
-        }
-        cx.notify();
-    }
-
     /// Goes to `route`, remembering it for the next launch. Going somewhere closes the search
     /// field.
     pub(super) fn navigate(&mut self, route: Route, cx: &mut Context<Self>) {
@@ -204,44 +228,30 @@ impl MainWindow {
         self.library_panel.history.can_step(step, |route| exists(route, cx))
     }
 
-    /// Lists the new route and saves it as the overlay's last.
+    /// Lists the new route and saves it as the presentation's last.
     fn arrived(&mut self, cx: &mut Context<Self>) {
         let panel = &mut self.library_panel;
-        panel.crumb_menu = None;
-        panel.item_menu = None;
-        panel.sort_menu = None;
-        panel.view_menu = None;
+        panel.close_menus();
         panel.selection.clear();
         panel.scroll.scroll_to_item(0, ScrollStrategy::Top);
         panel.home_scroll.set_offset(gpui::Point::default());
         self.reload_folder(cx);
         let route = self.library_panel.history.current().clone();
         crate::library::home::writes::record_visit(&route, cx);
-        settings::update(cx, |s| {
-            Presentation::Overlay.remember(&route, &mut s.local.library_routes);
-        });
+        let presentation = self.library_panel.presentation();
+        settings::update(cx, |s| presentation.remember(&route, &mut s.local.library_routes));
         cx.notify();
     }
 
-    /// The sidebar over the left of the content area, `top` below the window's top and `bottom`
-    /// above its bottom, while it shows.
+    /// The library while it shows, `top` below the window's top and `bottom` above its bottom:
+    /// the sidebar over the left of the player, or full library mode across the window.
     pub(super) fn render_library_panel(
         &self,
         p: &Palette,
         (top, bottom): (f32, f32),
         cx: &mut Context<Self>,
     ) -> Option<Stateful<Div>> {
-        if !self.library_panel.open {
-            return None;
-        }
-        let panel = div()
-            .w(px(PANEL_WIDTH))
-            .h_full()
-            .flex()
-            .flex_col()
-            .bg(p.panel)
-            .child(self.render_library_header(p, cx))
-            .child(self.render_listing(p, cx));
+        let presentation = self.library_panel.shown?;
         let root = div()
             .id("library-panel")
             .key_context(focus::context(&[contexts::LIBRARY]))
@@ -250,8 +260,6 @@ impl MainWindow {
             .left_0()
             .top(px(top))
             .bottom(px(bottom))
-            .max_w_full()
-            .w(px(RAIL_WIDTH + PANEL_WIDTH))
             .flex()
             .flex_row()
             .overflow_hidden()
@@ -260,10 +268,56 @@ impl MainWindow {
             .on_action(cx.listener(|this, _: &GoBack, _, cx| this.step_library(Step::Back, cx)))
             .on_action(cx.listener(|this, _: &GoForward, _, cx| {
                 this.step_library(Step::Forward, cx);
-            }))
-            .child(self.render_rail(p, cx))
-            .child(panel);
+            }));
+        let root = match presentation {
+            Presentation::Overlay => self.render_overlay(root, p, cx),
+            Presentation::Full => self.render_full_library(root, p, cx),
+        };
         Some(mouse_navigation(root, cx))
+    }
+
+    /// The rail and the panel beside it, the whole window wide when it is narrow.
+    fn render_overlay(
+        &self,
+        root: Stateful<Div>,
+        p: &Palette,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let panel = div()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .flex()
+            .flex_col()
+            .bg(p.panel)
+            .child(self.render_library_header(p, cx))
+            .child(self.render_listing(p, cx));
+        let width = layout::overlay_width(self.library_panel.window_width);
+        root.w(px(width)).child(self.render_rail(p, cx)).child(panel)
+    }
+
+    /// Gives the listing the keyboard.
+    pub(super) fn focus_library_listing(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.library_panel.list_focus.focus(window, cx);
+    }
+
+    /// How much of the window's left full library mode's navigation takes.
+    pub(super) fn library_nav_space() -> f32 {
+        layout::nav_space()
+    }
+
+    /// Lays the library out for `window`'s width from now on.
+    pub(super) fn fit_library(&mut self, window: &Window, cx: &App) {
+        self.library_panel.window_width = f32::from(window.viewport_size().width);
+        self.refit_home(cx);
+    }
+
+    /// Whether the pointer is over the sidebar over the player, which holds the controls up.
+    pub(super) fn pointer_over_library(&self, window: &Window) -> bool {
+        let panel = &self.library_panel;
+        let Some(pointer) = self.auto_hide.pointer else { return false };
+        panel.shown == Some(Presentation::Overlay)
+            && f32::from(pointer.x) < layout::overlay_width(f32::from(window.viewport_size().width))
     }
 
     /// The panel's menus that are open: the breadcrumb's `…`, the rail's "+", Sort, View and an

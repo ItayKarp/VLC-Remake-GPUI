@@ -15,16 +15,13 @@ use gpui::{
     Window, point, px,
 };
 
-use super::grid::LINE_HEIGHT;
 use super::listing::{Body, Item};
-use super::row::{ROW_HEIGHT, Target};
-use super::view_menu::line_of;
+use super::row::Target;
 use super::{INSET, MainWindow, file_menu, folder_menu, playlist_menu};
 use crate::db::media::MediaId;
 use crate::db::metadata::MediaKind;
 use crate::db::playlists::Summary;
 use crate::navigation::route::Route;
-use crate::navigation::view::View;
 use crate::playlists;
 use crate::ui::menu::{ContextMenu, MenuItem};
 use crate::ui::popover;
@@ -140,16 +137,13 @@ impl MainWindow {
         {
             return point(item.left() + px(KEYBOARD_INSET), item.bottom());
         }
-        let view = self.library_view(cx);
-        let line_height = match view {
-            View::List => ROW_HEIGHT,
-            View::Grid => LINE_HEIGHT,
-        };
+        let shape = self.library_shape(cx);
         let scroll = self.library_panel.scroll.0.borrow();
         let (bounds, offset) = (scroll.base_handle.bounds(), scroll.base_handle.offset());
-        let below = px((line_of(index, view) + 1) as f32 * line_height);
+        let below = px((shape.line_of(index) + 1) as f32 * shape.line_height);
         let y = (bounds.top() + offset.y + below).clamp(bounds.top(), bounds.bottom());
-        point(bounds.left() + px(INSET + KEYBOARD_INSET), y)
+        let column = (index % shape.columns) as f32 * (shape.cell_width + shape.gap);
+        point(bounds.left() + px(INSET + column + KEYBOARD_INSET), y)
     }
 
     /// What item `index`'s menu acts on, selecting it alone when it isn't selected.

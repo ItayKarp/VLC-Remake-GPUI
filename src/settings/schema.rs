@@ -12,6 +12,7 @@
 mod audio;
 mod controls;
 mod interface;
+mod miniplayer;
 mod playback;
 mod subtitles;
 
@@ -31,6 +32,7 @@ pub use controls::{
     WheelAction,
 };
 pub use interface::{AutoHide, DurationReadout, InterfaceSettings};
+pub use miniplayer::MiniplayerCorner;
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, WhenFinished};
 pub use subtitles::SubtitleSettings;
 
@@ -125,6 +127,9 @@ pub struct LocalState {
     /// place's route, as `navigation::sort` writes them. Local: routes name folders.
     #[serde(deserialize_with = "lenient")]
     pub library_sorts: BTreeMap<String, String>,
+    /// The corner full library mode's miniplayer card was last docked in (S4.10.5).
+    #[serde(deserialize_with = "lenient")]
+    pub miniplayer_corner: MiniplayerCorner,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty
@@ -176,11 +181,20 @@ pub struct LibrarySettings {
     /// marks hidden or system (S4.2.2).
     #[serde(deserialize_with = "lenient")]
     pub show_hidden_files: bool,
+    /// "Add to the playlist instead of replacing it" (S4.10.6): whether opening a library item
+    /// while something plays adds it to the end of the queue rather than replacing the queue.
+    #[serde(deserialize_with = "lenient")]
+    pub add_instead_of_replacing: bool,
 }
 
 impl Default for LibrarySettings {
     fn default() -> Self {
-        Self { allow_multiple_instances: false, include_subfolders: true, show_hidden_files: false }
+        Self {
+            allow_multiple_instances: false,
+            include_subfolders: true,
+            show_hidden_files: false,
+            add_instead_of_replacing: false,
+        }
     }
 }
 

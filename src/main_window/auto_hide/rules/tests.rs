@@ -12,6 +12,7 @@ fn playing(auto_hide: AutoHide) -> Situation {
         idle: false,
         held: false,
         summoned: false,
+        full_library: false,
         prefs: Prefs { auto_hide, show_in_fullscreen: true },
     }
 }
@@ -137,4 +138,18 @@ fn a_cancelled_timer_hides_nothing() {
     assert_eq!(timer.tick(start + DELAY, false), Tick::Stop);
     assert!(!timer.is_idle());
     assert_eq!(timer.wake(start + DELAY, DELAY), Some(DELAY));
+}
+
+#[test]
+fn full_library_mode_keeps_the_title_bar_and_drops_the_controls() {
+    let library = Situation { full_library: true, idle: true, ..playing(AutoHide::Always) };
+    assert_eq!(
+        library.chrome(),
+        Chrome { layout: Layout::Docked, title_bar: true, controls: false }
+    );
+    assert!(!library.idles());
+    let hidden = Situation { hide_ui: true, ..library };
+    assert!(!hidden.idles());
+    let fullscreen = Situation { fullscreen: true, ..library };
+    assert_eq!(fullscreen.chrome().layout, Layout::Fullscreen);
 }

@@ -77,7 +77,7 @@ fn section_button(
 
 /// A section's outline and filled icons. History has no filled icon in the set, so its outline
 /// is colored instead.
-fn section_icons(section: Section) -> (&'static str, &'static str) {
+pub(super) fn section_icons(section: Section) -> (&'static str, &'static str) {
     match section {
         Section::Home => (icons::HOME, icons::HOME_FILLED),
         Section::Videos => (icons::VIDEOS, icons::VIDEOS_FILLED),

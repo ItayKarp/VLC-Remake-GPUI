@@ -7,7 +7,8 @@
 //! only ever shows the latest query's results: an older read is dropped when a newer one
 //! starts. The scope is the section the search started in (Videos or Music) until Everywhere is
 //! on; elsewhere a search always looks everywhere. Escape closes the field and leaves the
-//! results; Search closes it too.
+//! results; Search closes it too. Full library mode shows a search box in its header instead of
+//! the Search button, which opens the field in its place.
 
 use std::time::Duration;
 
@@ -18,11 +19,14 @@ use gpui::{
 
 use super::header::GAP;
 use super::{INSET, MainWindow};
+use crate::assets::icons;
 use crate::library::search::{self, Query};
 use crate::navigation::history::Step;
 use crate::navigation::route::{Route, Search, Section};
 use crate::theme::Palette;
 use crate::ui::button::{Button, ButtonStyle};
+use crate::ui::icon::icon;
+use crate::ui::metrics;
 use crate::ui::text_input::{self, TextInput};
 
 /// How long typing must pause before the search runs.
@@ -30,6 +34,10 @@ const DEBOUNCE: Duration = Duration::from_millis(150);
 /// The row's gap above it and its height.
 const ROW_TOP: f32 = 8.;
 const ROW_HEIGHT: f32 = 32.;
+/// Full library mode's search box: its width, its side padding and its icon (`player_03`).
+const BOX_WIDTH: f32 = 325.;
+const BOX_PAD: f32 = 10.;
+const BOX_ICON: f32 = 18.;
 
 /// The open search field.
 pub(super) struct SearchField {
@@ -59,7 +67,7 @@ impl MainWindow {
         }
     }
 
-    fn open_library_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_library_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (section, query) = match self.library_panel.history.current() {
             Route::Search(search) => (search.scope, search.query.clone()),
             route => (route.section(), String::new()),
@@ -160,28 +168,58 @@ impl MainWindow {
         }
     }
 
-    /// The field's row, while it is open.
+    /// The field's row under the count, while it is open.
     pub(super) fn render_search_field(&self, p: &Palette, cx: &mut Context<Self>) -> Option<Div> {
         let field = self.library_panel.search.as_ref()?;
-        let row = div()
-            .h(px(ROW_HEIGHT))
-            .mt(px(ROW_TOP))
-            .px(px(INSET))
+        let row = search_row(field, cx).h(px(ROW_HEIGHT)).mt(px(ROW_TOP)).px(px(INSET));
+        Some(row.text_color(p.text))
+    }
+
+    /// Full library mode's search box in the header (`player_03`): the field while open, else
+    /// a box that opens it.
+    pub(super) fn render_search_box(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
+        let box_ = div().w(px(BOX_WIDTH)).flex_none().h(px(ROW_HEIGHT)).text_color(p.text);
+        if let Some(field) = &self.library_panel.search {
+            return box_.child(search_row(field, cx).size_full());
+        }
+        let hover = p.hover;
+        let closed = div()
+            .id("library-search-box")
+            .size_full()
+            .px(px(BOX_PAD))
             .flex()
             .items_center()
             .gap(px(GAP))
-            .text_color(p.text)
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
-                    this.close_library_search(window, cx);
-                    cx.stop_propagation();
-                }
+            .rounded(px(metrics::RADIUS))
+            .bg(p.control)
+            .cursor_text()
+            .hover(move |style| style.bg(hover))
+            .text_color(p.text_muted)
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.open_library_search(window, cx);
             }))
-            .child(div().flex_1().min_w_0().child(field.input.clone()));
-        Some(match field.section {
-            Section::Home => row,
-            section => row.child(everywhere_button(field.everywhere, section, cx)),
-        })
+            .child(icon(icons::SEARCH, BOX_ICON, p.icon))
+            .child("Search");
+        box_.child(closed)
+    }
+}
+
+/// The open field and, searching Videos or Music, Everywhere; Escape closes it.
+fn search_row(field: &SearchField, cx: &mut Context<MainWindow>) -> Div {
+    let row = div()
+        .flex()
+        .items_center()
+        .gap(px(GAP))
+        .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+            if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
+                this.close_library_search(window, cx);
+                cx.stop_propagation();
+            }
+        }))
+        .child(div().flex_1().min_w_0().child(field.input.clone()));
+    match field.section {
+        Section::Home => row,
+        section => row.child(everywhere_button(field.everywhere, section, cx)),
     }
 }
 

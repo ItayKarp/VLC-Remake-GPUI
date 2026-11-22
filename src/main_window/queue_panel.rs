@@ -2,16 +2,17 @@
 //! right end, with Queue, Bookmarks and Chapters tabs.
 //!
 //! The Queue tab lists the queue ([`header`], [`rows`]): rows can be selected, reordered by
-//! dragging, played with a double-click or Enter and removed with Delete or "−", and files dropped
-//! on it, from the OS or the library (S4.6.7), are inserted where they land ([`editing`]). Bookmarks and Chapters come with their
-//! stories (S8.3, S8.2) and say so until then. The header has Repeat and Shuffle (S3.3). The
-//! miniplayer's queue (S4.10.4) will reuse the rows. Restored items that are missing or offline
-//! are greyed (S3.4).
+//! dragging, played with a double-click or Enter and removed with Delete or "−", and files
+//! dropped on it, from the OS or the library (S4.6.7), are inserted where they land
+//! ([`editing`]). Bookmarks and Chapters come with their stories (S8.3, S8.2) and say so until
+//! then. The header has Repeat and Shuffle (S3.3). The miniplayer docks the same Queue tab above
+//! its card ([`docked`], S4.10.4). Restored items that are missing or offline are greyed (S3.4).
 //!
 //! Unlike the track popover and the settings panel, it stays open while the video is used
 //! (clicking it, dragging files over it); the List button, Q and Escape close it. It shares their
 //! place, so opening one of them closes it, and it keeps the bar up while open.
 
+mod docked;
 mod editing;
 mod header;
 mod rows;
@@ -127,9 +128,12 @@ impl QueuePanel {
 }
 
 impl MainWindow {
-    /// Opens the panel on its Queue tab, or closes it (the List button or Q again).
+    /// Opens the panel on its Queue tab, or closes it (the List button or Q again). In full
+    /// library mode the miniplayer's queue shows instead.
     pub(super) fn toggle_queue_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.queue_panel.is_open() {
+        if self.library_panel.is_full() {
+            self.toggle_miniplayer_queue(window, cx);
+        } else if self.queue_panel.is_open() {
             self.close_queue_panel(window, cx);
         } else {
             self.open_queue_panel(ListTab::Queue, window, cx);

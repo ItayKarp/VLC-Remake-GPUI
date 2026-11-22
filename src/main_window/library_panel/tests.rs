@@ -236,4 +236,5 @@ fn a_drag_held_over_a_rail_icon_shows_its_section(cx: &mut TestAppContext) {
     assert_eq!(route, Route::Playlists(None));
 }
 
+mod full;
 mod menus;

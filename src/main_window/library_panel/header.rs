@@ -4,8 +4,9 @@
 //!
 //! Sort and View open their menus ([`sort_menu`](super::sort_menu),
 //! [`view_menu`](super::view_menu)), and Search a field under the count row
-//! ([`search_field`](super::search_field)). `•••` (its menu isn't designed) and pop-out (full
-//! library mode, S4.10.2) come with their stories and show disabled until then.
+//! ([`search_field`](super::search_field)). Pop-out switches to full library mode (S4.10.2),
+//! whose header is one row of the same parts ([`full`](super::full)). `•••` (its menu isn't
+//! designed) shows disabled until its story.
 
 use gpui::{Action, App, ClickEvent, Context, Div, SharedString, div, prelude::*, px};
 
@@ -51,7 +52,7 @@ impl MainWindow {
             .child(self.step_button(Step::Forward, cx))
             .child(self.render_crumbs(&trail, p, cx))
             .child(later("library-more", icons::MORE, "More"))
-            .child(later("library-pop-out", icons::POP_OUT, "Open full library"));
+            .child(pop_out_button(cx));
         div()
             .flex()
             .flex_col()
@@ -62,7 +63,8 @@ impl MainWindow {
             .child(div().mx(px(INSET)).mt(px(DIVIDER_TOP)).h(px(1.)).bg(p.divider))
     }
 
-    fn step_button(&self, step: Step, cx: &mut Context<Self>) -> IconButton {
+    /// Back or Forward, enabled when the step leads somewhere.
+    pub(super) fn step_button(&self, step: Step, cx: &mut Context<Self>) -> IconButton {
         let (id, icon, label, action): (_, _, _, &dyn Action) = match step {
             Step::Back => ("library-back", icons::ARROW_LEFT, "Back", &GoBack),
             Step::Forward => ("library-forward", icons::ARROW_RIGHT, "Forward", &GoForward),
@@ -75,10 +77,6 @@ impl MainWindow {
     }
 
     fn count_row(&self, outside_library: bool, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let mut count = item_count(self.listed_count(cx));
-        if outside_library {
-            count.push_str(" · Not in library");
-        }
         div()
             .h(px(COUNT_HEIGHT))
             .mt(px(COUNT_TOP))
@@ -87,15 +85,7 @@ impl MainWindow {
             .flex()
             .items_center()
             .gap(px(GAP))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .text_size(px(COUNT_TEXT))
-                    .text_color(p.text_muted)
-                    .child(SharedString::from(count)),
-            )
+            .child(self.count_text(outside_library, p, cx).flex_1())
             .child(self.library_sort_button(p, cx))
             .child(self.view_button(cx))
             .child(self.search_button(cx))
@@ -103,8 +93,22 @@ impl MainWindow {
 }
 
 impl MainWindow {
+    /// "N items", with "Not in library" for a folder outside every media folder.
+    pub(super) fn count_text(&self, outside_library: bool, p: &Palette, cx: &App) -> Div {
+        let mut count = item_count(self.listed_count(cx));
+        if outside_library {
+            count.push_str(" · Not in library");
+        }
+        div()
+            .min_w_0()
+            .truncate()
+            .text_size(px(COUNT_TEXT))
+            .text_color(p.text_muted)
+            .child(SharedString::from(count))
+    }
+
     /// View, showing the current view's icon, which opens the View menu.
-    fn view_button(&self, cx: &mut Context<Self>) -> Div {
+    pub(super) fn view_button(&self, cx: &mut Context<Self>) -> Div {
         let button =
             IconButton::new("library-view", view_menu::icon(self.library_view(cx)), "View")
                 .size(BUTTON, ICON)
@@ -128,8 +132,17 @@ impl MainWindow {
     }
 }
 
+/// Pop-out: switches to full library mode.
+fn pop_out_button(cx: &mut Context<MainWindow>) -> IconButton {
+    IconButton::new("library-pop-out", icons::POP_OUT, "Open full library")
+        .size(BUTTON, ICON)
+        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+            this.open_full_library(window, cx);
+        }))
+}
+
 /// A header button whose story hasn't shipped: shown, but disabled.
-fn later(id: &'static str, icon: &'static str, label: &'static str) -> IconButton {
+pub(super) fn later(id: &'static str, icon: &'static str, label: &'static str) -> IconButton {
     IconButton::new(id, icon, label).size(BUTTON, ICON).disabled(true)
 }
 

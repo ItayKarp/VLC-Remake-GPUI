@@ -6,7 +6,8 @@
 //! The List button opens the queue (S3.2), and the queue outlives the app (S3.4). Playlists are
 //! saved from the New Playlist dialog and the video menu (S3.5). Properties & Metadata shows what
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
-//! sidebar over the content (S4.5).
+//! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
+//! miniplayer (S4.10).
 //! Onboarding hands off to it (S0.2).
 
 mod about;
@@ -25,6 +26,7 @@ mod history;
 mod library_panel;
 mod library_status;
 mod main_menu;
+mod miniplayer;
 mod new_playlist;
 mod notice;
 mod now_playing;
@@ -136,8 +138,10 @@ pub struct MainWindow {
     settings_panel: settings_panel::SettingsPanel,
     /// The List button's Queue | Bookmarks | Chapters panel (S3.2).
     queue_panel: queue_panel::QueuePanel,
-    /// The library sidebar over the player (S4.5).
+    /// The library sidebar over the player (S4.5), and full library mode (S4.10).
     library_panel: library_panel::LibraryPanel,
+    /// Full library mode's miniplayer card (S4.10.3).
+    miniplayer: miniplayer::Miniplayer,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
     /// When the bars hide, Hide UI mode and the video's right-click menu (S2.8).
@@ -152,7 +156,6 @@ impl MainWindow {
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::follow_window(window, cx);
         let open_button = cx.focus_handle().tab_stop(true).tab_index(0);
-        open_button.focus(window, cx);
 
         let mut this = Self {
             queue: Queue::default(),
@@ -185,6 +188,7 @@ impl MainWindow {
             settings_panel: settings_panel::SettingsPanel::new(window, cx),
             queue_panel: queue_panel::QueuePanel::new(cx),
             library_panel: library_panel::LibraryPanel::new(cx),
+            miniplayer: miniplayer::Miniplayer::default(),
             os_title: String::new(),
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
@@ -193,9 +197,10 @@ impl MainWindow {
         this
     }
 
-    /// Starts recording history and the session, brings the last session back, and opens
-    /// `request`.
+    /// Gives the Open button the keyboard, starts recording history and the session, brings the
+    /// last session back, and opens `request`.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_button.focus(window, cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
         self.restore_session(&request, window, cx);
@@ -333,6 +338,9 @@ impl Render for MainWindow {
         self.release_previews(window);
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
+        self.fit_library(window, cx);
+        self.place_miniplayer(chrome.title_bar, window, cx);
+        let full = self.library_panel.is_full();
 
         let root = Self::player_keys(focus::tab_navigation(div()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
@@ -352,13 +360,15 @@ impl Render for MainWindow {
             .size_full()
             .bg(p.background)
             .text_color(p.text)
-            .child(self.render_content(&p, chrome.layout, window, cx))
-            .children(self.render_library_panel(&p, content_insets(chrome.layout), cx))
+            // Full library mode takes the content area; what plays shows in the miniplayer.
+            .children((!full).then(|| self.render_content(&p, chrome.layout, window, cx)))
+            .children(self.render_library(&p, chrome, cx))
             .children(chrome.title_bar.then(|| self.render_title_bar(&p, window, cx)))
             .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
-            .children(self.render_queue_panel(&p, window, cx))
+            .children((!full).then(|| self.render_queue_panel(&p, window, cx)).flatten())
+            .children(self.render_miniplayer(&p, cx))
             .children(chrome.controls.then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(Self::pointer_watcher(cx))
             .child(self.toasts.clone())

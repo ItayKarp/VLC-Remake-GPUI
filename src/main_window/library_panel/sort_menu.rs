@@ -8,7 +8,6 @@
 use gpui::{AnyElement, App, ClickEvent, Context, Div, Window, div, prelude::*, px};
 
 use super::header::{BUTTON, ICON};
-use super::view_menu::line_of;
 use super::{MainWindow, OpenMenu};
 use crate::assets::icons;
 use crate::navigation::sort::{self, Sort, Sortable};
@@ -91,8 +90,8 @@ impl MainWindow {
         let route = self.library_panel.history.current().clone();
         settings::update(cx, |s| sort::remember(&route, sort, &mut s.local.library_sorts));
         self.sort_listing(sort);
-        let view = self.library_view(cx);
-        let line = self.cursor_index(cx).map_or(0, |index| line_of(index, view));
+        let shape = self.library_shape(cx);
+        let line = self.cursor_index(cx).map_or(0, |index| shape.line_of(index));
         self.library_panel.scroll.scroll_to_item(line, gpui::ScrollStrategy::Center);
         cx.notify();
     }

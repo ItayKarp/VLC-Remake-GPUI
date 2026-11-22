@@ -1,7 +1,9 @@
 //! Browsing the listing (S4.6.5): a single click selects an item, a double-click or Enter opens
 //! it, and the arrow keys, Home, End and Page Up and Down move the selection. Opening a card plays
 //! it with the folder's other cards after it as the queue (folder playback, S3); opening a row
-//! does what it says (goes to its place, plays, adds a folder).
+//! does what it says (goes to its place, plays, adds a folder). While something plays, Settings
+//! → Library "Add to the playlist instead of replacing it" adds what is opened to the queue's
+//! end instead (S4.10.6).
 //!
 //! The context-menu key and Shift+F10 open the keyboard's item's menu (S4.8.4).
 //!
@@ -17,24 +19,22 @@ use gpui::{
 };
 
 use super::MainWindow;
-use super::grid::{COLUMNS, LINE_HEIGHT};
+use super::layout::Shape;
 use super::listing::{Body, Item};
-use super::row::{ROW_HEIGHT, ROW_TEXT};
-use super::view_menu::line_of;
+use super::row::ROW_TEXT;
 use crate::app::media::Media;
-use crate::app::request::Placement;
+use crate::app::request::{OpenRequest, Placement};
 use crate::db::media::MediaId;
 use crate::keymap::actions::ShowContextMenu;
 use crate::library::thumbnails;
 use crate::main_window::opening::Target;
 use crate::navigation::history::Step;
 use crate::navigation::route::{Route, Section};
-use crate::navigation::view::View;
 use crate::opening::Resolved;
+use crate::settings;
 use crate::theme::{self, Palette};
 use crate::ui::button::Button;
-use crate::ui::focus::{self, Axis, Layout, Move};
-use crate::ui::list::row_count;
+use crate::ui::focus::{self, Axis, Move};
 
 /// Air between the header's divider and the first row.
 const LIST_TOP: f32 = 15.;
@@ -57,31 +57,30 @@ impl MainWindow {
         if *self.library_panel.history.current() == Route::Home {
             return body.pt(px(LIST_TOP)).child(self.render_home(p, cx));
         }
-        let view = self.library_view(cx);
+        let shape = self.library_shape(cx);
         let len = match self.listing(cx) {
             Body::Items(items) if items.len() == 0 => return body.child(self.render_empty(p, cx)),
             Body::Items(items) => items.len(),
             Body::Reading => return body,
             Body::Gone(message) => return body.child(self.render_gone(message, p, cx)),
         };
-        let lines = match view {
-            View::List => len,
-            View::Grid => row_count(len, COLUMNS),
-        };
         let list = uniform_list(
             "library-rows",
-            lines,
+            shape.lines(len),
             cx.processor(move |this, range: Range<usize>, window, cx| {
                 let p = theme::palette(window, cx);
-                match view {
-                    View::List => this.render_items(range, &p, cx),
-                    View::Grid => this.render_lines(range, &p, cx),
+                if shape.is_lines() {
+                    this.render_lines(range, &p, cx)
+                } else {
+                    this.render_items(range, &p, cx)
                 }
             }),
         )
         .track_scroll(&self.library_panel.scroll)
         .size_full()
-        .px(px(super::INSET));
+        .px(px(super::INSET))
+        // The miniplayer card mustn't hide the last items (S4.10 edge case).
+        .pb(px(self.miniplayer_clearance()));
         body.pt(px(LIST_TOP)).child(list)
     }
 
@@ -157,14 +156,20 @@ impl MainWindow {
         self.library_panel.selection.cursor(&items.keys())
     }
 
-    /// Opens item `index`: plays a card with the other cards queued, or follows a row.
+    /// Opens item `index`: plays a card with the other cards queued, or follows a row. While
+    /// something plays, Settings → Library can make a card go to the end of the queue instead
+    /// (S4.10.6).
     pub(super) fn open_item(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Body::Items(items) = self.listing(cx) else { return };
         match items.get(index) {
             Some(Item::Card(card)) => {
+                let media = vec![Media::File(card.path.clone())];
+                if self.library_placement(cx) == Placement::Enqueue {
+                    self.open(OpenRequest::placed(media, Placement::Enqueue), window, cx);
+                    return;
+                }
                 // Home's media are unrelated: one plays alone.
                 if self.library_panel.history.current().section() == Section::Home {
-                    let media = vec![Media::File(card.path.clone())];
                     self.play_cards(media, 0, window, cx);
                     return;
                 }
@@ -177,6 +182,14 @@ impl MainWindow {
             }
             None => {}
         }
+    }
+
+    /// How opening a library item places it: at the end of the queue while something plays
+    /// and Settings → Library says "Add to the playlist instead of replacing it", else in place
+    /// of the queue.
+    pub(super) fn library_placement(&self, cx: &Context<Self>) -> Placement {
+        let add = settings::get(cx).prefs.library.add_instead_of_replacing;
+        if add && self.is_playing(cx) { Placement::Enqueue } else { Placement::Replace }
     }
 
     /// Replaces the queue with `media` and plays item `start`.
@@ -199,8 +212,8 @@ impl MainWindow {
         let keys = items.keys();
         let keystroke = &event.keystroke;
         let modifiers = keystroke.modifiers;
-        let view = self.library_view(cx);
-        let layout = self.library_panel.key_layout(view);
+        let shape = self.library_shape(cx);
+        let layout = shape.keys(self.library_panel.shown_height());
         let selection = &mut self.library_panel.selection;
         if keystroke.key == "enter" && !modifiers.modified() {
             if let Some(index) = selection.cursor(&keys) {
@@ -220,7 +233,7 @@ impl MainWindow {
             cx.notify();
             return;
         }
-        let Some((movement, extend)) = movement(event, view) else { return };
+        let Some((movement, extend)) = movement(event, &shape) else { return };
         if let Some(index) = selection.step(&keys, movement, layout, extend) {
             cx.stop_propagation();
             self.scroll_listing_to(index, ScrollStrategy::Nearest, cx);
@@ -235,7 +248,7 @@ impl MainWindow {
             self.library_panel.home_scroll.scroll_to_item(child);
             return;
         }
-        let line = line_of(index, self.library_view(cx));
+        let line = self.library_shape(cx).line_of(index);
         self.library_panel.scroll.scroll_to_item(line, strategy);
     }
 
@@ -250,14 +263,9 @@ impl MainWindow {
 }
 
 impl super::LibraryPanel {
-    /// How the keyboard moves through the items shown as `view`: a page key skips what fits on
-    /// screen.
-    fn key_layout(&self, view: View) -> Layout {
-        let shown = f32::from(self.scroll.0.borrow().base_handle.bounds().size.height);
-        match view {
-            View::List => Layout { page: ((shown / ROW_HEIGHT) as usize).max(1), ..Layout::LIST },
-            View::Grid => Layout::grid(COLUMNS, (shown / LINE_HEIGHT) as usize),
-        }
+    /// How tall the listing shows on screen.
+    fn shown_height(&self) -> f32 {
+        f32::from(self.scroll.0.borrow().base_handle.bounds().size.height)
     }
 }
 
@@ -275,15 +283,12 @@ fn history_step(event: &KeyDownEvent) -> Option<Step> {
     }
 }
 
-/// Where a key moves the selection among items shown as `view`, and whether it extends it
+/// Where a key moves the selection among items laid out as `shape`, and whether it extends it
 /// (Shift).
-fn movement(event: &KeyDownEvent, view: View) -> Option<(Move, bool)> {
+fn movement(event: &KeyDownEvent, shape: &Shape) -> Option<(Move, bool)> {
     let modifiers = event.keystroke.modifiers;
     let shift_only = modifiers.shift && !(modifiers.control || modifiers.alt || modifiers.platform);
-    let axis = match view {
-        View::List => Axis::Vertical,
-        View::Grid => Axis::Grid,
-    };
+    let axis = if shape.is_lines() { Axis::Grid } else { Axis::Vertical };
     if shift_only {
         Move::from_key(&event.keystroke.key, axis).map(|movement| (movement, true))
     } else {

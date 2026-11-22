@@ -31,14 +31,18 @@ pub fn framed(video: Entity<VideoView>, p: &Palette, layout: Layout) -> Div {
         Layout::Docked => area.px(px(INSET)).pb(px(INSET)),
         Layout::Floating => area.p(px(INSET)),
     };
-    area.child(
-        div().relative().size_full().rounded(px(RADIUS)).bg(p.video).child(video).child(
-            canvas(|_, _, _| {}, move |bounds, (), window, _| round_corners(bounds, frame, window))
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full(),
-        ),
+    area.child(rounded(video, p.video, frame))
+}
+
+/// `video` on `background` with its corners rounded on a `frame` coloured surround (the
+/// miniplayer's card too, S4.10.3).
+pub fn rounded(video: Entity<VideoView>, background: Hsla, frame: Hsla) -> Div {
+    div().relative().size_full().rounded(px(RADIUS)).bg(background).child(video).child(
+        canvas(|_, _, _| {}, move |bounds, (), window, _| round_corners(bounds, frame, window))
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
     )
 }
 

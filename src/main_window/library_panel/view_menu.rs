@@ -4,7 +4,7 @@
 
 use gpui::{AnyElement, App, Context, Window};
 
-use super::grid::COLUMNS;
+use super::layout::Shape;
 use super::{MainWindow, OpenMenu};
 use crate::assets::icons;
 use crate::navigation::route::Route;
@@ -25,6 +25,15 @@ impl MainWindow {
         }
         let section = self.library_panel.history.current().section();
         View::of(section, &settings::get(cx).local.library_grid)
+    }
+
+    /// How the listing lays out the current view at the window's width.
+    /// Home's page lays itself out, and the keyboard steps through it one item at a time.
+    pub(super) fn library_shape(&self, cx: &App) -> Shape {
+        if *self.library_panel.history.current() == Route::Home {
+            return Shape::column();
+        }
+        self.library_panel.shape(self.library_view(cx))
     }
 
     /// Opens or closes the View menu under its button.
@@ -59,17 +68,10 @@ impl MainWindow {
     pub(super) fn set_library_view(&mut self, view: View, cx: &mut Context<Self>) {
         let section = self.library_panel.history.current().section();
         settings::update(cx, |s| view.remember(section, &mut s.local.library_grid));
-        let line = self.cursor_index(cx).map_or(0, |index| line_of(index, view));
+        let shape = self.library_shape(cx);
+        let line = self.cursor_index(cx).map_or(0, |index| shape.line_of(index));
         self.library_panel.scroll.scroll_to_item(line, gpui::ScrollStrategy::Center);
         cx.notify();
-    }
-}
-
-/// The line of the listing item `index` is on when shown as `view`.
-pub(super) fn line_of(index: usize, view: View) -> usize {
-    match view {
-        View::List => index,
-        View::Grid => index / COLUMNS,
     }
 }
 

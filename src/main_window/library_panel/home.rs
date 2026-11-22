@@ -1,6 +1,7 @@
 //! Home in the listing (S4.9; `sidebar-home`, `player_07`): the first few items of each section
-//! under its heading and `>` ([`page`]), each section's full list behind its `>`, and a welcome
-//! when there is nothing yet ([`welcome`]).
+//! under its heading and `>`, or in full library mode a line of tiles (S4.10.2) ([`page`]),
+//! each section's full list behind its `>`, and a welcome when there is nothing yet
+//! ([`welcome`]).
 //!
 //! Home is read from the library in the background ([`crate::library::home`]) whenever the
 //! listing is, and kept while it is read again so it doesn't flicker. Its items are the
@@ -18,6 +19,7 @@ use gpui::{App, AppContext as _, Context, Task, WeakEntity};
 
 use super::MainWindow;
 use super::item_menu::{FileTarget, on_all};
+use super::layout::Shape;
 use super::listing::{Body, Items, Order};
 use super::row::{Row, Target};
 use crate::app::media::Media;
@@ -30,11 +32,13 @@ use crate::library::folder_view::Card;
 use crate::library::home::{self, Home, Wanted, writes};
 use crate::navigation::item_count;
 use crate::navigation::route::{HomeSection, MusicRoute, Route};
+use crate::navigation::view::View;
 use crate::playlists;
 use crate::settings::{self, Settings};
 use crate::ui::menu::MenuItem;
 
-/// How many items each section shows on Home itself (`sidebar-home`).
+/// How many items each section shows on Home itself in the sidebar (`sidebar-home`); full
+/// library mode shows a line of tiles (`player_07`).
 const SHOWN: usize = 3;
 
 /// Home as last read, and the read under way.
@@ -59,6 +63,8 @@ struct Page {
     history: bool,
     /// How many of Continue Watching's videos are away.
     unavailable: usize,
+    /// The most items a section shows.
+    limit: usize,
 }
 
 /// One section on the page, and how many of its media and places it shows.
@@ -72,18 +78,19 @@ struct Shown {
 impl Page {
     /// The page of `home`: sections with nothing are left out, except Continue Watching while
     /// some of it is away, which says so.
-    fn of(home: &Home, history: bool, cx: &App) -> Self {
+    fn of(home: &Home, history: bool, limit: usize, cx: &App) -> Self {
         let mut page = Self {
             cards: Vec::new(),
             rows: Vec::new(),
             sections: Vec::new(),
             history,
             unavailable: home.unavailable,
+            limit,
         };
         for section in HomeSection::ALL {
-            let cards = &home.cards(section)[..home.cards(section).len().min(SHOWN)];
+            let cards = &home.cards(section)[..home.cards(section).len().min(limit)];
             let rows: Vec<Row> =
-                section_rows(section, home, cx).into_iter().take(SHOWN - cards.len()).collect();
+                section_rows(section, home, cx).into_iter().take(limit - cards.len()).collect();
             let away = section == HomeSection::ContinueWatching && home.unavailable > 0;
             if cards.is_empty() && rows.is_empty() && !away {
                 continue;
@@ -101,20 +108,21 @@ impl Page {
         away.then(|| format!("{} unavailable", item_count(self.unavailable)))
     }
 
-    /// Which of the page's children (headings, items and notes, top to bottom) item `index`
-    /// is.
-    fn child_of(&self, index: usize) -> Option<usize> {
+    /// Which of the page's children (headings, items or `lined` sections' lines of tiles, and
+    /// notes, top to bottom) item `index` is.
+    fn child_of(&self, index: usize, lined: bool) -> Option<usize> {
         let (mut child, mut card, mut row) = (0, 0, self.cards.len());
         for shown in &self.sections {
             child += 1;
+            let items = usize::from(!lined);
             if (card..card + shown.cards).contains(&index) {
-                return Some(child + index - card);
+                return Some(child + (index - card) * items);
             }
             if (row..row + shown.rows).contains(&index) {
-                return Some(child + shown.cards + index - row);
+                return Some(child + (shown.cards + index - row) * items);
             }
-            child +=
-                shown.cards + shown.rows + usize::from(self.away_note(shown.section).is_some());
+            let drawn = if lined { 1 } else { shown.cards + shown.rows };
+            child += drawn + usize::from(self.away_note(shown.section).is_some());
             (card, row) = (card + shown.cards, row + shown.rows);
         }
         None
@@ -125,7 +133,7 @@ impl MainWindow {
     /// Reads Home again in the background, if the sidebar shows it or one of its sections.
     pub(super) fn reload_home(&mut self, cx: &mut Context<Self>) {
         let route = self.library_panel.history.current();
-        if !self.library_panel.open || !matches!(route, Route::Home | Route::HomeSection(_)) {
+        if !self.library_panel.is_open() || !matches!(route, Route::Home | Route::HomeSection(_)) {
             return;
         }
         let prefs = &settings::get(cx).prefs;
@@ -150,8 +158,9 @@ impl MainWindow {
 
     /// Shows what was read, and asks for the page's thumbnails.
     fn home_read(&mut self, home: Home, history: bool, cx: &mut Context<Self>) {
+        let limit = self.home_limit();
         let Some(listing) = self.library_panel.home.as_mut() else { return };
-        let page = Page::of(&home, history, cx);
+        let page = Page::of(&home, history, limit, cx);
         let on_screen = page.cards.iter().filter_map(|card| card.media).collect();
         listing.read = Some(Read { home, page });
         self.show_thumbnails(on_screen, cx);
@@ -169,7 +178,29 @@ impl MainWindow {
 
     /// Which of Home's page's children item `index` is, while the sidebar is on Home.
     pub(super) fn home_child(&self, index: usize) -> Option<usize> {
-        self.home_page()?.child_of(index)
+        self.home_page()?.child_of(index, self.library_panel.is_full())
+    }
+
+    /// The most items a section of Home shows: a few in the sidebar, a line of video tiles in
+    /// full library mode.
+    fn home_limit(&self) -> usize {
+        if self.library_panel.is_full() { self.home_tiles().columns } else { SHOWN }
+    }
+
+    /// How full library mode lays out Home's video tiles: as the grid's.
+    fn home_tiles(&self) -> Shape {
+        self.library_panel.shape(View::Grid)
+    }
+
+    /// Makes Home's page again when the window's width or the presentation changes how many
+    /// items its sections show.
+    pub(super) fn refit_home(&mut self, cx: &App) {
+        let limit = self.home_limit();
+        let Some(listing) = self.library_panel.home.as_mut() else { return };
+        let Some(read) = listing.read.as_mut().filter(|read| read.page.limit != limit) else {
+            return;
+        };
+        read.page = Page::of(&read.home, read.page.history, limit, cx);
     }
 
     /// What Home or one of its sections lists; `None` for other routes.

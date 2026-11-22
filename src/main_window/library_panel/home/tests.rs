@@ -9,6 +9,7 @@ use crate::library::watch_state::WatchState;
 use crate::main_window::library_panel::listing::Body;
 use crate::main_window::library_panel::selection::Key;
 use crate::main_window::tests::{main_view, open, tap};
+use crate::navigation::Presentation;
 
 fn card(id: i64) -> Card {
     Card {
@@ -92,10 +93,13 @@ fn children_count_headings_and_the_away_note() {
         ],
         history: true,
         unavailable: 4,
+        limit: 3,
     };
     // Heading, E01, E02, "4 items unavailable", heading, E03.
-    assert_eq!([0, 1, 2].map(|index| page.child_of(index)), [Some(1), Some(2), Some(5)]);
-    assert_eq!(page.child_of(3), None);
+    assert_eq!([0, 1, 2].map(|index| page.child_of(index, false)), [Some(1), Some(2), Some(5)]);
+    assert_eq!(page.child_of(3, false), None);
+    // In lines of tiles: heading, the line of E01 and E02, the note, heading, E03's line.
+    assert_eq!([0, 1, 2].map(|index| page.child_of(index, true)), [Some(1), Some(1), Some(4)]);
     assert_eq!(
         page.away_note(HomeSection::ContinueWatching).as_deref(),
         Some("4 items unavailable")
@@ -124,4 +128,22 @@ fn a_folder_only_music_holds_opens_in_songs() {
             Route::Videos(Some(folders[2].clone())),
         ]
     );
+}
+
+#[gpui::test]
+fn full_library_mode_shows_a_line_of_tiles_per_section(cx: &mut TestAppContext) {
+    let home = Home { continue_watching: (1..=12).map(card).collect(), ..Home::default() };
+    let cx = home_with(cx, home);
+    assert_eq!(keys(cx).len(), SHOWN);
+    let main = main_view(cx);
+    let refit = |main: &mut MainWindow, shown, cx: &mut Context<MainWindow>| {
+        main.library_panel.shown = Some(shown);
+        main.refit_home(cx);
+    };
+    main.update(cx, |main, cx| refit(main, Presentation::Full, cx));
+    let columns = main.read_with(cx, |main, _| main.home_tiles().columns);
+    assert!(columns >= 1);
+    assert_eq!(keys(cx).len(), columns.min(12));
+    main.update(cx, |main, cx| refit(main, Presentation::Overlay, cx));
+    assert_eq!(keys(cx).len(), SHOWN, "the sidebar shows a few again");
 }
