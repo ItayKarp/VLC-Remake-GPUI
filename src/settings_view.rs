@@ -22,6 +22,7 @@ mod equalizer;
 mod highlight;
 mod media_folders;
 mod options;
+mod preset_picker;
 mod row;
 mod secret;
 mod swatches;
@@ -36,8 +37,11 @@ use gpui::{
     px,
 };
 
+pub use self::preset_picker::PresetPicker;
+pub use self::row::PAGE_PADDING;
+
 use self::controls::RowState;
-use self::row::{PAGE_PADDING, RowLabel};
+use self::row::RowLabel;
 use self::widgets::Widgets;
 use crate::app::audio_devices::AudioDevices;
 use crate::settings::registry::{self, ApplyMode, Category, SettingDef, Value};

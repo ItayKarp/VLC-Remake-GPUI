@@ -93,14 +93,23 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if settings::get(cx).prefs.controls.wheel == WheelAction::Volume {
-            self.scroll_volume(event, window, cx);
+        let controls = &settings::get(cx).prefs.controls;
+        if controls.wheel == WheelAction::Volume {
+            let reverse = controls.reverse_scroll;
+            self.scroll_volume(event, reverse, window, cx);
         }
     }
 
-    /// Steps the volume as the wheel turns: up is louder.
-    fn scroll_volume(&mut self, event: &ScrollEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let change = match self.volume_slider.wheel.take(event.delta, event.touch_phase) {
+    /// Steps the volume as the wheel turns: up is louder, or down when `reverse`.
+    fn scroll_volume(
+        &mut self,
+        event: &ScrollEvent,
+        reverse: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let turn = self.volume_slider.wheel.take(event.delta, event.touch_phase);
+        let change = match turn.map(|turn| turn.reversed_if(reverse)) {
             Some(Turn::Positive) => VolumeChange::Up,
             Some(Turn::Negative) => VolumeChange::Down,
             None => return,

@@ -40,6 +40,10 @@ pub struct ControlsSettings {
     /// What a double click on the video does.
     #[serde(deserialize_with = "lenient")]
     pub double_click: DoubleClickAction,
+    /// "Reverse scroll direction": scrolling over the video turns the other way (down is
+    /// louder, left is forward).
+    #[serde(deserialize_with = "lenient")]
+    pub reverse_scroll: bool,
 }
 
 /// What a single click on the video does ("Mouse → Single click").

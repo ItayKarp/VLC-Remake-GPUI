@@ -9,14 +9,17 @@ use gpui::{
     KeyDownEvent, SharedString, Stateful, Window, accesskit, div, prelude::*, px,
 };
 
+use crate::assets::icons;
 use crate::theme::{self, Palette};
-use crate::ui::button::{Button, ButtonStyle};
+use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
 
 /// Runs when a dialog button is pressed, after the dialog has closed.
 type Respond = Rc<dyn Fn(&mut Window, &mut App)>;
 /// Builds the dialog's body each frame.
 type BuildBody = Box<dyn Fn(&mut Window, &mut App) -> AnyElement>;
+/// Asked before Escape or ✕ closes the dialog; `false` keeps it open.
+type CloseGuard = Box<dyn Fn(&mut Window, &mut App) -> bool>;
 
 /// Space kept between a dialog and the window edges.
 const WINDOW_MARGIN: f32 = 24.;
@@ -31,19 +34,34 @@ pub struct DialogButton {
     style: ButtonStyle,
     /// Enter triggers it when focus isn't on another button.
     default: bool,
+    /// It sits at the row's start, apart from the others (Cancel in an editor).
+    leading: bool,
     on_click: Option<Respond>,
 }
 
 impl DialogButton {
     /// A button that closes the dialog after running `on_click`.
     pub fn new(label: impl Into<SharedString>) -> Self {
-        Self { label: label.into(), style: ButtonStyle::Filled, default: false, on_click: None }
+        Self {
+            label: label.into(),
+            style: ButtonStyle::Filled,
+            default: false,
+            leading: false,
+            on_click: None,
+        }
     }
 
     /// The dialog's default (accent) button.
     pub fn primary(mut self) -> Self {
         self.style = ButtonStyle::Primary;
         self.default = true;
+        self
+    }
+
+    /// Puts the button at the start of the row, apart from the others. Leading buttons come
+    /// first in the list.
+    pub fn leading(mut self) -> Self {
+        self.leading = true;
         self
     }
 
@@ -63,6 +81,9 @@ pub struct Dialog {
     button_focus: Vec<FocusHandle>,
     focus_handle: FocusHandle,
     width: f32,
+    /// Whether the title line has a ✕.
+    close_button: bool,
+    guard: Option<CloseGuard>,
 }
 
 impl EventEmitter<DismissEvent> for Dialog {}
@@ -91,6 +112,8 @@ impl Dialog {
             button_focus,
             focus_handle: cx.focus_handle(),
             width: DIALOG_WIDTH,
+            close_button: false,
+            guard: None,
         }
     }
 
@@ -109,6 +132,29 @@ impl Dialog {
         self
     }
 
+    /// Puts a ✕ at the end of the title line, which closes the dialog as Escape does.
+    pub fn with_close_button(mut self) -> Self {
+        self.close_button = true;
+        self
+    }
+
+    /// Asks `guard` before Escape or ✕ closes the dialog; it returns `false` to keep the dialog
+    /// open (to ask about unsaved changes first). The buttons close it without asking.
+    pub fn with_close_guard(
+        mut self,
+        guard: impl Fn(&mut Window, &mut App) -> bool + 'static,
+    ) -> Self {
+        self.guard = Some(Box::new(guard));
+        self
+    }
+
+    /// Closes the dialog as Escape and ✕ do, if its guard lets it.
+    fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.guard.as_ref().is_none_or(|guard| guard(window, cx)) {
+            cx.emit(DismissEvent);
+        }
+    }
+
     /// The buttons' focus handles, in order.
     #[cfg(test)]
     pub fn button_focus_handles(&self) -> Vec<FocusHandle> {
@@ -124,9 +170,18 @@ impl Dialog {
         }
     }
 
-    /// Enter presses the default button, unless a button has focus.
+    /// Enter presses the default button, unless a button has focus. Escape closes the dialog
+    /// here, rather than in the modal layer, when a guard must agree first.
     fn on_key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event.keystroke.key != "enter" || event.keystroke.modifiers.modified() {
+        if event.keystroke.modifiers.modified() {
+            return;
+        }
+        if event.keystroke.key == "escape" && self.guard.is_some() {
+            self.dismiss(window, cx);
+            cx.stop_propagation();
+            return;
+        }
+        if event.keystroke.key != "enter" {
             return;
         }
         // A focused button clicks itself on Enter.
@@ -146,7 +201,13 @@ impl Dialog {
                 .style(button.style)
                 .track_focus(&self.button_focus[i])
                 .on_click(cx.listener(move |this, _, window, cx| this.press(i, window, cx)))
+                .into_any_element()
         });
+        let leading = self.buttons.iter().take_while(|button| button.leading).count();
+        let mut buttons: Vec<AnyElement> = buttons.collect();
+        if leading > 0 {
+            buttons.insert(leading, div().flex_1().into_any_element());
+        }
         div()
             .flex_none()
             .flex()
@@ -184,23 +245,33 @@ impl Render for Dialog {
             .border_color(p.divider)
             .shadow_lg()
             .text_color(p.text)
-            .child(title(self.title.clone(), &p))
+            .child(self.title_line(&p, cx))
             .children(toolbar.map(|toolbar| div().flex_none().px(px(PADDING)).child(toolbar)))
             .child(scrolling_body(body))
             .child(self.button_row(cx))
     }
 }
 
-/// The dialog's title line.
-fn title(text: SharedString, p: &Palette) -> Div {
-    div()
-        .flex_none()
-        .px(px(PADDING))
-        .pt(px(20.))
-        .pb(px(12.))
-        .text_size(px(18.))
-        .text_color(p.text_strong)
-        .child(text)
+impl Dialog {
+    /// The title, and the ✕ when there is one.
+    fn title_line(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
+        let close = self.close_button.then(|| {
+            IconButton::new("dialog-close", icons::CLOSE, "Close")
+                .on_click(cx.listener(|this, _, window, cx| this.dismiss(window, cx)))
+        });
+        div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_between()
+            .px(px(PADDING))
+            .pt(px(20.))
+            .pb(px(12.))
+            .text_size(px(18.))
+            .text_color(p.text_strong)
+            .child(self.title.clone())
+            .children(close)
+    }
 }
 
 /// The body, which scrolls when the dialog is capped at the window's height.

@@ -17,6 +17,17 @@ pub enum Turn {
     Negative,
 }
 
+impl Turn {
+    /// The other way when `reverse` ("Reverse scroll direction"), this way otherwise.
+    pub fn reversed_if(self, reverse: bool) -> Self {
+        match (self, reverse) {
+            (turn, false) => turn,
+            (Turn::Positive, true) => Turn::Negative,
+            (Turn::Negative, true) => Turn::Positive,
+        }
+    }
+}
+
 /// One axis of scrolling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Axis {

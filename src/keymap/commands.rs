@@ -22,6 +22,14 @@ pub enum Area {
     Library,
 }
 
+impl Area {
+    /// Whether a key could reach commands of both areas, so they can't share it. The player
+    /// and the library can: the library's key wins while it has focus.
+    pub fn overlaps(self, other: Area) -> bool {
+        self == other || [self, other].iter().any(|area| matches!(area, Global | AppArea))
+    }
+}
+
 /// What happens while a shortcut's key is held and the OS repeats it (S0.5.6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Repeat {

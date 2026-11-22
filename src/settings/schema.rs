@@ -13,12 +13,14 @@ mod audio;
 mod controls;
 mod general;
 mod interface;
+mod keymap;
 mod library;
 mod live;
 mod miniplayer;
 mod network;
 mod performance;
 mod playback;
+mod presets;
 mod privacy;
 mod recording;
 mod subtitles;
@@ -43,6 +45,7 @@ pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{
     AutoHide, DurationReadout, FitVideo, InterfaceSettings, NowPlayingNotification,
 };
+pub use keymap::{CustomBinding, KeymapSettings};
 pub use library::{ArtworkSource, LibrarySettings};
 pub use live::LiveState;
 pub use miniplayer::MiniplayerCorner;
@@ -52,6 +55,7 @@ pub use performance::{
     SkipLoopFilter,
 };
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
+pub use presets::{Preset, PresetSettings};
 pub use privacy::PrivacySettings;
 pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
 pub use subtitles::{SizeValues, SubtitleSettings};
@@ -117,12 +121,16 @@ pub struct Preferences {
     /// Recording, casting and streaming out (S5.10.3).
     #[serde(deserialize_with = "lenient")]
     pub recording: RecordingSettings,
-    /// Custom key bindings.
+    /// Custom key bindings (S5.6.3).
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
     /// Logging, crash reports and libVLC's startup options (S0.7, S5.3.4).
     #[serde(deserialize_with = "lenient")]
     pub diagnostics: DiagnosticsSettings,
+    /// Setting presets over the Playback, Video, Audio and Subtitles pages (S5.11). Change
+    /// them through `settings::presets`, which keeps the sections they cover in step.
+    #[serde(deserialize_with = "lenient")]
+    pub presets: PresetSettings,
 }
 
 /// State that only makes sense on this machine.
@@ -268,8 +276,3 @@ pub enum WindowMode {
     /// Fullscreen; the saved bounds are where it restores to.
     Fullscreen,
 }
-
-/// Custom key bindings (S0.5).
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct KeymapSettings {}

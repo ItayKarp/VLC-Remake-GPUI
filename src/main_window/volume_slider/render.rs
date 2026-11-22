@@ -131,7 +131,7 @@ impl MainWindow {
             .on_key_down(cx.listener(Self::volume_key_down))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::start_volume_drag))
             .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
-                this.scroll_volume(event, window, cx);
+                this.scroll_volume(event, false, window, cx);
             }))
             .when(shown.availability == Availability::NoDevice, |wedge| {
                 wedge.tooltip(tooltip::text(NO_DEVICE, None::<&str>))

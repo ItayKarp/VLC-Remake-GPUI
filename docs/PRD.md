@@ -1295,24 +1295,24 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S5.2, S0.5  **Size:** L  **Design refs:** `controls.png`, `docs/ui/dialogs/keyboard_shortcuts/keyboard_shortcuts.png`
 
 **Subtasks**
-- [ ] S5.6.1 **Skip amounts**: Very short 3 s, Short 10 s, Medium 60 s, Long 300 s, bound to the seek actions with modifiers (for example Shift, Ctrl and Alt with the arrow keys). Document which modifier maps to which amount.
-- [ ] S5.6.2 **Mouse**: single click on the video (Play/Pause), double click (Toggle fullscreen), scroll wheel (Volume), horizontal scroll (Seek), **Reverse scroll direction**.
-- [ ] S5.6.3 Keyboard Shortcuts dialog: search ("Search Keyboard Shortcuts…") and a field filter ("All Fields"); columns **Action | Hotkey | Global Hotkey**; a pencil to edit each cell; grouped sections (Basic, Playback, …); Cancel and Save.
-- [ ] S5.6.4 Recording a key: press the combination to capture it, Escape cancels capture, Backspace or Delete clears the binding.
-- [ ] S5.6.5 Conflict detection: when a combination is already bound in the same context, show "Already used by *Stop playback*" with **Replace** or **Cancel**.
-- [ ] S5.6.6 **Reset all shortcuts** (with a confirmation), plus a per-row reset.
+- [x] S5.6.1 **Skip amounts**: Very short 3 s, Short 10 s, Medium 60 s, Long 300 s, bound to the seek actions with modifiers (for example Shift, Ctrl and Alt with the arrow keys). Document which modifier maps to which amount. *(Rows in `registry/entries/controls.rs` since S2.3.4; each row's info names its modifier: Shift very short, none short, Alt/Option medium, Ctrl/Cmd long.)*
+- [x] S5.6.2 **Mouse**: single click on the video (Play/Pause), double click (Toggle fullscreen), scroll wheel (Volume), horizontal scroll (Seek), **Reverse scroll direction**. *(`prefs.controls.reverse_scroll` turns both wheel actions over the video the other way (`Turn::reversed_if` in `main_window/wheel.rs`); the volume slider keeps its direction.)*
+- [x] S5.6.3 Keyboard Shortcuts dialog: search ("Search Keyboard Shortcuts…") and a field filter ("All Fields"); columns **Action | Hotkey | Global Hotkey**; a pencil to edit each cell; grouped sections (Basic, Playback, …); Cancel and Save. *(`main_window/shortcuts_dialog/` edits a draft (`editor.rs`) of `keymap::custom::Shortcuts`; Save calls `keymap::apply`, which stores the changes from the defaults in `prefs.keymap.bindings` (a list of `{command, keys}` tables, so a reset row doesn't survive the merge on save) and swaps the commands' bindings in place, keeping other bindings' precedence. Settings → Controls → Edit Keyboard Shortcuts opens it in the main window. Recording a key replaces all of the row's keys, aliases included. The Global Hotkey wells have no pencil until S5.6.7. Checked in a screenshot test against `keyboard_shortcuts.png`; the dialog is 1000 px wide as designed, with Cancel at the start of the button row.)*
+- [x] S5.6.4 Recording a key: press the combination to capture it, Escape cancels capture, Backspace or Delete clears the binding. *(A keystroke interceptor takes the next key before any binding runs, so Space, Tab and global keys are recorded rather than acting. A refused key says why under the row (`keymap/check.rs`).)*
+- [x] S5.6.5 Conflict detection: when a combination is already bound in the same context, show "Already used by *Stop playback*" with **Replace** or **Cancel**. *(Areas overlap unless one is the player and the other the library (`Area::overlaps`), whose deeper key wins. Replace takes the key from the other command.)*
+- [x] S5.6.6 **Reset all shortcuts** (with a confirmation), plus a per-row reset. *(`keymap/reset.rs`, with the OS's alert unless confirmations are off; "Nothing to reset" when every key is the default. A changed row shows a reset button beside its name.)*
 - [ ] S5.6.7 **Global hotkeys** (they work while the app isn't focused): Windows `RegisterHotKey`, macOS a Carbon or event tap (needs Accessibility permission), Linux X11 grabs. Wayland has no general global hotkeys, so use the XDG GlobalShortcuts portal or show "not supported".
 - [ ] S5.6.8 **Remotes**: Web remote control and Port, implemented in S8.15.
 
 **Decision to resolve before S0.5 ships:** onboarding teaches `<`/`>` for Previous/Next item, but the shortcuts dialog design shows **N/P** for Next/Previous track (plus S Stop, T Show time, I Show controls in fullscreen, X Next program). Pick one default set and make onboarding step 3 read it from the keymap (S0.5.3).
 
 **Edge cases**
-- Binding a key the OS reserves (Win+L, Cmd+Q, Cmd+Tab, Alt+F4, PrintScreen): refuse it with an explanation.
+- Binding a key the OS reserves (Win+L, Cmd+Q, Cmd+Tab, Alt+F4, PrintScreen): refuse it with an explanation. *(Done: "The system uses this key to switch apps." A command keeps its own default, so Quit keeps Cmd+Q.)*
 - A global hotkey is already registered by another app: registration fails, so show "In use by another application" in that cell.
 - The keyboard layout changes after binding: show bindings in the current layout's labels.
-- Modifier-only bindings (just Shift) and Fn combinations aren't allowed.
-- Cancel after many edits discards everything. Closing the dialog with ✕ while there are unsaved edits asks to discard them.
-- An imported or hand-edited keymap with duplicate or invalid entries: load the valid ones and report the rest.
+- Modifier-only bindings (just Shift) and Fn combinations aren't allowed. *(Done: a lone modifier keeps recording; Fn is refused.)*
+- Cancel after many edits discards everything. Closing the dialog with ✕ while there are unsaved edits asks to discard them. *(Done: `Dialog::with_close_guard` asks with the OS's alert on ✕ or Escape, unless confirmations are off.)*
+- An imported or hand-edited keymap with duplicate or invalid entries: load the valid ones and report the rest. *(Done: unknown commands, second entries, refused keys and keys another command has are left out and logged as warnings.)*
 - The scroll wheel set to "Volume" on a trackpad with high-resolution and inertial scrolling: accumulate deltas into steps so one flick doesn't jump 0 → 200%.
 - A single click set to Play/Pause together with double click set to fullscreen: a single click must wait for the double-click interval or play/pause toggles twice. Common approach: toggle immediately, and undo the toggle if a double click arrives.
 
@@ -1404,16 +1404,16 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S5.8  **Size:** M  **Design refs:** `docs/ui/settings/components/setting_preset-*`
 
 **Subtasks**
-- [ ] S5.11.1 A preset is a named overlay over the **Media** pages (Playback, Video, Audio, Subtitles). Confirm the scope with design; the up-chevron suggests the dropdown sits at the bottom of the window and opens upward.
-- [ ] S5.11.2 The dropdown lists **+ New Preset**, then custom presets each with a `···` menu (Rename, Duplicate, Delete, Export), then **Default Preset** (read-only, with a checkmark when active).
-- [ ] S5.11.3 Changing a setting while a custom preset is active updates that preset. Changing a setting while Default is active changes the defaults. Show which preset is being edited.
-- [ ] S5.11.4 Import and export presets as files (sharing an "Anime" preset).
+- [x] S5.11.1 A preset is a named overlay over the **Media** pages (Playback, Video, Audio, Subtitles). Confirm the scope with design; the up-chevron suggests the dropdown sits at the bottom of the window and opens upward. *(`settings/presets/`. A preset is `prefs.presets.list`'s `{name, values}`, the values nested as in the settings file and holding only what the preset changes, so defaults it doesn't change show through; `prefs.presets.active` names the one in use (empty: Default Preset). It covers the `player`, `video`, `audio` and `subtitles` sections whole (equalizer bands included, `overlay.rs`), not Library; Repeat and Shuffle (the queue's) and the output device (machine-local) stay outside. The typed settings always hold what's in effect, so nothing that reads a setting knows about presets: `Layer` keeps the defaults a preset covers while it's in use and the save writes them, so `settings.toml` holds the defaults with the presets beside them, and the next launch puts the same preset back. The picker sits at the foot of those four pages, opening upward, and replaces the player settings panel's disabled Default Preset button. **Scope still to confirm with design.**)*
+- [x] S5.11.2 The dropdown lists **+ New Preset**, then custom presets each with a `···` menu (Rename, Duplicate, Delete, Export), then **Default Preset** (read-only, with a checkmark when active). *(`settings_view/preset_picker/`, plus **Import Preset…** after New Preset, which the design leaves out. New Preset starts empty (the defaults), is put in use and has its name edited in place; Rename edits in place too, Enter or leaving keeping it, Escape not. Keys: Enter, Space or Up opens it, Up/Down/Home/End move, Enter picks, Right or the menu key opens the `···` menu, Escape closes.)*
+- [x] S5.11.3 Changing a setting while a custom preset is active updates that preset. Changing a setting while Default is active changes the defaults. Show which preset is being edited. *(Every change to those sections, from Settings or a menu (Stop after each item, Speaker setup), goes to the preset in use; a value set back to its default leaves the preset. The picker names the preset in use, and a line over it says “Changes on these pages are saved to “Anime”.”)*
+- [x] S5.11.4 Import and export presets as files (sharing an "Anime" preset). *(`presets/file.rs`: `Anime.vlcpreset`, TOML with `vlc_preset = 1`, the name and the values. Importing keeps only the four sections' values, so a shared file can't change the proxy or the log file, numbers a taken name, and puts the preset in use; what happened shows under the picker. Not tried by hand yet.)*
 
 **Edge cases**
-- Deleting the active preset: switch to Default and confirm.
-- Duplicate names: add " (2)". Empty names aren't allowed. Very long names truncate.
-- A preset references a setting a newer version removed, or one an older version doesn't know: ignore it and keep it (preserve unknown keys, as in S0.1).
-- Relationship to player **Profiles** (`docs/ui/player/menus/profiles/*`, S8.8): decide whether profiles are the same concept as presets (D12). They shouldn't be two systems.
+- Deleting the active preset: switch to Default and confirm. *(Done: Delete… asks with the OS's alert, unless confirmations are off, saying when the preset is in use that the settings go back to Default Preset.)*
+- Duplicate names: add " (2)". Empty names aren't allowed. Very long names truncate. *(Done (`presets/names.rs`): names compare ignoring case and Default Preset's is taken; copying "Anime (2)" makes "Anime (3)"; an empty name keeps the old one and says so; names keep 60 characters and truncate on screen.)*
+- A preset references a setting a newer version removed, or one an older version doesn't know: ignore it and keep it (preserve unknown keys, as in S0.1). *(Done: an unknown value, or one of the wrong kind, isn't applied and stays in the preset.)*
+- Relationship to player **Profiles** (`docs/ui/player/menus/profiles/*`, S8.8): decide whether profiles are the same concept as presets (D12). They shouldn't be two systems. *(Decided (D12), as recommended: a profile is a player layout plus one of these presets; S8.8 builds on them.)*
 
 ---
 

@@ -16,6 +16,14 @@
 // The agent needs rustup, Git, pkg-config, cargo-llvm-cov and the GPUI build libraries
 // (Debian: libfontconfig-dev libvulkan1 libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev
 // libzstd-dev), plus a Vulkan driver (mesa-vulkan-drivers) for the screenshot tests.
+//
+// Caching: builds reuse cargo's compiled crates instead of starting over, and check exactly as
+// much. Set CARGO_TARGET_DIR in the agent's environment to a folder outside the workspace so
+// the cache outlives the job's workspace; without it the cache is the workspace's `target`.
+// Cargo rebuilds whatever a change touches, and replays cached warnings, so a cached build
+// fails on everything an uncached one does. The Cache stage clears the cache when it outgrows
+// CARGO_CACHE_LIMIT_GB or the disk runs low, so it never fills the disk. The `all` cell's tests
+// run under cargo-llvm-cov, giving SonarQube its coverage without a second build and test run.
 
 pipeline {
     agent none
@@ -34,6 +42,9 @@ pipeline {
         // Every cargo and rustup call uses this toolchain. Pin a version (for example
         // '1.100.0') to keep new clippy lints from failing builds unannounced.
         RUSTUP_TOOLCHAIN = 'stable'
+        // The build cache's size limit, and the free disk space below which it is cleared too.
+        CARGO_CACHE_LIMIT_GB = '60'
+        CARGO_CACHE_MIN_FREE_GB = '15'
 
         // ---- Jenkins setup: fill these in when configuring Jenkins. ----
         // The label of the Linux agent. The matrix below uses the literal 'linux' (Jenkins
@@ -46,6 +57,24 @@ pipeline {
     }
 
     stages {
+        stage('Cache') {
+            agent { label "${env.LINUX_AGENT}" }
+            steps {
+                // Single quotes: the shell, not Groovy, expands these variables.
+                sh '''
+                    cache="${CARGO_TARGET_DIR:-target}"
+                    mkdir -p "$cache"
+                    used=$(du -s --block-size=1G "$cache" | cut -f1)
+                    free=$(df --output=avail --block-size=1G "$cache" | tail -n 1 | tr -dc 0-9)
+                    echo "Build cache $cache: ${used} GB used (limit ${CARGO_CACHE_LIMIT_GB}), ${free} GB free on disk"
+                    if [ "$used" -ge "$CARGO_CACHE_LIMIT_GB" ] || [ "$free" -lt "$CARGO_CACHE_MIN_FREE_GB" ]; then
+                        echo "Clearing the build cache: this build compiles everything again"
+                        rm -rf "$cache"
+                    fi
+                '''
+            }
+        }
+
         stage('Format') {
             agent { label "${env.LINUX_AGENT}" }
             steps {
@@ -74,7 +103,7 @@ pipeline {
                 stages {
                     stage('Toolchain') {
                         steps {
-                            sh "rustup toolchain install ${env.RUSTUP_TOOLCHAIN} --profile minimal --component clippy"
+                            sh "rustup toolchain install ${env.RUSTUP_TOOLCHAIN} --profile minimal --component clippy,llvm-tools-preview"
                         }
                     }
 
@@ -93,7 +122,16 @@ pipeline {
 
                     stage('Test') {
                         steps {
-                            sh "cargo test ${env.FEATURES}"
+                            script {
+                                if (env.BACKENDS == 'all') {
+                                    // The same tests as `cargo test`, failing the same way, but
+                                    // instrumented: this run is SonarQube's coverage report.
+                                    sh "mkdir -p target/sonar && cargo llvm-cov --lcov --output-path target/sonar/lcov.info ${env.FEATURES}"
+                                    stash name: 'coverage', includes: 'target/sonar/lcov.info'
+                                } else {
+                                    sh "cargo test ${env.FEATURES}"
+                                }
+                            }
                         }
                         post {
                             always {
@@ -114,12 +152,14 @@ pipeline {
         stage('SonarQube') {
             agent { label "${env.LINUX_AGENT}" }
             steps {
-                sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component clippy,llvm-tools-preview'
+                sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component clippy'
                 sh 'mkdir -p target/sonar'
+                // Coverage from the `all` cell's test run.
+                unstash 'coverage'
                 // Clippy findings as JSON for SonarQube. The Linux stage already failed the
-                // build on any warning; this run only reports them.
-                sh 'cargo clippy --all-targets --message-format=json > target/sonar/clippy.json'
-                sh 'cargo llvm-cov --lcov --output-path target/sonar/lcov.info'
+                // build on any warning; this run only reports them. The `all` cell's features,
+                // so cargo replays that cell's cached results instead of checking again.
+                sh "cargo clippy --all-targets ${cargoFeatures('all')} --message-format=json > target/sonar/clippy.json"
                 script {
                     def scanner = tool env.SONAR_SCANNER_TOOL
                     withSonarQubeEnv(env.SONARQUBE_SERVER) {
@@ -169,7 +209,15 @@ String linuxLibraries(String backends) {
  */
 void archiveScreenshots() {
     def folder = "screenshots/linux-${env.BACKENDS}"
-    sh "rm -rf '${folder}' && mkdir -p '${folder}' && { cp target/screenshots/*.png '${folder}/' 2>/dev/null || true; }"
+    // The tests write into cargo's target folder, which CARGO_TARGET_DIR may move, and under
+    // cargo-llvm-cov (the `all` cell) into its own folder inside it.
+    sh """
+        rm -rf '${folder}' && mkdir -p '${folder}'
+        target="\${CARGO_TARGET_DIR:-target}"
+        for images in "\$target/screenshots" "\$target/llvm-cov-target/screenshots"; do
+            cp "\$images"/*.png '${folder}/' 2>/dev/null || true
+        done
+    """
     archiveArtifacts artifacts: "${folder}/*.png", allowEmptyArchive: true
 }
 

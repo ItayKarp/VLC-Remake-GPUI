@@ -25,10 +25,13 @@
 //! shortcut labels stay current.
 
 pub mod actions;
+pub mod check;
 pub mod commands;
+pub mod custom;
 pub mod label;
 pub mod menus;
 pub mod repeat;
+pub mod reset;
 pub mod sections;
 #[cfg(test)]
 mod tests;
@@ -39,8 +42,10 @@ use gpui::{
     Action, App, KeyBinding, KeyBindingContextPredicate, Keystroke, OperatingSystem, SharedString,
 };
 
+use crate::settings;
 use crate::ui::{focus, modal};
-use commands::{Area, COMMANDS, Command};
+use commands::{Area, Command};
+use custom::Shortcuts;
 use label::KeyCap;
 
 /// Key context identifiers set by windows and views.
@@ -71,10 +76,11 @@ const NAVIGATION_KEYS: &[&str] = &[
     "delete",
 ];
 
-/// Binds the default keymap and keeps labels current across layout switches.
+/// Binds the keymap (the defaults with the user's changes) and keeps labels current across
+/// layout switches.
 pub fn init(cx: &mut App) {
-    let bindings = default_bindings(cx);
-    cx.bind_keys(bindings);
+    let shortcuts = load(cx);
+    cx.bind_keys(command_bindings(&shortcuts, cx));
     if is_mac(cx) {
         cx.set_menus(menus::mac_menu_bar());
     }
@@ -85,28 +91,56 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
-/// Every command's default bindings for this OS. A command's primary key is
-/// added last, so the keymap ranks it first for display.
-fn default_bindings(cx: &App) -> Vec<KeyBinding> {
-    let mac = is_mac(cx);
+/// Saves `shortcuts` as the user's keymap and binds them in place of the commands' current
+/// keys. Other bindings (text fields, the Settings window) keep their place, and so their
+/// precedence.
+pub fn apply(shortcuts: &Shortcuts, cx: &mut App) {
+    let keymap = shortcuts.to_settings();
+    settings::update(cx, |settings| settings.prefs.keymap = keymap);
+    let fresh = command_bindings(shortcuts, cx);
+    let old: Vec<KeyBinding> = cx.key_bindings().borrow().bindings().cloned().collect();
+    let is_command = |binding: &KeyBinding| commands::find(binding.action()).is_some();
+    let at = old.iter().position(is_command).unwrap_or(old.len());
+    let (before, after) = old.split_at(at);
+    let others = after.iter().filter(|binding| !is_command(binding)).cloned();
+    let bindings: Vec<KeyBinding> = before.iter().cloned().chain(fresh).chain(others).collect();
+    cx.clear_key_bindings();
+    cx.bind_keys(bindings);
+    if is_mac(cx) {
+        cx.set_menus(menus::mac_menu_bar());
+    }
+}
+
+/// The user's shortcuts as the settings have them, reporting what had to be left out.
+pub fn load(cx: &App) -> Shortcuts {
+    let (shortcuts, problems) = Shortcuts::load(&settings::get(cx).prefs.keymap, os(cx));
+    for problem in problems {
+        tracing::warn!("keymap: left out {problem}");
+    }
+    shortcuts
+}
+
+/// Every command's bindings. A command's primary key is added last, so the keymap ranks it
+/// first for display.
+fn command_bindings(shortcuts: &Shortcuts, cx: &App) -> Vec<KeyBinding> {
     let mut bindings = Vec::new();
-    for command in COMMANDS {
-        for source in command.keys.for_os(mac).iter().rev() {
-            match binding(command, source, cx) {
+    for (command, keys) in shortcuts.iter() {
+        for keystroke in keys.iter().rev() {
+            match binding(command, keystroke, cx) {
                 Ok(binding) => bindings.push(binding),
-                Err(err) => tracing::error!("bad default binding {source:?}: {err:#}"),
+                Err(err) => tracing::error!("bad binding {keystroke:?}: {err:#}"),
             }
         }
     }
     bindings
 }
 
-fn binding(command: &Command, source: &str, cx: &App) -> anyhow::Result<KeyBinding> {
-    let keystroke = Keystroke::parse_with_os(source, cx.platform_info().os)?;
-    let predicate = predicate(command.area, &keystroke)
+fn binding(command: &Command, keystroke: &Keystroke, cx: &App) -> anyhow::Result<KeyBinding> {
+    let source = keystroke.unparse(os(cx));
+    let predicate = predicate(command.area, keystroke)
         .map(|p| KeyBindingContextPredicate::parse(&p).map(Rc::new))
         .transpose()?;
-    Ok(KeyBinding::load(source, command.action.boxed_clone(), predicate, false, None, cx)?)
+    Ok(KeyBinding::load(&source, command.action.boxed_clone(), predicate, false, None, cx)?)
 }
 
 /// The context predicate a binding of `keystroke` in `area` gets (see the module
@@ -138,19 +172,6 @@ pub fn shortcut(action: &dyn Action, cx: &App) -> Option<SharedString> {
     primary_keystroke(action, cx).map(|keystroke| label::text(&keystroke, is_mac(cx)).into())
 }
 
-/// Every shortcut of `action` as text, the primary one first; empty if it has none.
-pub fn shortcuts(action: &dyn Action, cx: &App) -> Vec<SharedString> {
-    let mac = is_mac(cx);
-    let keymap = cx.key_bindings();
-    let keymap = keymap.borrow();
-    keymap
-        .bindings_for_action(action)
-        .rev()
-        .filter_map(|binding| binding.keystrokes().first())
-        .map(|keystroke| label::text(keystroke.inner(), mac).into())
-        .collect()
-}
-
 /// The primary shortcut of `action` as key caps; empty if it has none.
 pub fn key_caps(action: &dyn Action, cx: &App) -> Vec<KeyCap> {
     primary_keystroke(action, cx).map_or_else(Vec::new, |k| label::caps(&k, is_mac(cx)))
@@ -166,5 +187,10 @@ fn primary_keystroke(action: &dyn Action, cx: &App) -> Option<Keystroke> {
 
 /// Whether shortcuts follow macOS conventions (Cmd, symbols).
 fn is_mac(cx: &App) -> bool {
-    cx.platform_info().os == OperatingSystem::Mac
+    os(cx) == OperatingSystem::Mac
+}
+
+/// The OS whose key names and conventions shortcuts use.
+pub fn os(cx: &App) -> OperatingSystem {
+    cx.platform_info().os
 }

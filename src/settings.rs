@@ -12,6 +12,7 @@ mod document;
 mod lenient;
 mod migrate;
 mod paths;
+pub mod presets;
 pub mod registry;
 mod schema;
 mod storage;
@@ -33,13 +34,14 @@ pub use paths::{Locations, cache_dir, default_media_folder, display_path};
 )]
 pub use schema::{
     ArtworkSource, AudioSettings, AutoHide, Buffering, Caching, CastQuality, CipherPreference,
-    ClickAction, ClockSynchronisation, ControlsSettings, Decoder, DoubleClickAction,
+    ClickAction, ClockSynchronisation, ControlsSettings, CustomBinding, Decoder, DoubleClickAction,
     DurationReadout, Encoder, EncodingPreset, FitVideo, HardwareDecoding, HorizontalWheelAction,
-    InterfaceLanguage, LibraryRoutes, LibrarySettings, LiveState, LocalState, MiniplayerCorner,
-    NetworkSettings, NowPlayingNotification, PerformanceSettings, PictureSettings, PlayerSettings,
-    PostProcessing, Preferences, QueueSiblings, RecordingSettings, ResumePolicy, Settings,
-    SizeValues, SkipLength, SkipLoopFilter, StartupVolume, SubtitleSettings, Tuning, VideoQuality,
-    WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
+    InterfaceLanguage, KeymapSettings, LibraryRoutes, LibrarySettings, LiveState, LocalState,
+    MiniplayerCorner, NetworkSettings, NowPlayingNotification, PerformanceSettings,
+    PictureSettings, PlayerSettings, PostProcessing, Preferences, Preset, PresetSettings,
+    QueueSiblings, RecordingSettings, ResumePolicy, Settings, SizeValues, SkipLength,
+    SkipLoopFilter, StartupVolume, SubtitleSettings, Tuning, VideoQuality, WheelAction,
+    WhenFinished, WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;

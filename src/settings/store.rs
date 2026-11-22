@@ -9,6 +9,7 @@ use toml_edit::DocumentMut;
 use super::document::merge_typed;
 use super::migrate::{self, Documents, Outcome};
 use super::paths::Locations;
+use super::presets::Layer;
 use super::registry;
 use super::schema::{LiveState, LocalState, Preferences, Settings};
 use super::storage::{self, LoadIssue};
@@ -73,6 +74,8 @@ impl FileSlot {
 pub struct SettingsState {
     /// The current typed settings; change them through [`Self::update`].
     pub settings: Settings,
+    /// The defaults the preset in use covers (S5.11).
+    presets: Layer,
     /// `None`: no config directory, settings live in memory only.
     files: Option<[FileSlot; 2]>,
     dirty: bool,
@@ -146,7 +149,12 @@ impl SettingsState {
         };
         // Values from an older or newer version may be outside today's ranges.
         let clamped = registry::sanitize(&mut settings);
-        Self::new(settings, Some([prefs, local]), migrated || clamped, notices)
+        let mut state = Self::new(settings, Some([prefs, local]), migrated || clamped, notices);
+        state.presets = Layer::load(&mut state.settings.prefs);
+        // A preset's values may be outside today's ranges too; they're clamped where they
+        // apply and kept as they are in the preset.
+        registry::sanitize(&mut state.settings);
+        state
     }
 
     /// Assembles a state with no saves prepared yet.
@@ -158,6 +166,7 @@ impl SettingsState {
     ) -> Self {
         SettingsState {
             settings,
+            presets: Layer::default(),
             files,
             dirty,
             generation: 0,
@@ -172,10 +181,24 @@ impl SettingsState {
     pub fn update(&mut self, f: impl FnOnce(&mut Settings)) -> bool {
         let before = self.settings.clone();
         f(&mut self.settings);
+        self.presets.record(&before.prefs, &mut self.settings.prefs);
         let changed = self.settings != before;
         // The live state is never written, so changing only it leaves nothing to save.
         self.dirty |= self.settings.prefs != before.prefs || self.settings.local != before.local;
         changed
+    }
+
+    /// Runs `f` on the presets and the preferences they cover; answers its result and whether
+    /// anything changed.
+    pub fn edit_presets<R>(
+        &mut self,
+        f: impl FnOnce(&mut Layer, &mut Preferences) -> R,
+    ) -> (R, bool) {
+        let before = self.settings.prefs.clone();
+        let result = f(&mut self.presets, &mut self.settings.prefs);
+        let changed = self.settings.prefs != before;
+        self.dirty |= changed;
+        (result, changed)
     }
 
     /// Whether there are changes that haven't been handed to a save yet.
@@ -201,10 +224,11 @@ impl SettingsState {
             return None;
         }
         self.dirty = false;
+        let on_disk = self.presets.for_disk(&self.settings.prefs);
         let files = self.files.as_mut()?;
         let [prefs, local] = files;
         let mut writes = Vec::new();
-        prefs.render(&self.settings.prefs, &mut writes);
+        prefs.render(&*on_disk, &mut writes);
         local.render(&self.settings.local, &mut writes);
         self.generation += 1;
         Some(SaveJob { writes, generation: self.generation, written: self.written.clone() })

@@ -103,8 +103,17 @@ def _status_line(info: BuildInfo) -> str:
     if info.building:
         estimate = f" · usually takes {format_duration(info.estimated_ms)}" if info.estimated_ms > 0 else ""
         return f"Running{estimate}"
+    return outcome(info)
+
+
+def outcome(info: BuildInfo) -> str:
+    """How a finished build ended, in words: "Passed in 3m 02s", "Superseded by #6 after 17s"."""
+    took = format_duration(info.duration_ms)
+    if info.interruption:
+        # Jenkins's own reason beats a bare "Not built" or "Aborted".
+        return f"{info.interruption} after {took}"
     word = RESULT_WORD.get(info.result or "", info.result or "Finished")
-    return f"{word} in {format_duration(info.duration_ms)}"
+    return f"{word} in {took}"
 
 
 def _clip(text: str, limit: int) -> str:

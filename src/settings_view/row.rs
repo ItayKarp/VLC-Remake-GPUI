@@ -15,7 +15,7 @@ use crate::ui::icon::icon;
 use crate::ui::{focus, metrics, tooltip};
 
 /// The page's side padding and the space under its last row.
-pub(super) const PAGE_PADDING: f32 = 30.;
+pub const PAGE_PADDING: f32 = 30.;
 /// The control column's width.
 const CONTROL_WIDTH: f32 = 316.;
 /// A row's height, and the space between the label and the control.

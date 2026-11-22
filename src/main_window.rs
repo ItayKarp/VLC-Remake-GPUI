@@ -84,6 +84,7 @@ use crate::ui::{drop_target, menu::ContextMenu};
 use crate::video::VideoView;
 
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
+pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -223,8 +224,8 @@ impl MainWindow {
         app::save_geometry_on_change(window, cx, |s| &mut s.local.window.main);
         Self::release_keys_on_blur(window, cx);
         Self::close_popovers_on_deactivate(window, cx);
-        crate::diagnostics::system::remember_gpu(window);
         Self::follow_library_switch(window, cx);
+        crate::diagnostics::system::remember_gpu(window);
     }
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when

@@ -8,8 +8,8 @@ from __future__ import annotations
 import unittest
 
 from failure import FailedStage, Recipient, failure_message
-from jenkins import BuildInfo, BuildRef, Commit
-from message import FIELD_LIMIT, LogTail, build_payload
+from jenkins import BuildInfo, BuildRef, Commit, _interruption
+from message import FIELD_LIMIT, LogTail, build_payload, outcome
 from overview import render
 from stages import clean_log, format_duration, log_focus, parse_tree, tidy_name
 
@@ -143,6 +143,24 @@ class FailureTest(unittest.TestCase):
         self.assertTrue(payload["content"].startswith("❌"))
         self.assertEqual(payload["allowed_mentions"], {"parse": []})
         self.assertEqual(files, [])
+
+
+class OutcomeTest(unittest.TestCase):
+    def test_a_superseded_build_says_so(self) -> None:
+        document = {
+            "actions": [
+                {"_class": "hudson.model.CauseAction", "causes": [{"shortDescription": "Started by GitHub push"}]},
+                {},
+                {"_class": "jenkins.model.InterruptedBuildAction", "causes": [{"shortDescription": "Superseded by #6"}]},
+            ]
+        }
+        self.assertEqual(_interruption(document), "Superseded by #6")
+        info = BuildInfo(5, False, "NOT_BUILT", START, 17_000, 0, [], interruption="Superseded by #6")
+        self.assertEqual(outcome(info), "Superseded by #6 after 17s")
+
+    def test_a_build_nobody_stopped_reads_its_result(self) -> None:
+        self.assertEqual(_interruption({"actions": [{"_class": "hudson.model.CauseAction"}]}), "")
+        self.assertEqual(outcome(_info(False, "SUCCESS")), "Passed in 1h 04m")
 
 
 class OverviewTest(unittest.TestCase):

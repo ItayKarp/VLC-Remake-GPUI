@@ -11,8 +11,9 @@
 //! Timeline on Seekbar, Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with their
 //! stories (S6.6, S8.13, S7.8) and are hidden until then, as are the Video, Audio and Subtitles
 //! tabs' settings (Stages 6 and 7). Those three tabs have a footer that stays put while they
-//! scroll: **Default Preset**, disabled until presets exist (S5.11), and **Open Advanced
-//! Settings**, which opens the Settings window on the tab's page (S5.2.1).
+//! scroll: the preset picker (S5.11), the same as at the foot of the Settings pages, and **Open
+//! Advanced Settings**, which opens the Settings window on the tab's page (S5.2.1). Picking a
+//! preset changes the defaults the session starts from, as changing them in Settings does.
 //!
 //! It closes like the track popover: an outside click, Escape, the gear again, opening another
 //! popover or menu, the window losing focus, its media going, and fullscreen. The track popover's
@@ -21,8 +22,8 @@
 mod playback;
 
 use gpui::{
-    Context, Div, FocusHandle, KeyDownEvent, MouseDownEvent, SharedString, Stateful, Window, div,
-    prelude::*, px,
+    AppContext as _, Context, Div, Entity, FocusHandle, KeyDownEvent, MouseDownEvent, SharedString,
+    Stateful, Window, div, prelude::*, px,
 };
 
 pub(super) use playback::SpeedControls;
@@ -33,6 +34,7 @@ use super::track_popover::tab_icon;
 use crate::assets::icons;
 use crate::engine::tracks::TrackKind;
 use crate::settings::registry::Category;
+use crate::settings_view::PresetPicker;
 use crate::theme::Palette;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::focus;
@@ -105,6 +107,8 @@ pub(super) struct SettingsPanel {
     /// The gear button, so pressing it doesn't count as an outside click.
     button: BoundsTracker,
     speed: SpeedControls,
+    /// The footer's preset picker.
+    presets: Entity<PresetPicker>,
 }
 
 impl SettingsPanel {
@@ -115,6 +119,7 @@ impl SettingsPanel {
             focus: cx.focus_handle(),
             button: BoundsTracker::new(),
             speed: SpeedControls::new(window, cx),
+            presets: cx.new(|cx| PresetPicker::new(window, cx)),
         }
     }
 
@@ -203,7 +208,8 @@ impl MainWindow {
             .min_h_0()
             .overflow_y_scroll()
             .child(body);
-        let footer = (tab != PanelTab::Playback).then(|| footer(tab, bar_panel::width(window), p));
+        let presets = self.settings_panel.presets.clone();
+        let footer = (tab != PanelTab::Playback).then(|| footer(tab, presets, window, p));
         Some(
             bar_panel::surface("settings-panel", DESIGN_HEIGHT, window, p)
                 .track_focus(&self.settings_panel.focus)
@@ -260,11 +266,10 @@ impl MainWindow {
     }
 }
 
-/// The footer of the Video, Audio and Subtitles tabs. Default Preset waits for presets (S5.11);
-/// Open Advanced Settings opens `tab`'s page in the Settings window.
-fn footer(tab: PanelTab, width: f32, p: &Palette) -> Div {
-    let inner = width - 2. * FOOTER_PADDING;
-    let preset = Button::new("default-preset", "Default Preset").width(inner).disabled(true);
+/// The footer of the Video, Audio and Subtitles tabs: the preset picker, and Open Advanced
+/// Settings, which opens `tab`'s page in the Settings window.
+fn footer(tab: PanelTab, presets: Entity<PresetPicker>, window: &Window, p: &Palette) -> Div {
+    let inner = bar_panel::width(window) - 2. * FOOTER_PADDING;
     let advanced = Button::new("open-advanced-settings", "Open Advanced Settings")
         .icon(icons::SETTINGS)
         .style(ButtonStyle::Ghost)
@@ -277,7 +282,7 @@ fn footer(tab: PanelTab, width: f32, p: &Palette) -> Div {
         .gap(px(FOOTER_GAP))
         .p(px(FOOTER_PADDING))
         .bg(p.well)
-        .child(preset)
+        .child(presets)
         .child(advanced)
 }
 
