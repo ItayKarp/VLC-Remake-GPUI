@@ -1,29 +1,45 @@
-//! The library sidebar over the player (S4.5; `player_02`, `library/sidebar/*`): the icon rail
-//! ([`rail`]), and a panel with back and forward, the breadcrumb ([`crumbs`]), the item count
-//! ([`header`]) and what the current route lists ([`listing`]).
+//! The library sidebar over the player (S4.5, S4.6; `player_02`, `library/sidebar/*`): the icon
+//! rail ([`rail`]), and a panel with back and forward, the breadcrumb ([`crumbs`]), the item count
+//! ([`header`]) and what the current route lists ([`listing`]): rows ([`row`]) and media cards
+//! ([`card`], [`card_menu`]), or the same as tiles ([`grid`], chosen with [`view_menu`]),
+//! browsed with the mouse and the keyboard ([`browse`]), and dragged out ([`drag`]).
 //!
 //! The title bar's sidebar toggle and L show and hide it. The navigation model is
 //! [`crate::navigation`]; the panel keeps a [`NavHistory`] and remembers the overlay's last
-//! route across launches. Until the browsing views exist (S4.6), a route lists only the places
-//! it leads to (folders, categories, playlists) and the recently played media. Mouse buttons 4
+//! route across launches. A Videos or Songs folder lists its subfolders and its media; Music's
+//! categories, playlists and History list the places they lead to and what they play. Mouse buttons 4
 //! and 5, Alt+Left and Alt+Right (and Cmd+[ and ] on macOS) go back and forward while the
 //! panel has the keyboard.
 
 mod add_menu;
+mod browse;
+mod card;
+mod card_menu;
 mod crumbs;
+mod drag;
+mod grid;
 mod header;
 mod listing;
 mod rail;
+mod row;
+mod selection;
+mod view_menu;
+
+pub(super) use self::drag::DraggedMedia;
 
 use gpui::{
     App, Context, Div, Entity, FocusHandle, MouseButton, MouseDownEvent, NavigationDirection,
-    Stateful, Subscription, Window, div, prelude::*, px,
+    ScrollStrategy, Stateful, Subscription, UniformListScrollHandle, Window, div, prelude::*, px,
 };
 
+use self::card_menu::CardMenu;
 use self::listing::FolderListing;
+use self::selection::Selection;
 use super::MainWindow;
+use crate::db::media::MediaId;
 use crate::keymap::actions::{GoBack, GoForward};
 use crate::keymap::contexts;
+use crate::library::thumbnails::Thumbnails;
 use crate::navigation::Presentation;
 use crate::navigation::history::{NavHistory, Step};
 use crate::navigation::route::Route;
@@ -37,6 +53,8 @@ use crate::ui::popover::BoundsTracker;
 /// The rail's width, and the panel's beside it (`player_02`).
 const RAIL_WIDTH: f32 = 50.;
 const PANEL_WIDTH: f32 = 377.;
+/// The panel's side padding.
+const INSET: f32 = 20.;
 
 /// A menu the panel opened, and the subscription that forgets it once dismissed.
 type OpenMenu = Option<(Entity<ContextMenu>, Subscription)>;
@@ -46,14 +64,25 @@ pub(super) struct LibraryPanel {
     open: bool,
     history: NavHistory,
     focus: FocusHandle,
-    /// The subfolders of the folder the route shows, read in the background.
+    /// What the folder the route shows holds, read in the background.
     folder: Option<FolderListing>,
+    /// The listing's keyboard focus, its scroll position and its selected item.
+    list_focus: FocusHandle,
+    scroll: UniformListScrollHandle,
+    selection: Selection,
+    /// The media whose cards were on screen, as the thumbnailer was last told.
+    on_screen: Vec<MediaId>,
+    /// A card's menu.
+    card_menu: CardMenu,
     /// The breadcrumb's `…` menu of hidden segments, and its trigger.
     crumb_menu: OpenMenu,
     crumb_button: BoundsTracker,
     /// The rail's "+" menu, and its button.
     add_menu: OpenMenu,
     add_button: BoundsTracker,
+    /// The header's View menu, and its button.
+    view_menu: OpenMenu,
+    view_button: BoundsTracker,
 }
 
 impl LibraryPanel {
@@ -61,16 +90,30 @@ impl LibraryPanel {
     pub(super) fn new(cx: &mut Context<MainWindow>) -> Self {
         // A folder may appear or vanish when the indexer reports a change.
         cx.observe_global::<crate::library::Library>(MainWindow::reload_folder).detach();
+        // Thumbnails show as they arrive.
+        cx.observe_global::<Thumbnails>(|this, cx| {
+            if this.library_panel.open {
+                cx.notify();
+            }
+        })
+        .detach();
         let routes = &settings::get(cx).local.library_routes;
         Self {
             open: false,
             history: NavHistory::new(Presentation::Overlay.last_route(routes)),
             focus: cx.focus_handle(),
             folder: None,
+            list_focus: cx.focus_handle().tab_stop(true),
+            scroll: UniformListScrollHandle::new(),
+            selection: Selection::default(),
+            on_screen: Vec::new(),
+            card_menu: None,
             crumb_menu: None,
             crumb_button: BoundsTracker::new(),
             add_menu: None,
             add_button: BoundsTracker::new(),
+            view_menu: None,
+            view_button: BoundsTracker::new(),
         }
     }
 
@@ -96,9 +139,11 @@ impl MainWindow {
         panel.open = !panel.open;
         panel.crumb_menu = None;
         panel.add_menu = None;
+        panel.card_menu = None;
+        panel.view_menu = None;
         if panel.open {
             self.reload_folder(cx);
-            let handle = self.library_panel.focus.clone();
+            let handle = self.library_panel.list_focus.clone();
             window.defer(cx, move |window, cx| handle.focus(window, cx));
         } else if self.library_panel.focus.contains_focused(window, cx) {
             self.focus_handle.focus(window, cx);
@@ -128,7 +173,12 @@ impl MainWindow {
 
     /// Lists the new route and saves it as the overlay's last.
     fn arrived(&mut self, cx: &mut Context<Self>) {
-        self.library_panel.crumb_menu = None;
+        let panel = &mut self.library_panel;
+        panel.crumb_menu = None;
+        panel.card_menu = None;
+        panel.view_menu = None;
+        panel.selection.clear();
+        panel.scroll.scroll_to_item(0, ScrollStrategy::Top);
         self.reload_folder(cx);
         let route = self.library_panel.history.current().clone();
         settings::update(cx, |s| {
@@ -180,12 +230,13 @@ impl MainWindow {
         Some(mouse_navigation(root, cx))
     }
 
-    /// The panel's menus that are open: the breadcrumb's `…` and the rail's "+".
+    /// The panel's menus that are open: the breadcrumb's `…`, the rail's "+", View and a card's.
     pub(super) fn render_library_menus(&self) -> impl Iterator<Item = gpui::AnyElement> {
         let panel = &self.library_panel;
         let crumbs = crumbs::render_menu(&panel.crumb_menu, &panel.crumb_button);
         let add = add_menu::render(&panel.add_menu, &panel.add_button);
-        crumbs.into_iter().chain(add)
+        let view = view_menu::render(&panel.view_menu, &panel.view_button);
+        crumbs.into_iter().chain(add).chain(view).chain(card_menu::render(&panel.card_menu))
     }
 }
 
@@ -201,3 +252,6 @@ fn mouse_navigation(root: Stateful<Div>, cx: &mut Context<MainWindow>) -> Statef
         cx.listener(|this, _: &MouseDownEvent, _, cx| this.step_library(Step::Forward, cx)),
     )
 }
+
+#[cfg(test)]
+mod tests;

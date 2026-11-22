@@ -3,7 +3,7 @@
 //!
 //! The Queue tab lists the queue ([`header`], [`rows`]): rows can be selected, reordered by
 //! dragging, played with a double-click or Enter and removed with Delete or "−", and files dropped
-//! on it are inserted where they land ([`editing`]). Bookmarks and Chapters come with their
+//! on it, from the OS or the library (S4.6.7), are inserted where they land ([`editing`]). Bookmarks and Chapters come with their
 //! stories (S8.3, S8.2) and say so until then. The header has Repeat and Shuffle (S3.3). The
 //! miniplayer's queue (S4.10.4) will reuse the rows. Restored items that are missing or offline
 //! are greyed (S3.4).
@@ -18,6 +18,8 @@ mod rows;
 mod selection;
 #[cfg(test)]
 mod tests;
+
+pub(super) use self::rows::DragPreview;
 
 use std::collections::HashSet;
 

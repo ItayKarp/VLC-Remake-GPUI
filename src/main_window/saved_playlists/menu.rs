@@ -62,7 +62,7 @@ impl MainWindow {
 fn add_item(main: &WeakEntity<MainWindow>, summary: &Summary, media: &Media) -> MenuItem {
     let (main, summary, media) = (main.clone(), summary.clone(), media.clone());
     MenuItem::action(summary.title.clone(), move |window, cx| {
-        let media = media.clone();
+        let media = std::slice::from_ref(&media);
         main.update(cx, |_, cx| MainWindow::add_to_playlist(&summary, media, window, cx)).ok();
     })
 }

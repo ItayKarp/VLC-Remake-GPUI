@@ -37,6 +37,7 @@ pub enum Placeholder {
     /// A song without a cover: a green tile with a music note.
     Song,
     /// A playlist: its glyph.
+    #[allow(dead_code, reason = "the playlist views (S4.6, `sidebar-playlists`) draw it")]
     Playlist,
 }
 
@@ -46,12 +47,21 @@ pub struct ThumbnailTile {
     class: SizeClass,
     placeholder: Placeholder,
     thumbnail: Option<Thumbnail>,
+    /// Drawn this size instead of the class's, in logical pixels.
+    size: Option<(f32, f32)>,
 }
 
 impl ThumbnailTile {
     /// A `class` tile showing `placeholder` until a picture is given.
     pub fn new(class: SizeClass, placeholder: Placeholder) -> Self {
-        Self { class, placeholder, thumbnail: None }
+        Self { class, placeholder, thumbnail: None, size: None }
+    }
+
+    /// Draws the tile `width` by `height` instead of its class's size; the class still picks
+    /// the picture, which is scaled to fit.
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.size = Some((width, height));
+        self
     }
 
     /// Shows `thumbnail`'s picture, if there is one.
@@ -63,7 +73,7 @@ impl ThumbnailTile {
 
 impl RenderOnce for ThumbnailTile {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let (width, height) = logical_size(self.class);
+        let (width, height) = self.size.unwrap_or_else(|| logical_size(self.class));
         let tile =
             div().flex_none().w(px(width)).h(px(height)).rounded(px(TILE_RADIUS)).overflow_hidden();
         let scale = scale_for(window.scale_factor());

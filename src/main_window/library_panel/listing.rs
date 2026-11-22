@@ -1,67 +1,107 @@
-//! What the sidebar lists for its route, until the browsing views replace it (S4.6): the places
-//! a route leads to (media folders, subfolders, Music's categories, playlists) and the recently
-//! played media (History). Subfolders are read in the background; a folder that is gone says
-//! "This folder is no longer available" with Back (S4.5 edge case).
+//! What the sidebar lists for its route (S4.5, S4.6): the places a route leads to (media folders,
+//! subfolders, Music's categories, playlists), the recently played media (History), in a
+//! Videos or Songs folder its media as cards ([`card`](super::card)), and in Albums, Artists
+//! and Genres their names, then one name's songs ([`music`]).
+//!
+//! A folder is read in the background: its subfolders and media files from the disk, and what
+//! the library knows of them from the database ([`folder_view`]). A folder that is gone says
+//! "This folder is no longer available" with Back (S4.5 edge case). The rows are virtualized, so
+//! a folder of 10,000 files draws only what is on screen.
 
-use std::io;
-use std::path::{Path, PathBuf};
+mod music;
 
-use gpui::{
-    App, ClickEvent, Context, Div, SharedString, Stateful, Task, Window, div, prelude::*, px,
-};
+use std::path::PathBuf;
+
+use futures::channel::oneshot;
+use gpui::{App, Context, Task, prelude::*};
 
 use super::MainWindow;
+use super::row::{Row, Target};
+use super::selection::Key;
 use crate::app::media::Media;
-use crate::app::request::OpenRequest;
 use crate::assets::icons;
-use crate::navigation::history::Step;
+use crate::db::metadata::MediaKind;
+use crate::history::History;
+use crate::history::policy::WatchedRule;
+use crate::library::folder_view::{self, Card, OnDisk};
 use crate::navigation::route::{MusicCategory, MusicRoute, Route};
 use crate::opening::recent;
 use crate::playlists;
 use crate::settings;
-use crate::theme::Palette;
-use crate::ui::button::Button;
-use crate::ui::{focus, icon, metrics};
 
-/// A row's height, its icon box and the gap before its text (`player_02`).
-const ROW_HEIGHT: f32 = 42.;
-const ROW_ICON_BOX: f32 = 32.;
-const ROW_GAP: f32 = 10.;
-const ROW_TEXT: f32 = 14.;
-/// Air between the header's divider and the first row.
-const LIST_TOP: f32 = 15.;
-/// The panel's side padding.
-pub(super) const INSET: f32 = 20.;
-
-/// A folder's subfolders, once read.
+/// What a route that reads the disk or the library lists, once read: a folder, or a place in
+/// Albums, Artists or Genres.
 pub(in crate::main_window) struct FolderListing {
-    folder: PathBuf,
+    route: Route,
     state: FolderState,
     _read: Task<()>,
 }
 
 enum FolderState {
     Reading,
-    Read(Vec<PathBuf>),
+    Read(Contents),
     Gone,
 }
 
-/// One row: what it shows and what clicking it does.
-struct Row {
-    label: SharedString,
-    icon: &'static str,
-    target: Target,
+/// A folder's subfolders, or a category's names, then the cards of the media, each in order.
+#[derive(Default)]
+struct Contents {
+    folders: Vec<PathBuf>,
+    names: Vec<String>,
+    cards: Vec<Card>,
 }
 
-#[derive(Clone)]
-enum Target {
-    Go(Route),
-    Play(Media),
+/// What the body lists: the rows, then the cards.
+pub(super) struct Items<'a> {
+    pub(super) rows: Vec<Row>,
+    pub(super) cards: &'a [Card],
+}
+
+/// One listed item.
+pub(super) enum Item<'a> {
+    Row(&'a Row),
+    Card(&'a Card),
+}
+
+impl Items<'_> {
+    /// How many items there are.
+    pub(super) fn len(&self) -> usize {
+        self.rows.len() + self.cards.len()
+    }
+
+    /// The item at `index`.
+    pub(super) fn get(&self, index: usize) -> Option<Item<'_>> {
+        match self.rows.get(index) {
+            Some(row) => Some(Item::Row(row)),
+            None => self.cards.get(index - self.rows.len()).map(Item::Card),
+        }
+    }
+
+    /// What each item is, in order, for the selection.
+    pub(super) fn keys(&self) -> Vec<Key> {
+        let rows = self.rows.iter().map(Row::key);
+        rows.chain(self.cards.iter().map(card_key)).collect()
+    }
+
+    /// How many items the header counts: action rows ("+ Add") aren't items (S4.5.5).
+    pub(super) fn counted(&self) -> usize {
+        self.rows.iter().filter(|row| !row.is_action()).count() + self.cards.len()
+    }
+
+    /// Every card's media, in order: what playing one of them queues.
+    pub(super) fn card_media(&self) -> Vec<Media> {
+        self.cards.iter().map(|card| Media::File(card.path.clone())).collect()
+    }
+}
+
+/// What a card is, for the selection: its media when the library knows it, else its file.
+pub(super) fn card_key(card: &Card) -> Key {
+    card.media.map_or_else(|| Key::File(card.path.clone()), Key::Media)
 }
 
 /// What the body shows.
-enum Body {
-    Rows(Vec<Row>),
+pub(super) enum Body<'a> {
+    Items(Items<'a>),
     /// The folder is still being read.
     Reading,
     /// The route's folder or playlist is gone.
@@ -69,130 +109,162 @@ enum Body {
 }
 
 impl MainWindow {
-    /// Reads the current route's folder again, if it shows one and the sidebar is open.
+    /// Reads the current route's folder or music again, if it shows one and the sidebar is
+    /// open.
     pub(super) fn reload_folder(&mut self, cx: &mut Context<Self>) {
         let panel = &mut self.library_panel;
-        let Some(folder) = panel.history.current().folder().filter(|_| panel.open).cloned() else {
-            panel.folder = None;
+        let route = panel.history.current().clone();
+        let read = if !panel.open {
+            None
+        } else if let Some(folder) = route.folder() {
+            Some(read_folder(route.clone(), folder.clone(), cx))
+        } else {
+            music::read(route.clone(), cx)
+        };
+        let Some(read) = read else {
+            self.library_panel.folder = None;
             return;
         };
-        // The same folder read again keeps its rows meanwhile, so they don't flicker.
-        let state = match panel.folder.take() {
-            Some(old) if old.folder == folder => old.state,
+        // The same place read again keeps its rows meanwhile, so they don't flicker.
+        let state = match self.library_panel.folder.take() {
+            Some(old) if old.route == route => old.state,
             _ => FolderState::Reading,
         };
-        let read = read_folder(folder.clone(), cx);
-        self.library_panel.folder = Some(FolderListing { folder, state, _read: read });
+        self.library_panel.folder = Some(FolderListing { route, state, _read: read });
     }
 
-    /// The rows under the header, or why there are none.
-    pub(super) fn render_listing(&self, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
-        let body = div().id("library-listing").flex_1().min_h_0().overflow_y_scroll();
-        match self.listing(cx) {
-            Body::Rows(rows) if rows.is_empty() => body.child(note("Nothing here yet.", p)),
-            Body::Rows(rows) => body.pt(px(LIST_TOP)).children(
-                rows.into_iter().enumerate().map(|(index, row)| render_row(index, row, p, cx)),
-            ),
-            Body::Reading => body,
-            Body::Gone(message) => body.child(self.render_gone(message, p, cx)),
+    /// Shows what was read for `route`, if the listing still shows it.
+    fn read_into(&mut self, route: &Route, state: FolderState, cx: &mut Context<Self>) {
+        let listing = self.library_panel.folder.as_mut();
+        if let Some(listing) = listing.filter(|listing| listing.route == *route) {
+            listing.state = state;
+            cx.notify();
         }
     }
 
-    /// How many items the route lists, for the header's count.
-    pub(super) fn listed_count(&self, cx: &App) -> usize {
-        match self.listing(cx) {
-            Body::Rows(rows) => rows.len(),
-            Body::Reading | Body::Gone(_) => 0,
-        }
-    }
-
-    fn listing(&self, cx: &App) -> Body {
+    /// What the current route lists, or why it lists nothing.
+    pub(super) fn listing(&self, cx: &App) -> Body<'_> {
         let route = self.library_panel.history.current();
         if let Some(listing) = &self.library_panel.folder {
             return match &listing.state {
                 FolderState::Reading => Body::Reading,
-                FolderState::Read(folders) => Body::Rows(folder_rows(route, folders)),
+                FolderState::Read(contents) => {
+                    Body::Items(Items { rows: read_rows(route, contents), cards: &contents.cards })
+                }
                 FolderState::Gone => Body::Gone("This folder is no longer available."),
             };
         }
         if !super::exists(route, cx) {
             return Body::Gone("This playlist no longer exists.");
         }
-        Body::Rows(rows(route, cx))
+        Body::Items(Items { rows: rows(route, cx), cards: &[] })
     }
 
-    fn render_gone(&self, message: &'static str, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let back = Button::new("library-gone-back", "Back")
-            .disabled(!self.can_step_library(Step::Back, cx))
-            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                this.step_library(Step::Back, cx);
-            }));
-        note(message, p).flex().flex_col().items_start().gap(px(12.)).child(back)
+    /// How many items the route lists, for the header's count.
+    pub(super) fn listed_count(&self, cx: &App) -> usize {
+        match self.listing(cx) {
+            Body::Items(items) => items.counted(),
+            Body::Reading | Body::Gone(_) => 0,
+        }
     }
 }
 
-/// Reads `folder`'s subfolders in the background into the listing, if it still shows `folder`.
-fn read_folder(folder: PathBuf, cx: &mut Context<MainWindow>) -> Task<()> {
-    let show_hidden = settings::get(cx).prefs.library.show_hidden_files;
-    let path = folder.clone();
-    let read = cx.background_spawn(async move { subfolders(&path, show_hidden) });
+/// The rows of what was read for `route`: a folder's subfolders, or a category's names.
+fn read_rows(route: &Route, contents: &Contents) -> Vec<Row> {
+    if route.folder().is_some() {
+        folder_rows(route, &contents.folders, true)
+    } else {
+        music::name_rows(route, &contents.names)
+    }
+}
+
+/// The kind of media a folder route lists: Videos lists video, Songs audio.
+fn section_kind(route: &Route) -> MediaKind {
+    match route {
+        Route::Music(_) => MediaKind::Audio,
+        _ => MediaKind::Video,
+    }
+}
+
+/// Reads `folder` in the background into the listing, if it still shows `route`: the disk and
+/// the library at once, then the cards of the route's kind.
+fn read_folder(route: Route, folder: PathBuf, cx: &mut Context<MainWindow>) -> Task<()> {
+    let wanted = section_kind(&route);
+    let prefs = &settings::get(cx).prefs;
+    let show_hidden = prefs.library.show_hidden_files;
+    let rule = WatchedRule::from_settings(&prefs.player);
+    let known = read_library(folder.clone(), cx);
+    let on_disk = cx.background_spawn(async move { folder_view::read_disk(&folder, show_hidden) });
     cx.spawn(async move |this, cx| {
-        let state = match read.await {
-            Ok(folders) => FolderState::Read(folders),
+        let state = match on_disk.await {
+            Ok(OnDisk { mut folders, files }) => {
+                let known = known.await.unwrap_or_default();
+                let cards = cx.background_spawn(async move {
+                    folder_view::sort_folders(&mut folders);
+                    let cards = folder_view::cards(files, known, wanted, rule);
+                    Contents { folders, cards, ..Contents::default() }
+                });
+                FolderState::Read(cards.await)
+            }
             Err(_) => FolderState::Gone,
         };
-        this.update(cx, |this, cx| {
-            let listing = this.library_panel.folder.as_mut();
-            if let Some(listing) = listing.filter(|listing| listing.folder == folder) {
-                listing.state = state;
-                cx.notify();
-            }
-        })
-        .ok();
+        this.update(cx, |this, cx| this.read_into(&route, state, cx)).ok();
     })
+}
+
+/// What the library knows of `folder`'s files, read on the history thread.
+fn read_library(folder: PathBuf, cx: &App) -> oneshot::Receiver<Vec<crate::db::files::Listed>> {
+    let (reply, answer) = oneshot::channel();
+    if let Some(history) = History::get(cx) {
+        history.with_database(move |connection| {
+            let known = folder_view::read_library(connection, &folder).unwrap_or_else(|error| {
+                tracing::warn!("library: can't read a folder's files: {error}");
+                Vec::new()
+            });
+            let _ = reply.send(known);
+        });
+    }
+    answer
 }
 
 /// The rows a route that shows no folder lists.
 fn rows(route: &Route, cx: &App) -> Vec<Row> {
     let local = &settings::get(cx).local;
     match route {
-        Route::Videos(None) => folder_rows(route, &local.media_folders),
-        Route::Music(MusicRoute::Songs(None)) => folder_rows(route, &local.music_folders),
+        Route::Videos(None) => folder_rows(route, &local.media_folders, false),
+        Route::Music(MusicRoute::Songs(None)) => folder_rows(route, &local.music_folders, false),
         Route::Music(MusicRoute::Categories) => MusicCategory::ALL
             .into_iter()
-            .map(|category| Row {
-                label: category.label().into(),
-                icon: category_icon(category),
-                target: Target::Go(category.route()),
+            .map(|category| {
+                Row::new(category.label(), category_icon(category), Target::Go(category.route()))
             })
             .collect(),
         Route::Playlists(None) => playlists::summaries(cx)
             .iter()
-            .map(|summary| Row {
-                label: summary.title.clone().into(),
-                icon: icons::PLAYLIST,
-                target: Target::Go(Route::Playlists(Some(summary.id))),
+            .map(|summary| {
+                let target = Target::Go(Route::Playlists(Some(summary.id)));
+                Row::new(summary.title.clone(), icons::PLAYLIST, target)
             })
             .collect(),
-        Route::History => recent::items(cx).into_iter().map(recent_row).collect(),
+        Route::History => recent::items(cx).into_iter().map(Row::recent).collect(),
         _ => Vec::new(),
     }
 }
 
-fn folder_rows(route: &Route, folders: &[PathBuf]) -> Vec<Row> {
+/// The rows of `folders` in a Videos or Songs route, after "+ Add". A folder's own level has
+/// "+ Add" only when it has subfolders: the designs show none in a folder of files only
+/// (`sidebar-default`). The media folders' list always has it.
+fn folder_rows(route: &Route, folders: &[PathBuf], in_folder: bool) -> Vec<Row> {
+    let add = (!in_folder || !folders.is_empty()).then(|| Row::add(route)).flatten();
     let row = |folder: &PathBuf| {
         let target = route.with_folder(folder.clone())?;
-        let label = Media::File(folder.clone()).display_name().into();
-        Some(Row { label, icon: icons::FOLDER, target: Target::Go(target) })
+        let label = Media::File(folder.clone()).display_name();
+        Some(Row::new(label, icons::FOLDER, Target::Go(target)))
     };
-    folders.iter().filter_map(row).collect()
+    add.into_iter().chain(folders.iter().filter_map(row)).collect()
 }
 
-fn recent_row(media: Media) -> Row {
-    let icon = if media.as_path().is_some() { icons::FILE } else { icons::STREAMING };
-    Row { label: media.display_name().into(), icon, target: Target::Play(media) }
-}
-
+/// The icon of `category`'s rows.
 fn category_icon(category: MusicCategory) -> &'static str {
     match category {
         MusicCategory::Songs => icons::MUSIC,
@@ -200,64 +272,4 @@ fn category_icon(category: MusicCategory) -> &'static str {
         MusicCategory::Artists => icons::ARTIST,
         MusicCategory::Genres => icons::GENRE,
     }
-}
-
-fn render_row(index: usize, row: Row, p: &Palette, cx: &mut Context<MainWindow>) -> Stateful<Div> {
-    let (hover, strong) = (p.hover, p.text_strong);
-    let target = row.target;
-    let element = div()
-        .id(("library-row", index))
-        .h(px(ROW_HEIGHT))
-        .mx(px(INSET))
-        .flex()
-        .items_center()
-        .gap(px(ROW_GAP))
-        .rounded(px(metrics::RADIUS))
-        .border_2()
-        .border_color(gpui::transparent_black())
-        .tab_index(0)
-        .cursor_pointer()
-        .text_size(px(ROW_TEXT))
-        .hover(move |style| style.bg(hover).text_color(strong))
-        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-            this.follow(target.clone(), window, cx);
-        }))
-        .child(
-            div()
-                .size(px(ROW_ICON_BOX))
-                .flex()
-                .flex_none()
-                .items_center()
-                .justify_center()
-                .child(icon::icon(row.icon, metrics::ICON, p.icon)),
-        )
-        .child(div().min_w_0().truncate().child(row.label));
-    focus::ring(element, p)
-}
-
-impl MainWindow {
-    /// Does what a row says: goes to its route or plays its media.
-    fn follow(&mut self, target: Target, window: &mut Window, cx: &mut Context<Self>) {
-        match target {
-            Target::Go(route) => self.navigate(route, cx),
-            Target::Play(media) => self.open(OpenRequest::replace(vec![media]), window, cx),
-        }
-    }
-}
-
-/// A muted line of text in the panel.
-fn note(text: &'static str, p: &Palette) -> Div {
-    div().p(px(INSET)).text_size(px(ROW_TEXT)).text_color(p.text_muted).child(text)
-}
-
-/// `folder`'s subfolders, by name ignoring case; hidden ones only when the library shows them.
-fn subfolders(folder: &Path, show_hidden: bool) -> io::Result<Vec<PathBuf>> {
-    let mut folders: Vec<PathBuf> = std::fs::read_dir(folder)?
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
-        .filter(|entry| show_hidden || !entry.file_name().to_string_lossy().starts_with('.'))
-        .map(|entry| entry.path())
-        .collect();
-    folders.sort_by_cached_key(|path| path.file_name().map(|n| n.to_string_lossy().to_lowercase()));
-    Ok(folders)
 }

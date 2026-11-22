@@ -144,8 +144,8 @@ fn option_row(item: &MenuItem, submenu_open: bool) -> Option<OptionRow> {
                 .disabled(*disabled)
                 .check_column(false)
         }
-        MenuItem::Check { label, checked, disabled, .. } => {
-            OptionRow::new("row", label.clone()).checked(*checked).disabled(*disabled)
+        MenuItem::Check { label, icon, checked, disabled, .. } => {
+            OptionRow::new("row", label.clone()).icon(*icon).checked(*checked).disabled(*disabled)
         }
         MenuItem::Submenu { label, icon, items, .. } => OptionRow::new("row", label.clone())
             .icon(*icon)

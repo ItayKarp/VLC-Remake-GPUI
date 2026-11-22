@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use rusqlite::{Connection, Row, params};
 
 use super::folders::{self, FolderId};
-use super::media::{FileStamp, MediaId};
+use super::media::{self, FileStamp, MediaId, Saved};
+use super::metadata::MediaKind;
 use crate::library::path_key::{Case, PathKey};
 use crate::settings::stored_path;
 
@@ -55,6 +56,20 @@ pub struct Unidentified {
     pub stamp: FileStamp,
 }
 
+/// A file in a folder as the library views list it (S4.6): its name, and what the library knows
+/// of its media.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Listed {
+    /// The file's name in its folder.
+    pub name: PathBuf,
+    /// The media its content is; `None` until identified.
+    pub media: Option<MediaId>,
+    /// Video or audio, once probed.
+    pub kind: MediaKind,
+    /// What the history remembers of it.
+    pub saved: Saved,
+}
+
 /// Writes what a scan saw of a file in `folder`, adding it or updating the one there.
 pub fn put(
     connection: &Connection,
@@ -86,6 +101,25 @@ pub fn put(
 /// The files in `folder`, in name order.
 pub fn in_folder(connection: &Connection, folder: FolderId) -> rusqlite::Result<Vec<File>> {
     select(connection, "files.folder_id = ?1 ORDER BY files.key", folder.0)
+}
+
+/// The files in `folder`, with their media's kind and history, for the views.
+pub fn listed(connection: &Connection, folder: FolderId) -> rusqlite::Result<Vec<Listed>> {
+    let mut statement = connection.prepare(
+        "SELECT media.duration_ms, media.position_ms, COALESCE(media.watched, 0),
+             COALESCE(media.play_count, 0), files.name, files.media_id, media.kind
+         FROM files LEFT JOIN media ON media.id = files.media_id
+         WHERE files.folder_id = ?1",
+    )?;
+    let rows = statement.query_map([folder.0], |row| {
+        let saved = media::read_saved(row)?;
+        let name: String = row.get(4)?;
+        let media = row.get::<_, Option<i64>>(5)?.map(MediaId);
+        let kind = row.get::<_, Option<MediaKind>>(6)?.unwrap_or_default();
+        Ok(stored_path::decode(&name).map(|name| Listed { name, media, kind, saved }))
+    })?;
+    let rows: Vec<Option<Listed>> = rows.collect::<Result<_, _>>()?;
+    Ok(rows.into_iter().flatten().collect())
 }
 
 /// Every file whose content is `media`: each place the library shows it.

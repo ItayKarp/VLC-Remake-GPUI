@@ -2,13 +2,15 @@
 //! (S4.5.2), the breadcrumb, `•••` and pop-out; under them the item count (S4.5.5), with "Not in
 //! library" for a folder outside every media folder, and Sort, View and Search; then a divider.
 //!
-//! `•••` (its menu isn't designed), pop-out (full library mode, S4.10.2), Sort, View (S4.6) and
-//! Search (S4.7) come with their stories and show disabled until then.
+//! View opens its menu ([`view_menu`](super::view_menu)). `•••` (its menu isn't designed),
+//! pop-out (full library mode, S4.10.2), Sort and Search (S4.7) come with their stories and show
+//! disabled until then.
 
 use gpui::{Action, App, ClickEvent, Context, Div, SharedString, div, prelude::*, px};
 
+use super::INSET;
 use super::MainWindow;
-use super::listing::INSET;
+use super::view_menu;
 use crate::assets::icons;
 use crate::keymap;
 use crate::keymap::actions::{GoBack, GoForward};
@@ -69,7 +71,7 @@ impl MainWindow {
         with_shortcut(button, action, cx)
     }
 
-    fn count_row(&self, outside_library: bool, p: &Palette, cx: &App) -> Div {
+    fn count_row(&self, outside_library: bool, p: &Palette, cx: &mut Context<Self>) -> Div {
         let mut count = item_count(self.listed_count(cx));
         if outside_library {
             count.push_str(" · Not in library");
@@ -92,8 +94,21 @@ impl MainWindow {
                     .child(SharedString::from(count)),
             )
             .child(later("library-sort", icons::SORT, "Sort"))
-            .child(later("library-view", icons::VIEW, "View"))
+            .child(self.view_button(cx))
             .child(later("library-search", icons::SEARCH, "Search"))
+    }
+}
+
+impl MainWindow {
+    /// View, showing the current view's icon, which opens the View menu.
+    fn view_button(&self, cx: &mut Context<Self>) -> Div {
+        let button =
+            IconButton::new("library-view", view_menu::icon(self.library_view(cx)), "View")
+                .size(BUTTON, ICON)
+                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                    this.toggle_view_menu(window, cx);
+                }));
+        div().relative().child(self.library_panel.view_button.element()).child(button)
     }
 }
 

@@ -201,7 +201,8 @@ pub fn clear(connection: &mut Connection) -> rusqlite::Result<()> {
     transaction.commit()
 }
 
-fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
+/// Reads a [`Saved`] from a row's first four columns: duration, position, watched, play count.
+pub(super) fn read_saved(row: &Row<'_>) -> rusqlite::Result<Saved> {
     let duration: Option<i64> = row.get(0)?;
     let position: Option<i64> = row.get(1)?;
     Ok(Saved {

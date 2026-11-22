@@ -149,7 +149,9 @@ icons! {
     /// Playlists' filled rail icon: the playlist glyph with heavier strokes (the set's "active").
     PLAYLIST_FILLED => "playlist-filled.svg",
     POP_OUT => "pop-out.svg",
-    VIEW => "view.svg",
+    /// The View button and menu (`view_options`): a grid of tiles, and a list of rows.
+    GRID_VIEW => "grid-view.svg",
+    LIST_VIEW => "list-view.svg",
     // Music's categories (`sidebar-music`).
     MUSIC => "music.svg",
     ALBUM => "album.svg",

@@ -12,18 +12,19 @@
 //! - [`extract`], [`artwork_cache`], [`folder_art`]: reading each media's tags and cover (S4.3).
 //! - [`episode`], [`display`], [`properties`]: what the views and Properties & Metadata show for
 //!   a media's tags.
+//! - [`folder_view`], [`music`]: what a library folder and Music's categories list (S4.6).
 //! - [`thumbnails`], [`thumbnailer`], [`thumbnail_cache`]: the views' thumbnails (S4.4).
 
 pub mod apply;
 pub mod artwork_cache;
-#[allow(dead_code, reason = "the library views (S4.6) are its first callers")]
 pub mod display;
-#[allow(dead_code, reason = "the library views (S4.6) are its first callers, through `display`")]
 pub mod episode;
 pub mod extract;
 pub mod folder_art;
+pub mod folder_view;
 pub mod identify;
 pub mod indexer;
+pub mod music;
 pub mod path_key;
 pub mod placeholder;
 pub mod progress;
@@ -36,7 +37,6 @@ pub mod thumbnailer;
 pub mod thumbnails;
 pub mod walk;
 pub mod watch;
-#[allow(dead_code, reason = "the library's model (S4.1); the views (S4.6) are its first callers")]
 pub mod watch_state;
 
 use std::path::{Path, PathBuf};

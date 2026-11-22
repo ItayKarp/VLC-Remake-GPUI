@@ -3,8 +3,9 @@
 //! through all of it; removing every row while something plays lets it finish.
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 
-use gpui::{ClickEvent, Context, ExternalPaths, KeyDownEvent, ScrollStrategy, Window};
+use gpui::{ClickEvent, Context, KeyDownEvent, ScrollStrategy, Window};
 
 use super::MainWindow;
 use super::selection::Movement;
@@ -131,18 +132,18 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Files from the OS were dropped on the rows: they're resolved like any open (folders
-    /// scanned, playlists expanded) and inserted at the gap under the pointer.
+    /// Files from the OS or the library were dropped on the rows: they're resolved like any open
+    /// (folders scanned, playlists expanded) and inserted at the gap under the pointer.
     pub(super) fn drop_files(
         &mut self,
-        paths: &ExternalPaths,
+        paths: &[PathBuf],
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let slot = self.queue_panel.drop_slot.take().unwrap_or(self.queue.len());
         // The entry the files go before, so entries added meanwhile don't shift them.
         let before = self.queue.entries().get(slot).map(|entry| entry.id);
-        let items = paths.paths().iter().cloned().map(Media::from).collect();
+        let items = paths.iter().cloned().map(Media::from).collect();
         self.resolve_into(items, Target::Before(before), window, cx);
     }
 

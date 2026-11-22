@@ -116,6 +116,10 @@ pub struct LocalState {
     /// Where the library was last, per presentation (S4.5.6). Local: routes name folders.
     #[serde(deserialize_with = "lenient")]
     pub library_routes: LibraryRoutes,
+    /// The library sections shown as a grid (S4.6.4, S4.7.4), by name, as
+    /// `navigation::view` writes them; the others show as lists.
+    #[serde(deserialize_with = "lenient")]
+    pub library_grid: Vec<String>,
 }
 
 /// The library's last route in each presentation, as `navigation::stored` writes routes. Empty

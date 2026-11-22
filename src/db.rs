@@ -23,6 +23,7 @@ pub mod metadata;
 mod migrations;
 pub mod playlists;
 pub mod roots;
+pub mod songs;
 #[cfg(test)]
 mod tests;
 mod text_enum;

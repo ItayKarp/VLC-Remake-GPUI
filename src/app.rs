@@ -7,8 +7,6 @@
 
 pub mod cli;
 mod display;
-// Only the tests read it today: they keep `packaging/` and `opening::kind` in sync with it.
-#[cfg(test)]
 pub mod file_types;
 mod geometry;
 pub mod instance;

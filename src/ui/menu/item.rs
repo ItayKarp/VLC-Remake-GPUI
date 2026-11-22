@@ -29,6 +29,8 @@ pub enum MenuItem {
     Check {
         /// The text shown.
         label: SharedString,
+        /// An icon path from `assets::icons`.
+        icon: Option<&'static str>,
         /// Shows the ✓.
         checked: bool,
         /// Greyed out and skipped by the keyboard.
@@ -77,6 +79,7 @@ impl MenuItem {
     ) -> Self {
         MenuItem::Check {
             label: label.into(),
+            icon: None,
             checked,
             disabled: false,
             reason: None,
@@ -92,6 +95,7 @@ impl MenuItem {
     ) -> Self {
         MenuItem::Check {
             label: label.into(),
+            icon: None,
             checked: selected,
             disabled: false,
             reason: None,
@@ -104,11 +108,13 @@ impl MenuItem {
         MenuItem::Submenu { label: label.into(), icon: None, items, reason: None }
     }
 
-    /// Adds an icon to an action or submenu; other items ignore it.
+    /// Adds an icon to an action, a check item or a submenu; a separator ignores it.
     pub fn icon(mut self, path: &'static str) -> Self {
         match &mut self {
-            MenuItem::Action { icon, .. } | MenuItem::Submenu { icon, .. } => *icon = Some(path),
-            _ => {}
+            MenuItem::Action { icon, .. }
+            | MenuItem::Check { icon, .. }
+            | MenuItem::Submenu { icon, .. } => *icon = Some(path),
+            MenuItem::Separator => {}
         }
         self
     }

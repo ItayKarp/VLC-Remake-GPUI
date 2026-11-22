@@ -1,13 +1,14 @@
 //! The library's navigation model (S4.5): where it is ([`route`]), where it was and can go back
 //! to ([`history`]), the breadcrumb ([`breadcrumb`]), how the rail draws its icons ([`rail`]),
-//! the "N items" count, and the last route of each presentation, kept across launches
-//! ([`stored`]).
+//! the "N items" count, the last route of each presentation, kept across launches
+//! ([`stored`]), and whether each section shows a list or a grid ([`view`]).
 
 pub mod breadcrumb;
 pub mod history;
 pub mod rail;
 pub mod route;
 pub mod stored;
+pub mod view;
 
 use crate::library::progress::group_thousands;
 use crate::settings::LibraryRoutes;

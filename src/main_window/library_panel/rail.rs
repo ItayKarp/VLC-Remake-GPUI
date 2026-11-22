@@ -1,5 +1,6 @@
 //! The icon rail (S4.5.4): Home, Videos, Music, Network, Playlists, History and "+", each icon
-//! an outline, filled orange at its section's root, or filled grey deeper in it.
+//! an outline, filled orange at its section's root, or filled grey deeper in it. Holding a drag
+//! of the library's media over an icon shows its section ([`drag`](super::drag)).
 
 use gpui::{ClickEvent, Context, Div, Hsla, div, prelude::*, px};
 
@@ -71,7 +72,7 @@ fn section_button(
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
             this.navigate(section.root(), cx);
         }));
-    div().child(button)
+    super::drag::spring_loaded(div().child(button), section, cx)
 }
 
 /// A section's outline and filled icons. History has no filled icon in the set, so its outline

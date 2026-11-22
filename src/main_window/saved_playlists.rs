@@ -74,15 +74,20 @@ impl MainWindow {
     }
 
     /// Adds `media` at the end of playlist `summary`.
-    fn add_to_playlist(
+    pub(super) fn add_to_playlist(
         summary: &Summary,
-        media: Media,
+        media: &[Media],
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let added = playlists::add(summary.id, &[media], cx);
+        let added = playlists::add(summary.id, media, cx);
         let title = summary.title.clone();
-        Self::report_playlists(added, move |()| format!("Added to “{title}”."), window, cx);
+        let what = match media.len() {
+            1 => String::new(),
+            count => format!("{count} items "),
+        };
+        let done = move |()| format!("Added {what}to “{title}”.");
+        Self::report_playlists(added, done, window, cx);
     }
 
     /// Asks for playlist `summary`'s new title, and renames it.

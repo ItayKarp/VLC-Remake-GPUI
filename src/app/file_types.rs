@@ -56,6 +56,8 @@ pub const FILE_TYPES: &[FileType] = &[
 
 /// Streaming URL schemes the app registers for. Web schemes (`http`, `https`)
 /// belong to the browser and are only accepted on the command line.
+// Only the tests read it: they keep the packaging files in sync with it.
+#[cfg(test)]
 pub const URL_SCHEMES: &[&str] = &["mms", "rtmp", "rtsp"];
 
 #[cfg(test)]
