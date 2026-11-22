@@ -6,10 +6,10 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::Instant;
 
-use super::sink::PreviewSink;
 use crate::app::media::Media as Source;
 use crate::engine::libvlc::api::{Callback, Instance, LibVlc, MediaPlayer};
 use crate::engine::libvlc::decoding::SOFTWARE_DECODING;
+use crate::engine::libvlc::frame_sink::FrameSink;
 use crate::engine::libvlc::vmem::Vmem;
 use crate::engine::preview::flow::{Action, Flow};
 use crate::engine::preview::{PreviewEvent, PreviewRequest, PreviewSender};
@@ -44,7 +44,7 @@ pub struct Parts {
     /// Its media player, with `vmem` installed.
     pub player: *mut MediaPlayer,
     /// Where the player's pictures land.
-    pub sink: Arc<PreviewSink>,
+    pub sink: Arc<FrameSink>,
     /// The video callbacks' data.
     pub vmem: Arc<Vmem>,
     /// The event callback's data, boxed so its address stays put.
@@ -56,7 +56,7 @@ pub struct PreviewWorker {
     vlc: Arc<LibVlc>,
     instance: *mut Instance,
     player: *mut MediaPlayer,
-    sink: Arc<PreviewSink>,
+    sink: Arc<FrameSink>,
     /// Kept alive until the player is released: libVLC's video callbacks point at it.
     vmem: Option<Arc<Vmem>>,
     /// Kept alive until the player is released: the event callback points at it.

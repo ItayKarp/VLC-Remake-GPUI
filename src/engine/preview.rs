@@ -116,8 +116,13 @@ impl PreviewDecoder for NoPictures {
 /// `width × height` shrunk to fit [`MAX_WIDTH`] × [`MAX_HEIGHT`], keeping the aspect ratio and
 /// even sides (the scaler's chroma needs them). Never zero.
 pub fn fit(width: u32, height: u32) -> (u32, u32) {
+    fit_within(width, height, (MAX_WIDTH, MAX_HEIGHT))
+}
+
+/// `width × height` shrunk to fit `bounds` (width, height), as [`fit`] does for the preview's.
+pub fn fit_within(width: u32, height: u32, bounds: (u32, u32)) -> (u32, u32) {
     let (width, height) = (u64::from(width.max(1)), u64::from(height.max(1)));
-    let (max_width, max_height) = (u64::from(MAX_WIDTH), u64::from(MAX_HEIGHT));
+    let (max_width, max_height) = (u64::from(bounds.0), u64::from(bounds.1));
     // Scale by whichever side is tighter: width / max_width against height / max_height.
     let (scaled_width, scaled_height) = if width * max_height >= height * max_width {
         (max_width, height * max_width / width)

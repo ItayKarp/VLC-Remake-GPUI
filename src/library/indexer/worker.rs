@@ -14,6 +14,7 @@ use crate::db::files;
 use crate::db::now_ms;
 use crate::db::roots::{self, Root, RootStatus};
 use crate::library::apply::Rescan;
+use crate::library::extract::{Extractor, Pass};
 use crate::library::identify::STABLE_AFTER;
 use crate::library::path_key::Case;
 use crate::library::root_check;
@@ -29,8 +30,14 @@ pub const RECHECK_EVERY: Duration = Duration::from_secs(30);
 /// Where the indexer's news goes: every media folder's state, each time one changes.
 pub type Report = Box<dyn Fn(Vec<RootState>) + Send>;
 
-/// Starts the indexer thread on `store`. It stops once `cancel` is set.
-pub fn spawn(store: Box<dyn Store>, report: Report, cancel: Cancel) -> Sender<Command> {
+/// Starts the indexer thread on `store`, reading the metadata of what it finds with `extractor`
+/// (S4.3). It stops once `cancel` is set.
+pub fn spawn(
+    store: Box<dyn Store>,
+    extractor: Extractor,
+    report: Report,
+    cancel: Cancel,
+) -> Sender<Command> {
     let (sender, commands) = mpsc::channel();
     let changes = sender.clone();
     let started = std::thread::Builder::new().name("library".into()).spawn(move || {
@@ -38,9 +45,15 @@ pub fn spawn(store: Box<dyn Store>, report: Report, cancel: Cancel) -> Sender<Co
             let _ = changes.send(Command::Changed(paths));
         });
         let now = Instant::now();
-        let timers = Timers { reconcile: now + RECONCILE_EVERY, recheck: None, identify: None };
+        let timers = Timers {
+            reconcile: now + RECONCILE_EVERY,
+            recheck: None,
+            identify: None,
+            extract: None,
+        };
         let worker = Worker {
             store,
+            extractor,
             report,
             cancel,
             roots: Vec::new(),
@@ -61,6 +74,7 @@ pub fn spawn(store: Box<dyn Store>, report: Report, cancel: Cancel) -> Sender<Co
 
 struct Worker {
     store: Box<dyn Store>,
+    extractor: Extractor,
     report: Report,
     cancel: Cancel,
     roots: Vec<Watched>,
@@ -78,12 +92,15 @@ struct Timers {
     reconcile: Instant,
     recheck: Option<Instant>,
     identify: Option<Instant>,
+    /// Metadata extraction has media waiting (S4.3): it runs a batch at a time, between commands.
+    extract: Option<Instant>,
 }
 
 impl Worker {
     fn run(mut self, commands: &Receiver<Command>) {
         while !self.cancel.is_cancelled() {
-            let next = [Some(self.timers.reconcile), self.timers.recheck, self.timers.identify];
+            let timers = &self.timers;
+            let next = [Some(timers.reconcile), timers.recheck, timers.identify, timers.extract];
             let next = next.into_iter().flatten().chain(self.debounce.due()).min();
             let wait =
                 next.map_or(RECONCILE_EVERY, |at| at.saturating_duration_since(Instant::now()));
@@ -107,6 +124,7 @@ impl Worker {
                 self.refresh_all(Rescan::Changed);
             }
             Command::ShowHidden(_) => {}
+            Command::Lookup(lookup) => self.extractor.set_lookup(lookup),
             Command::Resync(path) => self.resync(&path),
             Command::Changed(paths) => self.debounce.add(paths, Instant::now()),
         }
@@ -128,6 +146,10 @@ impl Worker {
         if self.timers.identify.is_some_and(|at| now >= at) {
             self.identify();
             self.report();
+        }
+        if self.timers.extract.is_some_and(|at| now >= at) {
+            let pass = self.extractor.run(&*self.store, &self.cancel);
+            self.timers.extract = (pass == Pass::More).then(Instant::now);
         }
     }
 
@@ -237,7 +259,9 @@ impl Worker {
 
     fn identify(&mut self) {
         let unsettled = scan::identify(&*self.store, &self.cancel);
-        self.timers.identify = unsettled.then(|| Instant::now() + STABLE_AFTER);
+        let now = Instant::now();
+        self.timers.identify = unsettled.then(|| now + STABLE_AFTER);
+        self.timers.extract = Some(now);
     }
 
     fn set_status(&mut self, index: usize, status: RootStatus) {

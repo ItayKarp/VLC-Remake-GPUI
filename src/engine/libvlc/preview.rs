@@ -3,9 +3,8 @@
 //! The main player is never touched.
 //!
 //! [`flow`](crate::engine::preview::flow) decides what to do; [`worker`] does it with libVLC
-//! calls, and [`sink`] catches the pictures.
+//! calls, and a [`FrameSink`] catches the pictures.
 
-mod sink;
 #[cfg(test)]
 mod tests;
 mod worker;
@@ -16,17 +15,18 @@ use std::thread::{self, JoinHandle};
 
 use anyhow::{Context as _, Result, bail};
 
-use self::sink::PreviewSink;
 use self::worker::{Message, Parts, PreviewWorker};
 use super::api::Event;
 use super::events::{ENCOUNTERED_ERROR, END_REACHED, PAUSED, TIME_CHANGED};
+use super::frame_sink::FrameSink;
 use super::vmem::{self, Vmem};
 use crate::app::media::Media;
-use crate::engine::preview::{PreviewDecoder, PreviewRequest, PreviewSender};
+use crate::engine::preview::{self, PreviewDecoder, PreviewRequest, PreviewSender};
 
 /// The preview instance's arguments: no audio output, subtitles, on-screen text or title, and
 /// software decoding (hardware decoding drops rotated video and competes with the main player).
-const ARGUMENTS: [&str; 6] = [
+/// The thumbnailer's instance (S4.4.1) starts the same way.
+pub(super) const ARGUMENTS: [&str; 6] = [
     "--no-video-title-show",
     "--no-audio",
     "--no-spu",
@@ -56,7 +56,12 @@ impl LibVlcPreview {
             bail!("libvlc_media_player_new: {error}");
         }
         let (sender, inbox) = mpsc::channel();
-        let sink = Arc::new(PreviewSink::new(sender.clone()));
+        let shown = sender.clone();
+        let sink = Arc::new(FrameSink::new(
+            (preview::MAX_WIDTH, preview::MAX_HEIGHT),
+            // An error means the worker exited during shutdown.
+            Box::new(move || drop(shown.send(Message::Picture))),
+        ));
         let vmem = Arc::new(Vmem::new(sink.clone()));
         vmem::install(&vlc, player, &vmem);
         // Boxed so its address stays put for the event callback.

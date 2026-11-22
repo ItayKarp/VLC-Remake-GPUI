@@ -2,10 +2,16 @@
 //! resolution, in the `media` table's library columns. Metadata extraction (S4.3) writes them;
 //! the views, sorting and search read them.
 
+use std::path::PathBuf;
+use std::time::Duration;
+
 use rusqlite::{Connection, Row, params};
 
+use super::artwork::ArtworkId;
+use super::folders;
 use super::media::MediaId;
 use super::text_enum::text_enum;
+use crate::settings::stored_path;
 
 /// Whether a media is a video or audio, which decides its library section.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -55,6 +61,90 @@ pub struct Metadata {
     pub codecs: Option<String>,
     /// The video's frame size.
     pub resolution: Option<Resolution>,
+}
+
+/// A media the library has a file of, whose metadata hasn't been read yet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unprobed {
+    /// The media.
+    pub id: MediaId,
+    /// One of its files, to read it from.
+    pub path: PathBuf,
+}
+
+/// What reading a media found.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Extracted {
+    /// Its tags, kind, codecs and resolution.
+    pub metadata: Metadata,
+    /// Its length, if the container says.
+    pub duration: Option<Duration>,
+    /// Its cover image, if it has one.
+    pub artwork: Option<ArtworkId>,
+}
+
+/// Up to `limit` media after `after` (by row) that have a file on the disk (not online-only) and
+/// whose metadata wasn't read yet: metadata extraction's next batch.
+pub fn unprobed(
+    connection: &Connection,
+    after: MediaId,
+    limit: usize,
+) -> rusqlite::Result<Vec<Unprobed>> {
+    // A bare column next to `MIN` comes from the row holding the minimum: the media's first file.
+    let mut statement = connection.prepare(
+        "SELECT media.id, folders.path, files.name, MIN(files.id)
+         FROM media
+         JOIN files ON files.media_id = media.id AND files.cloud = 0
+         JOIN folders ON folders.id = files.folder_id
+         WHERE media.probed_ms IS NULL AND media.id > ?1
+         GROUP BY media.id ORDER BY media.id LIMIT ?2",
+    )?;
+    let rows = statement.query_map(params![after.0, limit as i64], |row| {
+        let (folder, name): (String, String) = (row.get(1)?, row.get(2)?);
+        Ok((MediaId(row.get(0)?), folders::decode(&folder).zip(stored_path::decode(&name))))
+    })?;
+    let rows: Vec<_> = rows.collect::<Result<_, _>>()?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, path)| {
+            path.map(|(folder, name)| Unprobed { id, path: folder.join(name) })
+        })
+        .collect())
+}
+
+/// Writes what reading media `id` found, at `now_ms`. A length the player already learned by
+/// playing it is kept: playing measures it better than a header says.
+pub fn set_extracted(
+    connection: &Connection,
+    id: MediaId,
+    extracted: &Extracted,
+    now_ms: i64,
+) -> rusqlite::Result<()> {
+    set(connection, id, &extracted.metadata)?;
+    let duration = extracted.duration.map(|duration| duration.as_millis() as i64);
+    connection.execute(
+        "UPDATE media SET duration_ms = COALESCE(duration_ms, ?2), artwork_id = ?3, probed_ms = ?4
+         WHERE id = ?1",
+        params![id.0, duration, extracted.artwork.map(|artwork| artwork.0), now_ms],
+    )?;
+    Ok(())
+}
+
+/// Marks media `id` as read at `now_ms` without changing what is known about it (it couldn't be
+/// parsed), so it isn't tried on every pass.
+pub fn set_probed(connection: &Connection, id: MediaId, now_ms: i64) -> rusqlite::Result<()> {
+    connection.execute("UPDATE media SET probed_ms = ?2 WHERE id = ?1", params![id.0, now_ms])?;
+    Ok(())
+}
+
+/// Asks for media `id`'s metadata to be read again (its file was identified again), and its
+/// thumbnail to be tried again if the thumbnailer gave up on it (S4.4).
+pub fn reprobe(connection: &Connection, id: MediaId) -> rusqlite::Result<()> {
+    connection.execute(
+        "UPDATE media SET probed_ms = NULL, no_thumbnail_ms = NULL WHERE id = ?1",
+        [id.0],
+    )?;
+    Ok(())
 }
 
 /// Writes `metadata` as what is known about media `id`.

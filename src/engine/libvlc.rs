@@ -17,14 +17,17 @@ mod control;
 mod decoding;
 mod events;
 mod failure;
+mod frame_sink;
 pub mod lengths;
 mod prepare;
 pub mod preview;
 mod query;
 pub mod runtime;
 mod size_watch;
+pub mod tags;
 #[cfg(test)]
 mod tests;
+pub mod thumbnail;
 mod track_list;
 #[cfg(test)]
 mod video_tests;

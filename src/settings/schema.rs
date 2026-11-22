@@ -182,6 +182,11 @@ pub struct PrivacySettings {
     /// (S1.7). Plays are still counted while history is saved.
     #[serde(deserialize_with = "lenient")]
     pub remember_playback_position: bool,
+    /// "Fetch titles and cover art from the internet" (S5.5, S4.3.4): whether the library may
+    /// look covers up online for media without one. Off by default: nothing about the user's
+    /// files leaves the machine unless they turn it on.
+    #[serde(deserialize_with = "lenient")]
+    pub fetch_online_metadata: bool,
 }
 
 /// How many items Open Recent keeps by default.
@@ -194,6 +199,7 @@ impl Default for PrivacySettings {
             redact_file_names_in_logs: false,
             recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
             remember_playback_position: true,
+            fetch_online_metadata: false,
         }
     }
 }

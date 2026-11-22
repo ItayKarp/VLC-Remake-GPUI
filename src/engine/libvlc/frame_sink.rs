@@ -1,18 +1,23 @@
-//! Catches the preview player's pictures: small BGRA copies, the newest one kept for the
-//! worker, which hears about each through its inbox.
+//! Catches a muted helper player's pictures (the seek preview, S2.3.3; library thumbnails,
+//! S4.4.1): small BGRA copies that fit a box, the newest one kept until its owner takes it. The
+//! owner hears about each through the `shown` callback.
 
 use std::ffi::c_void;
-use std::sync::{Mutex, MutexGuard, PoisonError, mpsc};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use super::worker::Message;
 use crate::engine::preview::{self, PreviewImage};
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
 
 const BYTES_PER_PIXEL: u32 = 4;
 
-/// The preview player's [`VideoSink`].
-pub struct PreviewSink {
-    worker: mpsc::Sender<Message>,
+/// Runs on libVLC's video thread after each picture; it must not call libVLC.
+pub type Shown = Box<dyn Fn() + Send + Sync>;
+
+/// A [`VideoSink`] that keeps the newest picture, scaled to fit a box.
+pub struct FrameSink {
+    /// The largest picture asked for: width and height.
+    bounds: (u32, u32),
+    shown: Shown,
     state: Mutex<State>,
 }
 
@@ -22,19 +27,19 @@ struct State {
     height: u32,
     /// What libVLC writes the next picture into.
     buffer: Vec<u8>,
-    /// The newest picture shown, until the worker takes it.
-    shown: Option<PreviewImage>,
+    /// The newest picture shown, until the owner takes it.
+    newest: Option<PreviewImage>,
 }
 
-impl PreviewSink {
-    /// A sink that tells `worker` about each picture.
-    pub fn new(worker: mpsc::Sender<Message>) -> Self {
-        Self { worker, state: Mutex::default() }
+impl FrameSink {
+    /// A sink whose pictures fit `bounds` (width, height), calling `shown` after each.
+    pub fn new(bounds: (u32, u32), shown: Shown) -> Self {
+        Self { bounds, shown, state: Mutex::default() }
     }
 
     /// Takes the newest picture shown, if one arrived since the last call.
     pub fn take(&self) -> Option<PreviewImage> {
-        self.state().shown.take()
+        self.state().newest.take()
     }
 
     fn state(&self) -> MutexGuard<'_, State> {
@@ -42,10 +47,10 @@ impl PreviewSink {
     }
 }
 
-impl VideoSink for PreviewSink {
+impl VideoSink for FrameSink {
     fn setup(&self, format: &mut Format) -> bool {
         let (width, height) = format.chosen_size();
-        let (width, height) = preview::fit(width, height);
+        let (width, height) = preview::fit_within(width, height, self.bounds);
         format.chroma = *b"BGRA";
         format.width = width;
         format.height = height;
@@ -70,13 +75,12 @@ impl VideoSink for PreviewSink {
         let mut state = self.state();
         let image =
             PreviewImage { width: state.width, height: state.height, bgra: state.buffer.clone() };
-        state.shown = Some(image);
+        state.newest = Some(image);
         drop(state);
-        // An error means the worker exited during shutdown.
-        let _ = self.worker.send(Message::Picture);
+        (self.shown)();
     }
 
     fn cleanup(&self) {
-        self.state().shown = None;
+        self.state().newest = None;
     }
 }

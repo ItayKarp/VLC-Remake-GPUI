@@ -19,7 +19,7 @@ use crate::app::media::Media as Source;
 use crate::engine::media_info::VideoSize;
 
 /// `libvlc_media_parse_local`: read the file's headers, no network.
-const PARSE_LOCAL: c_int = 0;
+pub(super) const PARSE_LOCAL: c_int = 0;
 /// `libvlc_media_parsed_status_done`; the statuses below it are "not yet", above it none.
 const PARSED_DONE: c_int = 4;
 /// `libvlc_media_parsed_status_skipped`, `_failed` and `_timeout`: parsing gave up.
@@ -29,7 +29,7 @@ const PARSE_TIMEOUT: Duration = Duration::from_millis(1500);
 /// How often the worker checks whether parsing finished.
 const PARSE_POLL: Duration = Duration::from_millis(5);
 /// `libvlc_track_video`.
-const TRACK_VIDEO: c_int = 1;
+pub(super) const TRACK_VIDEO: c_int = 1;
 /// `libvlc_video_orient_top_left`: stored upright. Every other orientation needs the
 /// `transform` filter (flips, 180°, and the 90° turns that swap width and height).
 const UPRIGHT: c_int = 0;
@@ -41,10 +41,26 @@ const UPRIGHT: c_int = 0;
 ///
 /// `media` is a live `libvlc_media_t` of `vlc`.
 pub(super) unsafe fn parse_headers(vlc: &LibVlc, media: *mut Media, timeout: Duration) -> bool {
+    // SAFETY: the caller's promise.
+    unsafe { parse_with(vlc, media, PARSE_LOCAL, timeout) }
+}
+
+/// Parses `media` with libVLC's `flags` (`libvlc_media_parse_flag_t`), waiting until done or
+/// `timeout`; `false` if parsing failed or took too long. Blocks the calling thread.
+///
+/// # Safety
+///
+/// `media` is a live `libvlc_media_t` of `vlc`.
+pub(super) unsafe fn parse_with(
+    vlc: &LibVlc,
+    media: *mut Media,
+    flags: c_int,
+    timeout: Duration,
+) -> bool {
     let api = &vlc.api;
     let millis = c_int::try_from(timeout.as_millis()).unwrap_or(c_int::MAX);
     // SAFETY: the caller's promise.
-    if unsafe { (api.libvlc_media_parse_with_options)(media, PARSE_LOCAL, millis) } != 0 {
+    if unsafe { (api.libvlc_media_parse_with_options)(media, flags, millis) } != 0 {
         return false;
     }
     let deadline = Instant::now() + timeout;
@@ -118,7 +134,7 @@ impl Worker {
 /// # Safety
 ///
 /// A video track's `detail` is NULL or a live `libvlc_video_track_t`.
-unsafe fn video_track(track: &MediaTrack) -> Option<&VideoTrack> {
+pub(super) unsafe fn video_track(track: &MediaTrack) -> Option<&VideoTrack> {
     if track.kind != TRACK_VIDEO {
         return None;
     }

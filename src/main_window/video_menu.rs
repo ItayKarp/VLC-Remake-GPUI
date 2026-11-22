@@ -94,6 +94,10 @@ impl MainWindow {
             self.audio_submenu(&main, cx),
             self.subtitle_submenu(&main, cx),
             self.more_settings_menu(&main, cx),
+            main_menu::dispatching(&act::ShowProperties, "Properties & Metadata…", cx)
+                .icon(icons::INFO)
+                .disabled(!self.has_properties(cx))
+                .why_disabled(NOTHING_PLAYING),
             self.playlist_menu(&main, cx),
             open_media_menu(&main, cx),
             main_menu::dispatching(&act::Quit, "Quit VLC", cx).icon(icons::QUIT),

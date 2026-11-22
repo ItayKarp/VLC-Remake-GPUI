@@ -55,6 +55,8 @@ actions!(
         MarkUnwatched,
         /// Forget the playback history: positions, plays and the recent list.
         ClearHistory,
+        /// Show the current media's tags and details (S4.3.5).
+        ShowProperties,
         /// Open the New Playlist dialog (S3.5.1).
         NewPlaylist,
         /// Open the New Playlist dialog holding the queue's items (S3.5.5).

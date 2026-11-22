@@ -11,6 +11,7 @@ use super::store::{InPlace, Store};
 use super::*;
 use crate::db::roots::{self, RootKind, RootStatus};
 use crate::history::DatabaseWork;
+use crate::library::extract::Extractor;
 use crate::opening::Cancel;
 use crate::opening::scratch::scratch_dir;
 
@@ -45,7 +46,8 @@ fn start() -> Running {
         let _ = sender.send(roots);
     });
     let cancel = Cancel::default();
-    let commands = spawn(Box::new(Shared(store.clone())), report, cancel.clone());
+    let extractor = Extractor::new(Box::new(crate::engine::tags::NoTags), None);
+    let commands = spawn(Box::new(Shared(store.clone())), extractor, report, cancel.clone());
     Running { commands, reports, store, cancel }
 }
 
