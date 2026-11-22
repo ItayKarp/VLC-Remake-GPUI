@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import unittest
 
+from failure import MESSAGE_LIMIT, FailedStage, Recipient, failure_message
 from jenkins import BuildInfo, BuildRef, Commit
 from message import FIELD_LIMIT, LogTail, build_payload
 from overview import render
@@ -101,6 +102,53 @@ class MessageTest(unittest.TestCase):
         embed = build_payload("RedesignedVLC", REF, _info(False, "FAILURE"), parse_tree(TREE), None)["embeds"][0]
         self.assertEqual(embed["footer"]["text"], "Failed in 1h 04m")
         self.assertEqual(embed["image"]["url"], "attachment://pipeline.png")
+
+
+CLIPPY_LOG = [
+    "+ cargo clippy --all-targets --no-default-features --features x11,wayland -- -D warnings",
+    "   Compiling gpui v0.2.2",
+    "    Checking redesigned_vlc v0.1.0",
+    "error: this `if` has identical blocks",
+    "  --> src/video_window.rs:42:9",
+    "   |",
+    "42 |         if wide { 1 } else { 1 }",
+    "",
+    "error: could not compile `RedesignedVLC` (bin \"RedesignedVLC\") due to 1 previous error",
+    "script returned exit code 101",
+]
+
+
+BUILD_MESSAGE_LINK = "https://discord.com/channels/1/2/3"
+
+
+class FailureTest(unittest.TestCase):
+    def _message(self, failed, mention="123456789012345678", link=BUILD_MESSAGE_LINK):
+        recipient = Recipient(mention, link)
+        return failure_message("RedesignedVLC", REF, _info(False, "FAILURE"), failed, recipient)
+
+    def test_it_mentions_the_user_and_starts_at_the_first_error(self) -> None:
+        payload, files = self._message([FailedStage(("Linux", "all", "Clippy"), CLIPPY_LOG)])
+        content = payload["content"]
+        self.assertTrue(content.startswith("<@123456789012345678> ❌"))
+        self.assertEqual(payload["allowed_mentions"], {"users": ["123456789012345678"]})
+        self.assertIn(f"↪️ Re: [the build's message]({BUILD_MESSAGE_LINK})", content)
+        self.assertIn("Failed: **Linux › all › Clippy**", content)
+        self.assertIn("```\nerror: this `if` has identical blocks", content)
+        self.assertNotIn("Compiling gpui", content)
+        self.assertLessEqual(len(content), MESSAGE_LIMIT)
+        self.assertEqual(files[0].name, "linux-all-clippy.txt")
+        self.assertIn(b"Compiling gpui", files[0].content)
+
+    def test_a_huge_log_still_fits_one_message(self) -> None:
+        log = ["error: first"] + [f"warning: number {n}" for n in range(5000)]
+        payload, _ = self._message([FailedStage(("Linux", "x11", "Test"), log)])
+        self.assertLessEqual(len(payload["content"]), MESSAGE_LIMIT)
+
+    def test_without_a_user_id_nobody_is_mentioned(self) -> None:
+        payload, files = self._message([], mention="", link="")
+        self.assertTrue(payload["content"].startswith("❌"))
+        self.assertEqual(payload["allowed_mentions"], {"parse": []})
+        self.assertEqual(files, [])
 
 
 class OverviewTest(unittest.TestCase):

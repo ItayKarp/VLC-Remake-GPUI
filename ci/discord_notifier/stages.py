@@ -15,6 +15,8 @@ AXIS_VALUE = re.compile(r"\w+ = '([^']*)'")
 CONSOLE_NOTE = re.compile(r"\x1b\[8m.*?\x1b\[0m")
 ANSI_CODE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 TIMESTAMP_PREFIX = re.compile(r"^\[\d{4}-\d\d-\d\dT[\d:.]+Z\] ")
+# Where rustc and clippy diagnostics begin: what to show first from a failed stage.
+DIAGNOSTIC_START = re.compile(r"^(error|warning)(\[[\w-]+\])?:")
 
 LOG_LINE_WIDTH = 110
 
@@ -121,11 +123,33 @@ def log_focus(stages: list[Stage]) -> tuple[tuple[str, ...], Stage] | None:
     return next((entry for entry in leaves(stages) if entry[1].state == "failure"), None)
 
 
+def failed_leaves(stages: list[Stage]) -> list[tuple[tuple[str, ...], Stage]]:
+    """The stages that failed themselves, rather than because a stage inside them did."""
+    return [(path, stage) for path, stage in leaves(stages) if stage.state == "failure"]
+
+
+def plain_log(text: str) -> list[str]:
+    """Every line of a raw Jenkins log as it reads on screen: no colours, notes or timestamps."""
+    return [
+        TIMESTAMP_PREFIX.sub("", ANSI_CODE.sub("", CONSOLE_NOTE.sub("", raw))).rstrip()
+        for raw in text.splitlines()
+    ]
+
+
 def clean_log(text: str, line_count: int) -> list[str]:
-    """The last `line_count` non-blank lines of a raw Jenkins log, without colours or notes."""
-    lines = []
-    for raw in text.splitlines():
-        line = TIMESTAMP_PREFIX.sub("", ANSI_CODE.sub("", CONSOLE_NOTE.sub("", raw))).rstrip()
-        if line:
-            lines.append(line if len(line) <= LOG_LINE_WIDTH else line[: LOG_LINE_WIDTH - 1] + "…")
-    return lines[-line_count:]
+    """The last `line_count` non-blank lines of a raw Jenkins log, shortened to fit a message."""
+    lines = [line for line in plain_log(text) if line]
+    shortened = [
+        line if len(line) <= LOG_LINE_WIDTH else line[: LOG_LINE_WIDTH - 1] + "…" for line in lines
+    ]
+    return shortened[-line_count:]
+
+
+def excerpt(lines: list[str], limit: int) -> str:
+    """At most `limit` characters of a failed log: from the first diagnostic on, else its end."""
+    start = next((i for i, line in enumerate(lines) if DIAGNOSTIC_START.match(line)), None)
+    if start is None:
+        text = "\n".join(lines).strip("\n")
+        return text if len(text) <= limit else "…" + text[-(limit - 1) :]
+    text = "\n".join(lines[start:]).strip("\n")
+    return text if len(text) <= limit else text[: limit - 1] + "…"

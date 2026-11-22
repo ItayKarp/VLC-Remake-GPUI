@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
-from stages import Stage, clean_log, parse_tree
+from stages import Stage, clean_log, parse_tree, plain_log
 
 REQUEST_TIMEOUT_SECONDS = 20
 # Builds per branch to look at each round: enough to catch one that started and ended between
@@ -109,8 +109,14 @@ class Jenkins:
 
     def log_tail(self, path: str, stage: Stage, line_count: int) -> list[str]:
         """The last lines of one stage's log, cleaned for display."""
-        text = self._get(f"{path}stages/log", {"nodeId": stage.id}).decode("utf-8", "replace")
-        return clean_log(text, line_count)
+        return clean_log(self._stage_log(path, stage), line_count)
+
+    def full_log(self, path: str, stage: Stage) -> list[str]:
+        """Every line of one stage's log, as it reads on screen."""
+        return plain_log(self._stage_log(path, stage))
+
+    def _stage_log(self, path: str, stage: Stage) -> str:
+        return self._get(f"{path}stages/log", {"nodeId": stage.id}).decode("utf-8", "replace")
 
     def _json(self, path: str, params: dict[str, str] | None = None) -> dict:
         return json.loads(self._get(path, params))

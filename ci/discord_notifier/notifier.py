@@ -3,7 +3,8 @@
 Run as a service on the Jenkins machine. It asks the local Jenkins every few seconds which
 builds exist; when one starts it sends a message into the forum post, edits it as stages start
 and finish (with a tail of the running stage's log), and when the build ends adds a picture of
-the whole pipeline. Settings come from the environment; see `notifier.env.example`.
+the whole pipeline. A failed build also gets a new message that mentions someone and carries
+the failed stages' logs. Settings come from the environment; see `notifier.env.example`.
 """
 
 from __future__ import annotations
@@ -17,11 +18,12 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from discord import Attachment, Webhook
-from jenkins import BuildRef, Jenkins
+from discord import Attachment, Webhook, message_link
+from failure import FailedStage, Recipient, failure_message
+from jenkins import BuildInfo, BuildRef, Jenkins
 from message import IMAGE_NAME, LogTail, build_payload
 from overview import render
-from stages import RESULT_WORD, format_duration, log_focus
+from stages import RESULT_WORD, failed_leaves, format_duration, log_focus
 
 # Discord allows a webhook about five requests per two seconds; one edit per build this often
 # keeps well inside that with a few builds running.
@@ -45,6 +47,7 @@ class Settings:
     post_title: str
     thread_id: str
     state_file: Path
+    mention_user_id: str
     poll_seconds: float
     log_lines: int
 
@@ -62,6 +65,7 @@ class Settings:
                 webhook_url=env["DISCORD_WEBHOOK_URL"],
                 post_title=env.get("DISCORD_POST_TITLE", "RedesignedVLC"),
                 thread_id=env.get("DISCORD_THREAD_ID", ""),
+                mention_user_id=env.get("DISCORD_MENTION_USER_ID", ""),
                 state_file=Path(env.get("STATE_FILE", f"{state_dir}/state.json")),
                 poll_seconds=float(env.get("POLL_SECONDS", "5")),
                 log_lines=int(env.get("LOG_LINES", "15")),
@@ -125,9 +129,30 @@ class Notifier:
             picture = render(title, f"{result} in {format_duration(info.duration_ms)}", stages)
             image = Attachment(IMAGE_NAME, picture, "image/png")
             self._webhook.edit(thread_id, record["message_id"], payload, [image])
+            if info.result == "FAILURE":
+                link = message_link(self._guild_id(), thread_id, record["message_id"])
+                self._report_failure(ref, info, stages, thread_id, link)
             record["done"] = True
             log.info("Finished %s #%s: %s", ref.branch, ref.number, info.result)
         record["digest"] = digest
+
+    def _report_failure(
+        self, ref: BuildRef, info: BuildInfo, stages: list, thread_id: str, build_link: str
+    ) -> None:
+        """A new message (so it notifies) naming who to tell, with the failed stages' logs."""
+        failed = [
+            FailedStage(path, self._jenkins.full_log(ref.path, stage))
+            for path, stage in failed_leaves(stages)
+        ]
+        recipient = Recipient(self._settings.mention_user_id, build_link)
+        payload, files = failure_message(self._settings.job, ref, info, failed, recipient)
+        self._webhook.send(thread_id, payload, files)
+
+    def _guild_id(self) -> str:
+        """The server's ID, asked of Discord once and then remembered."""
+        if not self._state.get("guild_id"):
+            self._state["guild_id"] = self._webhook.guild_id()
+        return self._state["guild_id"]
 
     def _log_tail(self, ref: BuildRef, stages: list) -> LogTail | None:
         focus = log_focus(stages)

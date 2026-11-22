@@ -17,6 +17,11 @@ TOO_MANY_REQUESTS = 429
 MAX_RETRIES = 3
 
 
+def message_link(guild_id: str, thread_id: str, message_id: str) -> str:
+    """A link that opens one message: webhooks can't reply, so this stands in for a reply."""
+    return f"https://discord.com/channels/{guild_id}/{thread_id}/{message_id}"
+
+
 @dataclass(frozen=True)
 class Attachment:
     """A file sent with a message, which an embed can show as `attachment://<name>`."""
@@ -31,6 +36,12 @@ class Webhook:
 
     def __init__(self, url: str) -> None:
         self._url = url.rstrip("/")
+
+    def guild_id(self) -> str:
+        """The ID of the server the webhook posts in, which message links need."""
+        request = urllib.request.Request(self._url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+            return str(json.loads(response.read())["guild_id"])
 
     def create_post(self, title: str, payload: dict) -> str:
         """Starts a forum post called `title` with `payload` as its first message; its ID."""
