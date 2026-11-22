@@ -20,17 +20,13 @@ pub(super) fn probe() -> Option<&'static str> {
 /// What the row says for the probe's `result`: `pthread_setschedparam`'s error code, or `None`
 /// when the probe thread couldn't run.
 fn refusal(result: Option<i32>) -> Option<&'static str> {
-    match result {
-        Some(0) => None,
-        Some(libc::EPERM) => {
-            tracing::warn!("real-time priority isn't permitted for this user");
-            Some(NOT_PERMITTED)
-        }
-        other => {
-            tracing::warn!("real-time priority probe failed: {other:?}");
-            Some(UNKNOWN)
-        }
-    }
+    let (refusal, reason) = match result {
+        Some(0) => return None,
+        Some(libc::EPERM) => (NOT_PERMITTED, "isn't permitted for this user"),
+        _ => (UNKNOWN, "couldn't be checked"),
+    };
+    tracing::warn!("real-time priority {reason} (probe result {result:?})");
+    Some(refusal)
 }
 
 /// Switches the calling thread to round-robin at the lowest real-time priority; returns
