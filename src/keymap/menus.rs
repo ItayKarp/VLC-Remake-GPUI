@@ -25,6 +25,11 @@ pub enum MainMenuEntry {
         /// The icon path.
         icon: &'static str,
     },
+    /// Profile (S8.8): the profiles, the one in use checked, and + New.
+    Profile {
+        /// The icon path.
+        icon: &'static str,
+    },
 }
 
 const fn command(action: &'static dyn Action, icon: &'static str) -> MainMenuEntry {
@@ -32,8 +37,8 @@ const fn command(action: &'static dyn Action, icon: &'static str) -> MainMenuEnt
 }
 
 /// The main menu, top to bottom as designed, plus "Run Setup Again" (S0.2.5) and
-/// "Copy Debug Info" (S0.7.4), which the Help menu holds on macOS. Profile (S8.8) joins after
-/// Open Recent with its story; the pending commands are filtered out when the menu opens.
+/// "Copy Debug Info" (S0.7.4), which the Help menu holds on macOS. The pending commands are
+/// filtered out when the menu opens.
 pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenFile, icons::FILE),
     command(&act::OpenFolder, icons::FOLDER),
@@ -42,6 +47,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenCaptureDevice, icons::CAPTURE_DEVICE),
     command(&act::Convert, icons::CONVERT),
     MainMenuEntry::Recent { icon: icons::RECENT },
+    MainMenuEntry::Profile { icon: icons::PROFILE },
     command(&act::ShowKeyboardShortcuts, icons::HOTKEYS),
     command(&act::CustomizePlayer, icons::PAINT),
     command(&act::OpenSettings, icons::SETTINGS),

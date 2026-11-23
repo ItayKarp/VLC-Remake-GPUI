@@ -2,7 +2,7 @@
 //! command's name and shortcut from the keymap. Commands whose stories haven't shipped are left
 //! out (S2.9.4); one nothing can run right now is greyed out and says why on hover.
 
-use gpui::{Action, App, Context, DismissEvent, Div, WeakEntity, Window, prelude::*};
+use gpui::{Action, AnyElement, App, Context, DismissEvent, Div, WeakEntity, Window, prelude::*};
 
 use super::MainWindow;
 use crate::app::request::OpenRequest;
@@ -55,6 +55,20 @@ impl MainWindow {
     }
 }
 
+impl MainWindow {
+    /// The menus that are open: `…`, the bar's overflow, the queue's sort, the video's and the
+    /// library sidebar's.
+    pub(super) fn render_menus(&self) -> impl Iterator<Item = AnyElement> {
+        let menus = [
+            self.render_menu(),
+            self.render_overflow_menu(),
+            self.render_sort_menu(),
+            self.render_video_menu(),
+        ];
+        menus.into_iter().flatten().chain(self.render_library_menus())
+    }
+}
+
 /// The main menu's items as they stand now, for the main window `main`.
 pub(super) fn items(main: &WeakEntity<MainWindow>, window: &Window, cx: &mut App) -> Vec<MenuItem> {
     MAIN_MENU.iter().filter_map(|entry| item(entry, main, window, cx)).collect()
@@ -70,6 +84,7 @@ fn item(
         MainMenuEntry::Command { action, .. } if menus::is_pending(*action) => None,
         MainMenuEntry::Command { action, icon } => Some(command(*action, icon, window, cx)),
         MainMenuEntry::Recent { icon } => Some(recent_menu(main, cx).icon(icon)),
+        MainMenuEntry::Profile { icon } => Some(super::profiles::profile_menu(main, cx).icon(icon)),
     }
 }
 

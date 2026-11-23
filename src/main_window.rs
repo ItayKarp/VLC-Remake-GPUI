@@ -49,6 +49,7 @@ mod pip;
 mod play_order;
 mod player_keys;
 mod playing_id;
+mod profiles;
 mod properties;
 mod queue_panel;
 mod queue_play;
@@ -77,8 +78,8 @@ mod volume_slider;
 mod wheel;
 
 use gpui::{
-    AnyElement, App, Context, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription,
-    Window, div, prelude::*, px,
+    App, Context, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription, Window, div,
+    prelude::*, px,
 };
 
 use self::auto_hide::rules::Chrome;
@@ -180,6 +181,8 @@ pub struct MainWindow {
     customizing: Option<customize::Customizing>,
     /// The playing file's row in the library, for the bar's Favorite and Thumbnail (S8.7.6).
     playing_id: playing_id::PlayingId,
+    /// The profile media switched to by itself, and the one to go back to (S8.8.3).
+    auto_profile: profiles::AutoProfile,
 }
 
 impl MainWindow {
@@ -227,6 +230,7 @@ impl MainWindow {
             windowing: video_window::Windowing::default(),
             customizing: None,
             playing_id: playing_id::PlayingId::default(),
+            auto_profile: profiles::AutoProfile::default(),
         };
         this.start(request, window, cx);
         this
@@ -325,26 +329,12 @@ impl MainWindow {
     }
 }
 
-impl MainWindow {
-    /// The menus that are open: `…`, the bar's overflow, the queue's sort, the video's and the
-    /// library sidebar's.
-    fn render_menus(&self) -> impl Iterator<Item = AnyElement> {
-        let menus = [
-            self.render_menu(),
-            self.render_overflow_menu(),
-            self.render_sort_menu(),
-            self.render_video_menu(),
-        ];
-        menus.into_iter().flatten().chain(self.render_library_menus())
-    }
-}
-
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
         self.windowing.prefs.sync(window, cx);
         self.release_previews(window);
-        self.sync_music_mode(window, cx);
+        self.sync_media(window, cx);
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
         self.fit_library(window, cx);

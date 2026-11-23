@@ -126,7 +126,6 @@ icons! {
     CAPTURE_DEVICE => "capture-device.svg",
     CONVERT => "convert.svg",
     RECENT => "recent.svg",
-    #[allow(dead_code, reason = "the main menu's Profile submenu arrives with profiles (S8.8)")]
     PROFILE => "profile.svg",
     HOTKEYS => "hotkeys.svg",
     PAINT => "paint.svg",

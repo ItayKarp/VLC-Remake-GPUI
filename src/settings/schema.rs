@@ -25,6 +25,7 @@ mod playback;
 mod player_layout;
 mod presets;
 mod privacy;
+mod profiles;
 mod recording;
 mod subtitles;
 mod video;
@@ -63,6 +64,7 @@ pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, Wh
 pub use player_layout::StoredLayout;
 pub use presets::{Preset, PresetSettings};
 pub use privacy::PrivacySettings;
+pub use profiles::{Automatic, Profile, ProfileSettings};
 pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
 pub use subtitles::{SizeValues, SubtitleArea, SubtitleSettings};
 pub use video::{PictureSettings, VideoSettings};
@@ -145,6 +147,10 @@ pub struct Preferences {
     /// them through `settings::presets`, which keeps the sections they cover in step.
     #[serde(deserialize_with = "lenient")]
     pub presets: PresetSettings,
+    /// Player profiles, each a player layout and a preset (S8.8). Change them through
+    /// `settings::profiles`, which keeps the layout and preset in use in step.
+    #[serde(deserialize_with = "lenient")]
+    pub profiles: ProfileSettings,
 }
 
 /// State that only makes sense on this machine.
