@@ -2,12 +2,10 @@
 //! go and how, finding cast devices, and what a stream sends. Recording (S8.6), casting (S8.11)
 //! and streaming out (S8.12) read these when they start, so changes count from the next one.
 
-use std::path::{Path, PathBuf};
-
 use super::super::def::{Control, PathPick, SettingDef};
 use super::super::value::{Choice, SettingChoice, Value, choice, text, toggle};
 use crate::settings::registry::Category;
-use crate::settings::{CastQuality, EncodingPreset, Tuning};
+use crate::settings::{CastQuality, EncodingPreset, Tuning, expand_home};
 
 const RECORDING: (Category, &str) = (Category::Recording, "Recording");
 const CASTING: (Category, &str) = (Category::Recording, "Casting");
@@ -172,14 +170,6 @@ fn existing_folder(value: &Value) -> Result<(), String> {
         Ok(())
     } else {
         Err("There's no folder there".to_owned())
-    }
-}
-
-/// `text` as a path, a leading `~` standing for the home folder.
-fn expand_home(text: &str) -> PathBuf {
-    match (text.strip_prefix('~'), dirs::home_dir()) {
-        (Some(rest), Some(home)) => home.join(rest.trim_start_matches(['/', '\\'])),
-        _ => Path::new(text).to_path_buf(),
     }
 }
 

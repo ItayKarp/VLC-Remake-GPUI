@@ -18,6 +18,7 @@ use gpui::{
     UniformListScrollHandle, Window, accesskit, div, prelude::*, px, uniform_list,
 };
 
+pub(in crate::main_window) use self::naming::media_title;
 use self::naming::timestamp;
 use self::rename::Rename;
 pub(super) use self::store::Bookmarks;

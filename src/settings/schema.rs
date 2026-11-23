@@ -210,6 +210,10 @@ pub struct LocalState {
     /// a path on this machine.
     #[serde(deserialize_with = "lenient")]
     pub recordings_folder: String,
+    /// "Save snapshots to" (S8.4), as typed; empty means `VLC` in the OS Pictures folder.
+    /// Local: it is a path on this machine.
+    #[serde(deserialize_with = "lenient")]
+    pub snapshots_folder: String,
     /// "Rescan plugins" (S5.10.2) was asked for: the next launch has libVLC look for its plugins
     /// again instead of trusting its cache, then clears this.
     #[serde(deserialize_with = "lenient")]

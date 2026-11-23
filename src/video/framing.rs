@@ -69,9 +69,25 @@ pub struct Framed {
     pub picture: Bounds<Pixels>,
 }
 
-/// Places `source` in `container` as `framing` says, on the device pixels of a screen with
-/// `scale` pixels per point.
-pub fn frame(container: Bounds<Pixels>, source: Source, framing: Framing, scale: f32) -> Framed {
+/// The part of a picture that shows, as shares of the whole picture's width and height, and
+/// the shape it is drawn at.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Part {
+    /// Its left edge, as a share of the picture's width.
+    pub left: f32,
+    /// Its top edge, as a share of the picture's height.
+    pub top: f32,
+    /// Its width, as a share of the picture's width.
+    pub width: f32,
+    /// Its height, as a share of the picture's height.
+    pub height: f32,
+    /// Its shape once stretched as the aspect ratio says, width over height.
+    pub ratio: f32,
+}
+
+/// The part of `source` that shows under `framing`: the aspect ratio stretches it, the edges
+/// trim it and the crop keeps its middle. The zoom only sizes it, so it plays no part.
+pub fn part(source: Source, framing: Framing) -> Part {
     let whole = match framing.aspect_ratio {
         AspectRatio::Custom => framing.custom_ratio,
         other => other.ratio(""),
@@ -83,18 +99,27 @@ pub fn frame(container: Bounds<Pixels>, source: Source, framing: Framing, scale:
         .crop
         .ratio()
         .map_or((trimmed, (1., 1.)), |crop| (ratio(crop), kept(trimmed, ratio(crop))));
-    // The part that shows, as shares of the whole picture.
-    let (kept_width, kept_height) =
-        (trim.kept_width() * crop_width, trim.kept_height() * crop_height);
-    let left = trim.left + trim.kept_width() * (1. - crop_width) / 2.;
-    let top = trim.top + trim.kept_height() * (1. - crop_height) / 2.;
-    let shown = sized(container, cropped, shown_height(source, framing.zoom, kept_height), scale);
+    Part {
+        left: trim.left + trim.kept_width() * (1. - crop_width) / 2.,
+        top: trim.top + trim.kept_height() * (1. - crop_height) / 2.,
+        width: trim.kept_width() * crop_width,
+        height: trim.kept_height() * crop_height,
+        ratio: cropped,
+    }
+}
+
+/// Places `source` in `container` as `framing` says, on the device pixels of a screen with
+/// `scale` pixels per point.
+pub fn frame(container: Bounds<Pixels>, source: Source, framing: Framing, scale: f32) -> Framed {
+    let part = part(source, framing);
+    let height = shown_height(source, framing.zoom, part.height);
+    let shown = sized(container, part.ratio, height, scale);
     let (width, height) = (f32::from(shown.size.width), f32::from(shown.size.height));
-    let (full_width, full_height) = (width / kept_width, height / kept_height);
+    let (full_width, full_height) = (width / part.width, height / part.height);
     let picture = Bounds {
         origin: point(
-            shown.origin.x - px(left * full_width),
-            shown.origin.y - px(top * full_height),
+            shown.origin.x - px(part.left * full_width),
+            shown.origin.y - px(part.top * full_height),
         ),
         size: size(px(full_width), px(full_height)),
     };

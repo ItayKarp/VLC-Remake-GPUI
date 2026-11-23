@@ -22,6 +22,7 @@ mod video;
 mod video_colors;
 mod video_framing;
 mod video_hdr;
+mod video_snapshots;
 mod window;
 
 use super::def::SettingDef;
@@ -29,8 +30,8 @@ use super::value::Value;
 use crate::engine::language::Language;
 
 /// Every category's rows, in sidebar order (General, Interface and Playback in two parts each,
-/// Video in four, Audio in four, Subtitles in two).
-pub(super) static PAGES: [&[SettingDef]; 22] = [
+/// Video in five, Audio in four, Subtitles in two).
+pub(super) static PAGES: [&[SettingDef]; 23] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
     window::ENTRIES,
@@ -43,6 +44,7 @@ pub(super) static PAGES: [&[SettingDef]; 22] = [
     video_framing::ENTRIES,
     video_hdr::ENTRIES,
     video_colors::ENTRIES,
+    video_snapshots::ENTRIES,
     audio::ENTRIES,
     audio_effects::ENTRIES,
     audio_sections::ENTRIES,

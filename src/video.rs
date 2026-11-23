@@ -7,6 +7,7 @@
 //!   it as Settings → Video says.
 //! - [`VideoView`] draws the newest picture, black bars around it whatever the theme.
 //! - [`subtitles`] draws the subtitle files the app draws itself over it (S6.2).
+//! - [`Still`] reads the picture on screen back for a snapshot (S8.4).
 
 mod bgra;
 mod frame;
@@ -15,6 +16,7 @@ pub mod framing;
 pub mod layout;
 #[cfg(target_os = "macos")]
 mod pixel_buffer;
+mod still;
 mod subtitles;
 mod view;
 
@@ -26,6 +28,7 @@ use self::frame::Frame;
 use self::frame_slot::FrameSlot;
 use crate::engine::video::VideoSink;
 
+pub use still::Still;
 pub use subtitles::Covered;
 pub use view::VideoView;
 

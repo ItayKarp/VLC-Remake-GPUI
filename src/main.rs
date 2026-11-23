@@ -29,6 +29,7 @@ mod session;
 mod settings;
 mod settings_view;
 mod settings_window;
+mod snapshot;
 mod subtitle_links;
 mod theme;
 mod ui;

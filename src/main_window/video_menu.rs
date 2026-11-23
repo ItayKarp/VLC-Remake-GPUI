@@ -31,7 +31,7 @@ pub(super) type VideoMenu = (Entity<ContextMenu>, Subscription, Point<Pixels>);
 const KEYBOARD_INSET: f32 = 16.;
 
 /// Why items that need open media are disabled.
-const NOTHING_PLAYING: &str = "No media playing";
+pub(super) const NOTHING_PLAYING: &str = "No media playing";
 
 impl MainWindow {
     /// A right-click on the video: the menu at the pointer.

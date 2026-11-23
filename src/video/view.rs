@@ -19,6 +19,7 @@ use super::Output;
 use super::frame::Frame;
 use super::frame_slot::{Delivery, FrameSlot};
 use super::framing::{self, Framing, Source};
+use super::still::Still;
 use super::subtitles::{self, Covered, Overlay, Placing};
 use crate::effects::{self, EffectSession};
 use crate::engine::player::{Player, PlayerEvent};
@@ -163,6 +164,15 @@ impl VideoView {
             file_colors: subtitles.file_styles,
             area: subtitles.area,
         })
+    }
+
+    /// The picture on screen and how it is framed, for a snapshot (S8.4); `None` while no
+    /// picture shows.
+    pub fn still(&self, cx: &App) -> Option<Still> {
+        let frame = self.shown.clone()?;
+        let source = self.source(&frame, cx);
+        let framing = Framing::of(&effects::effective(cx).prefs.video);
+        Some(Still::new(frame, source, framing))
     }
 
     fn is_audio_only(&self, cx: &App) -> bool {

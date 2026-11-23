@@ -3,16 +3,17 @@
 //! - [`Toasts`]: a per-window stack at the bottom right for transient news ("Saved
 //!   snapshot", "Subtitles downloaded"). Info and success toasts go away on their
 //!   own; errors stay until dismissed. At most [`MAX_VISIBLE`] show; older ones
-//!   drop off.
+//!   drop off. A toast may hold a thumbnail and several buttons (a snapshot's, S8.4.2).
 //! - [`banner`]: an inline message inside a screen, for problems tied to it
 //!   ("Settings couldn't be saved"), with an optional action.
 
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    App, Context, Div, ElementId, Hsla, SharedString, Stateful, Window, accesskit, div, prelude::*,
-    px,
+    App, Context, Div, ElementId, Hsla, ImageSource, RenderImage, SharedString, Stateful, Window,
+    accesskit, div, img, prelude::*, px,
 };
 
 use super::button::{Button, ButtonStyle, IconButton};
@@ -29,6 +30,8 @@ const AUTO_DISMISS: Duration = Duration::from_secs(6);
 const TOAST_WIDTH: f32 = 360.;
 /// The size of the level icon in toasts and banners.
 const ICON_SIZE: f32 = 18.;
+/// The most room a toast's thumbnail takes, in points: 16:9 at a glance.
+const THUMBNAIL_SIZE: (f32, f32) = (96., 54.);
 
 /// How important a message is, which sets its color and whether it goes away alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,31 +71,62 @@ pub struct Toast {
     id: u64,
     level: Level,
     message: SharedString,
-    action: Option<(SharedString, Action)>,
+    actions: Vec<ToastAction>,
+    /// A picture shown at the toast's start, in BGRA.
+    thumbnail: Option<Arc<RenderImage>>,
 }
 
 impl Toast {
     /// A toast showing `message` at `level`.
     pub fn new(level: Level, message: impl Into<SharedString>) -> Self {
-        Self { id: 0, level, message: message.into(), action: None }
+        Self { id: 0, level, message: message.into(), actions: Vec::new(), thumbnail: None }
     }
 
-    /// Adds a button labelled `label` that dismisses the toast and runs `f`.
+    /// Adds a button labelled `label`, after any added before, that dismisses the toast and
+    /// runs `f`.
     pub fn action(
         mut self,
         label: impl Into<SharedString>,
         f: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
-        self.action = Some((label.into(), Rc::new(f)));
+        self.actions.push(ToastAction { label: label.into(), run: Rc::new(f), dismisses: true });
         self
     }
+
+    /// Adds a button labelled `label`, after any added before, that runs `f` and leaves the
+    /// toast up, for buttons worth pressing one after another (Open, then Copy).
+    pub fn lasting_action(
+        mut self,
+        label: impl Into<SharedString>,
+        f: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.actions.push(ToastAction { label: label.into(), run: Rc::new(f), dismisses: false });
+        self
+    }
+
+    /// Shows `thumbnail` in place of the level icon, its buttons under the message.
+    pub fn thumbnail(mut self, thumbnail: Arc<RenderImage>) -> Self {
+        self.thumbnail = Some(thumbnail);
+        self
+    }
+}
+
+/// A toast's button.
+struct ToastAction {
+    label: SharedString,
+    run: Action,
+    /// Whether pressing it dismisses the toast.
+    dismisses: bool,
 }
 
 /// A window's stack of toasts, drawn at its bottom right.
 #[derive(Default)]
 pub struct Toasts {
+    #[allow(clippy::struct_field_names, reason = "the stack's toasts; `items` would say less")]
     toasts: Vec<Toast>,
     next_id: u64,
+    /// The thumbnails drawn last time, freed from GPUI's atlas once their toast is gone.
+    drawn: Vec<Arc<RenderImage>>,
 }
 
 impl Toasts {
@@ -121,10 +155,31 @@ impl Toasts {
         id
     }
 
+    /// A button of the toast with `id` was pressed: dismisses it if the button `dismisses`.
+    fn press(&mut self, id: u64, dismisses: bool, cx: &mut Context<Self>) {
+        if dismisses {
+            self.dismiss(id, cx);
+        }
+    }
+
     /// Removes the toast with `id`, if it's still showing.
     pub fn dismiss(&mut self, id: u64, cx: &mut Context<Self>) {
         self.toasts.retain(|t| t.id != id);
         cx.notify();
+    }
+}
+
+impl Toasts {
+    /// Frees what GPUI keeps for the thumbnails of toasts that are gone.
+    fn free_thumbnails(&mut self, window: &mut Window) {
+        let shown: Vec<_> =
+            self.toasts.iter().filter_map(|toast| toast.thumbnail.clone()).collect();
+        for old in self.drawn.drain(..) {
+            if !shown.iter().any(|kept| Arc::ptr_eq(kept, &old)) {
+                window.drop_image(old).ok();
+            }
+        }
+        self.drawn = shown;
     }
 }
 
@@ -137,52 +192,84 @@ fn trim(toasts: &mut Vec<Toast>, max: usize) {
 }
 
 impl Toasts {
-    /// One toast card: icon, message, the optional action and a dismiss button.
+    /// One toast card: icon or thumbnail, message, the buttons and a dismiss button. With a
+    /// thumbnail the buttons go under the message, as there may be several.
     fn render_toast(toast: &Toast, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
         let id = toast.id;
-        let action = toast.action.clone().map(|(label, action)| {
-            Button::new(("toast-action", id as usize), label).style(ButtonStyle::Ghost).on_click(
+        let buttons = toast.actions.iter().enumerate().map(|(index, action)| {
+            let (run, dismisses) = (action.run.clone(), action.dismisses);
+            let button_id = ElementId::NamedInteger("toast-action".into(), id * 8 + index as u64);
+            Button::new(button_id, action.label.clone()).style(ButtonStyle::Ghost).on_click(
                 cx.listener(move |this, _, window, cx| {
-                    this.dismiss(id, cx);
-                    action(window, cx);
+                    this.press(id, dismisses, cx);
+                    run(window, cx);
                 }),
             )
         });
-        div()
-            .id(("toast", id as usize))
-            .occlude()
-            .w(px(TOAST_WIDTH))
-            .max_w_full()
+        let message = message(toast.message.clone(), p.text_strong).pt(px(4.));
+        let card = toast_card(id, p);
+        let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
+            .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx)));
+        let Some(thumbnail) = toast.thumbnail.clone() else {
+            let icon = two_tone(icons2::INFO, ICON_SIZE, p.icon, toast.level.color(p));
+            return card
+                .child(div().pt(px(4.)).child(icon))
+                .child(message)
+                .children(buttons)
+                .child(close);
+        };
+        let body = div()
+            .flex_1()
+            .min_w_0()
             .flex()
-            .flex_row()
-            .items_start()
-            .gap(px(10.))
-            .pl(px(12.))
-            .pr(px(4.))
-            .py(px(8.))
-            .rounded(px(metrics::RADIUS_LARGE))
-            .bg(p.menu)
-            .border_1()
-            .border_color(p.divider)
-            .shadow_lg()
-            .role(accesskit::Role::Alert)
-            .child(div().pt(px(4.)).child(two_tone(
-                icons2::INFO,
-                ICON_SIZE,
-                p.icon,
-                toast.level.color(p),
-            )))
-            .child(message(toast.message.clone(), p.text_strong).pt(px(4.)))
-            .children(action)
-            .child(
-                IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
-                    .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx))),
-            )
+            .flex_col()
+            .child(message)
+            .child(div().flex().flex_row().flex_wrap().ml(px(-8.)).children(buttons));
+        card.child(thumbnail_image(thumbnail, p)).child(body).child(close)
     }
+}
+
+/// An empty toast card for the toast with `id`.
+fn toast_card(id: u64, p: &Palette) -> Stateful<Div> {
+    div()
+        .id(("toast", id as usize))
+        .occlude()
+        .w(px(TOAST_WIDTH))
+        .max_w_full()
+        .flex()
+        .flex_row()
+        .items_start()
+        .gap(px(10.))
+        .pl(px(12.))
+        .pr(px(4.))
+        .py(px(8.))
+        .rounded(px(metrics::RADIUS_LARGE))
+        .bg(p.menu)
+        .border_1()
+        .border_color(p.divider)
+        .shadow_lg()
+        .role(accesskit::Role::Alert)
+}
+
+/// A toast's thumbnail, fitted into [`THUMBNAIL_SIZE`] on black.
+fn thumbnail_image(thumbnail: Arc<RenderImage>, p: &Palette) -> Div {
+    let (width, height) = THUMBNAIL_SIZE;
+    div()
+        .mt(px(4.))
+        .flex_none()
+        .w(px(width))
+        .h(px(height))
+        .rounded(px(metrics::RADIUS))
+        .overflow_hidden()
+        .border_1()
+        .border_color(p.divider)
+        .bg(gpui::black())
+        .child(img(ImageSource::Render(thumbnail)).size_full().object_fit(gpui::ObjectFit::Contain))
 }
 
 impl Render for Toasts {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.free_thumbnails(window);
         let p = theme::palette(window, cx);
         let toasts = self.toasts.iter().map(|toast| Self::render_toast(toast, &p, cx));
 

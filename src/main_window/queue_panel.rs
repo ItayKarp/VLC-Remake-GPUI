@@ -22,6 +22,7 @@ mod selection;
 #[cfg(test)]
 mod tests;
 
+pub(super) use self::bookmarks::media_title;
 pub(super) use self::rows::DragPreview;
 
 use std::collections::HashSet;

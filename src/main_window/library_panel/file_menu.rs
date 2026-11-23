@@ -118,7 +118,7 @@ fn add_to_playlist(main: &WeakEntity<MainWindow>, media: &[Media], cx: &App) -> 
 }
 
 /// What the OS's file manager is called: Show in Finder, File Explorer or Files.
-fn show_in_folder_label() -> &'static str {
+pub(in crate::main_window) fn show_in_folder_label() -> &'static str {
     if cfg!(target_os = "macos") {
         "Show in Finder"
     } else if cfg!(target_os = "windows") {

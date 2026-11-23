@@ -8,7 +8,7 @@
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
 //! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
 //! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
-//! a control bar of its own (S8.1).
+//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4).
 //! Onboarding hands off to it (S0.2).
 
 mod about;
@@ -52,6 +52,7 @@ mod seeking;
 mod session;
 mod settings_panel;
 mod shortcuts_dialog;
+mod snapshot;
 mod speed;
 pub(crate) mod subtitle_style;
 mod subtitle_sync;
@@ -275,9 +276,7 @@ impl MainWindow {
         self.menu = Some((menu, subscription));
         cx.notify();
     }
-}
 
-impl MainWindow {
     /// Names the OS window (taskbar, Alt+Tab, Mission Control) like the title bar (S2.1.5).
     fn sync_os_title(&mut self, window: &mut Window, cx: &App) {
         let title = self.title(cx);

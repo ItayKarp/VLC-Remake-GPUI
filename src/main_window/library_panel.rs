@@ -42,6 +42,7 @@ mod stream_menu;
 mod view_menu;
 
 pub(super) use self::drag::DraggedMedia;
+pub(super) use self::file_menu::show_in_folder_label;
 
 use gpui::{
     App, Context, Div, Entity, FocusHandle, MouseButton, MouseDownEvent, NavigationDirection,

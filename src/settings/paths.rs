@@ -110,6 +110,14 @@ pub fn default_media_folder() -> PathBuf {
     if cfg!(target_os = "macos") { home.join("Movies") } else { home.join("Videos") }
 }
 
+/// `text` as a path, a leading `~` standing for the home folder, as path rows are typed.
+pub fn expand_home(text: &str) -> PathBuf {
+    match (text.strip_prefix('~'), dirs::home_dir()) {
+        (Some(rest), Some(home)) => home.join(rest.trim_start_matches(['/', '\\'])),
+        _ => Path::new(text).to_path_buf(),
+    }
+}
+
 /// Shortens the home directory prefix to `~` for display, like the design's `~/Videos`.
 pub fn display_path(path: &Path) -> String {
     if let Some(home) = dirs::home_dir()

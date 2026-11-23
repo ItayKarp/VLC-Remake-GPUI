@@ -188,6 +188,8 @@ icons! {
     PRIVACY => "privacy.svg",
     /// Recording: a record button.
     RECORD => "record.svg",
+    /// Take Snapshot (S8.4, `media_controls/snapshot`).
+    SNAPSHOT => "snapshot.svg",
     /// Extensions: a puzzle piece (`plugins` in the icon set).
     PLUGINS => "plugins.svg",
     // The equalizer presets' curves (S7.7.3, `docs/icons/eq`): one line under each, and each

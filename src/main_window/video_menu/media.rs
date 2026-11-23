@@ -3,7 +3,7 @@
 //! - **Video:** Video Track ▸, the framing (Zoom ▸, Aspect Ratio ▸, Crop ▸, Flip ▸ and Rotate ▸,
 //!   S7.2), Deinterlace ▸ and its Deinterlacing Method ▸ (S7.2.6), and Fullscreen. Like the
 //!   player's settings panel, they change what plays for the session, not Settings (D24). Take
-//!   Snapshot comes with S8.4.
+//!   Snapshot (S8.4), disabled without a picture.
 //! - **Audio:** Audio Track ▸, Audio Device ▸ (as in the track popover, S2.6.3), Stereo Mode ▸
 //!   (Settings → Audio "Speaker setup"), Visualizer ▸ (Settings → Audio "Audio visualizer",
 //!   S7.8.1), Mute, and the volume keys' commands.
@@ -60,6 +60,10 @@ impl MainWindow {
         items.push(MenuItem::Separator);
         items.extend(SESSION_MENUS.iter().map(|(key, title)| session_menu(key, title, cx)));
         items.push(MenuItem::Separator);
+        let no_snapshot = self.why_no_snapshot(cx);
+        let snapshot = run(main, &act::Snapshot, "Take Snapshot", cx).icon(icons::SNAPSHOT);
+        items
+            .push(snapshot.disabled(no_snapshot.is_some()).why_disabled(no_snapshot.unwrap_or("")));
         items.push(run(main, &act::ToggleFullscreen, fullscreen, cx).icon(icons::FULLSCREEN));
         MenuItem::submenu("Video", items).icon(icons::VIDEO)
     }

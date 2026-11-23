@@ -1,7 +1,7 @@
 //! Video settings (Settings → Video, "Video Defaults", S5.8.1): whether video is decoded, going
 //! fullscreen when a video starts, keeping the display awake, the picture adjustments, the
 //! deinterlacing, the flip and rotation, the framing (S7.2), the color filters (S7.4) and how
-//! HDR shows (S7.5) every video shows with.
+//! HDR shows (S7.5) every video shows with, and what snapshots are saved as (S8.4).
 
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ use super::video_colors::ColorSettings;
 use crate::engine::hdr::HdrMode;
 use crate::engine::media_options::{Deinterlace, DeinterlaceMethod, Deinterlacing, Picture};
 use crate::engine::transform::{Flip, Rotation, Transform};
+use crate::snapshot::SnapshotFormat;
 use crate::video::framing::{AspectRatio, Crop, CropEdges, Zoom};
 
 /// The Custom aspect ratio until the user types one: ultrawide cinema.
@@ -70,6 +71,9 @@ pub struct VideoSettings {
     /// "HDR".
     #[serde(deserialize_with = "lenient")]
     pub hdr: HdrMode,
+    /// "Snapshot format" (S8.4).
+    #[serde(deserialize_with = "lenient")]
+    pub snapshot_format: SnapshotFormat,
 }
 
 impl VideoSettings {
@@ -102,6 +106,7 @@ impl Default for VideoSettings {
             flip: Flip::default(),
             rotation: Rotation::default(),
             hdr: HdrMode::default(),
+            snapshot_format: SnapshotFormat::default(),
         }
     }
 }
