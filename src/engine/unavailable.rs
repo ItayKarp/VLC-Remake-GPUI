@@ -6,6 +6,7 @@ use std::path::Path;
 use super::audio::equalizer::Equalizer;
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, EventSender};
+use super::colors::Colors;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::state::{ErrorKind, PlaybackState};
 use super::tracks::{TrackId, TrackKind};
@@ -71,6 +72,8 @@ impl Backend for UnavailableBackend {
     fn set_picture(&mut self, _: Option<Picture>) {}
 
     fn set_video_filters(&mut self, _: VideoFilters) {}
+
+    fn set_colors(&mut self, _: Colors) {}
 
     fn shut_down(self: Box<Self>) {}
 }

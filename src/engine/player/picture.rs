@@ -1,8 +1,9 @@
 //! The [`Player`]'s picture adjustments (S7.1): hue, brightness, contrast, saturation and gamma;
-//! and its video filters (S7.2): deinterlacing, flip and rotation. Both are seen at once and kept
-//! for the media after.
+//! its video filters (S7.2): deinterlacing, flip and rotation; and its color filters (S7.4). All
+//! are seen at once and kept for the media after.
 
 use super::Player;
+use crate::engine::colors::Colors;
 use crate::engine::media_options::{Picture, VideoFilters};
 
 impl Player {
@@ -17,6 +18,14 @@ impl Player {
     /// The picture's adjustments in use; `None` while off.
     pub fn picture(&self) -> Option<Picture> {
         self.picture
+    }
+
+    /// Shows video through the color filters `colors` turns on from now on.
+    pub fn set_colors(&mut self, colors: Colors) {
+        if self.colors != colors {
+            self.colors = colors;
+            self.with_backend(|backend| backend.set_colors(colors));
+        }
     }
 
     /// Passes video through `filters` from now on; the media playing reopens where it is.

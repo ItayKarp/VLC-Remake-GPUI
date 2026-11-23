@@ -11,7 +11,8 @@
 //! Its other designed rows (Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with
 //! their stories (S8.13, S7.8) and are hidden until then, as are the Audio tab's settings (Stage
 //! 7). The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
-//! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1). The
+//! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1), Colors
+//! with its own (`colors_section.rs`, S7.4). The
 //! Subtitles tab holds the subtitle defaults and the showing subtitle's synchronization
 //! (`subtitles.rs`, S6.3). Those three tabs have a footer that stays put while they scroll: the
 //! preset picker (S5.11), the same as at the foot of the Settings pages, opening upward; **Save
@@ -25,6 +26,7 @@
 //! popover or menu, the window losing focus, its media going, and fullscreen. The track popover's
 //! Show Preferences opens it on the matching tab.
 
+mod colors_section;
 mod crop_section;
 mod custom_ratio;
 mod effect_section;
@@ -43,6 +45,7 @@ use gpui::{
 
 pub(super) use playback::SpeedControls;
 
+use self::colors_section::ColorsControls;
 use self::crop_section::CropControls;
 use self::effect_section::EffectControls;
 use self::subtitles::SubtitleControls;
@@ -52,7 +55,7 @@ use super::MainWindow;
 use super::bar_panel;
 use super::track_popover::tab_icon;
 use crate::assets::icons;
-use crate::effects::{self, EffectSection, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL};
+use crate::effects::{self, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL};
 use crate::engine::tracks::TrackKind;
 use crate::settings::registry::Category;
 use crate::settings_view::PresetPicker;
@@ -100,7 +103,7 @@ impl PanelTab {
     /// The tab's effect sections (S7.1), in order.
     fn sections(self) -> &'static [EffectSection] {
         match self {
-            Self::Video => &[VIDEO_CROP, VIDEO_ESSENTIAL],
+            Self::Video => &[VIDEO_CROP, VIDEO_ESSENTIAL, VIDEO_COLORS],
             Self::Playback | Self::Audio | Self::Subtitles => &[],
         }
     }
@@ -108,7 +111,7 @@ impl PanelTab {
     /// The tab's session values outside its sections (the Video tab's Defaults, S7.2).
     fn defaults(self) -> &'static [&'static str] {
         match self {
-            Self::Video => VIDEO_DEFAULTS,
+            Self::Video => effects::VIDEO_DEFAULTS,
             Self::Playback | Self::Audio | Self::Subtitles => &[],
         }
     }
@@ -159,9 +162,10 @@ pub(super) struct SettingsPanel {
     subtitles: SubtitleControls,
     /// Every tab's effect sections of sliders.
     effects: Vec<EffectControls>,
-    /// The Video tab's Defaults rows and Crop section.
+    /// The Video tab's Defaults rows, and its Crop and Colors sections.
     video_defaults: DefaultsControls,
     crop: CropControls,
+    colors: ColorsControls,
     /// The footer's preset picker.
     presets: Entity<PresetPicker>,
 }
@@ -178,11 +182,12 @@ impl SettingsPanel {
             effects: PanelTab::ALL
                 .iter()
                 .flat_map(|tab| tab.sections())
-                .filter(|section| **section != VIDEO_CROP)
+                .filter(|section| ![VIDEO_CROP, VIDEO_COLORS].contains(section))
                 .map(|section| EffectControls::new(*section, window, cx))
                 .collect(),
             video_defaults: DefaultsControls::new(window, cx),
             crop: CropControls::new(window, cx),
+            colors: ColorsControls::new(window, cx),
             presets: cx.new(|cx| PresetPicker::new(window, cx)),
         }
     }

@@ -14,6 +14,7 @@ use std::time::Duration;
 use super::audio::equalizer::Equalizer;
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
+use super::colors::Colors;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
@@ -250,6 +251,10 @@ impl Backend for MockBackend {
 
     fn set_video_filters(&mut self, filters: VideoFilters) {
         self.record(Command::SetVideoFilters(filters));
+    }
+
+    fn set_colors(&mut self, colors: Colors) {
+        self.record(Command::SetColors(colors));
     }
 
     fn shut_down(self: Box<Self>) {

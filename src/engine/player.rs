@@ -25,6 +25,7 @@ use self::tracks::TrackChoices;
 use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::coalesce::{FrameSteps, SeekQueue};
+use super::colors::Colors;
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::position::PositionTracker;
@@ -137,6 +138,8 @@ pub struct Player {
     picture: Option<Picture>,
     /// The video filters, as last given to the backend.
     video_filters: VideoFilters,
+    /// The color filters, as last given to the backend.
+    colors: Colors,
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
@@ -173,6 +176,7 @@ impl Player {
             media_options: MediaOptions::default(),
             picture: None,
             video_filters: VideoFilters::default(),
+            colors: Colors::NONE,
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),

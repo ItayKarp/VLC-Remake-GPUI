@@ -6,8 +6,9 @@
 //!
 //! Each slider is a setting from the registry, with its Settings page's label, range and format,
 //! showing the value in effect ([`effects`]). A double-click puts one slider back on its default
-//! and lets it follow Settings again (S7.1.4). Whether a section is open is remembered across
-//! launches, per section.
+//! and lets it follow Settings again (S7.1.4). A slider under one of the section's own switches is
+//! disabled while that switch is off (S7.4.3); the section's toggle never disables one, as moving
+//! it turns the section on. Whether a section is open is remembered across launches, per section.
 
 use gpui::{
     App, Context, Div, Entity, SharedString, Stateful, Subscription, Window, div, prelude::*, px,
@@ -29,12 +30,14 @@ use crate::ui::{focus, metrics};
 const TITLE_HEIGHT: f32 = 44.;
 const TITLE_GAP: f32 = 8.;
 /// The text size of the title, the header and the slider labels.
-const TEXT: f32 = 14.;
+pub(super) const TEXT: f32 = 14.;
 /// The box's padding, and the space above each slider's label.
 pub(super) const BOX_PADDING: f32 = 16.;
 const ROW_GAP: f32 = 12.;
 /// The chevron's size.
 const CHEVRON: f32 = 20.;
+/// How faded a disabled control's label is, as the kit's disabled controls (S5.1.3).
+pub(super) const DISABLED_OPACITY: f32 = 0.4;
 
 /// A section's sliders, made once and kept in step with the values in effect.
 pub(super) struct EffectControls {
@@ -44,7 +47,8 @@ pub(super) struct EffectControls {
 }
 
 impl EffectControls {
-    /// The sliders of `section`'s controls, changing the session when moved.
+    /// The sliders of `section`'s slider controls, changing the session when moved; its other
+    /// controls are left to the caller.
     pub(super) fn new(
         section: EffectSection,
         window: &mut Window,
@@ -52,7 +56,7 @@ impl EffectControls {
     ) -> Self {
         let mut sliders = Vec::new();
         let mut events = Vec::new();
-        for key in section.controls {
+        for key in section.controls.iter().filter(|key| is_slider(key)) {
             let Some((label, slider)) = make_slider(key, window, cx) else { continue };
             events.push(cx.subscribe(&slider, move |_, _, event: &slider::Changed, cx| {
                 effects::change(cx, &section, key, Value::Number(event.0));
@@ -65,9 +69,16 @@ impl EffectControls {
         Self { section, sliders, _events: events }
     }
 
-    /// Shows the values in effect, and makes each default the one a double-click goes back to.
+    /// The slider of the setting `key`.
+    pub(super) fn slider(&self, key: &str) -> Option<(&'static str, &Entity<Slider>)> {
+        self.sliders.iter().find(|(k, ..)| *k == key).map(|(_, label, slider)| (*label, slider))
+    }
+
+    /// Shows the values in effect, makes each default the one a double-click goes back to, and
+    /// disables the sliders whose switch is off.
     pub(super) fn sync(&self, window: &mut Window, cx: &mut Context<MainWindow>) {
         for (key, _, slider) in &self.sliders {
+            let live = is_live(cx, &self.section, key);
             let (Some(value), Some(default)) = (
                 number(effects::value(cx, key).as_ref()),
                 number(effects::default_value(cx, key).as_ref()),
@@ -75,6 +86,7 @@ impl EffectControls {
                 continue;
             };
             slider.update(cx, |slider, cx| {
+                slider.set_disabled(!live, cx);
                 slider.set_default(default);
                 slider.set_value(value, window, cx);
             });
@@ -85,21 +97,45 @@ impl EffectControls {
     pub(super) fn render(&self, p: &Palette, cx: &App) -> Div {
         let content = is_expanded(cx, &self.section).then(|| {
             div().flex().flex_col().px(px(BOX_PADDING)).pb(px(BOX_PADDING)).children(
-                self.sliders.iter().map(|(_, label, slider)| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(ROW_GAP))
-                        .pt(px(ROW_GAP))
-                        .text_size(px(TEXT))
-                        .text_color(p.text_muted)
-                        .child(*label)
-                        .child(slider.clone())
+                self.sliders.iter().map(|(key, label, slider)| {
+                    slider_row(label, slider, is_live(cx, &self.section, key), p)
                 }),
             )
         });
         folding(&self.section, content, p, cx)
     }
+}
+
+/// A slider under its label, which is dimmed with it while the slider isn't `live`.
+pub(super) fn slider_row(
+    label: &'static str,
+    slider: &Entity<Slider>,
+    live: bool,
+    p: &Palette,
+) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(ROW_GAP))
+        .pt(px(ROW_GAP))
+        .text_size(px(TEXT))
+        .text_color(p.text_muted)
+        .child(div().when(!live, |label| label.opacity(DISABLED_OPACITY)).child(label))
+        .child(slider.clone())
+}
+
+/// Whether `key`'s control can be used: one depending on another of `section`'s switches only
+/// while that switch is on (S7.4.3). The section's toggle never disables a control.
+pub(super) fn is_live(cx: &App, section: &EffectSection, key: &str) -> bool {
+    let Some(dependency) = registry::find(key).and_then(|def| def.dependency) else { return true };
+    dependency.key == section.toggle
+        || effects::value(cx, dependency.key)
+            .is_some_and(|value| dependency.condition.holds(&value))
+}
+
+/// Whether the setting `key` is shown with a slider.
+fn is_slider(key: &str) -> bool {
+    registry::find(key).is_some_and(|def| matches!(def.control, Control::Slider { .. }))
 }
 
 /// `section`'s title row over its box, which holds `content` while open (`None` folded).

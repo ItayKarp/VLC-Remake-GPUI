@@ -55,9 +55,9 @@ impl Worker {
     }
 
     /// Whether the filters only work on software-decoded pictures: libVLC 3 can't transform
-    /// VideoToolbox's frames, nor enhance them (S7.3).
+    /// VideoToolbox's frames, nor enhance or color them (S7.3, S7.4).
     pub(super) fn filters_need_software(&self) -> bool {
-        self.video_filters.transform != Transform::NONE || self.enhanced
+        self.video_filters.transform != Transform::NONE || self.cpu_filters.any()
     }
 
     /// Sets the player's variables for the filters and the media open now, and tells the sink

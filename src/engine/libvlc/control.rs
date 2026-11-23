@@ -84,14 +84,8 @@ impl Worker {
                 }
                 Command::SetMute(muted) => self.set_mute(muted),
                 Command::SelectTrack(kind, track) => self.select_track(kind, track),
-                Command::SetAudioDelay(delay) => {
-                    self.audio_delay = delay;
-                    self.apply_delays();
-                }
-                Command::SetSubtitleDelay(delay) => {
-                    self.subtitle_delay = delay;
-                    self.apply_delays();
-                }
+                Command::SetAudioDelay(delay) => self.set_delays(Some(delay), None),
+                Command::SetSubtitleDelay(delay) => self.set_delays(None, Some(delay)),
                 Command::AddSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Shown),
                 Command::LoadSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Listed),
                 Command::AddAudio(path) => self.add_slave(SlaveKind::Audio, path, Attach::Shown),
@@ -102,8 +96,16 @@ impl Worker {
                 Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
                 Command::SetPicture(picture) => self.set_picture(picture),
                 Command::SetVideoFilters(filters) => self.set_video_filters(filters),
+                Command::SetColors(colors) => self.set_colors(colors),
             }
         }
+    }
+
+    /// Changes the audio delay, the subtitle delay or both, and sets them on the playing media.
+    fn set_delays(&mut self, audio: Option<Offset>, subtitle: Option<Offset>) {
+        self.audio_delay = audio.unwrap_or(self.audio_delay);
+        self.subtitle_delay = subtitle.unwrap_or(self.subtitle_delay);
+        self.apply_delays();
     }
 
     /// Sets both delays on the playing media. libVLC resets them for every new media, so this

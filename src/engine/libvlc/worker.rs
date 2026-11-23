@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::audio::DeviceWatch;
+use super::cpu_filters::CpuFilters;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
@@ -103,8 +104,8 @@ pub struct Worker {
     pub(super) restore: Option<Restore>,
     /// The filters video passes through.
     pub(super) video_filters: VideoFilters,
-    /// Whether one of the picture's enhancements (S7.3) is on, which decodes in software.
-    pub(super) enhanced: bool,
+    /// The filters on decoded pictures that are on (S7.3, S7.4), which decode in software.
+    pub(super) cpu_filters: CpuFilters,
     /// Whether the open file stores its picture a quarter turn from upright.
     pub(super) quarter_turned: bool,
     /// When to switch to software decoding for a shown subtitle.
@@ -139,7 +140,7 @@ impl Worker {
             slaves: Vec::new(),
             restore: None,
             video_filters: VideoFilters::default(),
-            enhanced: false,
+            cpu_filters: CpuFilters::default(),
             quarter_turned: false,
             switch_due: None,
             hold: None,

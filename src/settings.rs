@@ -34,14 +34,14 @@ pub use paths::{Locations, cache_dir, default_media_folder, display_path};
 )]
 pub use schema::{
     ArtworkSource, AudioSettings, AutoHide, Buffering, Caching, CastQuality, CipherPreference,
-    ClickAction, ClockSynchronisation, ControlsSettings, CustomBinding, Decoder, DoubleClickAction,
-    DurationReadout, Encoder, EncodingPreset, FitVideo, HardwareDecoding, HorizontalWheelAction,
-    InterfaceLanguage, KeymapSettings, LibraryRoutes, LibrarySettings, LiveState, LocalState,
-    MiniplayerCorner, NetworkSettings, NowPlayingNotification, PerformanceSettings,
-    PictureSettings, PlayerSettings, PostProcessing, Preferences, Preset, PresetSettings,
-    QueueSiblings, RecordingSettings, ResumePolicy, Settings, SizeValues, SkipLength,
-    SkipLoopFilter, StartupVolume, SubtitleArea, SubtitleSettings, Tuning, VideoQuality,
-    VideoSettings, WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
+    ClickAction, ClockSynchronisation, ColorSettings, ControlsSettings, CustomBinding, Decoder,
+    DoubleClickAction, DurationReadout, Encoder, EncodingPreset, FitVideo, HardwareDecoding,
+    HorizontalWheelAction, InterfaceLanguage, KeymapSettings, LibraryRoutes, LibrarySettings,
+    LiveState, LocalState, MiniplayerCorner, NetworkSettings, NowPlayingNotification,
+    PerformanceSettings, PictureSettings, PlayerSettings, PostProcessing, Preferences, Preset,
+    PresetSettings, QueueSiblings, RecordingSettings, ResumePolicy, Settings, SizeValues,
+    SkipLength, SkipLoopFilter, StartupVolume, SubtitleArea, SubtitleSettings, Tuning,
+    VideoQuality, VideoSettings, WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;

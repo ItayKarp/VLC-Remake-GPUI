@@ -40,6 +40,30 @@ pub const VIDEO_ESSENTIAL: EffectSection = EffectSection {
     ],
 };
 
+/// The Video tab's Colors (`panels/video/colors`): the color filters (S7.4), each with its own
+/// switch under the section's, Sepia's off at 0.
+pub const VIDEO_COLORS: EffectSection = EffectSection {
+    id: "video.colors",
+    title: "Colors",
+    toggle: "video.colors.enabled",
+    controls: &[
+        "video.colors.extract",
+        "video.colors.extract_color",
+        "video.colors.threshold",
+        "video.colors.threshold_color",
+        "video.colors.threshold_saturation",
+        "video.colors.threshold_similarity",
+        "video.colors.negate",
+        "video.colors.posterize",
+        "video.colors.posterize_levels",
+        "video.colors.gradient",
+        "video.colors.gradient_mode",
+        "video.colors.gradient_color",
+        "video.colors.cartoon",
+        "video.colors.sepia",
+    ],
+};
+
 /// The Video tab's Crop (`panels/video/crop`): pixels trimmed off each edge (S7.2.5).
 pub const VIDEO_CROP: EffectSection = EffectSection {
     id: "video.crop",
@@ -87,7 +111,7 @@ mod tests {
             let def = registry::find(key).expect("each edge is a setting");
             assert!(matches!(def.control, Control::Number { .. }), "{key}");
         }
-        for key in VIDEO_DEFAULTS {
+        for key in VIDEO_DEFAULTS.iter().chain(VIDEO_COLORS.controls) {
             assert!(registry::find(key).is_some(), "{key}");
         }
     }

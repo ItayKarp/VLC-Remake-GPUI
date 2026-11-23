@@ -16,7 +16,8 @@ use libloading::Library;
 
 use super::api::{LibVlc, MediaPlayer};
 
-/// `VLC_VAR_INTEGER`, `VLC_VAR_STRING` and `VLC_VAR_FLOAT`.
+/// `VLC_VAR_BOOL`, `VLC_VAR_INTEGER`, `VLC_VAR_STRING` and `VLC_VAR_FLOAT`.
+const VAR_BOOL: c_int = 0x0020;
 const VAR_INTEGER: c_int = 0x0030;
 const VAR_STRING: c_int = 0x0040;
 const VAR_FLOAT: c_int = 0x0050;
@@ -29,6 +30,7 @@ const SUCCESS: c_int = 0;
 #[repr(C)]
 #[derive(Clone, Copy)]
 union VlcValue {
+    boolean: bool,
     integer: i64,
     float: f32,
     string: *const c_char,
@@ -81,6 +83,8 @@ impl CoreVars {
 /// The value of one of the player's variables.
 #[derive(Clone, Copy, Debug)]
 pub enum Var<'a> {
+    /// On or off.
+    Bool(bool),
     /// A number.
     Integer(i64),
     /// A fraction.
@@ -93,6 +97,7 @@ impl Var<'_> {
     /// libVLC's type for it, and its value.
     fn raw(self) -> (c_int, VlcValue) {
         match self {
+            Self::Bool(boolean) => (VAR_BOOL, VlcValue { boolean }),
             Self::Integer(integer) => (VAR_INTEGER, VlcValue { integer }),
             Self::Float(float) => (VAR_FLOAT, VlcValue { float }),
             Self::String(text) => (VAR_STRING, VlcValue { string: text.as_ptr() }),

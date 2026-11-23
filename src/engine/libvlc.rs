@@ -15,8 +15,12 @@ mod api;
 mod audio;
 mod audio_effects;
 mod certificates;
+mod color_filters;
+#[cfg(test)]
+mod color_tests;
 mod control;
 mod core_vars;
+mod cpu_filters;
 mod decoding;
 mod enhance;
 #[cfg(test)]
@@ -68,6 +72,7 @@ use self::worker::{Handles, Message, Worker};
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
+use super::colors::Colors;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
@@ -253,6 +258,10 @@ impl Backend for LibVlcBackend {
 
     fn set_video_filters(&mut self, filters: VideoFilters) {
         self.send(Command::SetVideoFilters(filters));
+    }
+
+    fn set_colors(&mut self, colors: Colors) {
+        self.send(Command::SetColors(colors));
     }
 
     fn shut_down(mut self: Box<Self>) {

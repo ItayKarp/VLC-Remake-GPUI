@@ -24,7 +24,7 @@ pub(crate) mod value;
 )]
 pub use category::Layout;
 pub use category::{Category, Group};
-pub use color::hex_color;
+pub use color::{format as format_hex_color, hex_color};
 pub use def::{
     ApplyMode, Control, HintTone, MachineChoice, Marks, OptionsSource, PathPick, SettingDef,
 };

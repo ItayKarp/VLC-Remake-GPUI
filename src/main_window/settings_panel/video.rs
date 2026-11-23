@@ -1,8 +1,8 @@
 //! The settings panel's Video tab (`controls-video_settings.png`): **Defaults** (flip, rotate,
 //! zoom, resolution, aspect ratio and crop, S7.2) with the **Crop** section's edges under them,
-//! then **Filters**, the effect sections (S7.1), now the Essential picture adjustments and
-//! enhancements (S7.3). All of them change what plays for the rest of the session. The other
-//! filters come with S7.4 and S7.5.
+//! then **Filters**, the effect sections (S7.1): the Essential picture adjustments and
+//! enhancements (S7.3), then the Colors (S7.4). All of them change what plays for the rest of the
+//! session. HDR comes with S7.5.
 
 use gpui::{Context, Div, Window, div, prelude::*, px};
 
@@ -24,6 +24,7 @@ impl MainWindow {
     ) -> Div {
         self.settings_panel.video_defaults.sync(window, cx);
         self.settings_panel.crop.sync(window, cx);
+        self.settings_panel.colors.sync(window, cx);
         let shown = PanelTab::Video.sections();
         let sections = self.settings_panel.effects.iter().filter(|c| shown.contains(&c.section));
         for controls in sections.clone() {
@@ -36,7 +37,8 @@ impl MainWindow {
             .child(self.render_video_defaults(p, cx))
             .child(self.render_crop_section(p, cx));
         let filters = section("Filters", FILTERS_NOTE, p)
-            .children(sections.map(|controls| controls.render(p, cx)));
+            .children(sections.map(|controls| controls.render(p, cx)))
+            .child(self.settings_panel.colors.render(p, cx));
         div().flex().flex_col().child(defaults).child(div().h(px(1.)).bg(p.divider)).child(filters)
     }
 }

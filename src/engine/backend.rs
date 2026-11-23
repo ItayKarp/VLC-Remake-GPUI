@@ -13,6 +13,7 @@ use futures::channel::mpsc;
 
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
+use super::colors::Colors;
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::state::PlaybackState;
@@ -143,6 +144,8 @@ pub enum Command {
     SetPicture(Option<Picture>),
     /// Pass video through these filters.
     SetVideoFilters(VideoFilters),
+    /// Show video through these color filters.
+    SetColors(Colors),
 }
 
 /// A playback backend.
@@ -211,6 +214,9 @@ pub trait Backend: Send {
     /// Passes video through `filters` from now on, for this and later media. The media playing
     /// is reopened where it is for it, so the change is seen at once.
     fn set_video_filters(&mut self, filters: VideoFilters);
+    /// Shows video through the color filters `colors` turns on from now on, for this and later
+    /// media. Seen at once.
+    fn set_colors(&mut self, colors: Colors);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

@@ -1,10 +1,12 @@
 //! Video settings (Settings → Video, "Video Defaults", S5.8.1): whether video is decoded, going
 //! fullscreen when a video starts, keeping the display awake, the picture adjustments, the
-//! deinterlacing, the flip and rotation, and the framing (S7.2) every video shows with.
+//! deinterlacing, the flip and rotation, the framing (S7.2) and the color filters (S7.4) every
+//! video shows with.
 
 use serde::{Deserialize, Serialize};
 
 use super::super::lenient::lenient;
+use super::video_colors::ColorSettings;
 use crate::engine::media_options::{Deinterlace, DeinterlaceMethod, Deinterlacing, Picture};
 use crate::engine::transform::{Flip, Rotation, Transform};
 use crate::video::framing::{AspectRatio, Crop, CropEdges, Zoom};
@@ -34,6 +36,9 @@ pub struct VideoSettings {
     /// film grain.
     #[serde(deserialize_with = "lenient")]
     pub picture: PictureSettings,
+    /// "Colors": the color filters.
+    #[serde(deserialize_with = "lenient")]
+    pub colors: ColorSettings,
     /// "Deinterlacing": when.
     #[serde(deserialize_with = "lenient")]
     pub deinterlace: Deinterlace,
@@ -82,6 +87,7 @@ impl Default for VideoSettings {
             start_fullscreen: false,
             keep_display_awake: true,
             picture: PictureSettings::default(),
+            colors: ColorSettings::default(),
             deinterlace: Deinterlace::default(),
             deinterlace_method: DeinterlaceMethod::default(),
             aspect_ratio: AspectRatio::default(),

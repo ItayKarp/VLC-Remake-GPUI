@@ -25,6 +25,7 @@ mod privacy;
 mod recording;
 mod subtitles;
 mod video;
+mod video_colors;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -60,6 +61,7 @@ pub use privacy::PrivacySettings;
 pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
 pub use subtitles::{SizeValues, SubtitleArea, SubtitleSettings};
 pub use video::{PictureSettings, VideoSettings};
+pub use video_colors::ColorSettings;
 
 /// Everything the app persists, as one in-memory value.
 #[derive(Clone, Debug, Default, PartialEq)]

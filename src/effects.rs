@@ -22,7 +22,7 @@ mod session;
 
 use gpui::{App, BorrowAppContext as _, Global};
 
-pub use section::{EffectSection, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL};
+pub use section::{EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL};
 pub use session::Session;
 
 use crate::settings::registry::{self, Value};
@@ -86,9 +86,10 @@ pub fn set_enabled(cx: &mut App, section: &EffectSection, on: bool) {
     update(cx, |session| session.set(key, Value::Bool(on)));
 }
 
-/// Sets one of `section`'s controls for the session, turning the section on if it was off.
+/// Sets one of `section`'s controls for the session, turning the section on if it was off; a
+/// switch inside it turned off leaves the section as it is.
 pub fn change(cx: &mut App, section: &EffectSection, key: &'static str, to: Value) {
-    let off = value(cx, section.toggle) == Some(Value::Bool(false));
+    let off = to != Value::Bool(false) && value(cx, section.toggle) == Some(Value::Bool(false));
     update(cx, |session| {
         session.set(key, to);
         if off {
