@@ -60,6 +60,7 @@ fn an_unplugged_device_falls_back_pauses_and_returns(cx: &mut TestAppContext) {
     rig.emit(cx, BackendEvent::AudioDevices(vec![device("1"), device("2")]));
     rig.run(cx, |player, cx| player.set_audio_device(headphones(), cx));
     rig.open(cx);
+    rig.run(cx, |player, _| player.age_playback(secs(6)));
     rig.mock.take_commands();
     rig.emit(cx, BackendEvent::AudioDevices(vec![device("1")]));
     let fallback = [Command::SetAudioDevice(OutputDevice::SystemDefault), Command::Pause];
@@ -68,6 +69,18 @@ fn an_unplugged_device_falls_back_pauses_and_returns(cx: &mut TestAppContext) {
     assert_eq!(rig.count(&PlayerEvent::AudioDeviceLost(device("2"))), 1);
     rig.emit(cx, BackendEvent::AudioDevices(vec![device("1"), device("2")]));
     assert_eq!(rig.mock.take_commands(), [Command::SetAudioDevice(headphones())]);
+}
+
+#[gpui::test]
+fn a_device_leaving_as_playback_starts_moves_sound_without_pausing(cx: &mut TestAppContext) {
+    let rig = Rig::new(cx, MockMedia::default());
+    rig.emit(cx, BackendEvent::AudioDevices(vec![device("1"), device("2")]));
+    rig.open(cx);
+    rig.mock.take_commands();
+    rig.emit(cx, BackendEvent::AudioDevices(vec![device("1")]));
+    assert!(!rig.mock.take_commands().contains(&Command::Pause));
+    assert_eq!(rig.state(cx), PlaybackState::Playing);
+    assert_eq!(rig.count(&PlayerEvent::AudioDeviceLost(device("2"))), 1);
 }
 
 #[gpui::test]

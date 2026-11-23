@@ -64,6 +64,7 @@ impl Worker {
         self.add_slaves(media);
         self.restore = Some(tracks);
         self.shared.switching.store(true, Ordering::Relaxed);
+        self.shared.audible.store(false, Ordering::Relaxed);
         self.devices.settle(Instant::now());
         if output == Output::Rebuilt {
             // SAFETY: the player is live; the stop it reports is hidden while switching.

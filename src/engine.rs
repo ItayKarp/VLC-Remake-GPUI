@@ -24,6 +24,7 @@
 //! - [`transform`]: flipping and rotating the picture (S7.2).
 //! - [`colors`]: the color filters (S7.4).
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
+//! - [`waveform`]: a file's loudness along its length, for the waveform seek bar (S7.8.2).
 
 pub mod audio;
 pub mod backend;
@@ -57,6 +58,7 @@ pub mod transform;
 mod unavailable;
 pub mod values;
 pub mod video;
+pub mod waveform;
 
 use std::sync::Arc;
 

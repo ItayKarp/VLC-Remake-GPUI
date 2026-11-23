@@ -1,16 +1,24 @@
 //! The [`Player`]'s audio (S1.5): volume within the maximum, mute, the output device and its
-//! hot-plug fallback, speaker setup and stereo mode (S7.6.2), the equalizer, and pausing for
-//! another app's audio.
+//! hot-plug fallback, speaker setup and stereo mode (S7.6.2), the equalizer, the visualizer
+//! (S7.8.1), and pausing for another app's audio.
+
+use std::time::{Duration, Instant};
 
 use gpui::{Context, Task};
 
 use super::{Intent, Player, PlayerEvent};
 use crate::engine::audio::equalizer::Equalization;
+use crate::engine::audio::visualizer::VisualEffect;
 use crate::engine::audio::{
     AudioDevice, AudioPolicy, OutputDevice, SpeakerSetup, StereoMode, hotplug,
 };
 use crate::engine::state::PlaybackState;
 use crate::engine::values::{DEFAULT_MAX_VOLUME, MIN_MAX_VOLUME, Volume, VolumeChange};
+
+/// How long after sound starts a device going away doesn't pause: AirPods leave a Mac about 3 s
+/// after any app starts playing when their automatic switching or ear detection takes them
+/// elsewhere, which would pause every play. Sound still moves to the default device.
+pub(super) const DEVICE_LOSS_GRACE: Duration = Duration::from_secs(5);
 
 /// The player's audio state, kept across opens.
 pub(super) struct AudioState {
@@ -24,6 +32,8 @@ pub(super) struct AudioState {
     stereo_mode: StereoMode,
     /// The equalizer sound goes through; `None` while it is off.
     equalizer: Option<Equalization>,
+    /// The visualizer drawn for media without video; `None` while there is none.
+    visualizer: Option<VisualEffect>,
     policy: AudioPolicy,
     /// The devices plugged in; `None` until the backend reports them.
     devices: Option<Vec<AudioDevice>>,
@@ -33,6 +43,8 @@ pub(super) struct AudioState {
     pub(super) paused_for_test: bool,
     /// Ends the test tone's pause once the tone is over (`test_tone.rs`).
     pub(super) test_ends: Option<Task<()>>,
+    /// When playback last started or resumed, for [`DEVICE_LOSS_GRACE`].
+    pub(super) sounding_since: Option<Instant>,
 }
 
 impl Default for AudioState {
@@ -44,11 +56,13 @@ impl Default for AudioState {
             speaker_setup: SpeakerSetup::Automatic,
             stereo_mode: StereoMode::Stereo,
             equalizer: None,
+            visualizer: None,
             policy: AudioPolicy::default(),
             devices: None,
             paused_for_cork: false,
             paused_for_test: false,
             test_ends: None,
+            sounding_since: None,
         }
     }
 }
@@ -182,6 +196,13 @@ impl Player {
         }
     }
 
+    /// Draws `effect` in the video area for media without video, or nothing; seen at once.
+    pub fn set_visualizer(&mut self, effect: Option<VisualEffect>) {
+        if std::mem::replace(&mut self.audio.visualizer, effect) != effect {
+            self.with_backend(|backend| backend.set_visualizer(effect));
+        }
+    }
+
     /// Sets what the player does on its own when a device goes or another app needs audio.
     pub fn set_audio_policy(&mut self, policy: AudioPolicy) {
         self.audio.policy = policy;
@@ -196,7 +217,10 @@ impl Player {
         self.reroute();
         if let Some(device) = lost {
             tracing::info!("engine: audio device {:?} went away", device.name);
-            if self.audio.policy.pause_on_device_loss && self.is_playing_for_user() {
+            if self.audio.policy.pause_on_device_loss
+                && self.is_playing_for_user()
+                && !self.just_started_sounding()
+            {
                 self.pause(cx);
             }
             cx.emit(PlayerEvent::AudioDeviceLost(device));
@@ -204,6 +228,23 @@ impl Player {
         if changed {
             cx.emit(PlayerEvent::AudioDevicesChanged);
         }
+    }
+
+    /// Moves the start of playback `by` into the past, for tests of [`DEVICE_LOSS_GRACE`].
+    #[cfg(test)]
+    pub(crate) fn age_playback(&mut self, by: Duration) {
+        self.audio.sounding_since =
+            self.audio.sounding_since.and_then(|since| since.checked_sub(by));
+    }
+
+    /// Whether playback started or resumed less than [`DEVICE_LOSS_GRACE`] ago.
+    fn just_started_sounding(&self) -> bool {
+        let recent =
+            self.audio.sounding_since.is_some_and(|since| since.elapsed() < DEVICE_LOSS_GRACE);
+        if recent {
+            tracing::info!("engine: a device went away as playback started; playing on");
+        }
+        recent
     }
 
     /// The OS asked for this app's audio to stop (`corked`) or allowed it again.

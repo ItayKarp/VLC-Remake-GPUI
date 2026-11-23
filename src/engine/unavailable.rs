@@ -4,6 +4,7 @@
 use std::path::Path;
 
 use super::audio::equalizer::Equalization;
+use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, EventSender};
 use super::colors::Colors;
@@ -67,6 +68,7 @@ impl Backend for UnavailableBackend {
     fn set_speaker_setup(&mut self, _: SpeakerSetup) {}
     fn set_stereo_mode(&mut self, _: StereoMode) {}
     fn play_test_tone(&mut self) {}
+    fn set_visualizer(&mut self, _: Option<VisualEffect>) {}
 
     fn set_media_options(&mut self, _: &MediaOptions) {}
 

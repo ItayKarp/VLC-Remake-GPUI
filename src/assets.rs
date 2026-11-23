@@ -25,6 +25,7 @@ use anyhow::Result;
 use gpui::{AssetSource, SharedString};
 
 use crate::engine::audio::equalizer::Preset;
+use crate::engine::audio::visualizer::Visualizer;
 
 /// Declares the embedded icons: each `CONST => "file.svg"` becomes an
 /// `icons::CONST` path and an entry in the asset table.
@@ -207,6 +208,15 @@ icons! {
     EQ_SOFT => "eq-soft.accent.svg",
     EQ_SOFT_ROCK => "eq-soft-rock.accent.svg",
     EQ_TECHNO => "eq-techno.accent.svg",
+    // The visualizers (S7.8.1, `docs/icons/audio_visualizer`), each split in two layers.
+    VIZ_SPECTROMETER => "viz-spectrometer.svg",
+    VIZ_SPECTROMETER_ACCENT => "viz-spectrometer.accent.svg",
+    VIZ_SCOPE => "viz-scope.svg",
+    VIZ_SCOPE_ACCENT => "viz-scope.accent.svg",
+    VIZ_SPECTRUM => "viz-spectrum.svg",
+    VIZ_SPECTRUM_ACCENT => "viz-spectrum.accent.svg",
+    VIZ_WAVEFORM => "viz-waveform.svg",
+    VIZ_WAVEFORM_ACCENT => "viz-waveform.accent.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.
@@ -229,8 +239,31 @@ pub mod two_tone {
     pub const CHECK_BOX: TwoTone =
         TwoTone { base: icons::CHECK_BOX, accent: icons::CHECK_BOX_ACCENT };
 
+    /// The visualizers' glyphs (S7.8.1).
+    pub const SPECTROMETER: TwoTone =
+        TwoTone { base: icons::VIZ_SPECTROMETER, accent: icons::VIZ_SPECTROMETER_ACCENT };
+    /// Scope's glyph.
+    pub const SCOPE: TwoTone = TwoTone { base: icons::VIZ_SCOPE, accent: icons::VIZ_SCOPE_ACCENT };
+    /// Spectrum's glyph.
+    pub const SPECTRUM: TwoTone =
+        TwoTone { base: icons::VIZ_SPECTRUM, accent: icons::VIZ_SPECTRUM_ACCENT };
+    /// Waveform's glyph.
+    pub const WAVEFORM: TwoTone =
+        TwoTone { base: icons::VIZ_WAVEFORM, accent: icons::VIZ_WAVEFORM_ACCENT };
+
     #[cfg(test)]
-    pub const ALL: &[TwoTone] = &[INFO, CHECK_BOX];
+    pub const ALL: &[TwoTone] = &[INFO, CHECK_BOX, SPECTROMETER, SCOPE, SPECTRUM, WAVEFORM];
+}
+
+/// The glyph before a visualizer's name in its dropdown; Disabled has none.
+pub fn visualizer_glyph(visualizer: Visualizer) -> Option<TwoTone> {
+    match visualizer {
+        Visualizer::Disabled => None,
+        Visualizer::Spectrometer => Some(two_tone::SPECTROMETER),
+        Visualizer::Scope => Some(two_tone::SCOPE),
+        Visualizer::Spectrum => Some(two_tone::SPECTRUM),
+        Visualizer::Waveform => Some(two_tone::WAVEFORM),
+    }
 }
 
 /// The curve before an equalizer preset's name in the presets dropdown; Custom has none.

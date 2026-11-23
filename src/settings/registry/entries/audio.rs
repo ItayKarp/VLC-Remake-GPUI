@@ -5,6 +5,7 @@ use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, Value, choice, number, text, toggle};
 use super::languages;
 use crate::app::audio_devices;
+use crate::engine::audio::visualizer::Visualizer;
 use crate::engine::audio::{SpeakerSetup, StereoMode};
 use crate::settings::registry::Category;
 use crate::settings::{self, Settings, StartupVolume};
@@ -12,6 +13,7 @@ use crate::settings::{self, Settings, StartupVolume};
 const OUTPUT: (Category, &str) = (Category::Audio, "Output");
 const VOLUME: (Category, &str) = (Category::Audio, "Volume");
 const TRACKS: (Category, &str) = (Category::Audio, "Tracks & Languages");
+const VISUALIZATION: (Category, &str) = (Category::Audio, "Visualization");
 /// A percentage field.
 const PERCENT: Control = Control::Number { unit: "%" };
 /// Maximum volume's ticks, and the ticks that are labelled.
@@ -42,6 +44,17 @@ impl SettingChoice for StereoMode {
         Choice::new("reverse_stereo", "Reverse stereo"),
         Choice::new("dolby_surround", "Dolby Surround"),
         Choice::new("headphones", "Headphones"),
+    ];
+}
+
+impl SettingChoice for Visualizer {
+    const VALUES: &'static [Self] = &Self::ALL;
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("disabled", "Disabled"),
+        Choice::new("spectrometer", "Spectrometer"),
+        Choice::new("scope", "Scope"),
+        Choice::new("spectrum", "Spectrum"),
+        Choice::new("waveform", "Waveform"),
     ];
 }
 
@@ -142,7 +155,11 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.audio.pause_on_device_disconnect),
     )
-    .info("Pauses when the device that was playing goes away, so sound doesn't jump to speakers.")
+    .info(
+        "Pauses when the device that was playing goes away, so sound doesn't jump to speakers. \
+         Not in the first seconds after playback starts, when AirPods may leave as they switch \
+         to another device.",
+    )
     .keywords(&["bluetooth", "disconnect", "output device"]),
     SettingDef::new(
         "audio.passthrough",
@@ -203,6 +220,19 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .info("How much the Up and Down keys and each scroll step change the volume.")
     .range(1., 100., 1.)
     .keywords(&["increment", "arrow keys", "scroll"]),
+    SettingDef::new(
+        "audio.visualizer",
+        VISUALIZATION,
+        "Audio visualizer",
+        Control::Dropdown(Visualizer::CHOICES),
+        choice!(prefs.audio.visualizer),
+    )
+    .info(
+        "Spectrometer, Scope and Spectrum draw the sound in the video area while media without \
+         video plays. Waveform shows each file's loudness along the seek bar instead. The gear \
+         button's Playback tab switches it too.",
+    )
+    .keywords(&["visualization", "spectrum", "scope", "waveform", "spectrometer", "music"]),
 ];
 
 /// The Audio page's language rows, after the effects.

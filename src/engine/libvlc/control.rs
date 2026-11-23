@@ -94,6 +94,7 @@ impl Worker {
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
                 Command::SetStereoMode(mode) => self.set_stereo_mode(mode),
                 Command::PlayTestTone => self.play_test_tone(),
+                Command::SetVisualizer(effect) => self.set_visualizer(effect),
                 Command::SetMediaOptions(options) => self.media_options = options,
                 Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
                 Command::SetPicture(picture) => self.set_picture(picture),
@@ -164,6 +165,10 @@ impl Worker {
     fn select_track(&mut self, kind: TrackKind, track: Option<TrackId>) {
         let api = &self.vlc.api;
         self.defaults.commanded(kind);
+        if kind == TrackKind::Audio {
+            // The new track's decoder drops the visualizer; it is given again once it plays.
+            self.shared.audible.store(false, Ordering::Relaxed);
+        }
         let id = track.map_or(NO_TRACK, |track| track.0);
         let select = match kind {
             TrackKind::Audio => api.libvlc_audio_set_track,

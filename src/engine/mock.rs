@@ -12,6 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use super::audio::equalizer::Equalization;
+use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::colors::Colors;
@@ -244,6 +245,10 @@ impl Backend for MockBackend {
 
     fn play_test_tone(&mut self) {
         self.record(Command::PlayTestTone);
+    }
+
+    fn set_visualizer(&mut self, effect: Option<VisualEffect>) {
+        self.record(Command::SetVisualizer(effect));
     }
 
     fn set_media_options(&mut self, options: &MediaOptions) {

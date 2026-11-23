@@ -1,6 +1,6 @@
 //! Audio settings (S1.5, Settings → Audio, S5.8.2): whether audio plays, the volume range,
 //! startup volume and step, the speaker setup, stereo mode (S7.6.2) and passthrough, loudness and effects, the
-//! equalizer, the preferred languages (S1.6.3), and the machine-local output device and last
+//! equalizer, the visualizer (S7.8), the preferred languages (S1.6.3), and the machine-local output device and last
 //! volume.
 
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::super::lenient::lenient;
 use crate::engine::audio::effects::{ReplayGain, SpatialMode};
 use crate::engine::audio::equalizer::{BANDS, Equalizer, Preset};
+use crate::engine::audio::visualizer::Visualizer;
 use crate::engine::audio::{SpeakerSetup, StereoMode};
 
 /// "Maximum volume" by default, in percent.
@@ -104,6 +105,10 @@ pub struct AudioSettings {
     /// "Stereo widening". Next launch.
     #[serde(deserialize_with = "lenient")]
     pub stereo_widening: bool,
+    /// "Audio Visualizer" (S7.8): what is drawn for media without video, or the waveform seek
+    /// bar.
+    #[serde(deserialize_with = "lenient")]
+    pub visualizer: Visualizer,
 }
 
 impl Default for AudioSettings {
@@ -133,6 +138,7 @@ impl Default for AudioSettings {
             spatial_audio: false,
             spatial_mode: SpatialMode::default(),
             stereo_widening: false,
+            visualizer: Visualizer::Disabled,
         }
     }
 }

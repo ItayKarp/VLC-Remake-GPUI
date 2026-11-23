@@ -7,9 +7,9 @@
 //! resets it; and Save as Default (S7.1.5) writes a tab's values into its Settings page. Speed
 //! already works this way (S2.7.4), its default applying at the next launch.
 //!
-//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6) and the speed (`playback.rs`).
-//! Its other designed rows (Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with
-//! their stories (S8.13, S7.8) and are hidden until then. The Audio tab holds its Defaults, the
+//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6), the Audio Visualizer
+//! (`visualizer_row.rs`, S7.8) and the speed (`playback.rs`). Its other designed rows (Show
+//! Statistics, Reverse, Sleep Timer) come with their story (S8.13) and are hidden until then. The Audio tab holds its Defaults, the
 //! stereo mode with its Test, and the playing track's delay (`audio.rs`, S7.6); its Filters come
 //! with S7.7. The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
 //! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1), Colors
@@ -42,6 +42,7 @@ mod sync_rules;
 mod track_defaults;
 mod video;
 mod video_defaults;
+mod visualizer_row;
 
 use gpui::{
     AppContext as _, Context, Div, Entity, FocusHandle, KeyDownEvent, MouseDownEvent, SharedString,
@@ -49,6 +50,7 @@ use gpui::{
 };
 
 pub(super) use playback::SpeedControls;
+use visualizer_row::VisualizerControl;
 
 use self::audio::AudioControls;
 use self::colors_section::ColorsControls;
@@ -162,6 +164,7 @@ pub(super) struct SettingsPanel {
     /// The gear button, so pressing it doesn't count as an outside click.
     button: BoundsTracker,
     speed: SpeedControls,
+    visualizer: VisualizerControl,
     /// The Audio and Subtitles tabs' defaults and synchronization.
     audio: AudioControls,
     subtitles: SubtitleControls,
@@ -183,6 +186,7 @@ impl SettingsPanel {
             focus: cx.focus_handle(),
             button: BoundsTracker::new(),
             speed: SpeedControls::new(window, cx),
+            visualizer: VisualizerControl::new(window, cx),
             audio: AudioControls::new(window, cx),
             subtitles: SubtitleControls::new(window, cx),
             effects: PanelTab::ALL

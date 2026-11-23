@@ -5,8 +5,8 @@
 //!   player's settings panel, they change what plays for the session, not Settings (D24). Take
 //!   Snapshot comes with S8.4.
 //! - **Audio:** Audio Track ▸, Audio Device ▸ (as in the track popover, S2.6.3), Stereo Mode ▸
-//!   (Settings → Audio "Speaker setup"), Mute, and the volume keys' commands. The visualizer
-//!   comes with S7.8.
+//!   (Settings → Audio "Speaker setup"), Visualizer ▸ (Settings → Audio "Audio visualizer",
+//!   S7.8.1), Mute, and the volume keys' commands.
 //! - **Subtitle:** Subtitle Track ▸ (files by their names), Add Subtitle File…, Text Encoding ▸
 //!   for the file showing (S6.1.6), and the subtitle delay in 50 ms steps, said over the video.
 //!
@@ -19,6 +19,7 @@ use gpui::{App, Entity, WeakEntity, Window};
 use super::{NOTHING_PLAYING, on_main, run};
 use crate::assets::icons;
 use crate::effects;
+use crate::engine::audio::visualizer::Visualizer;
 use crate::engine::audio::{OutputDevice, SpeakerSetup};
 use crate::engine::player::Player;
 use crate::engine::sidecar;
@@ -76,6 +77,7 @@ impl MainWindow {
             track_menu(TrackKind::Audio, &player, cx),
             device_menu(&player, cx),
             stereo_mode_menu(cx),
+            visualizer_menu(cx),
             MenuItem::Separator,
             MenuItem::check("Mute", muted, move |_, cx| mute.update(cx, Player::toggle_mute)),
             run(main, &act::VolumeUp, "Increase Volume", cx),
@@ -240,4 +242,15 @@ fn stereo_mode_menu(cx: &App) -> MenuItem {
         })
     });
     MenuItem::submenu("Stereo Mode", items.collect())
+}
+
+/// Visualizer ▸: Settings → Audio "Audio visualizer".
+fn visualizer_menu(cx: &App) -> MenuItem {
+    let shown = settings::get(cx).prefs.audio.visualizer;
+    let items = Visualizer::ALL.into_iter().map(|choice| {
+        MenuItem::radio(choice.label(), choice == shown, move |_, cx| {
+            settings::update(cx, |s| s.prefs.audio.visualizer = choice);
+        })
+    });
+    MenuItem::submenu("Visualizer", items.collect())
 }

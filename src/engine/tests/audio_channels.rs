@@ -9,6 +9,7 @@ use gpui::TestAppContext;
 use super::Rig;
 use super::tracks::{movie, open_with};
 use crate::app::media::Media;
+use crate::engine::audio::visualizer::VisualEffect;
 use crate::engine::audio::{StereoMode, test_tone};
 use crate::engine::backend::Command;
 use crate::engine::mock::MockMedia;
@@ -96,6 +97,18 @@ fn only_a_changed_stereo_mode_reaches_the_backend(cx: &mut TestAppContext) {
     rig.run(cx, |player, cx| player.set_stereo_mode(StereoMode::Mono, cx));
     rig.run(cx, |player, cx| player.set_stereo_mode(StereoMode::Mono, cx));
     assert_eq!(rig.mock.take_commands(), [Command::SetStereoMode(StereoMode::Mono)]);
+}
+
+#[gpui::test]
+fn only_a_changed_visualizer_reaches_the_backend(cx: &mut TestAppContext) {
+    let rig = Rig::new(cx, MockMedia::default());
+    rig.mock.take_commands();
+    let scope = Some(VisualEffect::Scope);
+    rig.run(cx, |player, _| player.set_visualizer(scope));
+    rig.run(cx, |player, _| player.set_visualizer(scope));
+    rig.run(cx, |player, _| player.set_visualizer(None));
+    let sent = rig.mock.take_commands();
+    assert_eq!(sent, [Command::SetVisualizer(scope), Command::SetVisualizer(None)]);
 }
 
 /// Lets the test tone and its margin run out.

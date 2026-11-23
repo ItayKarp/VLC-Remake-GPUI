@@ -85,6 +85,9 @@ pub struct Shared {
     /// Whether paused media reopened for new filters plays until its first picture shows
     /// (`hold.rs`): it is reported paused meanwhile.
     pub holding: AtomicBool,
+    /// Whether the media's time moved since it opened, it was reopened or its audio track
+    /// changed: its audio is decoding, and a visualizer given now takes (`visualizer.rs`).
+    pub audible: AtomicBool,
 }
 
 impl Shared {
@@ -179,6 +182,9 @@ impl Shared {
 
     fn time_changed(&self, time: i64) {
         self.send(BackendEvent::Position(Duration::from_millis(time.max(0) as u64)));
+        if time > 0 && !self.audible.swap(true, Ordering::Relaxed) {
+            self.ask_worker(Message::Refresh(Refresh::Audible));
+        }
         if self.seeking.swap(false, Ordering::Relaxed) {
             self.send(BackendEvent::SeekCompleted);
         }

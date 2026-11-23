@@ -46,10 +46,11 @@ impl MainWindow {
             player.set_volume(startup_volume(&settings), cx);
         });
         let follow = |player: WeakEntity<Player>| {
-            move |_: &mut Self, cx: &mut Context<Self>| {
+            move |this: &mut Self, cx: &mut Context<Self>| {
                 let settings = effects::effective(cx);
                 // The player lives as long as the window that owns this subscription.
                 let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
+                this.sync_waveform(cx);
             }
         };
         let player = player.downgrade();
@@ -61,6 +62,10 @@ impl MainWindow {
 
     /// Handles the player's audio events.
     pub(super) fn on_audio_event(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
+        // A new length, or none, says whether the seek bar can show the media's waveform.
+        if matches!(event, PlayerEvent::DurationChanged(_)) {
+            self.sync_waveform(cx);
+        }
         let Some((player, _)) = &self.player else { return };
         match event {
             PlayerEvent::VolumeChanged => {
@@ -95,6 +100,7 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
     player.set_speaker_setup(audio.speaker_setup, cx);
     player.set_stereo_mode(audio.stereo_mode, cx);
     player.set_equalizer(audio.equalizer.then(|| equalization(audio)));
+    player.set_visualizer(audio.visualizer.effect());
     player.set_audio_policy(AudioPolicy {
         pause_on_device_loss: audio.pause_on_device_disconnect,
         pause_when_corked: settings.prefs.player.pause_when_another_app_uses_audio,

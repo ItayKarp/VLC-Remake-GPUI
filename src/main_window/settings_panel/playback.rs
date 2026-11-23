@@ -1,5 +1,5 @@
 //! The settings panel's Playback tab (S2.7.2, `controls-playback.png`): Show Subtitle Timeline on
-//! Seekbar (S6.6), and the speed, as a field ("1x") and a slider from 0.25× to 2× with a tick and
+//! Seekbar (S6.6), the Audio Visualizer (`visualizer_row.rs`, S7.8.1), and the speed, as a field ("1x") and a slider from 0.25× to 2× with a tick and
 //! a label every quarter.
 //!
 //! The timeline toggle is kept across launches (`prefs.interface.subtitle_timeline`). With no
@@ -99,6 +99,7 @@ impl MainWindow {
             .flex_col()
             .px(px(PADDING))
             .child(self.render_timeline_toggle(p, cx))
+            .child(self.settings_panel.visualizer.render(p, cx))
             .child(row)
             .child(speed.slider.clone())
     }

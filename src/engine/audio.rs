@@ -5,6 +5,7 @@ pub mod effects;
 pub mod equalizer;
 pub mod hotplug;
 pub mod test_tone;
+pub mod visualizer;
 
 use serde::{Deserialize, Serialize};
 

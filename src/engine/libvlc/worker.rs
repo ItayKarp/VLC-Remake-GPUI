@@ -21,6 +21,7 @@ use super::reopen::Restore;
 use super::size_watch::{SIZE_POLL, SizeWatch};
 use super::test_tone::TestTone;
 use super::track_list::Defaults;
+use super::visualizer::Visuals;
 use super::vmem::Vmem;
 use crate::app::media::Media as Source;
 use crate::engine::backend::{BackendEvent, Command};
@@ -45,6 +46,8 @@ pub enum Refresh {
     Everything,
     /// The output device list (the output switched devices).
     AudioDevices,
+    /// The media's audio started decoding: the visualizer is given again.
+    Audible,
 }
 
 /// Work for the worker thread.
@@ -117,6 +120,8 @@ pub struct Worker {
     pub(super) hold: Option<Hold>,
     /// The HDR mode, and the open media's colors (S7.5).
     pub(super) hdr: HdrState,
+    /// The visualizer wanted, and the one drawing (S7.8.1).
+    pub(super) visuals: Visuals,
 }
 
 impl Worker {
@@ -151,6 +156,7 @@ impl Worker {
             switch_due: None,
             hold: None,
             hdr: HdrState::default(),
+            visuals: Visuals::default(),
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -218,6 +224,7 @@ impl Worker {
         super::hardware::decoding(None);
         self.end_hold();
         self.reset_hdr();
+        self.stop_visualizer();
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
@@ -240,15 +247,7 @@ impl Worker {
         self.restore = None;
         self.switch_due = None;
         *self.shared.generation.lock().unwrap_or_else(PoisonError::into_inner) = generation;
-        let flags = [
-            &self.shared.started,
-            &self.shared.paused,
-            &self.shared.seeking,
-            &self.shared.switching,
-        ];
-        for flag in flags {
-            flag.store(false, Ordering::Relaxed);
-        }
+        self.reset_flags();
         // After `set_media`, whose stopping output may show one last picture.
         if hold {
             self.shared.paused.store(true, Ordering::Relaxed);
@@ -260,6 +259,20 @@ impl Worker {
             return;
         }
         self.play_media();
+    }
+
+    /// Clears what the event callback learned about the media before.
+    fn reset_flags(&self) {
+        let flags = [
+            &self.shared.started,
+            &self.shared.paused,
+            &self.shared.seeking,
+            &self.shared.switching,
+            &self.shared.audible,
+        ];
+        for flag in flags {
+            flag.store(false, Ordering::Relaxed);
+        }
     }
 
     /// Gives the player `media` (NULL or live) in place of the current one, which is released.

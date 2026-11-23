@@ -58,7 +58,9 @@ mod track_list;
 mod video_filters;
 #[cfg(test)]
 mod video_tests;
+mod visualizer;
 mod vmem;
+pub mod waveform;
 mod worker;
 
 use std::ffi::CString;
@@ -75,6 +77,7 @@ use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
 use super::audio::equalizer::Equalization;
+use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, Command, EventSender};
 use super::colors::Colors;
@@ -163,6 +166,7 @@ impl LibVlcBackend {
             seeking: AtomicBool::new(false),
             switching: AtomicBool::new(false),
             holding: AtomicBool::new(false),
+            audible: AtomicBool::new(false),
         });
         let thread = thread::Builder::new()
             .name("libvlc-worker".into())
@@ -256,6 +260,10 @@ impl Backend for LibVlcBackend {
 
     fn play_test_tone(&mut self) {
         self.send(Command::PlayTestTone);
+    }
+
+    fn set_visualizer(&mut self, effect: Option<VisualEffect>) {
+        self.send(Command::SetVisualizer(effect));
     }
 
     fn set_media_options(&mut self, options: &MediaOptions) {

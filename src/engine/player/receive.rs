@@ -69,6 +69,9 @@ impl Player {
             return;
         }
         self.state = next;
+        if next == PlaybackState::Playing {
+            self.audio.sounding_since = Some(Instant::now());
+        }
         cx.emit(PlayerEvent::StateChanged(next));
         match next {
             PlaybackState::Playing if self.intent == Intent::Pause => {

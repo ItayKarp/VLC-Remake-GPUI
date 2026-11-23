@@ -12,6 +12,7 @@ use std::time::Duration;
 use futures::channel::mpsc;
 
 use super::audio::equalizer::Equalization;
+use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
@@ -143,6 +144,8 @@ pub enum Command {
     SetStereoMode(StereoMode),
     /// Play the left/right test tone.
     PlayTestTone,
+    /// Draw this visualizer for media without video, or none.
+    SetVisualizer(Option<VisualEffect>),
     /// Open later media with these options.
     SetMediaOptions(MediaOptions),
     /// Play through this equalizer, or none.
@@ -218,6 +221,9 @@ pub trait Backend: Send {
     /// Plays the left/right test tone ([`super::audio::test_tone`]) through the output device
     /// and stereo mode in use, at its own fixed level, beside whatever plays.
     fn play_test_tone(&mut self);
+    /// Draws `effect` in the video area for this and later media without video, from now on;
+    /// `None` draws nothing. Media with video never shows it.
+    fn set_visualizer(&mut self, effect: Option<VisualEffect>);
     /// Opens media with `options` from the next [`Self::open`] on; the open media keeps its own.
     fn set_media_options(&mut self, options: &MediaOptions);
     /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.

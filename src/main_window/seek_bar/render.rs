@@ -2,7 +2,8 @@
 //! the buffered band for network streams (S2.3.5), the LIVE chip, and its accessible slider
 //! description (S2.3.6). While it is a subtitle timeline (S6.6) the track shows the window's
 //! lines instead ([`super::timeline_track`]), between the timeline's buttons, and the slider still
-//! speaks of the media's current time and length.
+//! speaks of the media's current time and length. With a waveform profile (S7.8.2), the track
+//! shows it instead of the played part ([`super::waveform`]).
 
 use std::time::Duration;
 
@@ -14,7 +15,7 @@ use gpui::{
 use super::geometry;
 use super::subtitle_timeline::Frame;
 use super::timeline::Visible;
-use super::timeline_track;
+use super::{timeline_track, waveform};
 use crate::engine::player::Player;
 use crate::engine::state::PlaybackState;
 use crate::main_window::MainWindow;
@@ -62,7 +63,10 @@ impl MainWindow {
                 let handle = self.timeline_handle(frame, shown);
                 timeline_track::lines(p, frame, handle, PLAYED_TINT)
             }
-            None => track(p, shown),
+            None => match self.seek_bar.waveform.peaks().filter(|_| shown.times.is_some()) {
+                Some(peaks) => waveform::bars(p, peaks, shown.fraction),
+                None => track(p, shown),
+            },
         };
         let area = Self::track_area(shown, cx)
             .child(self.seek_bar.track.element())

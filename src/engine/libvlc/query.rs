@@ -28,10 +28,14 @@ impl Worker {
     /// Reads `what` again and sends it to the player.
     pub(super) fn refresh(&mut self, what: Refresh) {
         match what {
-            Refresh::Tracks => self.send_tracks(),
+            Refresh::Tracks => {
+                self.send_tracks();
+                self.apply_visualizer();
+            }
             Refresh::Chapters => self.send_chapters(),
             Refresh::Metadata => self.send_metadata(),
             Refresh::AudioDevices => self.poll_devices(),
+            Refresh::Audible => self.restart_visualizer(),
             Refresh::Everything => {
                 self.restore_tracks();
                 self.apply_delays();
@@ -40,8 +44,14 @@ impl Worker {
                 self.send_chapters();
                 self.send_metadata();
                 self.watch_colour(Instant::now());
+                self.apply_visualizer();
             }
         }
+    }
+
+    /// Whether the media has a video stream, as far as libVLC knows yet.
+    pub(super) fn has_video_stream(&self) -> bool {
+        self.streams().iter().any(|stream| stream.kind == Some(TrackKind::Video))
     }
 
     /// How many streams the media has, of any kind.

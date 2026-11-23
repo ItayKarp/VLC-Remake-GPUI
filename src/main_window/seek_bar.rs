@@ -8,7 +8,8 @@
 //! Media that can't seek shows a "not allowed" cursor and ignores clicks.
 //!
 //! With Show Subtitle Timeline on Seekbar on, it shows a close-up of the time around the playhead
-//! with the lines of the subtitle showing instead ([`subtitle_timeline`], S6.6).
+//! with the lines of the subtitle showing instead ([`subtitle_timeline`], S6.6). With the Audio
+//! Visualizer set to Waveform, it shows the file's loudness along it ([`waveform`], S7.8.2).
 
 mod card;
 mod cue_drag;
@@ -18,6 +19,7 @@ mod render;
 mod subtitle_timeline;
 mod timeline;
 mod timeline_track;
+mod waveform;
 
 use std::cell::Cell;
 use std::time::Duration;
@@ -31,6 +33,7 @@ use self::cue_drag::CueDrag;
 use self::geometry::{Scrub, Span};
 use self::preview::Previews;
 use self::timeline::{Timeline, Visible};
+use self::waveform::WaveformState;
 use super::MainWindow;
 use crate::app::media::Media;
 use crate::engine::player::Player;
@@ -57,6 +60,8 @@ pub struct SeekBar {
     shown_timeline: Cell<Option<Visible>>,
     /// A subtitle line being dragged on the timeline (S6.6.3).
     cue_drag: Option<CueDrag>,
+    /// The loaded file's loudness, while the bar shows it (S7.8.2).
+    waveform: WaveformState,
 }
 
 impl SeekBar {
@@ -71,6 +76,7 @@ impl SeekBar {
             timeline: Cell::default(),
             shown_timeline: Cell::new(None),
             cue_drag: None,
+            waveform: WaveformState::default(),
         }
     }
 
