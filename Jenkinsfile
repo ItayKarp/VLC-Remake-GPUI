@@ -1,18 +1,22 @@
-// CI for RedesignedVLC (S0.8.1): formatting, then clippy, the tests and a release build on
-// Linux, then SonarQube analysis with its quality gate, then (on `staging` and `main`) a
+// CI for RedesignedVLC (S0.8.1): formatting, then clippy and the tests on Linux, then
+// SonarQube analysis with its quality gate, then, on the way to `main`, a release build and a
 // GitHub release.
 //
 // Changes reach `main` only through pull requests: feature branch → `dev` → `staging` →
-// `main`. GitHub requires this pipeline to pass on a pull request before it can merge. Pull
-// requests into `staging` must come from `dev`, and into `main` from `staging` with a version
-// in Cargo.toml that hasn't been released yet. Every build keeps its Linux packages as
-// downloadable artifacts; a merge into `staging` publishes them as a pre-release
-// (`v0.2.0-rc.<build>`), and a merge into `main` as the release (`v0.2.0`).
+// `main`. How much runs depends on where the change is going (`ciLevel`):
+// - into `dev` (and `dev` itself): nothing. These pull requests merge without CI.
+// - into `staging` (and `staging` itself): everything but the release build. GitHub requires
+//   it to pass, and the pull request to come from `dev`.
+// - into `main` (and `main` itself): everything, the release build packaged as Linux .deb and
+//   .tar.gz artifacts. GitHub requires it to pass, the pull request to come from `staging` and
+//   Cargo.toml's version not to be released yet. A merge into `main` publishes the packages as
+//   the GitHub release `v<version>`.
 //
 // Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
 // build agent, triggered by GitHub's push and pull request webhooks. Windows and macOS aren't
-// built here: there are no agents for them, so releases hold Linux arm64 packages only. Discord hears about builds from a service beside Jenkins
-// (`ci/discord_notifier`), which follows every stage live, so this file says nothing to it.
+// built here: there are no agents for them, so releases hold Linux arm64 packages only.
+// Discord hears about builds from a service beside Jenkins (`ci/discord_notifier`), which
+// follows every stage live, so this file says nothing to it.
 //
 // Before the first run, set up Jenkins as the "Jenkins setup" block in `environment` below
 // says: the agent label, and the SonarQube server and scanner.
@@ -76,7 +80,7 @@ pipeline {
         stage('Promotion rules') {
             when {
                 beforeAgent true
-                changeRequest()
+                allOf { changeRequest(); expression { ciLevel() != 'none' } }
             }
             agent { label "${env.LINUX_AGENT}" }
             steps {
@@ -85,6 +89,10 @@ pipeline {
         }
 
         stage('Cache') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 // Single quotes: the shell, not Groovy, expands these variables.
@@ -103,6 +111,10 @@ pipeline {
         }
 
         stage('Format') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt'
@@ -111,6 +123,10 @@ pipeline {
         }
 
         stage('Linux') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             matrix {
                 axes {
                     // Display servers: both, or each one alone (the `x11` and `wayland`
@@ -168,6 +184,9 @@ pipeline {
                     }
 
                     stage('Release build') {
+                        when {
+                            expression { ciLevel() == 'release' }
+                        }
                         steps {
                             sh "cargo build --release ${env.FEATURES}"
                             script {
@@ -182,6 +201,10 @@ pipeline {
         }
 
         stage('SonarQube') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component clippy'
@@ -205,6 +228,9 @@ pipeline {
             // No agent: waiting holds no executor. SonarQube reports back through its
             // Jenkins webhook (Administration > Configuration > Webhooks, pointing at
             // <jenkins>/sonarqube-webhook/).
+            when {
+                expression { ciLevel() != 'none' }
+            }
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
@@ -215,17 +241,27 @@ pipeline {
         stage('Release') {
             when {
                 beforeAgent true
-                anyOf { branch 'staging'; branch 'main' }
+                branch 'main'
             }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 unstash 'package'
                 withCredentials([string(credentialsId: env.RELEASE_CREDENTIALS_ID, variable: 'GH_TOKEN')]) {
-                    sh "bash ci/release.sh 'v${releaseVersion()}' ${env.BRANCH_NAME == 'main' ? 'release' : 'prerelease'}"
+                    sh "bash ci/release.sh 'v${releaseVersion()}'"
                 }
             }
         }
     }
+}
+
+/**
+ * How much this build checks, by the branch the change is going to: 'release' for `main`
+ * (everything, with the release build), 'test' for `staging` (everything but the release
+ * build) and 'none' for the rest, which reach `staging` before anything is enforced.
+ */
+String ciLevel() {
+    def branch = env.CHANGE_TARGET ?: env.BRANCH_NAME
+    return [main: 'release', staging: 'test'][branch] ?: 'none'
 }
 
 /**
@@ -255,9 +291,6 @@ String releaseVersion() {
     def version = crateVersion()
     if (env.BRANCH_NAME == 'main') {
         return version
-    }
-    if (env.BRANCH_NAME == 'staging') {
-        return "${version}-rc.${env.BUILD_NUMBER}"
     }
     def label = env.BRANCH_NAME.toLowerCase().replaceAll(/[^a-z0-9]/, '')
     return "${version}-${label}.${env.BUILD_NUMBER}"

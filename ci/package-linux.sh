@@ -3,7 +3,7 @@
 # the same files. libVLC isn't bundled: the app loads the system's (the .deb depends on it).
 #
 # Usage: ci/package-linux.sh <release binary> <version>
-#   <version> names the files and the package: "0.2.0", "0.2.0-rc.14", "0.2.0-pr12.3".
+#   <version> names the files and the package: "0.2.0", or "0.2.0-pr12.3" for a pull request's build.
 set -euo pipefail
 
 binary="$1"
@@ -39,7 +39,7 @@ shlib_depends() {
 }
 depends="$(shlib_depends "$stage/usr/bin/RedesignedVLC")"
 
-# Debian sorts "~" before anything, so 0.2.0~rc.14 comes before 0.2.0 as a pre-release should.
+# Debian sorts "~" before anything, so 0.2.0~pr12.3 comes before 0.2.0 as a pre-release should.
 deb_version="${version//-/"~"}"
 mkdir -p "$stage/DEBIAN"
 cat > "$stage/DEBIAN/control" <<EOF
