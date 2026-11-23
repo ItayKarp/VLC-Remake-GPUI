@@ -1,10 +1,22 @@
-// CI for RedesignedVLC (S0.8.1): formatting, then clippy, the tests and a release build on
-// Linux, then SonarQube analysis with its quality gate.
+// CI for RedesignedVLC (S0.8.1): formatting, then clippy and the tests on Linux, then
+// SonarQube analysis with its quality gate, then, on the way to `main`, a release build and a
+// GitHub release.
+//
+// Changes reach `main` only through pull requests: feature branch → `dev` → `staging` →
+// `main`. How much runs depends on where the change is going (`ciLevel`):
+// - into `dev` (and `dev` itself): nothing. These pull requests merge without CI.
+// - into `staging` (and `staging` itself): everything but the release build. GitHub requires
+//   it to pass, and the pull request to come from `dev`.
+// - into `main` (and `main` itself): everything, the release build packaged as Linux .deb and
+//   .tar.gz artifacts. GitHub requires it to pass, the pull request to come from `staging` and
+//   Cargo.toml's version not to be released yet. A merge into `main` publishes the packages as
+//   the GitHub release `v<version>`.
 //
 // Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
-// build agent, triggered by GitHub's push webhook for `main`. Windows and macOS aren't built
-// here: there are no agents for them. Discord hears about builds from a service beside Jenkins
-// (`ci/discord_notifier`), which follows every stage live, so this file says nothing to it.
+// build agent, triggered by GitHub's push and pull request webhooks. Windows and macOS aren't
+// built here: there are no agents for them, so releases hold Linux arm64 packages only.
+// Discord hears about builds from a service beside Jenkins (`ci/discord_notifier`), which
+// follows every stage live, so this file says nothing to it.
 //
 // Before the first run, set up Jenkins as the "Jenkins setup" block in `environment` below
 // says: the agent label, and the SonarQube server and scanner.
@@ -39,6 +51,10 @@ pipeline {
     environment {
         CARGO_TERM_COLOR = 'always'
         RUST_BACKTRACE = '1'
+        // Debug and test builds keep file and line numbers (for panics and backtraces) but not
+        // the full debug info a debugger reads. A GPUI binary with full debug info outgrows the
+        // Pi's memory while linking; this checks and tests exactly the same code.
+        CARGO_PROFILE_DEV_DEBUG = 'line-tables-only'
         // Every cargo and rustup call uses this toolchain. Pin a version (for example
         // '1.100.0') to keep new clippy lints from failing builds unannounced.
         RUSTUP_TOOLCHAIN = 'stable'
@@ -54,10 +70,29 @@ pipeline {
         SONARQUBE_SERVER = 'sonarqube'
         // Manage Jenkins > Tools > SonarQube Scanner installations: the scanner's name.
         SONAR_SCANNER_TOOL = 'sonar-scanner'
+        // The repository releases go to, and a "Secret text" credential holding a GitHub token
+        // allowed to write its contents (tags and releases).
+        GITHUB_REPO = 'ItayKarp/VLC-Remake-GPUI'
+        RELEASE_CREDENTIALS_ID = 'github-release'
     }
 
     stages {
+        stage('Promotion rules') {
+            when {
+                beforeAgent true
+                allOf { changeRequest(); expression { ciLevel() != 'none' } }
+            }
+            agent { label "${env.LINUX_AGENT}" }
+            steps {
+                checkPromotion()
+            }
+        }
+
         stage('Cache') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 // Single quotes: the shell, not Groovy, expands these variables.
@@ -76,6 +111,10 @@ pipeline {
         }
 
         stage('Format') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt'
@@ -84,6 +123,10 @@ pipeline {
         }
 
         stage('Linux') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             matrix {
                 axes {
                     // Display servers: both, or each one alone (the `x11` and `wayland`
@@ -141,8 +184,16 @@ pipeline {
                     }
 
                     stage('Release build') {
+                        when {
+                            expression { ciLevel() == 'release' }
+                        }
                         steps {
                             sh "cargo build --release ${env.FEATURES}"
+                            script {
+                                if (env.BACKENDS == 'all') {
+                                    packageLinux()
+                                }
+                            }
                         }
                     }
                 }
@@ -150,6 +201,10 @@ pipeline {
         }
 
         stage('SonarQube') {
+            when {
+                beforeAgent true
+                expression { ciLevel() != 'none' }
+            }
             agent { label "${env.LINUX_AGENT}" }
             steps {
                 sh 'rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component clippy'
@@ -163,7 +218,7 @@ pipeline {
                 script {
                     def scanner = tool env.SONAR_SCANNER_TOOL
                     withSonarQubeEnv(env.SONARQUBE_SERVER) {
-                        sh "\"${scanner}/bin/sonar-scanner\" -Dsonar.projectVersion=\"${crateVersion()}\""
+                        sh "\"${scanner}/bin/sonar-scanner\" -Dsonar.projectVersion=\"${crateVersion()}\" ${sonarProject()}"
                     }
                 }
             }
@@ -173,13 +228,90 @@ pipeline {
             // No agent: waiting holds no executor. SonarQube reports back through its
             // Jenkins webhook (Administration > Configuration > Webhooks, pointing at
             // <jenkins>/sonarqube-webhook/).
+            when {
+                expression { ciLevel() != 'none' }
+            }
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
+
+        stage('Release') {
+            when {
+                beforeAgent true
+                branch 'main'
+            }
+            agent { label "${env.LINUX_AGENT}" }
+            steps {
+                unstash 'package'
+                withCredentials([string(credentialsId: env.RELEASE_CREDENTIALS_ID, variable: 'GH_TOKEN')]) {
+                    sh "bash ci/release.sh 'v${releaseVersion()}'"
+                }
+            }
+        }
     }
+}
+
+/**
+ * How much this build checks, by the branch the change is going to: 'release' for `main`
+ * (everything, with the release build), 'test' for `staging` (everything but the release
+ * build) and 'none' for the rest, which reach `staging` before anything is enforced.
+ */
+String ciLevel() {
+    def branch = env.CHANGE_TARGET ?: env.BRANCH_NAME
+    return [main: 'release', staging: 'test'][branch] ?: 'none'
+}
+
+/**
+ * Fails a pull request that skips a step of dev → staging → main, or that would release a
+ * version `main` already released.
+ */
+void checkPromotion() {
+    def source = [staging: 'dev', main: 'staging'][env.CHANGE_TARGET]
+    if (source && env.CHANGE_BRANCH != source) {
+        error "Pull requests into ${env.CHANGE_TARGET} come from ${source}, not ${env.CHANGE_BRANCH}"
+    }
+    if (env.CHANGE_TARGET == 'main') {
+        def tag = "v${crateVersion()}"
+        def released = sh(
+            returnStatus: true,
+            script: "git ls-remote --exit-code --tags 'https://github.com/${env.GITHUB_REPO}.git' 'refs/tags/${tag}' > /dev/null"
+        ) == 0
+        if (released) {
+            error "${tag} is already released: bump the version in Cargo.toml"
+        }
+        echo "Merging releases ${tag}"
+    }
+}
+
+/** The packages' version: the crate's, marked as a pre-release everywhere but `main`. */
+String releaseVersion() {
+    def version = crateVersion()
+    if (env.BRANCH_NAME == 'main') {
+        return version
+    }
+    def label = env.BRANCH_NAME.toLowerCase().replaceAll(/[^a-z0-9]/, '')
+    return "${version}-${label}.${env.BUILD_NUMBER}"
+}
+
+/** Packages the `all` cell's release build, keeps it with the build, and hands it to Release. */
+void packageLinux() {
+    sh "bash ci/package-linux.sh \"\${CARGO_TARGET_DIR:-target}/release/RedesignedVLC\" '${releaseVersion()}'"
+    archiveArtifacts artifacts: 'dist/*', fingerprint: true
+    stash name: 'package', includes: 'dist/*'
+}
+
+/**
+ * The SonarQube project this build reports to: one per long-lived branch, since the Community
+ * Build analyzes one branch per project. A pull request reports to its target's project, as
+ * the merge it builds is what that branch would become.
+ */
+String sonarProject() {
+    def branch = env.CHANGE_TARGET ?: env.BRANCH_NAME
+    def key = branch == 'main' ? 'redesigned-vlc' : "redesigned-vlc-${branch}"
+    return "-Dsonar.projectKey=${key} -Dsonar.projectName='RedesignedVLC (${branch})'"
 }
 
 /**
