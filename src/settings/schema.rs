@@ -22,6 +22,7 @@ mod miniplayer;
 mod network;
 mod performance;
 mod playback;
+mod player_layout;
 mod presets;
 mod privacy;
 mod recording;
@@ -59,6 +60,7 @@ pub use performance::{
     SkipLoopFilter,
 };
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
+pub use player_layout::StoredLayout;
 pub use presets::{Preset, PresetSettings};
 pub use privacy::PrivacySettings;
 pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
@@ -133,6 +135,9 @@ pub struct Preferences {
     /// Custom key bindings (S5.6.3).
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
+    /// The title bar and control bar as Customize Player left them (S8.7).
+    #[serde(deserialize_with = "lenient")]
+    pub player_layout: StoredLayout,
     /// Logging, crash reports and libVLC's startup options (S0.7, S5.3.4).
     #[serde(deserialize_with = "lenient")]
     pub diagnostics: DiagnosticsSettings,

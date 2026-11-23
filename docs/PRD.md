@@ -1850,11 +1850,11 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S2.1, S2.2 (declarative layout)  **Size:** L  **Design refs:** `screens/customize/player_customize_01..09.png`
 
 **Subtasks**
-- [ ] S8.7.1 Entry point: Main menu → **Customize Player**. Edit mode outlines every movable element with a dashed border. The logo is fixed.
-- [ ] S8.7.2 A modal palette ("Drag items around and out of the box below to re-order them. Drag items into the box to remove them from the player.") with 31 items: Spacer, Divider, Playback Speed, Forward/Backward 10 s, Forward/Backward 15 s, Stop, Repeat, Shuffle, Record, Snapshot, Picture in Picture, HDR, Zoom, Right Sidebar, Quit VLC, VLC Settings, Go Home, Thumbnail, File Name, Artist Name, Folder Name, Playlist Name, Properties, Replay, Chapters, Favorite, Bookmark, Bookmarks, Playlists.
-- [ ] S8.7.3 Drag between the title bar and the control bar, **into a second control-bar row**, out of the palette (add) and into the palette (remove). Spacer and Divider are unlimited; other items are single-instance and leave the palette once placed.
-- [ ] S8.7.4 Groups can be split (pull Fullscreen out of the window-controls group). The time + seek + duration widget moves as one unit.
-- [ ] S8.7.5 Save (enabled after the first change) and Cancel. Persist the layout (per profile, S8.8). **Add "Reset to default"** (not designed).
+- [x] S8.7.1 Entry point: Main menu → **Customize Player**. Edit mode outlines every movable element with a dashed border. The logo is fixed. *(`main_window/customize.rs`; also in the macOS VLC menu. While editing, the bars show the draft unfitted so every piece can be picked up, Hide UI ends and the bars stay up; the title shows in line in the title bar so it can be moved. Items that show nothing yet (a name with nothing playing) show their name.)*
+- [x] S8.7.2 A modal palette ("Drag items around and out of the box below to re-order them. Drag items into the box to remove them from the player.") with 31 items: Spacer, Divider, Playback Speed, Forward/Backward 10 s, Forward/Backward 15 s, Stop, Repeat, Shuffle, Record, Snapshot, Picture in Picture, HDR, Zoom, Right Sidebar, Quit VLC, VLC Settings, Go Home, Thumbnail, File Name, Artist Name, Folder Name, Playlist Name, Properties, Replay, Chapters, Favorite, Bookmark, Bookmarks, Playlists. *(`customize/palette.rs`, over the video, which it dims; the bars stay live beside it. It holds 22 of the 31 so far: HDR, Zoom, Right Sidebar, Thumbnail, Artist Name, Playlist Name (S8.7.6) and Favorite join it once defined. Items removed from the designed bars show in it too, after these.)*
+- [x] S8.7.3 Drag between the title bar and the control bar, **into a second control-bar row**, out of the palette (add) and into the palette (remove). Spacer and Divider are unlimited; other items are single-instance and leave the palette once placed. *(The layout is `player_layout.rs`: the title bar after the logo and one or two rows, saved by item id in `prefs.player_layout`, empty while designed so later defaults still reach users; edits are `player_layout/edit.rs`. While a piece is dragged, a place for a second row shows above the bar; a row left empty goes. An accent marker shows where a drop lands. The designed group gaps stay where they are.)*
+- [ ] S8.7.4 Groups can be split (pull Fullscreen out of the window-controls group). The time + seek + duration widget moves as one unit. *(The timeline moves as one (`timeline` id). Still to do: the window controls aren't in the layout yet, so Fullscreen can't be pulled out.)*
+- [x] S8.7.5 Save (enabled after the first change) and Cancel. Persist the layout (per profile, S8.8). **Add "Reset to default"** (not designed). *(Save is enabled while the draft differs from what's saved; Cancel, ✕ and Escape drop it; Reset to default sits next to Cancel and puts the designed layout in the draft. Per profile waits for S8.8.)*
 - [ ] S8.7.6 Define the behavior of items that have no design elsewhere: Right Sidebar, Thumbnail, Properties, Playlist Name, Artist Name, HDR, Zoom.
 
 **Edge cases**
@@ -1865,6 +1865,8 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 - Keyboard-only layout editing (accessibility): an alternative list-based editor with move up and down.
 - Music mode has its own default layout (S8.1): define whether customization applies per mode.
 - `customize_09` lost the heart (Favorite) that `customize_08` had: ignore it as a mock inconsistency.
+
+*(Edge cases so far: the window controls aren't in the layout, so they can't be removed. Saving without Play/Pause or the seek bar works and a toast says Space, or ← and →, still do it. Each row is fitted to the window as S2.2.5 says, one overflow menu holding what every row gave up. Unknown ids are skipped and saved again where they were. Music mode keeps its designed title bar and row: Customize Player edits the video layout. Still to do: the keyboard-only editor.)*
 
 ---
 

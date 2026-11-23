@@ -20,6 +20,7 @@ mod network;
 mod onboarding;
 mod opening;
 mod pip_window;
+mod player_layout;
 mod playlists;
 mod power;
 mod privacy;

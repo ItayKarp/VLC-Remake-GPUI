@@ -7,7 +7,7 @@ use gpui::{Action, App, Context, DismissEvent, Div, WeakEntity, Window, prelude:
 use super::MainWindow;
 use crate::app::request::OpenRequest;
 use crate::keymap;
-use crate::keymap::actions::{About, FromMenuBar};
+use crate::keymap::actions::{About, CustomizePlayer, FromMenuBar};
 use crate::keymap::commands;
 use crate::keymap::menus::{self, MAIN_MENU, MainMenuEntry};
 use crate::opening::recent;
@@ -31,11 +31,14 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Adds the handlers for Keyboard Shortcuts, About VLC and the macOS menu bar's player
-    /// commands.
+    /// Adds the handlers for Keyboard Shortcuts, About VLC, Customize Player and the macOS menu
+    /// bar's player commands.
     pub(super) fn menu_actions(root: Div, cx: &mut Context<Self>) -> Div {
         Self::shortcuts_dialog_action(root, cx)
             .on_action(cx.listener(|this, _: &About, window, cx| this.show_about(window, cx)))
+            .on_action(cx.listener(|this, _: &CustomizePlayer, window, cx| {
+                this.customize_player(window, cx);
+            }))
             .on_action(cx.listener(Self::run_from_menu_bar))
     }
 

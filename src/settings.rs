@@ -41,8 +41,8 @@ pub use schema::{
     NowPlayingNotification, PerformanceSettings, PictureSettings, PipPlace, PlayerSettings,
     PostProcessing, Preferences, Preset, PresetSettings, QueueSiblings, RecordingSettings,
     ResumePolicy, SavedEqualizer, ScreenRect, Settings, SizeValues, SkipLength, SkipLoopFilter,
-    StartupVolume, SubtitleArea, SubtitleSettings, Tuning, VideoQuality, VideoSettings,
-    WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
+    StartupVolume, StoredLayout, SubtitleArea, SubtitleSettings, Tuning, VideoQuality,
+    VideoSettings, WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;

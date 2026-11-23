@@ -58,9 +58,12 @@ const LENGTHS_PER_REDRAW: usize = 64;
 
 /// The panel's tabs, in order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ListTab {
+pub(super) enum ListTab {
+    /// What plays, in order (S3.2).
     Queue,
+    /// The playing media's bookmarks (S8.3).
     Bookmarks,
+    /// The playing media's chapters (S8.2).
     Chapters,
 }
 
@@ -139,6 +142,11 @@ impl QueuePanel {
     pub(super) fn is_open(&self) -> bool {
         self.open.is_some()
     }
+
+    /// Whether the panel is open on `tab`.
+    pub(super) fn shows(&self, tab: ListTab) -> bool {
+        self.open == Some(tab)
+    }
 }
 
 impl MainWindow {
@@ -151,6 +159,21 @@ impl MainWindow {
             self.close_queue_panel(window, cx);
         } else {
             self.open_queue_panel(ListTab::Queue, window, cx);
+        }
+    }
+
+    /// Opens the panel on `tab`, or closes it if it shows that tab (Customize Player's Chapters
+    /// and Bookmarks buttons, S8.7).
+    pub(super) fn toggle_list_tab(
+        &mut self,
+        tab: ListTab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.queue_panel.shows(tab) {
+            self.close_queue_panel(window, cx);
+        } else {
+            self.open_queue_panel(tab, window, cx);
         }
     }
 
@@ -236,7 +259,7 @@ impl MainWindow {
             ListTab::Chapters => self.render_chapters_tab(p, window, cx),
         };
         Some(
-            bar_panel::surface("queue-panel", DESIGN_HEIGHT, window, p)
+            bar_panel::surface("queue-panel", DESIGN_HEIGHT, self.control_bar_height(), window, p)
                 .track_focus(&self.queue_panel.focus)
                 .key_context(focus::context(&["QueuePanel", focus::CONTROL]))
                 .on_key_down(cx.listener(Self::on_queue_panel_key))

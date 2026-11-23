@@ -10,7 +10,8 @@
 //! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
 //! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4), and Shift+R
 //! records what plays (S8.6). Picture in
-//! Picture pops the player out into a small window above the others (S8.5).
+//! Picture pops the player out into a small window above the others (S8.5). The bars show what
+//! the player layout says, which Customize Player edits (S8.7).
 //! Onboarding hands off to it (S0.2).
 
 mod about;
@@ -21,6 +22,7 @@ mod audio_tracks;
 mod auto_hide;
 mod bar_panel;
 mod control_bar;
+mod customize;
 mod diagnostics;
 mod empty_state;
 mod flash;
@@ -173,6 +175,8 @@ pub struct MainWindow {
     modals: Entity<ModalLayer>,
     /// Settings → Interface's Window section and notification for this window (S5.4).
     windowing: video_window::Windowing,
+    /// Customize Player, while it's open (S8.7).
+    customizing: Option<customize::Customizing>,
 }
 
 impl MainWindow {
@@ -218,6 +222,7 @@ impl MainWindow {
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
             windowing: video_window::Windowing::default(),
+            customizing: None,
         };
         this.start(request, window, cx);
         this
@@ -227,6 +232,7 @@ impl MainWindow {
     /// last session back, and opens `request`.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
+        self.control_bar.sync_layout(cx);
         self.plan_compact_start(cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
@@ -253,6 +259,7 @@ impl MainWindow {
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_global_in::<settings::SettingsStore>(window, |this, window, cx| {
             this.sync_video_window(window, cx);
+            this.control_bar.sync_layout(cx);
             cx.notify();
         })
         .detach();
@@ -290,7 +297,7 @@ impl MainWindow {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let (top, bottom) = viewport::content_insets(chrome);
+        let (top, bottom) = viewport::content_insets(chrome, self.control_bar_height());
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
             Some(video) => {
@@ -363,6 +370,7 @@ impl Render for MainWindow {
             .children(self.render_library(&p, chrome, cx))
             .children(chrome.title_bar.then(|| self.render_title_bar(&p, window, cx)))
             .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
+            .children(self.render_customize_palette(chrome.title_bar, &p, cx))
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
             .children((!full).then(|| self.render_queue_panel(&p, window, cx)).flatten())

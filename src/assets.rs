@@ -65,6 +65,10 @@ icons! {
     /// Music mode's Back 15 s and Forward 15 s (S8.1.2, `controls-music.png`).
     BACK_15 => "back-15.svg",
     FORWARD_15 => "forward-15.svg",
+    /// Customize Player's Backward 10 s, Forward 10 s and Playback Speed (S8.7).
+    BACK_10 => "back-10.svg",
+    FORWARD_10 => "forward-10.svg",
+    SPEED => "speed.svg",
     MINIMIZE => "minimize.svg",
     MAXIMIZE => "maximize.svg",
     FULLSCREEN => "fullscreen.svg",
@@ -138,6 +142,8 @@ icons! {
     // The List panel (S3.2).
     QUEUE => "queue.svg",
     BOOKMARKS => "bookmarks.svg",
+    /// Customize Player's Bookmark: bookmarks where playback is (S8.7).
+    BOOKMARK => "bookmark.svg",
     CHAPTERS => "chapters.svg",
     SORT => "sort.svg",
     REMOVE => "remove.svg",

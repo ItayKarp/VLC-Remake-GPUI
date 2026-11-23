@@ -14,7 +14,7 @@ use gpui::{
 use super::geometry;
 use super::preview::Picture;
 use crate::main_window::MainWindow;
-use crate::main_window::control_bar::{CONTROL_BAR_HEIGHT, clock};
+use crate::main_window::control_bar::clock;
 use crate::theme::Palette;
 use crate::video::layout;
 
@@ -57,7 +57,7 @@ impl MainWindow {
         let card = div()
             .absolute()
             .left(px(geometry::card_left(x, width, window_width, MARGIN)))
-            .bottom(px(CONTROL_BAR_HEIGHT + GAP))
+            .bottom(px(self.control_bar_height() + GAP))
             .w(px(width))
             .px(px(PADDING))
             .pt(px(top))

@@ -297,14 +297,20 @@ impl MainWindow {
         let footer =
             (tab != PanelTab::Playback).then(|| footer::footer(tab, presets, window, p, cx));
         Some(
-            bar_panel::surface("settings-panel", DESIGN_HEIGHT, window, p)
-                .track_focus(&self.settings_panel.focus)
-                .key_context(focus::context(&["SettingsPanel", focus::CONTROL]))
-                .on_key_down(cx.listener(Self::on_settings_panel_key))
-                .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_settings))
-                .child(Self::render_panel_tabs(tab, p, cx))
-                .child(body)
-                .children(footer),
+            bar_panel::surface(
+                "settings-panel",
+                DESIGN_HEIGHT,
+                self.control_bar_height(),
+                window,
+                p,
+            )
+            .track_focus(&self.settings_panel.focus)
+            .key_context(focus::context(&["SettingsPanel", focus::CONTROL]))
+            .on_key_down(cx.listener(Self::on_settings_panel_key))
+            .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_settings))
+            .child(Self::render_panel_tabs(tab, p, cx))
+            .child(body)
+            .children(footer),
         )
     }
 
