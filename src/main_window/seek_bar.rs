@@ -10,8 +10,11 @@
 //! With Show Subtitle Timeline on Seekbar on, it shows a close-up of the time around the playhead
 //! with the lines of the subtitle showing instead ([`subtitle_timeline`], S6.6). With the Audio
 //! Visualizer set to Waveform, it shows the file's loudness along it ([`waveform`], S7.8.2).
+//! Chapters are marked along it, and the hover card names the one pointed at ([`chapter_marks`],
+//! S8.2.2).
 
 mod card;
+mod chapter_marks;
 mod cue_drag;
 mod geometry;
 mod preview;

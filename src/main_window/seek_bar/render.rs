@@ -3,7 +3,8 @@
 //! description (S2.3.6). While it is a subtitle timeline (S6.6) the track shows the window's
 //! lines instead ([`super::timeline_track`]), between the timeline's buttons, and the slider still
 //! speaks of the media's current time and length. With a waveform profile (S7.8.2), the track
-//! shows it instead of the played part ([`super::waveform`]).
+//! shows it instead of the played part ([`super::waveform`]). Chapters are marked along it
+//! ([`super::chapter_marks`], S8.2.2).
 
 use std::time::Duration;
 
@@ -15,7 +16,7 @@ use gpui::{
 use super::geometry;
 use super::subtitle_timeline::Frame;
 use super::timeline::Visible;
-use super::{timeline_track, waveform};
+use super::{chapter_marks, timeline_track, waveform};
 use crate::engine::player::Player;
 use crate::engine::state::PlaybackState;
 use crate::main_window::MainWindow;
@@ -63,10 +64,7 @@ impl MainWindow {
                 let handle = self.timeline_handle(frame, shown);
                 timeline_track::lines(p, frame, handle, PLAYED_TINT)
             }
-            None => match self.seek_bar.waveform.peaks().filter(|_| shown.times.is_some()) {
-                Some(peaks) => waveform::bars(p, peaks, shown.fraction),
-                None => track(p, shown),
-            },
+            None => self.whole_track(p, shown, cx),
         };
         let area = Self::track_area(shown, cx)
             .child(self.seek_bar.track.element())
@@ -91,6 +89,17 @@ impl MainWindow {
             None => bar.child(area),
         };
         accessible(focus::ring(bar, p), shown, cx).into_any_element()
+    }
+
+    /// The inside of the bar while it shows the whole media: the waveform or the plain track,
+    /// with the chapters marked.
+    fn whole_track(&self, p: &Palette, shown: Shown, cx: &App) -> Div {
+        let marks = shown.times.map(|(_, length)| self.chapter_fractions(length, cx));
+        let marks = marks.unwrap_or_default();
+        match self.seek_bar.waveform.peaks().filter(|_| shown.times.is_some()) {
+            Some(peaks) => waveform::bars(p, peaks, shown.fraction, &marks),
+            None => track(p, shown, &marks),
+        }
     }
 
     /// The part of the bar that seeks: all of it, or the timeline between its buttons.
@@ -168,8 +177,9 @@ fn buffered(player: &Entity<Player>, cx: &App) -> Option<f32> {
     (network && read.state().is_active()).then(|| read.buffer_fill())
 }
 
-/// The inside of the bar: the buffered band, the played part and the handle.
-fn track(p: &Palette, shown: Shown) -> Div {
+/// The inside of the bar: the buffered band, the played part, the chapter marks at `marks` and
+/// the handle.
+fn track(p: &Palette, shown: Shown, marks: &[f32]) -> Div {
     let track = p.sunken;
     let band = shown.buffered.filter(|end| *end > shown.fraction).map(|end| {
         div()
@@ -188,6 +198,7 @@ fn track(p: &Palette, shown: Shown) -> Div {
         .overflow_hidden()
         .children(band)
         .child(div().h_full().w(relative(shown.fraction)).bg(blend(p.accent, track, PLAYED_TINT)))
+        .children(chapter_marks::ticks(p, marks))
         .children(handle)
 }
 

@@ -846,7 +846,7 @@ Design facts the stories rely on (`docs/ui/player/**`):
 **Depends on:** S3.1, S0.4.11  **Size:** M  **Design refs:** `controls-queue.png`, `miniplayer-variant2.png`
 
 **Subtasks**
-- [x] S3.2.1 The List panel (tabs **Queue | Bookmarks | Chapters**) opens from the List button and **Q**. *(`main_window/queue_panel.rs`, in the settings panel's place: opening one closes the other. It stays open while the video is used; the List button, Q and Escape close it, and it keeps the bar up. Bookmarks (S8.3) and Chapters (S8.2) say they come later. The video menu's Playlist ▸ has Show/Hide Queue and Clear Queue.)*
+- [x] S3.2.1 The List panel (tabs **Queue | Bookmarks | Chapters**) opens from the List button and **Q**. *(`main_window/queue_panel.rs`, in the settings panel's place: opening one closes the other. It stays open while the video is used; the List button, Q and Escape close it, and it keeps the bar up. Bookmarks (S8.3) says it comes later; Chapters came with S8.2. The video menu's Playlist ▸ has Show/Hide Queue and Clear Queue.)*
 - [x] S3.2.2 Header: "N items - Xh Ym" (count and total duration) · sort · repeat · shuffle · "−" (remove selected) · "+" (add files). *(`queue_panel/header.rs`, `queue/lengths.rs`. Lengths come from a background libVLC probe of local files' headers (`engine/lengths.rs`), started when the panel first opens, and from the player for what plays. Repeat and Shuffle came with S3.3. "+" is Add to Queue.)*
 - [x] S3.2.3 Rows: drag handle, name and duration. Drag to reorder; double-click to play; Delete removes; multi-select. **The current-item highlight isn't designed; add one.** *(`queue_panel/rows.rs` on `uniform_list`; the current item's name is in the accent with an accent bar at its left. Click, Ctrl/Cmd+click, Shift+click; arrows, Home/End, PageUp/PageDown (Shift extends), Ctrl/Cmd+A, Enter plays, Delete/Backspace remove. Dragging a selected row moves the whole selection.)*
 - [x] S3.2.4 Drop files from the OS or library onto the panel to insert them at the drop position. *(OS drops are resolved like any open (folders, playlists) and inserted before the row under the gap; a line shows the gap. Library drops come with Stage 4.)*
@@ -1759,15 +1759,17 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S1.2, S3.2  **Size:** S  **Design refs:** `controls-chapters.png`
 
 **Subtasks**
-- [ ] S8.2.1 The List panel's **Chapters** tab: number (orange), title and start time; click to seek. Highlight the current chapter (not designed).
-- [ ] S8.2.2 Chapter markers on the seek bar, and the chapter name in the hover preview (not designed; propose).
-- [ ] S8.2.3 Next and previous chapter shortcuts.
+- [x] S8.2.1 The List panel's **Chapters** tab: number (orange), title and start time; click to seek. Highlight the current chapter (not designed). *(`queue_panel/chapters.rs`: a row per chapter, the number in the accent, the title, the start in tabular digits; a click goes there with the chapter's name over the video. The playing chapter is marked like the Queue tab's playing entry, its title in the accent with an accent bar at its left edge. The arrows, Home and End move a filled cursor over the rows and Enter goes to its chapter. Media without chapters says so. The list comes from `seeking/chapters.rs`, which the video menu's Chapter ▸ now shares.)*
+- [x] S8.2.2 Chapter markers on the seek bar, and the chapter name in the hover preview (not designed; propose). *(Proposed and built in `seek_bar/chapter_marks.rs`: a short grey tick across the track where each chapter after one starting at 0 starts, on the plain track and the waveform, under the handle; the subtitle timeline shows none. The hover card names the chapter under the pointer above the time, the time-only card widening from 96 to 200 px to hold it, the name cut short when long.)*
+- [x] S8.2.3 Next and previous chapter shortcuts. *(VLC's Shift+N and Shift+P (`NextChapter`, `PreviousChapter`), in the shortcuts dialog's Playback section, the macOS Playback menu and at the end of Chapter ▸. Previous goes back to the start of the chapter more than 3 s in, else to the one before, and from the first chapter to the media's start when it starts after 0; Next skips a chapter starting within 0.5 s, as a seek to a chapter's start can land just before it. Both say the chapter over the video and do nothing where there is nowhere to go.)*
 
 **Edge cases**
 - Chapters without titles: "Chapter N". Chapters starting after 0 (the mock's chapter 1 starts at 00:02:15): the region before it is "Intro" or simply no chapter.
 - Chapter times past the duration (as in the mock, where chapters reach 01:44:10 in a 25 min file): ignore or clamp the bad entries.
 - DVD titles versus chapters: discs have titles containing chapters (S8.9).
 - Ordered chapters or segment linking (MKV): follow what the backend supports.
+
+*(Edge cases: untitled chapters are "Chapter N", numbered by their place once sorted. Before the first chapter there is no chapter: nothing is marked and the card names none. Chapters starting at or past the length are dropped and the rest sorted by start. Titles and DVD chapters wait for S8.9; ordered chapters are what libVLC reports.)*
 
 ---
 

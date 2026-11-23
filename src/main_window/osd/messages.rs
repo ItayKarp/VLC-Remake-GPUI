@@ -24,6 +24,12 @@ pub fn skip(way: Way, jump: Duration, landed: &str) -> String {
     format!("{sign}{} · {landed}", length(jump))
 }
 
+/// The chapter just gone to: "Chapter 2 · Spring", or "Chapter 2" when that is its title.
+pub fn chapter(number: usize, title: &str) -> String {
+    let numbered = format!("Chapter {number}");
+    if title == numbered { numbered } else { format!("{numbered} · {title}") }
+}
+
 /// A jump's length as people say it: "3 s", "1 min", "1 min 30 s", "5 min".
 fn length(jump: Duration) -> String {
     let seconds = jump.as_secs();
@@ -55,5 +61,11 @@ mod tests {
         assert_eq!(skip(Way::Back, secs(60), "00:00:00"), "−1 min · 00:00:00");
         assert_eq!(skip(Way::Forward, secs(90), "x"), "+1 min 30 s · x");
         assert_eq!(skip(Way::Back, secs(300), "x"), "−5 min · x");
+    }
+
+    #[test]
+    fn a_chapter_is_named_once() {
+        assert_eq!(chapter(2, "Spring"), "Chapter 2 · Spring");
+        assert_eq!(chapter(3, "Chapter 3"), "Chapter 3");
     }
 }

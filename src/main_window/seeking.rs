@@ -2,7 +2,9 @@
 //! Shift very short, alone short, Alt medium, Ctrl or Cmd long), and Home and End go to the
 //! start and the end. The player clamps jumps to the media and ignores them where it can't
 //! seek. Each jump says how far it went and where it landed over the video (S2.10.2), and T says
-//! where playback is.
+//! where playback is. Shift+N and Shift+P go from chapter to chapter ([`chapters`], S8.2.3).
+
+pub(super) mod chapters;
 
 use std::time::Duration;
 

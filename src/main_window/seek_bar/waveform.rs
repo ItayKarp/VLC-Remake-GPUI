@@ -17,6 +17,7 @@ use gpui::{
     prelude::*, px, size,
 };
 
+use super::chapter_marks;
 use super::render::handle;
 use crate::engine::waveform::{Peaks, WaveformEvent, WaveformJob, WaveformReceiver};
 use crate::main_window::MainWindow;
@@ -102,9 +103,9 @@ async fn follow(mut receiver: WaveformReceiver, this: WeakEntity<MainWindow>, cx
     }
 }
 
-/// The inside of the track: a bar for each stretch decoded, played up to `played` (0–1), and the
-/// handle there.
-pub(super) fn bars(p: &Palette, peaks: Arc<Peaks>, played: f32) -> Div {
+/// The inside of the track: a bar for each stretch decoded, played up to `played` (0–1), the
+/// chapter marks at `marks`, and the handle.
+pub(super) fn bars(p: &Palette, peaks: Arc<Peaks>, played: f32, marks: &[f32]) -> Div {
     let colors = [p.accent, blend(p.text, p.sunken, UPCOMING_TINT)];
     let drawn = canvas(
         |_, _, _| {},
@@ -117,6 +118,7 @@ pub(super) fn bars(p: &Palette, peaks: Arc<Peaks>, played: f32) -> Div {
         .rounded(px(3.))
         .overflow_hidden()
         .child(drawn)
+        .children(chapter_marks::ticks(p, marks))
         .child(handle(p, played))
 }
 

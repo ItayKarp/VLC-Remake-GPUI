@@ -1,7 +1,7 @@
 //! The video menu's Playback and More Settings submenus (S2.9.3).
 //!
 //! **Playback:** Speed ▸ (common speeds, then Faster, Slower and Normal Speed), Chapter ▸ when
-//! the media has chapters, Jump Forward and Jump Backward by the short skip, and Jump to Time,
+//! the media has chapters (S8.2), Jump Forward and Jump Backward by the short skip, and Jump to Time,
 //! which opens the current time for typing (S2.4). A-B loop isn't in the engine yet, so it
 //! isn't listed.
 //!
@@ -13,15 +13,13 @@
 
 use std::time::Duration;
 
-use gpui::{App, Context, Entity, WeakEntity};
+use gpui::{App, Context, WeakEntity};
 
 use super::{NOTHING_PLAYING, on_main, run};
 use crate::assets::icons;
-use crate::engine::media_info::Chapter;
-use crate::engine::player::Player;
-use crate::engine::values::SeekTarget;
 use crate::keymap::actions as act;
 use crate::main_window::MainWindow;
+use crate::main_window::seeking::chapters::{self, Listed};
 use crate::main_window::settings_panel::PanelTab;
 use crate::main_window::speed::rules;
 use crate::ui::menu::MenuItem;
@@ -44,7 +42,8 @@ impl MainWindow {
         let seekable = player.read(cx).is_seekable() != Some(false);
         let cant_seek = "This media can't seek";
         let mut items = vec![self.speed_menu(main, cx)];
-        items.extend(chapter_menu(main, &player, cx));
+        let position = player.read(cx).position();
+        items.extend(chapter_menu(main, self.chapters(cx), position, cx));
         items.extend([
             MenuItem::Separator,
             run(main, &act::SeekForward, "Jump Forward", cx)
@@ -119,26 +118,34 @@ fn speed_choice(main: &WeakEntity<MainWindow>, speed: f32, playing: bool) -> Men
     })
 }
 
-/// Chapter ▸, when the media has chapters: each one, with the playing one checked.
+/// Chapter ▸, when the media has chapters: each one, with the playing one checked, then Next and
+/// Previous Chapter (S8.2.3).
 fn chapter_menu(
     main: &WeakEntity<MainWindow>,
-    player: &Entity<Player>,
+    listed: Vec<Listed>,
+    position: Duration,
     cx: &App,
 ) -> Option<MenuItem> {
-    let player = player.read(cx);
-    let chapters = player.chapters();
-    if chapters.is_empty() {
+    if listed.is_empty() {
         return None;
     }
-    let current = current_chapter(chapters, player.position());
-    let items = chapters.iter().enumerate().map(|(index, chapter)| {
-        let start = chapter.start;
-        let main = main.clone();
-        MenuItem::radio(chapter_label(chapter, index), current == Some(index), move |_, cx| {
-            main.update(cx, |main, cx| main.seek_player(SeekTarget::Absolute(start), cx)).ok();
+    let current = chapters::current(&listed, position);
+    let mut items: Vec<MenuItem> = listed
+        .into_iter()
+        .enumerate()
+        .map(|(index, chapter)| {
+            let main = main.clone();
+            MenuItem::radio(chapter.title.clone(), current == Some(index), move |_, cx| {
+                main.update(cx, |main, cx| main.seek_to_chapter(&chapter, cx)).ok();
+            })
         })
-    });
-    Some(MenuItem::submenu("Chapter", items.collect()))
+        .collect();
+    items.extend([
+        MenuItem::Separator,
+        run(main, &act::NextChapter, "Next Chapter", cx),
+        run(main, &act::PreviousChapter, "Previous Chapter", cx),
+    ]);
+    Some(MenuItem::submenu("Chapter", items))
 }
 
 /// "1.25×", "1×".
@@ -146,37 +153,12 @@ fn speed_label(speed: f32) -> String {
     format!("{speed}×")
 }
 
-/// The chapter's title, or "Chapter 3" when the container names none.
-fn chapter_label(chapter: &Chapter, index: usize) -> String {
-    chapter.title.clone().unwrap_or_else(|| format!("Chapter {}", index + 1))
-}
-
-/// The chapter playing at `position`: the last one starting at or before it.
-fn current_chapter(chapters: &[Chapter], position: Duration) -> Option<usize> {
-    chapters.iter().rposition(|chapter| chapter.start <= position)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn chapter(title: Option<&str>, start: u64) -> Chapter {
-        Chapter { title: title.map(str::to_owned), start: Duration::from_secs(start) }
-    }
-
-    #[test]
-    fn the_current_chapter_is_the_last_one_started() {
-        let chapters = [chapter(None, 5), chapter(None, 60), chapter(None, 120)];
-        assert_eq!(current_chapter(&chapters, Duration::ZERO), None);
-        assert_eq!(current_chapter(&chapters, Duration::from_secs(5)), Some(0));
-        assert_eq!(current_chapter(&chapters, Duration::from_secs(119)), Some(1));
-        assert_eq!(current_chapter(&chapters, Duration::from_secs(4000)), Some(2));
-    }
-
     #[test]
     fn labels() {
-        assert_eq!(chapter_label(&chapter(Some("Intro"), 0), 0), "Intro");
-        assert_eq!(chapter_label(&chapter(None, 0), 2), "Chapter 3");
         assert_eq!(speed_label(1.0), "1×");
         assert_eq!(speed_label(0.25), "0.25×");
         assert_eq!(speed_label(1.5), "1.5×");

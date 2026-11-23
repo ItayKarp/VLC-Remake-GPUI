@@ -97,6 +97,10 @@ actions!(
         PreviousItem,
         /// Go to the next item in the queue.
         NextItem,
+        /// Go back to the start of the chapter, or to the previous one (S8.2.3).
+        PreviousChapter,
+        /// Go to the next chapter (S8.2.3).
+        NextChapter,
         /// Move Repeat to its next mode: Off, All, One.
         CycleRepeat,
         /// Switch Shuffle on or off.

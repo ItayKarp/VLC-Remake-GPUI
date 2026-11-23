@@ -2,7 +2,8 @@
 //! command passes the [`RepeatGate`] first, so a held Space toggles once and a held
 //! arrow seeks at a steady rate. Fullscreen (S1.4.2, `fullscreen.rs`), the volume
 //! keys (S1.5.1), track cycling (S1.6.2, B and V), adding a subtitle file (S6.1.4, unbound), the transport (S2.2: Space, S, P, N),
-//! seeking (S2.3.4: the arrows with their modifiers, Home and End), the speed (S2.7.3: `[`,
+//! seeking (S2.3.4: the arrows with their modifiers, Home and End), chapters (S8.2.3: Shift+P
+//! and Shift+N), the speed (S2.7.3: `[`,
 //! `]` and `=`), the audio delay (S4.8.1: J and K), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
 //! (S2.9: Shift+F10 and the context-menu key), frame stepping (`,` and `.`) and T (S2.10.3)
 //! work, Q shows the queue (S3.2) and L the library sidebar (S4.5). A command whose story hasn't
@@ -15,6 +16,7 @@ use gpui::{Action, Context, Div, Window, prelude::*};
 
 use super::MainWindow;
 use super::audio_tracks::Shift;
+use super::seeking::chapters::Jump;
 use super::seeking::{Edge, Way};
 use super::speed::rules::SpeedChange;
 use crate::engine::tracks::TrackKind;
@@ -90,6 +92,8 @@ impl MainWindow {
                 SeekToEnd,
                 PreviousItem,
                 NextItem,
+                PreviousChapter,
+                NextChapter,
                 CycleRepeat,
                 ToggleShuffle,
                 PreviousFrame,
@@ -166,6 +170,8 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::Stop, MainWindow::stop),
     (&act::PreviousItem, MainWindow::previous),
     (&act::NextItem, MainWindow::next),
+    (&act::PreviousChapter, |this, _, cx| this.jump_chapter(Jump::Previous, cx)),
+    (&act::NextChapter, |this, _, cx| this.jump_chapter(Jump::Next, cx)),
     (&act::CycleRepeat, MainWindow::cycle_repeat),
     (&act::ToggleShuffle, MainWindow::toggle_shuffle),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),

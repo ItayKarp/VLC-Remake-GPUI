@@ -4,14 +4,15 @@
 //! The Queue tab lists the queue ([`header`], [`rows`]): rows can be selected, reordered by
 //! dragging, played with a double-click or Enter and removed with Delete or "−", and files
 //! dropped on it, from the OS or the library (S4.6.7), are inserted where they land
-//! ([`editing`]). Bookmarks and Chapters come with their stories (S8.3, S8.2) and say so until
-//! then. The header has Repeat and Shuffle (S3.3). The miniplayer docks the same Queue tab above
+//! ([`editing`]). The Chapters tab lists the media's chapters ([`chapters`], S8.2.1); Bookmarks
+//! comes with its story (S8.3) and says so until then. The header has Repeat and Shuffle (S3.3). The miniplayer docks the same Queue tab above
 //! its card ([`docked`], S4.10.4). Restored items that are missing or offline are greyed (S3.4).
 //!
 //! Unlike the track popover and the settings panel, it stays open while the video is used
 //! (clicking it, dragging files over it); the List button, Q and Escape close it. It shares their
 //! place, so opening one of them closes it, and it keeps the bar up while open.
 
+mod chapters;
 mod docked;
 mod editing;
 mod header;
@@ -30,6 +31,7 @@ use gpui::{
     UniformListScrollHandle, WeakEntity, Window, div, prelude::*, px,
 };
 
+use self::chapters::ChapterList;
 use self::selection::Selection;
 use super::MainWindow;
 use super::bar_panel;
@@ -102,6 +104,8 @@ pub(super) struct QueuePanel {
     sort_button: BoundsTracker,
     /// Restored media that wasn't there at launch (S3.4), greyed until it plays.
     pub(super) missing: HashSet<Media>,
+    /// The Chapters tab's cursor and scrolling.
+    chapters: ChapterList,
 }
 
 impl QueuePanel {
@@ -118,6 +122,7 @@ impl QueuePanel {
             sort_menu: None,
             sort_button: BoundsTracker::new(),
             missing: HashSet::new(),
+            chapters: ChapterList::default(),
         }
     }
 
@@ -219,7 +224,7 @@ impl MainWindow {
         let body = match tab {
             ListTab::Queue => self.render_queue_tab(p, cx),
             ListTab::Bookmarks => note("Bookmarks come with a later version.", p),
-            ListTab::Chapters => note("Chapters come with a later version.", p),
+            ListTab::Chapters => self.render_chapters_tab(p, window, cx),
         };
         Some(
             bar_panel::surface("queue-panel", DESIGN_HEIGHT, window, p)
@@ -253,8 +258,14 @@ impl MainWindow {
         if event.keystroke.key == "escape" {
             cx.stop_propagation();
             self.close_queue_panel(window, cx);
-        } else if self.queue_panel.open == Some(ListTab::Queue) && self.queue_key(event, window, cx)
-        {
+            return;
+        }
+        let used = match self.queue_panel.open {
+            Some(ListTab::Queue) => self.queue_key(event, window, cx),
+            Some(ListTab::Chapters) => self.chapters_key(event, cx),
+            _ => false,
+        };
+        if used {
             cx.stop_propagation();
         }
     }

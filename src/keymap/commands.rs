@@ -135,6 +135,9 @@ pub const COMMANDS: &[Command] = &[
     // P/N are layout-safe; `<`/`>` (taught by onboarding's design) stay as aliases.
     cmd("Previous item", Player, keys(&["p", "<"]), &act::PreviousItem),
     cmd("Next item", Player, keys(&["n", ">"]), &act::NextItem),
+    // VLC's keys: Shift with the queue's P and N.
+    cmd("Previous chapter", Player, keys(&["shift-p"]), &act::PreviousChapter),
+    cmd("Next chapter", Player, keys(&["shift-n"]), &act::NextChapter),
     // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
     cmd("Repeat (Off, All, One)", Player, NONE, &act::CycleRepeat),
     cmd("Shuffle", Player, NONE, &act::ToggleShuffle),
