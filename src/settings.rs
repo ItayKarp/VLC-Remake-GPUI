@@ -38,11 +38,11 @@ pub use schema::{
     DoubleClickAction, DurationReadout, Encoder, EncodingPreset, EqualizerPick, FitVideo,
     HardwareDecoding, HorizontalWheelAction, InterfaceLanguage, KeymapSettings, LibraryRoutes,
     LibrarySettings, LiveState, LocalState, MAX_SAVED_NAME, MiniplayerCorner, NetworkSettings,
-    NowPlayingNotification, PerformanceSettings, PictureSettings, PlayerSettings, PostProcessing,
-    Preferences, Preset, PresetSettings, QueueSiblings, RecordingSettings, ResumePolicy,
-    SavedEqualizer, Settings, SizeValues, SkipLength, SkipLoopFilter, StartupVolume, SubtitleArea,
-    SubtitleSettings, Tuning, VideoQuality, VideoSettings, WheelAction, WhenFinished,
-    WindowGeometry, WindowMode, proxy_url,
+    NowPlayingNotification, PerformanceSettings, PictureSettings, PipPlace, PlayerSettings,
+    PostProcessing, Preferences, Preset, PresetSettings, QueueSiblings, RecordingSettings,
+    ResumePolicy, SavedEqualizer, ScreenRect, Settings, SizeValues, SkipLength, SkipLoopFilter,
+    StartupVolume, SubtitleArea, SubtitleSettings, Tuning, VideoQuality, VideoSettings,
+    WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;

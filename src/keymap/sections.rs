@@ -24,6 +24,7 @@ pub const SECTIONS: &[Section] = &[
             &act::ShowTime,
             &act::ShowControls,
             &act::HideInterface,
+            &act::PictureInPicture,
             &act::ShowContextMenu,
             &act::ToggleQueue,
             &act::ToggleFileBrowser,

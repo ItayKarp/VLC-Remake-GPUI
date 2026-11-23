@@ -12,6 +12,8 @@
 
 mod fit;
 
+pub use fit::kept_inside;
+
 use gpui::{App, Pixels, Point, Window, px, size};
 
 use crate::app::geometry::Rect;
@@ -123,7 +125,7 @@ impl WindowPrefs {
         let (w, h) = fit::window_size(video, around.chrome, &area, around.min);
         let now = Rect::from_gpui(window.bounds());
         window.resize(size(px(w), px(h)));
-        let placed = fit::kept_inside(Rect::new(now.x, now.y, w, h), &area);
+        let placed = kept_inside(Rect::new(now.x, now.y, w, h), &area);
         // AppKit keeps a resized window's bottom left corner; the top left one stays here.
         native_window::move_to(window, placed.to_gpui().origin, cx);
     }

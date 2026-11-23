@@ -1,18 +1,21 @@
 //! What GPUI has no call for, asked of the OS window behind a GPUI window (S5.4.1):
 //! - keeping it above other windows ("Keep window above other windows"), and
 //! - moving it, to fullscreen on another display or to keep a resized window on screen, and
-//! - whether its display can show HDR ([`display_hdr`], S7.5.3).
+//! - whether its display can show HDR ([`display_hdr`], S7.5.3), and
+//! - floating the Picture in Picture window with its aspect ratio kept ([`floating`], S8.5).
 //!
 //! macOS sets the `NSWindow`'s level and frame; Windows uses `SetWindowPos`. Linux has neither
 //! yet (X11 needs `_NET_WM_STATE_ABOVE`, and Wayland doesn't let a client place or raise
 //! itself), so both report that they did nothing.
 
 mod display_hdr;
+mod floating;
 
 use gpui::{App, Pixels, Point, Window, px};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 pub use display_hdr::{DisplayRange, display_range};
+pub use floating::{lock_aspect_ratio, make_floating};
 
 /// Keeps `window` above other windows, or not. Returns whether the OS could be asked.
 pub fn set_keep_above(window: &Window, above: bool) -> bool {

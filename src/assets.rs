@@ -165,6 +165,8 @@ icons! {
     /// Playlists' filled rail icon: the playlist glyph with heavier strokes (the set's "active").
     PLAYLIST_FILLED => "playlist-filled.svg",
     POP_OUT => "pop-out.svg",
+    /// Picture in Picture (S8.5, `window_controls/PiP`): a small frame in the corner of a big one.
+    PIP => "pip.svg",
     /// The View button and menu (`view_options`): a grid of tiles, and a list of rows.
     GRID_VIEW => "grid-view.svg",
     LIST_VIEW => "list-view.svg",

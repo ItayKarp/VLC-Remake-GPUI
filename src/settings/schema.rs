@@ -52,7 +52,7 @@ pub use interface::{
 pub use keymap::{CustomBinding, KeymapSettings};
 pub use library::{ArtworkSource, LibrarySettings};
 pub use live::LiveState;
-pub use miniplayer::MiniplayerCorner;
+pub use miniplayer::{MiniplayerCorner, PipPlace, ScreenRect};
 pub use network::{Buffering, Caching, CipherPreference, NetworkSettings, proxy_url};
 pub use performance::{
     ClockSynchronisation, Decoder, Encoder, HardwareDecoding, PerformanceSettings, PostProcessing,
@@ -192,6 +192,9 @@ pub struct LocalState {
     /// The corner full library mode's miniplayer card was last docked in (S4.10.5).
     #[serde(deserialize_with = "lenient")]
     pub miniplayer_corner: MiniplayerCorner,
+    /// Where the Picture in Picture window was last left, per display (S8.5.2), newest first.
+    #[serde(deserialize_with = "lenient")]
+    pub pip_places: Vec<PipPlace>,
     /// The page the Settings window last showed (S5.2.2).
     #[serde(deserialize_with = "lenient")]
     pub settings_category: Category,

@@ -88,6 +88,7 @@ pub fn mac_menu_bar() -> Vec<Menu> {
             [
                 plain(&act::ToggleFullscreen, "Toggle Fullscreen"),
                 item(&act::HideInterface, "Hide Interface"),
+                item(&act::PictureInPicture, "Picture in Picture"),
                 plain(&act::Snapshot, "Take Snapshot"),
             ],
         ),

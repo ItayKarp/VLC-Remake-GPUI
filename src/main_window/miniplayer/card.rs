@@ -7,6 +7,7 @@
 //! Clicking the progress bar seeks there. The folder chip goes to the file's folder in the
 //! library and the artist chip to the artist.
 
+use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
@@ -20,7 +21,6 @@ use crate::assets::icons;
 use crate::db::metadata::MediaKind;
 use crate::db::thumbnails::SizeClass;
 use crate::engine::player::Player;
-use crate::engine::state::PlaybackState;
 use crate::engine::values::SeekTarget;
 use crate::library::folder_view::kind_by_extension;
 use crate::main_window::MainWindow;
@@ -30,18 +30,11 @@ use crate::theme::Palette;
 use crate::ui::button::IconButton;
 use crate::ui::icon::icon;
 use crate::ui::metrics;
+use crate::ui::player_overlay::{self, Handlers, WindowButton};
 use crate::ui::thumbnail::{Placeholder, ThumbnailTile};
 
 /// What hovering the picture lights up together.
 const GROUP: &str = "miniplayer-picture";
-/// The hover buttons' size and icons: the corner ones, and the transport's.
-const CORNER_BUTTON: f32 = 32.;
-const CORNER_ICON: f32 = 20.;
-const TRANSPORT_BUTTON: f32 = 44.;
-const TRANSPORT_ICON: f32 = 28.;
-const TRANSPORT_GAP: f32 = 40.;
-/// The scrim over the picture while hovered.
-const SCRIM: f32 = 0.55;
 /// The name's and chips' text sizes, a chip's icon and the gap after it, and the gap between
 /// chips.
 const NAME_TEXT: f32 = 15.;
@@ -64,7 +57,6 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Div {
         let read = player.read(cx);
-        let ended = read.state() == PlaybackState::Ended;
         let media = read.media().cloned();
         let artist = read.metadata().artist.clone();
         let fraction = progress(read.position(), read.duration());
@@ -75,7 +67,7 @@ impl MainWindow {
             .h(px(size.video_height))
             .group(GROUP)
             .child(self.render_picture(player, size, p, cx))
-            .child(self.render_hover_controls(ended, cx));
+            .child(self.render_hover_controls(cx));
         div()
             .flex_none()
             .h(px(size.height()))
@@ -115,65 +107,22 @@ impl MainWindow {
 
     /// ✕ and pop-out in the top corners, and the transport in the middle: on hover, or always
     /// once the media ended.
-    fn render_hover_controls(&self, ended: bool, cx: &mut Context<Self>) -> Div {
-        let white = gpui::white();
-        let close = IconButton::new("miniplayer-close", icons::CLOSE, "Stop")
-            .size(CORNER_BUTTON, CORNER_ICON)
-            .color(white)
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.stop(window, cx)));
-        let pop_out = IconButton::new("miniplayer-pop-out", icons::POP_OUT, "Back to the player")
-            .size(CORNER_BUTTON, CORNER_ICON)
-            .color(white)
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+    fn render_hover_controls(&self, cx: &mut Context<Self>) -> Div {
+        let pop_out = WindowButton { icon: icons::POP_OUT, label: "Back to the player".into() };
+        let handlers = Handlers {
+            close: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| this.stop(window, cx))),
+            window: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| {
                 this.leave_full_library(window, cx);
-            }));
-        let corners = div().flex().justify_between().p(px(PAD)).child(close).child(pop_out);
-        let overlay = div()
-            .absolute()
-            .inset_0()
-            .flex()
-            .flex_col()
-            .rounded(px(metrics::RADIUS))
-            .bg(gpui::black().opacity(SCRIM))
-            .child(corners)
-            .child(self.render_transport(ended, cx));
-        if ended {
-            overlay
-        } else {
-            overlay.opacity(0.).group_hover(GROUP, |style| style.opacity(1.))
-        }
-    }
-
-    /// Previous, Play/Pause (Replay once ended) and Next.
-    fn render_transport(&self, ended: bool, cx: &mut Context<Self>) -> Div {
-        let playing = self.loaded_player(cx).is_some_and(|player| player.read(cx).wants_to_play());
-        let (middle, label) = match (ended, playing) {
-            (true, _) => (icons::REPLAY, "Replay"),
-            (false, true) => (icons::PAUSE, "Pause"),
-            (false, false) => (icons::PLAY, "Play"),
+            })),
+            previous: Rc::new(
+                cx.listener(|this, _: &ClickEvent, window, cx| this.previous(window, cx)),
+            ),
+            play: Rc::new(
+                cx.listener(|this, _: &ClickEvent, window, cx| this.play_pause(window, cx)),
+            ),
+            next: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| this.next(window, cx))),
         };
-        let button = |id: &'static str, icon: &'static str, label: &'static str| {
-            IconButton::new(id, icon, label)
-                .size(TRANSPORT_BUTTON, TRANSPORT_ICON)
-                .color(gpui::white())
-        };
-        let previous = button("miniplayer-previous", icons::PREVIOUS, "Previous")
-            .disabled(!self.can_go_back(cx))
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.previous(window, cx)));
-        let middle = button("miniplayer-play", middle, label)
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.play_pause(window, cx)));
-        let next = button("miniplayer-next", icons::NEXT, "Next")
-            .disabled(!self.can_go_next())
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.next(window, cx)));
-        div()
-            .flex_1()
-            .flex()
-            .items_center()
-            .justify_center()
-            .gap(px(TRANSPORT_GAP))
-            .child(previous)
-            .child(middle)
-            .child(next)
+        player_overlay::overlay(GROUP, self.transport_state(cx), pop_out, &handlers, false)
     }
 
     /// The progress bar: a click seeks to where it lands.
@@ -265,7 +214,7 @@ impl MainWindow {
 }
 
 /// How far `position` is through `duration`, from 0 to 1.
-fn progress(position: Duration, duration: Option<Duration>) -> f32 {
+pub(in crate::main_window) fn progress(position: Duration, duration: Option<Duration>) -> f32 {
     match duration {
         Some(duration) if !duration.is_zero() => {
             (position.as_secs_f32() / duration.as_secs_f32()).clamp(0., 1.)

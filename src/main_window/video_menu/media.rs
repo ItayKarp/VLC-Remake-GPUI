@@ -3,7 +3,7 @@
 //! - **Video:** Video Track ▸, the framing (Zoom ▸, Aspect Ratio ▸, Crop ▸, Flip ▸ and Rotate ▸,
 //!   S7.2), Deinterlace ▸ and its Deinterlacing Method ▸ (S7.2.6), and Fullscreen. Like the
 //!   player's settings panel, they change what plays for the session, not Settings (D24). Take
-//!   Snapshot (S8.4), disabled without a picture.
+//!   Snapshot (S8.4), disabled without a picture, and Picture in Picture (S8.5).
 //! - **Audio:** Audio Track ▸, Audio Device ▸ (as in the track popover, S2.6.3), Stereo Mode ▸
 //!   (Settings → Audio "Speaker setup"), Visualizer ▸ (Settings → Audio "Audio visualizer",
 //!   S7.8.1), Mute, and the volume keys' commands.
@@ -65,7 +65,17 @@ impl MainWindow {
         items
             .push(snapshot.disabled(no_snapshot.is_some()).why_disabled(no_snapshot.unwrap_or("")));
         items.push(run(main, &act::ToggleFullscreen, fullscreen, cx).icon(icons::FULLSCREEN));
+        items.push(self.pip_item(main, cx));
         MenuItem::submenu("Video", items).icon(icons::VIDEO)
+    }
+
+    /// Picture in Picture, or Exit Picture in Picture while it shows (S8.5).
+    fn pip_item(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
+        let shown = self.windowing.pip.is_shown();
+        let label = if shown { "Exit Picture in Picture" } else { "Picture in Picture" };
+        let idle = !shown && self.loaded_player(cx).is_none();
+        let item = run(main, &act::PictureInPicture, label, cx).icon(icons::PIP);
+        item.disabled(idle).why_disabled(if idle { NOTHING_PLAYING } else { "" })
     }
 
     /// Audio ▸.

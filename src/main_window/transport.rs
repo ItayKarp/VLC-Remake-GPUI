@@ -16,6 +16,7 @@ use super::MainWindow;
 use crate::engine::player::Player;
 use crate::engine::state::PlaybackState;
 use crate::engine::values::SeekTarget;
+use crate::ui::player_overlay::{Middle, TransportState};
 
 impl MainWindow {
     /// Plays or pauses what's loaded. With nothing loaded it plays the queue's current item (a
@@ -77,6 +78,23 @@ impl MainWindow {
     /// Whether Next would do anything now.
     pub(super) fn can_go_next(&self) -> bool {
         self.queue.next().is_some()
+    }
+
+    /// What the miniplayer's transport can do now (S4.10.3, S8.5.1).
+    pub(super) fn transport_state(&self, cx: &App) -> TransportState {
+        let player = self.loaded_player(cx);
+        let state = player.as_ref().map(|player| player.read(cx).state());
+        let playing = player.is_some_and(|player| player.read(cx).wants_to_play());
+        let middle = match (state, playing) {
+            (Some(PlaybackState::Ended), _) => Middle::Replay,
+            (_, true) => Middle::Pause,
+            (_, false) => Middle::Play,
+        };
+        TransportState {
+            middle,
+            can_go_back: self.can_go_back(cx),
+            can_go_next: self.can_go_next(),
+        }
     }
 
     /// The player, while it has media (in any state, ended and failed included).

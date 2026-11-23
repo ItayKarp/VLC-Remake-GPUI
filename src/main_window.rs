@@ -8,7 +8,8 @@
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
 //! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
 //! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
-//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4).
+//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4). Picture in
+//! Picture pops the player out into a small window above the others (S8.5).
 //! Onboarding hands off to it (S0.2).
 
 mod about;
@@ -41,6 +42,7 @@ mod now_playing_notice;
 mod opening;
 mod osd;
 mod picture;
+mod pip;
 mod play_order;
 mod player_keys;
 mod properties;
@@ -93,6 +95,7 @@ use crate::ui::{drop_target, menu::ContextMenu};
 use crate::video::VideoView;
 
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
+pub use self::pip::{PipCommand, PipView};
 pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
 
 /// The player title bar's height in the designs (`player/screens/*`).
@@ -218,6 +221,7 @@ impl MainWindow {
     /// last session back, and opens `request`.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
+        self.plan_compact_start(cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
         self.restore_session(&request, window, cx);

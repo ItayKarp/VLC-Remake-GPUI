@@ -76,7 +76,7 @@ impl MainWindow {
     /// The video area, while the player has media loaded and its video plays in this window.
     pub(super) fn showing_video(&self, cx: &App) -> Option<Entity<VideoView>> {
         let (player, _) = self.player.as_ref()?;
-        let here = !self.windowing.separate.is_separate();
+        let here = !self.windowing.separate.is_separate() && !self.windowing.pip.is_shown();
         (here && player.read(cx).state().is_active()).then(|| self.video.clone()).flatten()
     }
 
@@ -127,6 +127,7 @@ impl MainWindow {
             PlayerEvent::StateChanged(state) => {
                 if *state == PlaybackState::Playing {
                     self.skips.played();
+                    self.start_compact(window, cx);
                 }
                 if *state == PlaybackState::Opening {
                     self.opening(cx);
@@ -142,9 +143,11 @@ impl MainWindow {
                 self.reset_seek_bar(*state);
                 self.update_display_sleep(window, cx);
                 self.sync_video_window(window, cx);
+                self.sync_pip(window, cx);
                 cx.notify();
             }
             PlayerEvent::VideoSizeChanged(size) => {
+                self.refit_pip(cx);
                 self.update_display_sleep(window, cx);
                 self.sync_video_window(window, cx);
                 if let Some(size) = size {

@@ -54,6 +54,18 @@ fn seconds(value: f64) -> String {
 /// The Interface page's rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
+        "interface.start_in_compact_mode",
+        CONTROLS,
+        "Start in compact mode",
+        Control::Toggle,
+        toggle!(prefs.interface.start_in_compact_mode),
+    )
+    .info(
+        "Plays the first media you open after starting VLC in the small Picture in Picture \
+         window, above other windows, with the main window minimized.",
+    )
+    .keywords(&["miniplayer", "picture in picture", "pip", "mini player", "compact"]),
+    SettingDef::new(
         "interface.auto_hide_controls",
         CONTROLS,
         "Auto-hide the controls",

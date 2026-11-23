@@ -59,6 +59,10 @@ pub struct InterfaceSettings {
     /// "Remember window size and position": off, windows open centered at their default size.
     #[serde(deserialize_with = "lenient")]
     pub remember_window_geometry: bool,
+    /// "Start in compact mode" (S8.5.3): the first media played after launch plays in the
+    /// Picture in Picture window, the main window minimized.
+    #[serde(deserialize_with = "lenient")]
+    pub start_in_compact_mode: bool,
     /// "Keep window above other windows", except while fullscreen.
     #[serde(deserialize_with = "lenient")]
     pub keep_above_other_windows: bool,
@@ -155,6 +159,7 @@ impl Default for InterfaceSettings {
             play_video_in_main_window: true,
             resize_to_fit_video: FitVideo::default(),
             remember_window_geometry: true,
+            start_in_compact_mode: false,
             keep_above_other_windows: false,
             show_window_decorations: true,
             now_playing_notification: NowPlayingNotification::default(),

@@ -31,6 +31,7 @@ pub mod list;
 pub mod menu;
 pub mod modal;
 pub mod option_row;
+pub mod player_overlay;
 pub mod popover;
 pub mod segmented;
 pub mod slider;

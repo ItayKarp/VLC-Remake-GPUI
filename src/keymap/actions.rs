@@ -147,6 +147,8 @@ actions!(
         ShowControls,
         /// Hide or show the whole interface around the video.
         HideInterface,
+        /// Pop the player out into the Picture in Picture window, or back in (S8.5).
+        PictureInPicture,
         /// Show or hide the queue.
         ToggleQueue,
         /// Show or hide the file browser.

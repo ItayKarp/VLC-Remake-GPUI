@@ -8,6 +8,8 @@
 //! ([`dock`]). The listing leaves room under its last line for it.
 
 mod card;
+
+pub(super) use card::progress;
 mod dock;
 mod queue;
 
@@ -78,7 +80,7 @@ impl MainWindow {
     /// The player whose media the card shows: in full library mode, while something plays or
     /// has just ended.
     fn miniplayer_player(&self, cx: &App) -> Option<Entity<Player>> {
-        if !self.library_panel.is_full() {
+        if !self.library_panel.is_full() || self.windowing.pip.is_shown() {
             return None;
         }
         let player = self.loaded_player(cx)?;

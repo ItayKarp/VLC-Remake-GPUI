@@ -15,6 +15,7 @@ pub mod instance;
 pub mod media;
 mod not_responding;
 pub mod open;
+mod pip_window;
 pub mod real_time;
 pub mod recent;
 pub mod request;
@@ -39,6 +40,7 @@ use instance::{InboxReceiver, Role};
 use request::{Launch, OpenRequest};
 
 pub use display::preferred_display;
+pub use pip_window::{PipWindowRequest, open_pip_window};
 pub use settings_window::open_settings;
 pub use video_window::{VIDEO_WINDOW_MIN_SIZE, VideoWindowRequest, open_video_window};
 

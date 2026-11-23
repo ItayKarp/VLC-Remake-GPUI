@@ -171,6 +171,8 @@ pub const COMMANDS: &[Command] = &[
     held("Audio delay later", keys(&["k"]), &act::AudioDelayLater),
     held("Subtitle delay earlier", keys(&["g"]), &act::SubtitleDelayEarlier),
     held("Subtitle delay later", keys(&["h"]), &act::SubtitleDelayLater),
+    // VLC has no key for it; it lives in the View and video menus.
+    cmd("Picture in Picture", Player, NONE, &act::PictureInPicture),
     cmd("Take a snapshot", Player, keys(&["shift-s"]), &act::Snapshot),
     cmd("Record", Player, keys(&["shift-r"]), &act::Record),
     // The context-menu key ("menu") exists on Windows and Linux keyboards.

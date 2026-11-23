@@ -38,6 +38,11 @@ pub struct Windowing {
     pub(super) notice: NowPlayingNotice,
     /// Media is opening whose video hasn't shown yet, for "Start videos in fullscreen" (S5.8.1).
     pub(super) start_fullscreen: bool,
+    /// The Picture in Picture window (S8.5).
+    pub(super) pip: super::pip::Pip,
+    /// Whether the first media played pops out into Picture in Picture ("Start in compact
+    /// mode").
+    pub(super) launch: super::pip::Launch,
 }
 
 /// The video's own window.
@@ -72,7 +77,9 @@ impl MainWindow {
     /// Whether video should play in a window of its own: the setting is off, and media with
     /// video plays (or keeps playing in the window that is open).
     fn wants_video_window(&self, cx: &Context<Self>) -> bool {
-        if settings::get(cx).prefs.interface.play_video_in_main_window {
+        if settings::get(cx).prefs.interface.play_video_in_main_window
+            || self.windowing.pip.is_shown()
+        {
             return false;
         }
         let Some((player, _)) = &self.player else { return false };
@@ -179,7 +186,7 @@ impl MainWindow {
     }
 
     /// Closes the video's window, bringing the video back here.
-    fn close_video_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn close_video_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let SeparateVideo::Open { handle, .. } = std::mem::take(&mut self.windowing.separate)
         else {
             return;
@@ -196,7 +203,7 @@ impl MainWindow {
     }
 
     /// Video plays in this window again.
-    fn video_back_home(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn video_back_home(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.windowing.separate = SeparateVideo::Closed;
         if let Some(video) = &self.video {
             video.update(cx, |video, cx| video.arrive(window, cx));
