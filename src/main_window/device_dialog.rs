@@ -40,6 +40,9 @@ pub(super) struct Frame {
     pub sections: Vec<Div>,
     /// Whether Play does something now.
     pub can_play: bool,
+    /// The footer's buttons: the one closing the dialog (Cancel) and the one doing what it is
+    /// for (Play).
+    pub buttons: (&'static str, &'static str),
 }
 
 impl Frame {
@@ -52,6 +55,7 @@ impl Frame {
         on_play: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
     ) -> impl IntoElement {
         let viewport = window.viewport_size();
+        let footer = footer(&self, cx, on_play);
         let body = div()
             .id(SharedString::from(format!("{}-body", self.id)))
             .flex_initial()
@@ -81,7 +85,7 @@ impl Frame {
             .text_color(p.text)
             .child(header(self.id, self.title, p, cx))
             .child(body)
-            .child(footer(self.id, self.can_play, cx, on_play))
+            .child(footer)
     }
 }
 
@@ -150,16 +154,16 @@ fn header<V: EventEmitter<DismissEvent>>(
 
 /// Cancel at the left, Play at the right.
 fn footer<V: EventEmitter<DismissEvent>>(
-    id: &'static str,
-    can_play: bool,
+    frame: &Frame,
     cx: &mut Context<V>,
     on_play: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
 ) -> Div {
-    let cancel = Button::new(SharedString::from(format!("{id}-cancel")), "Cancel")
+    let (id, can_play, (dismiss, confirm)) = (frame.id, frame.can_play, frame.buttons);
+    let cancel = Button::new(SharedString::from(format!("{id}-cancel")), dismiss)
         .style(ButtonStyle::Filled)
         .width(FOOTER_BUTTON_WIDTH)
         .on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(DismissEvent)));
-    let play = Button::new(SharedString::from(format!("{id}-play")), "Play")
+    let play = Button::new(SharedString::from(format!("{id}-play")), confirm)
         .style(if can_play { ButtonStyle::Primary } else { ButtonStyle::Ghost })
         .width(FOOTER_BUTTON_WIDTH)
         .disabled(!can_play)

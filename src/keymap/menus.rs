@@ -59,9 +59,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
 /// Commands that menus and the Keyboard Shortcuts dialog leave out until their stories ship
 /// (S2.9.4); their keys say "Coming soon" in debug builds. Remove a command from here when it
 /// gets its effect.
-pub const PENDING: &[&dyn Action] = &[
-    &act::Convert, // S8.10
-];
+pub const PENDING: &[&dyn Action] = &[];
 
 /// Whether `action` is one of the [`PENDING`] commands.
 pub fn is_pending(action: &dyn Action) -> bool {
@@ -265,6 +263,6 @@ mod tests {
         assert!(action.partial_eq(&FromMenuBar { command: label(&act::PlayPause) }));
         assert!(commands::by_label(label(&act::PlayPause)).is_some());
         assert!(plain(&act::NextProgram, "Next Program").is_some(), "Next Program shipped (S8.9)");
-        assert!(item(&act::Convert, "Convert…").is_none(), "Convert is pending");
+        assert!(item(&act::Convert, "Convert…").is_some(), "Convert shipped (S8.10)");
     }
 }

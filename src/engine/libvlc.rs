@@ -64,6 +64,9 @@ mod test_tone;
 mod tests;
 pub mod thumbnail;
 mod track_list;
+pub mod transcode;
+#[cfg(test)]
+mod transcode_tests;
 mod video_filters;
 #[cfg(test)]
 mod video_tests;

@@ -33,6 +33,7 @@ impl Render for OpenDiscDialog {
             title: "Open Disc",
             sections,
             can_play: !self.media(cx).is_empty(),
+            buttons: ("Cancel", "Play"),
         };
         div().track_focus(&self.focus).child(frame.render(&p, window, cx, Self::play))
     }

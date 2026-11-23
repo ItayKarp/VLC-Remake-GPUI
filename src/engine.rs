@@ -28,11 +28,13 @@
 //! - [`recording`]: what becomes of recording the media playing (S8.6).
 //! - [`navigation`]: a stream's programs, a disc's titles and its menus (S8.9).
 //! - [`discs`]: an audio CD's tracks, read without playing it (S8.9.1).
+//! - [`convert`]: converting media to another format, on threads of their own (S8.10).
 
 pub mod audio;
 pub mod backend;
 mod coalesce;
 pub mod colors;
+pub mod convert;
 pub mod cues;
 pub mod discs;
 pub mod hdr;
