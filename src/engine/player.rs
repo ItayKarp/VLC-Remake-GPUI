@@ -26,6 +26,7 @@ use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::colors::Colors;
+use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::position::PositionTracker;
@@ -58,6 +59,8 @@ pub enum PlayerEvent {
     Buffering(f32),
     /// The displayed video size changed; `None` when there is no video.
     VideoSizeChanged(Option<VideoSize>),
+    /// What the video's colors are, or how it is tone-mapped, changed; see [`Player::hdr`].
+    HdrChanged(HdrStatus),
     /// The chapter list changed; see [`Player::chapters`].
     ChaptersChanged,
     /// The metadata changed; see [`Player::metadata`].
@@ -115,6 +118,8 @@ struct Info {
     /// Each subtitle track's delay, speed and duration factor (S6.3), set or remembered.
     syncs: HashMap<SubtitleKey, SubtitleSync>,
     video_size: Option<VideoSize>,
+    /// The video's colors and how it is tone-mapped (S7.5).
+    hdr: HdrStatus,
     chapters: Vec<Chapter>,
     metadata: Metadata,
 }
@@ -140,6 +145,8 @@ pub struct Player {
     video_filters: VideoFilters,
     /// The color filters, as last given to the backend.
     colors: Colors,
+    /// How HDR video shows, as last given to the backend.
+    hdr_mode: HdrMode,
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
@@ -177,6 +184,7 @@ impl Player {
             picture: None,
             video_filters: VideoFilters::default(),
             colors: Colors::NONE,
+            hdr_mode: HdrMode::Auto,
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),

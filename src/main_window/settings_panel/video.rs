@@ -2,7 +2,7 @@
 //! zoom, resolution, aspect ratio and crop, S7.2) with the **Crop** section's edges under them,
 //! then **Filters**, the effect sections (S7.1): the Essential picture adjustments and
 //! enhancements (S7.3), then the Colors (S7.4). All of them change what plays for the rest of the
-//! session. HDR comes with S7.5.
+//! session.
 
 use gpui::{Context, Div, Window, div, prelude::*, px};
 
@@ -34,7 +34,7 @@ impl MainWindow {
             .flex()
             .flex_col()
             .p(px(SECTION_PADDING))
-            .child(self.render_video_defaults(p, cx))
+            .child(self.render_video_defaults(p, window, cx))
             .child(self.render_crop_section(p, cx));
         let filters = section("Filters", FILTERS_NOTE, p)
             .children(sections.map(|controls| controls.render(p, cx)))

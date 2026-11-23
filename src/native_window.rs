@@ -1,13 +1,18 @@
 //! What GPUI has no call for, asked of the OS window behind a GPUI window (S5.4.1):
 //! - keeping it above other windows ("Keep window above other windows"), and
-//! - moving it, to fullscreen on another display or to keep a resized window on screen.
+//! - moving it, to fullscreen on another display or to keep a resized window on screen, and
+//! - whether its display can show HDR ([`display_hdr`], S7.5.3).
 //!
 //! macOS sets the `NSWindow`'s level and frame; Windows uses `SetWindowPos`. Linux has neither
 //! yet (X11 needs `_NET_WM_STATE_ABOVE`, and Wayland doesn't let a client place or raise
 //! itself), so both report that they did nothing.
 
+mod display_hdr;
+
 use gpui::{App, Pixels, Point, Window, px};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+pub use display_hdr::{DisplayRange, display_range};
 
 /// Keeps `window` above other windows, or not. Returns whether the OS could be asked.
 pub fn set_keep_above(window: &Window, above: bool) -> bool {
@@ -50,7 +55,7 @@ mod platform {
         with_window(handle, |window| window.setFrameTopLeftPoint(top_left))
     }
 
-    fn with_window(handle: RawWindowHandle, act: impl FnOnce(&NSWindow)) -> bool {
+    pub(super) fn with_window(handle: RawWindowHandle, act: impl FnOnce(&NSWindow)) -> bool {
         let RawWindowHandle::AppKit(handle) = handle else { return false };
         // SAFETY: GPUI's AppKit handle points at the window's content view, alive as long as the
         // GPUI window that lent it, and this runs on the main thread inside a window update.

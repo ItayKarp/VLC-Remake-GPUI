@@ -145,6 +145,7 @@ impl MainWindow {
                     self.start_fullscreen(window, cx);
                 }
             }
+            PlayerEvent::HdrChanged(status) => self.warn_hdr(*status, cx),
             // The title bar names the media by its title tag (S2.1.2).
             PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),

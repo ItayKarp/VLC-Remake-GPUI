@@ -87,6 +87,7 @@ pub const VIDEO_DEFAULTS: &[&str] = &[
     "video.aspect_ratio",
     "video.custom_aspect_ratio",
     "video.crop",
+    "video.hdr",
 ];
 
 #[cfg(test)]

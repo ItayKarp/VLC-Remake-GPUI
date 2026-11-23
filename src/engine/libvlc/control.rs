@@ -97,6 +97,7 @@ impl Worker {
                 Command::SetPicture(picture) => self.set_picture(picture),
                 Command::SetVideoFilters(filters) => self.set_video_filters(filters),
                 Command::SetColors(colors) => self.set_colors(colors),
+                Command::SetHdrMode(mode) => self.set_hdr_mode(mode),
             }
         }
     }

@@ -30,6 +30,7 @@ pub mod backend;
 mod coalesce;
 pub mod colors;
 pub mod cues;
+pub mod hdr;
 pub mod language;
 pub mod lengths;
 pub mod libvlc;

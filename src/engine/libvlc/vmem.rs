@@ -11,13 +11,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use super::api::{LibVlc, MediaPlayer};
+use crate::engine::hdr::{ToneMap, ToneMappingSink};
 use crate::engine::media_info::VideoSize;
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
 
-/// What libVLC's opaque pointer points at: the sink, and what the worker learned about the
-/// media before playing it.
+/// What libVLC's opaque pointer points at: the sink, tone-mapping HDR when asked (S7.5), and
+/// what the worker learned about the media before playing it.
 pub struct Vmem {
-    sink: Arc<dyn VideoSink>,
+    sink: ToneMappingSink,
     /// The open media's display size, read before playback; `None` when unknown.
     display: Mutex<Option<VideoSize>>,
     /// Whether the user turned the picture a quarter turn (S7.2): libVLC's filters give it
@@ -31,7 +32,7 @@ impl Vmem {
     /// A bridge to `sink`.
     pub fn new(sink: Arc<dyn VideoSink>) -> Self {
         Self {
-            sink,
+            sink: ToneMappingSink::new(sink),
             display: Mutex::new(None),
             transposed: AtomicBool::new(false),
             next_picture: Mutex::new(None),
@@ -47,6 +48,23 @@ impl Vmem {
     /// Drops what [`Self::after_next_picture`] asked for, if it hasn't run.
     pub fn forget_next_picture(&self) {
         self.next_picture.lock().unwrap_or_else(PoisonError::into_inner).take();
+    }
+
+    /// Tone-maps pictures as `map` says from the next video output; true when the picture
+    /// showing now needs a new output to follow (see [`ToneMappingSink::set_tone_map`]).
+    pub fn set_tone_map(&self, map: Option<ToneMap>) -> bool {
+        self.sink.set_tone_map(map)
+    }
+
+    /// How pictures are tone-mapped from the next video output; `None` while they show as
+    /// decoded.
+    pub fn wanted_tone_map(&self) -> Option<ToneMap> {
+        self.sink.wanted()
+    }
+
+    /// How the picture showing now is tone-mapped; `None` while it shows as decoded.
+    pub fn tone_map(&self) -> Option<ToneMap> {
+        self.sink.tone_map()
     }
 
     /// Records the display size of the media about to play, for the next `format` call.

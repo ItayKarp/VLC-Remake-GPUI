@@ -39,6 +39,7 @@ impl Worker {
                 self.send_tracks();
                 self.send_chapters();
                 self.send_metadata();
+                self.watch_colour(Instant::now());
             }
         }
     }

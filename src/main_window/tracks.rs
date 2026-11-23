@@ -67,6 +67,7 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
         transform: video.transform(),
         deinterlace: video.deinterlacing(),
     });
+    player.set_hdr_mode(video.hdr);
     player.set_file_styles(settings.prefs.subtitles.file_styles, cx);
 }
 

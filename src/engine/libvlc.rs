@@ -30,6 +30,9 @@ mod events;
 mod failure;
 mod frame_sink;
 pub mod hardware;
+mod hdr;
+#[cfg(test)]
+mod hdr_tests;
 mod hold;
 pub mod lengths;
 mod media_options;
@@ -43,6 +46,7 @@ mod reopen;
 mod reopen_tests;
 pub mod runtime;
 mod size_watch;
+mod stream_colour;
 mod subtitle_style;
 pub mod system_options;
 pub mod tags;
@@ -73,6 +77,7 @@ use super::audio::equalizer::Equalizer;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
 use super::colors::Colors;
+use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
@@ -262,6 +267,10 @@ impl Backend for LibVlcBackend {
 
     fn set_colors(&mut self, colors: Colors) {
         self.send(Command::SetColors(colors));
+    }
+
+    fn set_hdr_mode(&mut self, mode: HdrMode) {
+        self.send(Command::SetHdrMode(mode));
     }
 
     fn shut_down(mut self: Box<Self>) {

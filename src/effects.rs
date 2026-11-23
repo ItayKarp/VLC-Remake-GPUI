@@ -69,10 +69,11 @@ pub fn any_changed(cx: &App, section: &EffectSection) -> bool {
     section.keys().any(|key| is_changed(cx, key))
 }
 
-/// Whether the panel holds a value for any of the Video tab's framing: its Defaults rows or its
-/// Crop section.
+/// Whether the panel holds a value for any of the Video tab's framing: its Defaults rows (HDR
+/// aside) or its Crop section.
 pub fn framing_changed(cx: &App) -> bool {
-    VIDEO_DEFAULTS.iter().copied().chain(VIDEO_CROP.keys()).any(|key| is_changed(cx, key))
+    let defaults = VIDEO_DEFAULTS.iter().copied().filter(|key| *key != "video.hdr");
+    defaults.chain(VIDEO_CROP.keys()).any(|key| is_changed(cx, key))
 }
 
 /// Sets `key`, a control outside any section, for the session.

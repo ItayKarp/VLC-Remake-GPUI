@@ -1,5 +1,5 @@
 //! The Video tab's Defaults (S7.2, `controls-video_settings.png`): **Flip**, **Rotate**,
-//! **Zoom**, **Resolution**, **Aspect Ratio** and **Crop**. Like the effect sections they change
+//! **Zoom**, **Resolution**, **Aspect Ratio**, **Crop** and **HDR** (S7.5). Like the effect sections they change
 //! what plays for the session (D24), over Settings → Video's Framing and Settings → Playback's
 //! preferred quality; Reset beside the heading lets them follow Settings again, and Save as
 //! Default keeps them there.
@@ -7,8 +7,9 @@
 //! Rotate is a field, as designed ("0 deg"): any angle typed snaps to the nearest quarter turn
 //! (−90 is 270). Flip and Rotate reopen the video where it is; the rest the app draws at once.
 //! Aspect Ratio's Custom shows a Custom Ratio field under it (`custom_ratio.rs`).
-//! Resolution only reaches streams that offer several, from the next one opened. The designed
-//! HDR row comes with S7.5 and Render (casting) with S8.11; until then they're hidden.
+//! Resolution only reaches streams that offer several, from the next one opened. HDR reopens
+//! HDR video where it is, with a line under it saying what plays and how it shows. The designed
+//! Render row (casting) comes with S8.11; until then it's hidden.
 
 use gpui::{
     App, AppContext as _, Context, Div, Entity, KeyDownEvent, SharedString, Subscription, Window,
@@ -32,12 +33,14 @@ const FLIP: &str = "video.flip";
 const ROTATION: &str = "video.rotation";
 /// The dropdown rows: each setting's key and the row's label.
 const ASPECT_RATIO: &str = "video.aspect_ratio";
-const DROPDOWNS: [(&str, &str); 4] = [
+const DROPDOWNS: [(&str, &str); 5] = [
     ("video.zoom", "Zoom"),
     ("player.video_quality", "Resolution"),
     (ASPECT_RATIO, "Aspect Ratio"),
     ("video.crop", "Crop"),
+    (HDR, "HDR"),
 ];
+const HDR: &str = "video.hdr";
 /// The rows' height, text size and control width, and the space under Flip's label.
 const ROW_HEIGHT: f32 = 68.;
 const ROW_TEXT: f32 = 14.;
@@ -108,8 +111,14 @@ impl DefaultsControls {
 
 impl MainWindow {
     /// The Defaults section.
-    pub(super) fn render_video_defaults(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
+    pub(super) fn render_video_defaults(
+        &self,
+        p: &Palette,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let controls = &self.settings_panel.video_defaults;
+        let hdr_note = self.hdr_note(window, cx);
         let rotate = div()
             .w(px(ROTATE_WIDTH))
             .on_key_down(cx.listener(Self::on_rotate_key))
@@ -122,7 +131,8 @@ impl MainWindow {
                 let field = div().w(px(CONTROL_WIDTH)).child(controls.custom_ratio.field());
                 labelled("Custom Ratio", field, p)
             });
-            std::iter::once(dropdown).chain(field)
+            let note = (row.key == HDR).then(|| hdr_note.clone().map(|text| note(text, p)));
+            std::iter::once(dropdown).chain(field).chain(note.flatten())
         });
         div()
             .flex()
@@ -193,6 +203,15 @@ fn heading(p: &Palette, cx: &App) -> Div {
         .text_color(p.text_muted)
         .child(NOTE);
     div().flex().flex_col().pb(px(super::SECTION_NOTE_GAP)).child(title).child(note)
+}
+
+/// A line under a row, about what it does to the media playing.
+fn note(text: String, p: &Palette) -> Div {
+    div()
+        .pb(px(LABEL_GAP))
+        .text_size(px(super::SECTION_NOTE_TEXT))
+        .text_color(p.text_muted)
+        .child(text)
 }
 
 /// Flip: its label over a segmented control the panel's width.

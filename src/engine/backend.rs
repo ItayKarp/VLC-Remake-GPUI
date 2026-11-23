@@ -14,6 +14,7 @@ use futures::channel::mpsc;
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::colors::Colors;
+use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::state::PlaybackState;
@@ -43,6 +44,8 @@ pub enum BackendEvent {
     VideoSize(Option<VideoSize>),
     /// The chapter list changed.
     Chapters(Vec<Chapter>),
+    /// What the video's colors are and how it is tone-mapped (S7.5).
+    Hdr(HdrStatus),
     /// The metadata tags changed.
     Metadata(Metadata),
     /// The last [`Backend::seek`] finished.
@@ -146,6 +149,8 @@ pub enum Command {
     SetVideoFilters(VideoFilters),
     /// Show video through these color filters.
     SetColors(Colors),
+    /// Show HDR video this way.
+    SetHdrMode(HdrMode),
 }
 
 /// A playback backend.
@@ -217,6 +222,9 @@ pub trait Backend: Send {
     /// Shows video through the color filters `colors` turns on from now on, for this and later
     /// media. Seen at once.
     fn set_colors(&mut self, colors: Colors);
+    /// Shows HDR video as `mode` says from now on, for this and later media; the video playing
+    /// may reopen where it is.
+    fn set_hdr_mode(&mut self, mode: HdrMode);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

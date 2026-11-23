@@ -7,6 +7,7 @@ use gpui::Context;
 
 use super::{Intent, Player, PlayerEvent};
 use crate::engine::backend::{BackendEvent, Tagged};
+use crate::engine::hdr::HdrStatus;
 use crate::engine::state::PlaybackState;
 
 impl Player {
@@ -36,6 +37,7 @@ impl Player {
                     cx.emit(PlayerEvent::VideoSizeChanged(size));
                 }
             }
+            BackendEvent::Hdr(status) => self.hdr_reported(status, cx),
             BackendEvent::Chapters(chapters) => {
                 self.info.chapters = chapters;
                 cx.emit(PlayerEvent::ChaptersChanged);
@@ -50,6 +52,13 @@ impl Player {
             BackendEvent::Corked(corked) => self.corked(corked, cx),
         }
         cx.notify();
+    }
+
+    /// Keeps what the backend found about the video's colors, and says when it changed.
+    fn hdr_reported(&mut self, status: HdrStatus, cx: &mut Context<Self>) {
+        if std::mem::replace(&mut self.info.hdr, status) != status {
+            cx.emit(PlayerEvent::HdrChanged(status));
+        }
     }
 
     /// Moves the state machine to `next`, if the graph allows it; repeats and disallowed

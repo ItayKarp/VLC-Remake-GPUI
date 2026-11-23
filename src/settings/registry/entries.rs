@@ -20,6 +20,7 @@ pub(super) mod subtitles;
 mod video;
 mod video_colors;
 mod video_framing;
+mod video_hdr;
 mod window;
 
 use super::def::SettingDef;
@@ -27,8 +28,8 @@ use super::value::Value;
 use crate::engine::language::Language;
 
 /// Every category's rows, in sidebar order (General, Interface and Playback in two parts each,
-/// Video and Audio in three, Subtitles in two).
-pub(super) static PAGES: [&[SettingDef]; 20] = [
+/// Video in four, Audio in three, Subtitles in two).
+pub(super) static PAGES: [&[SettingDef]; 21] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
     window::ENTRIES,
@@ -39,6 +40,7 @@ pub(super) static PAGES: [&[SettingDef]; 20] = [
     play_order::ENTRIES,
     video::ENTRIES,
     video_framing::ENTRIES,
+    video_hdr::ENTRIES,
     video_colors::ENTRIES,
     audio::ENTRIES,
     audio_effects::ENTRIES,

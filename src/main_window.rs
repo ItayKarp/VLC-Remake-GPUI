@@ -22,6 +22,7 @@ mod empty_state;
 mod flash;
 mod frame_step;
 mod fullscreen;
+mod hdr_note;
 mod hide_ui;
 mod history;
 mod library_panel;

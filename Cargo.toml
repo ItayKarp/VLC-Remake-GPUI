@@ -83,8 +83,8 @@ keyring = "4"
 objc2-core-foundation = { version = "=0.3.2", features = ["CFDictionary", "CFNumber", "CFString"] }
 objc2-core-video = { version = "=0.3.2", features = ["CVBase", "CVBuffer", "CVImageBuffer", "CVPixelBuffer", "CVPixelBufferPool", "CVReturn"] }
 # Hides the pointer with the auto-hidden controls (S2.8.1); GPUI only hides it while typing.
-# Keeps windows above the others and moves them (S5.4.1).
-objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSCursor", "NSResponder", "NSView", "NSWindow"] }
+# Keeps windows above the others and moves them (S5.4.1). Asks whether a screen shows HDR (S7.5.3).
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSCursor", "NSResponder", "NSScreen", "NSView", "NSWindow"] }
 objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSGeometry"] }
 
 # Asks the desktop's screen saver not to start during video (S1.4.3). GPUI's portal support

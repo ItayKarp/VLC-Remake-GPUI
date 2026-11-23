@@ -15,6 +15,7 @@ use super::cpu_filters::CpuFilters;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
+use super::hdr::HdrState;
 use super::hold::Hold;
 use super::reopen::Restore;
 use super::size_watch::{SIZE_POLL, SizeWatch};
@@ -112,6 +113,8 @@ pub struct Worker {
     pub(super) switch_due: Option<Instant>,
     /// Paused media playing until its first picture shows after a reopen.
     pub(super) hold: Option<Hold>,
+    /// The HDR mode, and the open media's colors (S7.5).
+    pub(super) hdr: HdrState,
 }
 
 impl Worker {
@@ -144,6 +147,7 @@ impl Worker {
             quarter_turned: false,
             switch_due: None,
             hold: None,
+            hdr: HdrState::default(),
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -164,6 +168,7 @@ impl Worker {
             self.poll_devices_if_due();
             self.switch_if_due(Instant::now());
             self.pause_held_if_due(Instant::now());
+            self.read_colour_if_due(Instant::now());
         }
         self.release();
     }
@@ -198,6 +203,9 @@ impl Worker {
         if let Some(hold) = self.until_hold_ends(now) {
             wait = wait.min(hold);
         }
+        if let Some(read) = self.until_colour_read(now) {
+            wait = wait.min(read);
+        }
         wait
     }
 
@@ -206,6 +214,7 @@ impl Worker {
     pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
         super::hardware::decoding(None);
         self.end_hold();
+        self.reset_hdr();
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
@@ -289,6 +298,7 @@ impl Worker {
         self.poll_devices_if_due();
         self.switch_if_due(Instant::now());
         self.pause_held_if_due(Instant::now());
+        self.read_colour_if_due(Instant::now());
         if self.size_watch.is_watching(Instant::now()) {
             self.send_video_size();
         }

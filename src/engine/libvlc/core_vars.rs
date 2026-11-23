@@ -1,7 +1,9 @@
 //! The player's variables, through libVLC's core (`libvlccore`): `var_Create`, `var_SetChecked`
 //! and `var_GetChecked`, the calls libVLC's own `libvlc_video_set_adjust_*` and
 //! `libvlc_video_set_deinterlace` make; and its video outputs' (`vlc_list_children`), which a
-//! filter's settings reach while it runs, as libVLC's own calls reach them.
+//! filter's settings reach while it runs, as libVLC's own calls reach them. And the description
+//! of the input playing (`input_GetItem`, `input_item_GetInfo`), which says what libVLC's API
+//! doesn't, such as a video's colors (`stream_colour.rs`).
 //!
 //! libVLC 3 opens video outputs under the player, so they take their filters (`video-filter`,
 //! `transform-type`, `deinterlace`, `deinterlace-mode`) from its variables when they open; the
@@ -21,8 +23,9 @@ const VAR_BOOL: c_int = 0x0020;
 const VAR_INTEGER: c_int = 0x0030;
 const VAR_STRING: c_int = 0x0040;
 const VAR_FLOAT: c_int = 0x0050;
-/// A video output's object type, the first member of every libVLC 3 object.
+/// A video output's and an input's object types, the first member of every libVLC 3 object.
 const VIDEO_OUTPUT: &CStr = c"video output";
+pub(super) const INPUT: &CStr = c"input";
 /// `VLC_SUCCESS`.
 const SUCCESS: c_int = 0;
 
@@ -50,6 +53,8 @@ type VarSet = unsafe extern "C" fn(*mut c_void, *const c_char, c_int, VlcValue) 
 type VarGet = unsafe extern "C" fn(*mut c_void, *const c_char, c_int, *mut VlcValue) -> c_int;
 type ListChildren = unsafe extern "C" fn(*mut c_void) -> *mut VlcList;
 type ListRelease = unsafe extern "C" fn(*mut VlcList);
+type InputGetItem = unsafe extern "C" fn(*mut c_void) -> *mut c_void;
+type ItemGetInfo = unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char;
 
 /// The core's variable calls.
 pub struct CoreVars {
@@ -58,6 +63,10 @@ pub struct CoreVars {
     get: VarGet,
     list_children: ListChildren,
     list_release: ListRelease,
+    /// `input_GetItem`: an input's item, which it holds while it lives.
+    pub(super) input_item: InputGetItem,
+    /// `input_item_GetInfo`: a line of an item's description, a copy the caller frees.
+    pub(super) item_info: ItemGetInfo,
 }
 
 impl CoreVars {
@@ -75,6 +84,12 @@ impl CoreVars {
                 list_release: *core
                     .get::<ListRelease>(b"vlc_list_release\0")
                     .context("vlc_list_release")?,
+                input_item: *core
+                    .get::<InputGetItem>(b"input_GetItem\0")
+                    .context("input_GetItem")?,
+                item_info: *core
+                    .get::<ItemGetInfo>(b"input_item_GetInfo\0")
+                    .context("input_item_GetInfo")?,
             })
         }
     }
@@ -132,6 +147,25 @@ impl LibVlc {
     /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
     pub(super) unsafe fn set_output_var(&self, player: *mut MediaPlayer, name: &CStr, to: Var) {
         let (kind, value) = to.raw();
+        // SAFETY: the caller's promise; each output is live during the call.
+        unsafe {
+            self.for_each_child(player, VIDEO_OUTPUT, |output| {
+                (self.core.set)(output, name.as_ptr(), kind, value);
+            });
+        }
+    }
+
+    /// Calls `f` with each of the player's child objects of type `kind`, held meanwhile.
+    ///
+    /// # Safety
+    ///
+    /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
+    pub(super) unsafe fn for_each_child(
+        &self,
+        player: *mut MediaPlayer,
+        kind: &CStr,
+        mut f: impl FnMut(*mut c_void),
+    ) {
         // SAFETY: the caller's promise; the list holds each child until it is released.
         unsafe {
             let list = (self.core.list_children)(player.cast());
@@ -143,8 +177,8 @@ impl LibVlc {
                 if count == 0 { &[][..] } else { slice::from_raw_parts((*list).values, count) };
             for child in children {
                 let object = child.address;
-                if !object.is_null() && is_video_output(object) {
-                    (self.core.set)(object, name.as_ptr(), kind, value);
+                if !object.is_null() && is_of_type(object, kind) {
+                    f(object);
                 }
             }
             (self.core.list_release)(list);
@@ -174,16 +208,16 @@ impl LibVlc {
     }
 }
 
-/// Whether `object` is a video output, by the type name libVLC 3 puts first in every object.
+/// Whether `object` is of type `kind`, by the type name libVLC 3 puts first in every object.
 ///
 /// # Safety
 ///
 /// `object` is a live libVLC object.
-unsafe fn is_video_output(object: *mut c_void) -> bool {
+unsafe fn is_of_type(object: *mut c_void, kind: &CStr) -> bool {
     // SAFETY: the caller's promise; `object_type` is a constant string libVLC never frees.
     unsafe {
-        let kind = *object.cast::<*const c_char>();
-        !kind.is_null() && CStr::from_ptr(kind) == VIDEO_OUTPUT
+        let name = *object.cast::<*const c_char>();
+        !name.is_null() && CStr::from_ptr(name) == kind
     }
 }
 

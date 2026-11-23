@@ -225,6 +225,9 @@ samples (S9.8.1).
    tone-mapping**, so HDR looks washed out on SDR displays. Real HDR needs a GPU path
    (libVLC 4 with libplacebo, or our own tone-mapping shader in a path (d) primitive).
    → S7 HDR story.
+   **Handled in S7.5** on the CPU: the sink asks for planar 10-bit (`I0AL`, software decoding
+   only) and tone-maps each picture to SDR itself (`engine/hdr/`). Passing HDR through to an
+   HDR display still needs a GPU path.
 6. **Copies:** VideoToolbox decodes into a `CVPixelBuffer`, libVLC's `cvpx` converter copies
    it to NV12, and `vmem` copies it again into our buffer. That is two CPU copies per frame
    (unified memory keeps them cheap on Apple silicon). libVLC 4's output callbacks could
