@@ -331,8 +331,10 @@ impl RenderOnce for IconButton {
             .aria_label(name)
             .when(self.selected, |b| b.bg(hover))
             .when(enabled, |b| {
+                // Space and Enter press the button, and the arrows don't seek, as on `Button`.
                 let b = b
                     .tab_index(0)
+                    .key_context(focus::CONTROL)
                     .cursor_pointer()
                     .hover(move |s| s.bg(hover))
                     .active(move |s| s.bg(pressed))

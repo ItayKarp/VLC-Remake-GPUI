@@ -49,18 +49,43 @@ pub struct ThumbnailTile {
     thumbnail: Option<Thumbnail>,
     /// Drawn this size instead of the class's, in logical pixels.
     size: Option<(f32, f32)>,
+    /// The corners' radius, in logical pixels.
+    radius: f32,
+    /// Draws the dark theme's placeholder whatever the theme.
+    always_dark: bool,
 }
 
 impl ThumbnailTile {
     /// A `class` tile showing `placeholder` until a picture is given.
     pub fn new(class: SizeClass, placeholder: Placeholder) -> Self {
-        Self { class, placeholder, thumbnail: None, size: None }
+        Self {
+            class,
+            placeholder,
+            thumbnail: None,
+            size: None,
+            radius: TILE_RADIUS,
+            always_dark: false,
+        }
     }
 
     /// Draws the tile `width` by `height` instead of its class's size; the class still picks
     /// the picture, which is scaled to fit.
     pub fn size(mut self, width: f32, height: f32) -> Self {
         self.size = Some((width, height));
+        self
+    }
+
+    /// Rounds the corners by `radius` logical pixels instead of the library's small radius
+    /// (music mode's large cover, S8.1.3).
+    pub fn radius(mut self, radius: f32) -> Self {
+        self.radius = radius;
+        self
+    }
+
+    /// Draws the dark theme's placeholder in both themes, for a tile on an area that is dark
+    /// whatever the theme (music mode's cover, on the black video area, S8.1.3).
+    pub fn always_dark(mut self) -> Self {
+        self.always_dark = true;
         self
     }
 
@@ -75,19 +100,27 @@ impl RenderOnce for ThumbnailTile {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let (width, height) = self.size.unwrap_or_else(|| logical_size(self.class));
         let tile =
-            div().flex_none().w(px(width)).h(px(height)).rounded(px(TILE_RADIUS)).overflow_hidden();
+            div().flex_none().w(px(width)).h(px(height)).rounded(px(self.radius)).overflow_hidden();
         let scale = scale_for(window.scale_factor());
         let path = self.thumbnail.as_ref().and_then(|t| t.path(self.class, scale));
         if let Some(path) = path {
             return tile.child(img(path.to_path_buf()).size_full());
         }
-        placeholder(tile, self.placeholder, width.min(height), &theme::palette(window, cx))
+        let palette = theme::palette(window, cx);
+        let dark = self.always_dark || palette.dark;
+        placeholder(tile, self.placeholder, width.min(height), dark, &palette)
     }
 }
 
-/// `tile` dressed as `placeholder`, with its glyph sized for a `side`-pixel tile.
-fn placeholder(tile: Div, placeholder: Placeholder, side: f32, palette: &Palette) -> Div {
-    let dark = palette.dark;
+/// `tile` dressed as `placeholder` in the `dark` or light theme's colours, with its glyph sized
+/// for a `side`-pixel tile.
+fn placeholder(
+    tile: Div,
+    placeholder: Placeholder,
+    side: f32,
+    dark: bool,
+    palette: &Palette,
+) -> Div {
     // Centering does nothing to the glyph-less video tile.
     let tile = tile.flex().items_center().justify_center();
     let pick = |dark_color: u32, light_color: u32| -> Hsla {

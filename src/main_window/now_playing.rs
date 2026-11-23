@@ -186,7 +186,7 @@ impl MainWindow {
 
     /// What to say, and whether Cancel applies.
     fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
-        if let Some(job) = self.jobs.last() {
+        if let Some(job) = self.jobs.running.last() {
             return Some((format!("Opening {}…", job.label).into(), true));
         }
         let (player, _) = self.player.as_ref()?;

@@ -96,7 +96,7 @@ pub fn init(cx: &mut App) {
     let report = Box::new(move |roots| {
         let _ = reports.unbounded_send(roots);
     });
-    let cache = settings::cache_dir().map(|dir| ArtworkCache::new(dir.join(ARTWORK_DIR_NAME)));
+    let cache = artwork_cache();
     let thumbnail_store = Box::new(history.database());
     let extractor = Extractor::new(tags::default_reader(), cache.clone());
     let commands = indexer::spawn(Box::new(history.database()), extractor, report, cancel.clone());
@@ -122,6 +122,11 @@ pub fn init(cx: &mut App) {
     })
     .detach();
     follow_settings(cx);
+}
+
+/// The cover cache in the cache dir, which music mode (S8.1) shares; none without a cache dir.
+pub fn artwork_cache() -> Option<ArtworkCache> {
+    settings::cache_dir().map(|dir| ArtworkCache::new(dir.join(ARTWORK_DIR_NAME)))
 }
 
 /// Every media folder's state, onboarding's first.

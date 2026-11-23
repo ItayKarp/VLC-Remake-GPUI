@@ -10,8 +10,12 @@
 pub enum Item {
     /// Restarts the item, or goes to the previous one.
     Previous,
+    /// Jumps back 15 s (music mode, S8.1.2).
+    Back15,
     /// Plays or pauses.
     PlayPause,
+    /// Jumps forward 15 s (music mode, S8.1.2).
+    Forward15,
     /// Goes to the next item.
     Next,
     /// The playback position (`00:02:10`).
@@ -88,6 +92,7 @@ impl Item {
             Item::SeekBar => (SEEK_MIN, 90, Dropped::Hidden),
             Item::CurrentTime => (TIME_WIDTH, 80, Dropped::Hidden),
             Item::Previous | Item::Next => (BUTTON, 70, Dropped::Overflow),
+            Item::Back15 | Item::Forward15 => (BUTTON, 65, Dropped::Overflow),
             Item::Duration => (TIME_WIDTH, 60, Dropped::Hidden),
             Item::Volume => (BUTTON + LEVEL_GAP + LEVEL_WIDTH, 50, Dropped::Overflow),
             Item::Audio | Item::Subtitles => (BUTTON, 40, Dropped::Overflow),
@@ -118,6 +123,33 @@ pub fn default_layout() -> Vec<Slot> {
         Slot::Gap(8.),
         Slot::Item(Audio),
         Slot::Item(Subtitles),
+        Slot::Item(Settings),
+        Slot::Item(List),
+    ]
+}
+
+/// Music mode's bar (S8.1.2, `controls-music.png`): the transport gains Back 15 s and Forward
+/// 15 s, and Subtitles goes. Settings stays, as `controls-music.png` has it: its panel holds
+/// the speed and the Audio Visualizer, which music wants as much as video does.
+pub fn music_layout() -> Vec<Slot> {
+    use Item::{
+        Audio, Back15, CurrentTime, Duration, Forward15, List, Next, PlayPause, Previous, SeekBar,
+        Settings, Volume,
+    };
+    vec![
+        Slot::Item(Previous),
+        Slot::Item(Back15),
+        Slot::Item(PlayPause),
+        Slot::Item(Forward15),
+        Slot::Item(Next),
+        Slot::Gap(16.),
+        Slot::Item(CurrentTime),
+        Slot::Item(SeekBar),
+        Slot::Item(Duration),
+        Slot::Gap(12.),
+        Slot::Item(Volume),
+        Slot::Gap(8.),
+        Slot::Item(Audio),
         Slot::Item(Settings),
         Slot::Item(List),
     ]

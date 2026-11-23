@@ -35,8 +35,13 @@ pub enum Edge {
 impl MainWindow {
     /// Jumps a `length` skip `way` from the shown position.
     pub(super) fn skip(&mut self, way: Way, length: SkipLength, cx: &mut Context<Self>) {
-        let Some(player) = self.seekable_player(cx) else { return };
         let jump = settings::get(cx).prefs.controls.skip(length);
+        self.skip_by(way, jump, cx);
+    }
+
+    /// Jumps `jump` `way` from the shown position (music mode's 15 s buttons, S8.1.2).
+    pub(super) fn skip_by(&mut self, way: Way, jump: Duration, cx: &mut Context<Self>) {
+        let Some(player) = self.seekable_player(cx) else { return };
         let millis = i64::try_from(jump.as_millis()).unwrap_or(i64::MAX);
         let offset = Offset::from_millis(if way == Way::Back { -millis } else { millis });
         player.update(cx, |player, cx| player.seek(SeekTarget::Relative(offset), cx));

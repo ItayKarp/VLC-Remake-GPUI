@@ -2,6 +2,8 @@
 //! declarative layout (`layout.rs`) and fitted to the window (`fit.rs`), with what doesn't fit
 //! in an overflow `…` menu.
 //!
+//! Music mode (S8.1.2) draws its own layout, with Back 15 s and Forward 15 s and no Subtitles.
+//!
 //! Every button shows hover, pressed, keyboard focus and disabled states and a tooltip naming
 //! its command and shortcut (S2.2.4). Previous and Next are disabled where they would do
 //! nothing (the light theme mock's faded transport means that).
@@ -38,6 +40,8 @@ const OVERFLOW_ICON: f32 = 20.;
 pub struct ControlBar {
     /// What the bar shows, in order; Customize Player (S8.7) edits it.
     layout: Vec<Slot>,
+    /// What it shows in music mode (S8.1.2).
+    music_layout: Vec<Slot>,
     /// The overflow menu, while it's open.
     overflow: Option<(Entity<ContextMenu>, Subscription)>,
     overflow_button: BoundsTracker,
@@ -49,6 +53,7 @@ impl Default for ControlBar {
     fn default() -> Self {
         Self {
             layout: layout::default_layout(),
+            music_layout: layout::music_layout(),
             overflow: None,
             overflow_button: BoundsTracker::new(),
             time_edit: None,
@@ -81,7 +86,12 @@ impl MainWindow {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let fitted = fit::fit(&self.control_bar.layout, f32::from(window.viewport_size().width));
+        let layout = if self.is_music_mode() {
+            &self.control_bar.music_layout
+        } else {
+            &self.control_bar.layout
+        };
+        let fitted = fit::fit(layout, f32::from(window.viewport_size().width));
         let mut bar = div()
             .absolute()
             .bottom_0()

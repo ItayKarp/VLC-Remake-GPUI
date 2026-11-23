@@ -46,6 +46,15 @@ const NAMES: &[(&[u8; 4], &str)] = &[
     (b"c708", "CC"),
 ];
 
+/// The names [`name`] gives codecs whose "video" track is one still picture: a cover (an MP3's
+/// attached picture), not a video.
+const STILL_PICTURES: [&str; 4] = ["JPEG", "PNG", "BMP", "GIF"];
+
+/// Whether a video track of codec `name` (as [`name`] gives it) is a still picture.
+pub fn is_still_picture(name: &str) -> bool {
+    STILL_PICTURES.contains(&name)
+}
+
 /// The name of the codec with libVLC FourCC `fourcc` ("AC3" for `a52 `). An unlisted one shows
 /// as its FourCC in capitals; `None` for 0 or one that isn't text.
 pub fn name(fourcc: u32) -> Option<String> {
@@ -79,5 +88,14 @@ mod tests {
         assert_eq!(name(fourcc(*b"wma2")).as_deref(), Some("WMA2"));
         assert_eq!(name(0), None);
         assert_eq!(name(fourcc(*b"\x01\x02ab")), None);
+    }
+
+    #[test]
+    fn covers_are_still_pictures_and_videos_are_not() {
+        let named = |code: [u8; 4]| name(fourcc(code)).expect("a printable FourCC has a name");
+        assert!(is_still_picture(&named(*b"jpeg")));
+        assert!(is_still_picture(&named(*b"png ")));
+        assert!(!is_still_picture(&named(*b"h264")));
+        assert!(!is_still_picture(&named(*b"MJPG")));
     }
 }

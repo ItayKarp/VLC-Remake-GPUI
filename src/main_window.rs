@@ -7,7 +7,8 @@
 //! saved from the New Playlist dialog and the video menu (S3.5). Properties & Metadata shows what
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
 //! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
-//! miniplayer (S4.10).
+//! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
+//! a control bar of its own (S8.1).
 //! Onboarding hands off to it (S0.2).
 
 mod about;
@@ -31,6 +32,7 @@ mod library_status;
 mod linked_subtitles;
 mod main_menu;
 mod miniplayer;
+mod music_mode;
 mod network_stream;
 mod new_playlist;
 mod notice;
@@ -75,7 +77,7 @@ use self::auto_hide::rules::Chrome;
 use crate::app;
 use crate::app::request::OpenRequest;
 use crate::engine::player::Player;
-use crate::keymap::actions::{CopyDebugInfo, OpenFile, OpenFolder, OpenFromClipboard};
+use crate::keymap::actions::CopyDebugInfo;
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
 use crate::power::DisplaySleep;
@@ -102,9 +104,7 @@ pub struct MainWindow {
     /// Failed items skipped in a row (S3.1.4).
     skips: Skips,
     /// Opens still resolving (scanning folders, expanding playlists).
-    jobs: Vec<opening::Job>,
-    /// The id the next job gets.
-    next_job: u64,
+    jobs: opening::Jobs,
     /// The engine, once something was opened, and its event subscription.
     player: Option<(Entity<Player>, Subscription)>,
     /// The video area, created with the player.
@@ -155,6 +155,8 @@ pub struct MainWindow {
     library_panel: library_panel::LibraryPanel,
     /// Full library mode's miniplayer card (S4.10.3).
     miniplayer: miniplayer::Miniplayer,
+    /// Music mode for audio-only media, and its cover (S8.1).
+    music: music_mode::MusicMode,
     /// The title last given to the OS window, so it's only set when it changes (S2.1.5).
     os_title: String,
     /// When the bars hide, Hide UI mode and the video's right-click menu (S2.8).
@@ -173,8 +175,7 @@ impl MainWindow {
         let mut this = Self {
             queue: Queue::default(),
             skips: Skips::default(),
-            jobs: Vec::new(),
-            next_job: 0,
+            jobs: opening::Jobs::default(),
             player: None,
             video: None,
             audio: audio::AudioWatch::default(),
@@ -202,6 +203,7 @@ impl MainWindow {
             queue_panel: queue_panel::QueuePanel::new(cx),
             library_panel: library_panel::LibraryPanel::new(cx),
             miniplayer: miniplayer::Miniplayer::default(),
+            music: music_mode::MusicMode::default(),
             os_title: String::new(),
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
@@ -286,7 +288,8 @@ impl MainWindow {
     }
 
     /// Between the title bar and the control bar (the whole window when the bars float or
-    /// hide, S2.8): the video while media is loaded, else the empty state.
+    /// hide, S2.8): the video while media is loaded, or for audio-only media its cover (S8.1),
+    /// else the empty state.
     fn render_content(
         &self,
         p: &theme::Palette,
@@ -297,12 +300,15 @@ impl MainWindow {
         let (top, bottom) = viewport::content_insets(chrome);
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
-            Some(video) => area
-                .on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
+            Some(video) => {
+                let shown = self.render_cover(chrome, window, cx);
+                let shown = shown.unwrap_or_else(|| viewport::framed(video, p, chrome));
+                area.on_scroll(cx.listener(|this, event: &ScrollEvent, window, cx| {
                     this.scroll_on_video(event, window, cx);
                 }))
-                .child(self.video_area(viewport::framed(video, p, chrome), window, cx))
-                .children(self.render_osd(p, cx)),
+                .child(self.video_area(shown, window, cx))
+                .children(self.render_osd(p, cx))
+            }
             None => area.child(
                 div()
                     .id("content")
@@ -311,21 +317,6 @@ impl MainWindow {
                     .child(self.render_empty_state(p, cx)),
             ),
         }
-    }
-}
-
-impl MainWindow {
-    /// Adds the handlers for Open File(s), Open Folder and Open from Clipboard.
-    fn open_actions(root: Div, cx: &mut Context<Self>) -> Div {
-        root.on_action(cx.listener(|_, _: &OpenFile, window, cx| {
-            Self::prompt_for_files(window, cx);
-        }))
-        .on_action(cx.listener(|_, _: &OpenFolder, window, cx| {
-            Self::prompt_for_folder(window, cx);
-        }))
-        .on_action(cx.listener(|this, _: &OpenFromClipboard, window, cx| {
-            this.paste(window, cx);
-        }))
     }
 }
 
@@ -348,6 +339,7 @@ impl Render for MainWindow {
         self.sync_os_title(window, cx);
         self.windowing.prefs.sync(window, cx);
         self.release_previews(window);
+        self.sync_music_mode(window, cx);
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
         self.fit_library(window, cx);

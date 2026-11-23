@@ -25,7 +25,7 @@ impl MainWindow {
         let Some(player) = self.loaded_player(cx) else {
             if let Some(index) = self.queue.current_index() {
                 self.play(index, window, cx);
-            } else if self.jobs.is_empty() {
+            } else if self.jobs.running.is_empty() {
                 Self::prompt_for_files(window, cx);
             }
             return;

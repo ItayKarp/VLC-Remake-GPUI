@@ -25,7 +25,8 @@ use crate::engine::player::{Player, PlayerEvent};
 use crate::keymap::actions::ToggleFullscreen;
 use crate::settings::{self, SettingsStore};
 
-/// What the placeholder for audio-only media says until music mode (Stage 8) shows artwork.
+/// What the placeholder for audio-only media says while music mode (S8.1) doesn't show its cover:
+/// a visualizer draws there and hasn't drawn yet, or a stream's tracks aren't known yet.
 const AUDIO_ONLY: &str = "♪";
 const PLACEHOLDER_SIZE: f32 = 64.;
 /// The placeholder's grey: readable on the black video area in both themes.

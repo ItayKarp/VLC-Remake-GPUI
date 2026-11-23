@@ -5,6 +5,8 @@
 //! open the track popover (`track_popover.rs`, S2.6) and the gear the settings panel
 //! (`settings_panel.rs`, S2.7), and the List button the queue panel (`queue_panel.rs`, S3.2).
 
+use std::time::Duration;
+
 use gpui::{Action, AnyElement, App, ClickEvent, Context, Entity, SharedString, div, prelude::*};
 
 use super::layout::{BUTTON, ICON, Item};
@@ -16,6 +18,7 @@ use crate::keymap;
 use crate::keymap::actions as act;
 use crate::keymap::menus;
 use crate::main_window::MainWindow;
+use crate::main_window::seeking::Way;
 use crate::theme::Palette;
 use crate::ui::button::IconButton;
 use crate::ui::menu::MenuItem;
@@ -29,7 +32,12 @@ enum Press {
     Tracks(TrackKind),
     /// Opens (or closes) the settings panel.
     Settings,
+    /// Jumps [`MUSIC_SKIP`] this way.
+    Skip(Way),
 }
+
+/// How far music mode's Back and Forward buttons jump, as their icons say (S8.1.2).
+const MUSIC_SKIP: Duration = Duration::from_secs(15);
 
 /// An icon button's look and what it does.
 #[derive(Clone, Copy)]
@@ -85,6 +93,12 @@ impl MainWindow {
                 });
                 return Some(entry.disabled(!enabled));
             }
+            Press::Skip(way) => {
+                let entry = MenuItem::action(label, move |_, cx| {
+                    main.update(cx, |main, cx| main.skip_by(way, MUSIC_SKIP, cx)).ok();
+                });
+                return Some(entry.disabled(!enabled));
+            }
         };
         let entry = MenuItem::action(label, move |window, cx| {
             main.update(cx, |main, cx| main.perform(action, window, cx)).ok();
@@ -109,6 +123,10 @@ impl MainWindow {
                 return panel(icons::SUBTITLES, "Subtitles", Press::Tracks(TrackKind::Subtitle));
             }
             Item::Settings => return panel(icons::SETTINGS, "Playback settings", Press::Settings),
+            Item::Back15 => return panel(icons::BACK_15, "Back 15 s", Press::Skip(Way::Back)),
+            Item::Forward15 => {
+                return panel(icons::FORWARD_15, "Forward 15 s", Press::Skip(Way::Forward));
+            }
             Item::List => (icons::LIST, &act::ToggleQueue, true),
             _ => return None,
         };
@@ -152,6 +170,11 @@ impl MainWindow {
                 let tracker = self.settings_panel.button().element();
                 div().relative().flex_none().child(tracker).child(icon_button).into_any_element()
             }
+            Press::Skip(way) => icon_button
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.skip_by(way, MUSIC_SKIP, cx);
+                }))
+                .into_any_element(),
         }
     }
 

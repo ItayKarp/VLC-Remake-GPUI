@@ -62,6 +62,9 @@ icons! {
     SPINNER => "spinner.svg",
     PREVIOUS => "previous.svg",
     NEXT => "next.svg",
+    /// Music mode's Back 15 s and Forward 15 s (S8.1.2, `controls-music.png`).
+    BACK_15 => "back-15.svg",
+    FORWARD_15 => "forward-15.svg",
     MINIMIZE => "minimize.svg",
     MAXIMIZE => "maximize.svg",
     FULLSCREEN => "fullscreen.svg",

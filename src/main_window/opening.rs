@@ -11,13 +11,14 @@
 //! is still resolving; adding to the queue doesn't.
 
 use gpui::{
-    ClipboardEntry, Context, ExternalPaths, PathPromptOptions, SharedString, Task, Window,
+    ClipboardEntry, Context, Div, ExternalPaths, PathPromptOptions, SharedString, Task, Window,
     prelude::*,
 };
 
 use super::MainWindow;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
+use crate::keymap::actions::{OpenFile, OpenFolder, OpenFromClipboard};
 use crate::opening::resolve::Options;
 use crate::opening::scan::Subfolders;
 use crate::opening::{self, Cancel, Resolved, paste, recent};
@@ -43,6 +44,37 @@ pub(super) struct Job {
     /// What is being opened, for "Opening …".
     pub(super) label: SharedString,
     _task: Task<()>,
+}
+
+/// The opens still resolving, and the id the next one gets.
+#[derive(Default)]
+pub(super) struct Jobs {
+    /// The opens still resolving, oldest first.
+    pub(super) running: Vec<Job>,
+    last_id: u64,
+}
+
+impl Jobs {
+    /// A new job's id, unlike any before it.
+    fn next_id(&mut self) -> u64 {
+        self.last_id += 1;
+        self.last_id
+    }
+}
+
+impl MainWindow {
+    /// Adds the handlers for Open File(s), Open Folder and Open from Clipboard.
+    pub(super) fn open_actions(root: Div, cx: &mut Context<Self>) -> Div {
+        root.on_action(cx.listener(|_, _: &OpenFile, window, cx| {
+            Self::prompt_for_files(window, cx);
+        }))
+        .on_action(cx.listener(|_, _: &OpenFolder, window, cx| {
+            Self::prompt_for_folder(window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &OpenFromClipboard, window, cx| {
+            this.paste(window, cx);
+        }))
+    }
 }
 
 /// Which dialog to show.
@@ -77,8 +109,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         let cancel = Cancel::default();
-        self.next_job += 1;
-        let id = self.next_job;
+        let id = self.jobs.next_id();
         let label = job_label(&items);
         let options = Self::resolve_options(target, cx);
         let job_cancel = cancel.clone();
@@ -89,7 +120,7 @@ impl MainWindow {
             let resolved = resolved.await;
             this.update_in(cx, |this, window, cx| this.finish_job(id, resolved, window, cx)).ok();
         });
-        self.jobs.push(Job { id, target, cancel, label, _task: task });
+        self.jobs.running.push(Job { id, target, cancel, label, _task: task });
         cx.notify();
     }
 
@@ -106,7 +137,7 @@ impl MainWindow {
 
     /// Stops resolving every pending open.
     pub(super) fn cancel_opening(&mut self, cx: &mut Context<Self>) {
-        for job in self.jobs.drain(..) {
+        for job in self.jobs.running.drain(..) {
             job.cancel.cancel();
         }
         cx.notify();
@@ -120,10 +151,10 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(index) = self.jobs.iter().position(|job| job.id == id) else {
+        let Some(index) = self.jobs.running.iter().position(|job| job.id == id) else {
             return;
         };
-        let job = self.jobs.remove(index);
+        let job = self.jobs.running.remove(index);
         cx.notify();
         let (Some(mut resolved), target) = (resolved, job.target) else {
             return;

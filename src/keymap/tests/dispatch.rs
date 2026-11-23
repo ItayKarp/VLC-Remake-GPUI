@@ -1,5 +1,5 @@
 //! Which keys reach the player (S0.5.2): headless windows with the real keymap,
-//! focus on the player, a text input, a button or inside a modal.
+//! focus on the player, a text input, a button, an icon button or inside a modal.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -9,10 +9,11 @@ use gpui::{
     Window, div, prelude::*,
 };
 
+use crate::assets::icons;
 use crate::keymap::actions as act;
 use crate::keymap::contexts::{MAIN_WINDOW, PLAYER};
 use crate::keymap::{self, label::KeyCap};
-use crate::ui::button::Button;
+use crate::ui::button::{Button, IconButton};
 use crate::ui::focus;
 use crate::ui::modal;
 use crate::ui::text_input::TextInput;
@@ -24,8 +25,8 @@ const NONE: [&str; 0] = [];
 
 type Seen = Rc<RefCell<Vec<&'static str>>>;
 
-/// A stand-in for the main window: the player with a button, a text input and an
-/// open modal inside it.
+/// A stand-in for the main window: the player with an icon button (the window's first tab
+/// stop), a button, a text input and an open modal inside it.
 struct Player {
     root: FocusHandle,
     button: FocusHandle,
@@ -44,12 +45,16 @@ fn record<A: gpui::Action>(
 
 impl Render for Player {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
+        let seen = self.seen.clone();
+        let icon_button = IconButton::new("icon-button", icons::NEXT, "Next")
+            .on_click(move |_, _, _| seen.borrow_mut().push("pressed"));
+        focus::tab_navigation(div())
             .key_context(focus::context(&[MAIN_WINDOW, PLAYER]))
             .track_focus(&self.root)
             .on_action(record::<act::PlayPause>(&self.seen, "play"))
             .on_action(record::<act::ToggleFullscreen>(&self.seen, "fullscreen"))
             .on_action(record::<act::OpenFile>(&self.seen, "open"))
+            .child(icon_button)
             .child(Button::new("button", "Button").track_focus(&self.button))
             .child(self.input.clone())
             .child(div().key_context(modal::CONTEXT).track_focus(&self.modal).child("Dialog"))
@@ -115,6 +120,19 @@ fn a_focused_button_keeps_space_but_not_letters(cx: &mut TestAppContext) {
     let button = |p: &Player, _: &gpui::App| p.button.clone();
     assert_eq!(press(&player, cx, button, "space"), NONE);
     assert_eq!(press(&player, cx, button, "f"), ["fullscreen"]);
+}
+
+#[gpui::test]
+fn a_focused_icon_button_takes_space_itself(cx: &mut TestAppContext) {
+    let (player, cx) = open(cx);
+    let root = |p: &Player, _: &gpui::App| p.root.clone();
+    // Tab reaches the icon button; Space goes down there, not to the player.
+    assert_eq!(press(&player, cx, root, "tab space"), NONE);
+    // GPUI clicks when the key comes back up.
+    let space = gpui::Keystroke::parse("space").expect("space parses");
+    cx.simulate_event(gpui::KeyUpEvent { keystroke: space });
+    assert_eq!(*player.read_with(cx, |this, _| this.seen.borrow().clone()), ["pressed"]);
+    assert_eq!(press(&player, cx, root, "tab f"), ["fullscreen"]);
 }
 
 #[gpui::test]

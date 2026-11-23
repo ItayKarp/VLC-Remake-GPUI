@@ -1,6 +1,7 @@
 //! The waveform seek bar (S7.8.2, S7.8.3, `controls-waveform.png`): with the Audio Visualizer set
-//! to Waveform, a local file with a known length shows its loudness along the bar, a thin bar
-//! every few pixels, those already played in the accent and the rest grey.
+//! to Waveform, or in music mode (S8.1.2, `controls-music.png`), a local file with a known length
+//! shows its loudness along the bar, a thin bar every few pixels, those already played in the
+//! accent and the rest grey.
 //!
 //! The profile is made off the UI thread ([`WaveformJob`]) and drawn as it arrives: the part not
 //! yet decoded shows as the plain track, so a long file fills in from its start. Network streams
@@ -72,9 +73,10 @@ impl MainWindow {
         };
     }
 
-    /// The loaded file and its length, while the Audio Visualizer is set to Waveform.
+    /// The loaded file and its length, while the Audio Visualizer is set to Waveform or music
+    /// mode plays (S8.1.2).
     fn waveform_source(&self, cx: &App) -> Option<(PathBuf, Duration)> {
-        if !settings::get(cx).prefs.audio.visualizer.shows_waveform() {
+        if !settings::get(cx).prefs.audio.visualizer.shows_waveform() && !self.is_music_mode() {
             return None;
         }
         let player = self.loaded_player(cx)?.read(cx);
