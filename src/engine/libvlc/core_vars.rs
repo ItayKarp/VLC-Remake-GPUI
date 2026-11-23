@@ -181,12 +181,11 @@ impl LibVlc {
     }
 
     /// The boolean variable `name` of the player's first child of type `kind`; `None` without
-    /// such a child or variable. For the smoke tests.
+    /// such a child or variable: whether the input is recording (S8.6), and the smoke tests'.
     ///
     /// # Safety
     ///
     /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
-    #[cfg(test)]
     pub(super) unsafe fn child_bool(
         &self,
         player: *mut MediaPlayer,

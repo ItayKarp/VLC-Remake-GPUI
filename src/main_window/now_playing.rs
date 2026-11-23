@@ -121,6 +121,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         self.on_history_event(event, cx);
+        self.on_recording_event(event, cx);
         match event {
             PlayerEvent::EndReached => self.advance(window, cx),
             PlayerEvent::Error(_) => self.skip_failed(window, cx),
@@ -156,11 +157,10 @@ impl MainWindow {
                 }
             }
             PlayerEvent::HdrChanged(status) => self.warn_hdr(*status, cx),
-            // The title bar names the media by its title tag (S2.1.2).
-            PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),
         }
-        // The control bar shows the position, length, volume and what Play/Pause would do.
+        // The control bar shows the position, length, volume and what Play/Pause would do, and
+        // the title bar names the media by its title tag (S2.1.2).
         cx.notify();
     }
 

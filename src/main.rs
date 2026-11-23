@@ -24,6 +24,7 @@ mod playlists;
 mod power;
 mod privacy;
 mod queue;
+mod recording;
 #[cfg(test)]
 mod screenshot_test;
 mod session;

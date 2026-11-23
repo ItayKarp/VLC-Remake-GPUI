@@ -25,6 +25,7 @@
 //! - [`colors`]: the color filters (S7.4).
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 //! - [`waveform`]: a file's loudness along its length, for the waveform seek bar (S7.8.2).
+//! - [`recording`]: what becomes of recording the media playing (S8.6).
 
 pub mod audio;
 pub mod backend;
@@ -42,6 +43,7 @@ pub mod player;
 mod position;
 mod preflight;
 pub mod preview;
+pub mod recording;
 pub mod shutdown;
 pub mod sidecar;
 pub mod state;

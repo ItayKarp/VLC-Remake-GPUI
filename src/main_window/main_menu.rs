@@ -2,7 +2,7 @@
 //! command's name and shortcut from the keymap. Commands whose stories haven't shipped are left
 //! out (S2.9.4); one nothing can run right now is greyed out and says why on hover.
 
-use gpui::{Action, App, Context, Div, WeakEntity, Window, prelude::*};
+use gpui::{Action, App, Context, DismissEvent, Div, WeakEntity, Window, prelude::*};
 
 use super::MainWindow;
 use crate::app::request::OpenRequest;
@@ -11,9 +11,26 @@ use crate::keymap::actions::{About, FromMenuBar};
 use crate::keymap::commands;
 use crate::keymap::menus::{self, MAIN_MENU, MainMenuEntry};
 use crate::opening::recent;
-use crate::ui::menu::MenuItem;
+use crate::ui::menu::{ContextMenu, MenuItem};
 
 impl MainWindow {
+    /// Opens the `…` menu below its button, or closes it.
+    pub(super) fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.take().is_some() {
+            cx.notify();
+            return;
+        }
+        self.close_popovers(window, cx);
+        let items = items(&cx.entity().downgrade(), window, cx);
+        let menu = ContextMenu::build(items, window, cx);
+        let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
+            this.menu = None;
+            cx.notify();
+        });
+        self.menu = Some((menu, subscription));
+        cx.notify();
+    }
+
     /// Adds the handlers for Keyboard Shortcuts, About VLC and the macOS menu bar's player
     /// commands.
     pub(super) fn menu_actions(root: Div, cx: &mut Context<Self>) -> Div {

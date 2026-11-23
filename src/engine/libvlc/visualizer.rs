@@ -99,7 +99,8 @@ mod tests {
         // SAFETY: run on its own, as the other libVLC smoke tests.
         unsafe { super::super::runtime::prepare_environment() };
         let vlc = super::super::library().expect("libVLC loads");
-        let arguments = [super::super::ARGUMENTS.as_slice(), &[super::super::NO_VIDEO_ARGUMENT]];
+        let arguments =
+            [super::super::ARGUMENTS.as_slice(), &[super::super::instance::NO_VIDEO_ARGUMENT]];
         let instance = super::super::new_instance(&vlc, &arguments.concat()).expect("one");
         let api = &vlc.api;
         let tone = super::super::test_tone::tone_file().expect("the tone");

@@ -19,6 +19,7 @@ use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::recording::Recording;
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -60,13 +61,16 @@ pub enum BackendEvent {
     /// The OS asked for this app's audio to stop (`true`: another app, such as a call, needs
     /// it) or allowed it again (`false`).
     Corked(bool),
+    /// Recording the media (S8.6) started, stopped or was refused.
+    Recording(Recording),
 }
 
 impl BackendEvent {
     /// Whether the event is about the open media, so one from an earlier open is stale.
-    /// Device and audio-focus events are about the machine, and always apply.
+    /// Device and audio-focus events are about the machine, and always apply; so does the end
+    /// of a recording, which another open ends.
     pub fn is_about_media(&self) -> bool {
-        !matches!(self, Self::AudioDevices(_) | Self::Corked(_))
+        !matches!(self, Self::AudioDevices(_) | Self::Corked(_) | Self::Recording(_))
     }
 }
 
@@ -161,6 +165,8 @@ pub enum Command {
     SetColors(Colors),
     /// Show HDR video this way.
     SetHdrMode(HdrMode),
+    /// Record the media playing into this folder, or stop recording with `None`.
+    Record(Option<PathBuf>),
 }
 
 /// A playback backend.
@@ -248,6 +254,10 @@ pub trait Backend: Send {
     /// Shows HDR video as `mode` says from now on, for this and later media; the video playing
     /// may reopen where it is.
     fn set_hdr_mode(&mut self, mode: HdrMode);
+    /// Starts recording the media playing into `folder` as it arrives, without re-encoding, or
+    /// stops with `None` (S8.6). Answered by [`BackendEvent::Recording`]: started or refused,
+    /// and stopped once the recording ends, whether this stopped it or the media did.
+    fn record(&mut self, folder: Option<&Path>);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

@@ -8,7 +8,8 @@
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
 //! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
 //! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
-//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4). Picture in
+//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4), and Shift+R
+//! records what plays (S8.6). Picture in
 //! Picture pops the player out into a small window above the others (S8.5).
 //! Onboarding hands off to it (S0.2).
 
@@ -48,6 +49,7 @@ mod player_keys;
 mod properties;
 mod queue_panel;
 mod queue_play;
+mod recording;
 mod saved_playlists;
 mod seek_bar;
 mod seeking;
@@ -72,8 +74,8 @@ mod volume_slider;
 mod wheel;
 
 use gpui::{
-    AnyElement, App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString,
-    Subscription, Window, div, prelude::*, px,
+    AnyElement, App, Context, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription,
+    Window, div, prelude::*, px,
 };
 
 use self::auto_hide::rules::Chrome;
@@ -145,6 +147,8 @@ pub struct MainWindow {
     volume_slider: volume_slider::VolumeSlider,
     /// The message over the video (S2.5.7, S2.10.2).
     osd: osd::Osd,
+    /// The recording being made (S8.6).
+    recording: recording::RecordingWatch,
     /// Whether frame steps are taking a while (S2.10.3).
     frame_step: frame_step::FrameStepWait,
     /// Clicks and sideways scrolling on the video (S2.10.1).
@@ -174,6 +178,7 @@ pub struct MainWindow {
 impl MainWindow {
     /// Builds the window's view, opening `request` and showing any pending settings
     /// notices.
+    #[allow(clippy::too_many_lines, reason = "one struct literal, a line per field")]
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::follow_window(window, cx);
         let mut this = Self {
@@ -200,6 +205,7 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            recording: recording::RecordingWatch::default(),
             frame_step: frame_step::FrameStepWait::default(),
             video_mouse: video_mouse::VideoMouse::default(),
             track_popover: track_popover::TrackPopover::new(cx),
@@ -265,22 +271,6 @@ impl MainWindow {
         self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
     }
 
-    fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.menu.take().is_some() {
-            cx.notify();
-            return;
-        }
-        self.close_popovers(window, cx);
-        let items = main_menu::items(&cx.entity().downgrade(), window, cx);
-        let menu = ContextMenu::build(items, window, cx);
-        let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
-            this.menu = None;
-            cx.notify();
-        });
-        self.menu = Some((menu, subscription));
-        cx.notify();
-    }
-
     /// Names the OS window (taskbar, Alt+Tab, Mission Control) like the title bar (S2.1.5).
     fn sync_os_title(&mut self, window: &mut Window, cx: &App) {
         let title = self.title(cx);
@@ -311,6 +301,7 @@ impl MainWindow {
                 }))
                 .child(self.video_area(shown, window, cx))
                 .children(self.render_osd(p, cx))
+                .children(self.render_recording_badge(p, cx))
             }
             None => area.child(
                 div()

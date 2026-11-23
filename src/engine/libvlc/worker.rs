@@ -14,7 +14,6 @@ use super::audio::{Channels, DeviceWatch};
 use super::cpu_filters::CpuFilters;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
-use super::failure;
 use super::hdr::HdrState;
 use super::hold::Hold;
 use super::reopen::Restore;
@@ -126,6 +125,8 @@ pub struct Worker {
     /// The audio effects after the equalizer (S7.9), and whether the equalizer is on.
     pub(super) audio_effects: AudioEffects,
     pub(super) equalizer_on: bool,
+    /// When the running recording is checked on next (S8.6); `None` while not recording.
+    pub(super) recording_check: Option<Instant>,
 }
 
 impl Worker {
@@ -163,6 +164,7 @@ impl Worker {
             visuals: Visuals::default(),
             audio_effects: AudioEffects::default(),
             equalizer_on: false,
+            recording_check: None,
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -180,10 +182,7 @@ impl Worker {
                 Message::Shutdown => break,
             }
             // A steady stream of messages must not starve the device list or the switch.
-            self.poll_devices_if_due();
-            self.switch_if_due(Instant::now());
-            self.pause_held_if_due(Instant::now());
-            self.read_colour_if_due(Instant::now());
+            self.run_due_work();
         }
         self.release();
     }
@@ -221,6 +220,9 @@ impl Worker {
         if let Some(read) = self.until_colour_read(now) {
             wait = wait.min(read);
         }
+        if let Some(check) = self.until_record_check(now) {
+            wait = wait.min(check);
+        }
         wait
     }
 
@@ -228,6 +230,7 @@ impl Worker {
     /// `start` says, as open `generation`.
     pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
         super::hardware::decoding(None);
+        self.recording_ends();
         self.end_hold();
         self.reset_hdr();
         self.stop_visualizer();
@@ -317,10 +320,7 @@ impl Worker {
     /// decoding when due, re-reads a still-unknown video size, and settles a seek that waited
     /// [`SEEK_SETTLE`].
     fn idle(&mut self, idle_since: Instant) {
-        self.poll_devices_if_due();
-        self.switch_if_due(Instant::now());
-        self.pause_held_if_due(Instant::now());
-        self.read_colour_if_due(Instant::now());
+        self.run_due_work();
         if self.size_watch.is_watching(Instant::now()) {
             self.send_video_size();
         }
@@ -329,28 +329,20 @@ impl Worker {
         }
     }
 
+    /// Does the timed work that is due: the device list, the switch to software decoding, the
+    /// end of a hold, reading the video's colors and checking on a recording.
+    fn run_due_work(&mut self) {
+        self.poll_devices_if_due();
+        self.switch_if_due(Instant::now());
+        self.pause_held_if_due(Instant::now());
+        self.read_colour_if_due(Instant::now());
+        self.check_recording_if_due(Instant::now());
+    }
+
     fn settle_seek(&self) {
         if self.shared.seeking.swap(false, Ordering::Relaxed) {
             self.shared.send(BackendEvent::SeekCompleted);
         }
-    }
-
-    fn ended(&self) {
-        super::hardware::decoding(None);
-        let state = if self.track_count() == 0 {
-            PlaybackState::Error(ErrorKind::NoPlayableStreams)
-        } else {
-            PlaybackState::Ended
-        };
-        self.shared.send(BackendEvent::State(state));
-    }
-
-    fn failed(&self) {
-        super::hardware::decoding(None);
-        let started = self.shared.started.load(Ordering::Relaxed);
-        let kind = failure::classify(self.source.as_ref(), started);
-        tracing::warn!("libvlc: playback failed ({kind:?}): {}", self.vlc.last_error());
-        self.shared.send(BackendEvent::State(PlaybackState::Error(kind)));
     }
 
     fn player_events(&self) -> *mut EventManager {

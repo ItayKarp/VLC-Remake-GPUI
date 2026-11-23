@@ -39,6 +39,10 @@ pipeline {
     environment {
         CARGO_TERM_COLOR = 'always'
         RUST_BACKTRACE = '1'
+        // Debug and test builds keep file and line numbers (for panics and backtraces) but not
+        // the full debug info a debugger reads. A GPUI binary with full debug info outgrows the
+        // Pi's memory while linking; this checks and tests exactly the same code.
+        CARGO_PROFILE_DEV_DEBUG = 'line-tables-only'
         // Every cargo and rustup call uses this toolchain. Pin a version (for example
         // '1.100.0') to keep new clippy lints from failing builds unannounced.
         RUSTUP_TOOLCHAIN = 'stable'

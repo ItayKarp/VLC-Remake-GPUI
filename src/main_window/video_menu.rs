@@ -6,7 +6,7 @@
 //! highlighted, rather than at the pointer. Opening it closes any popover or other menu first.
 //! Playlist shows or hides the queue and clears it (S3.2), and holds Repeat, Shuffle, Stop After
 //! Each Item and When Playback Finishes (S3.3), and the saved playlists (S3.5).
-//! Record (S8.6) joins with its story (S2.9.4).
+//! Record (S8.6) reads Stop Recording while recording.
 
 mod media;
 mod playback;
@@ -126,11 +126,22 @@ impl MainWindow {
                 .icon(icons::NEXT)
                 .disabled(!self.can_go_next())
                 .why_disabled("No next item"),
+            self.record_item(main, cx),
         ]
     }
 }
 
 impl MainWindow {
+    /// Record, or Stop Recording while recording; disabled with the reason when it can't start.
+    fn record_item(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
+        let label = if self.is_recording(cx) { "Stop Recording" } else { "Record" };
+        let why = self.why_no_recording(cx);
+        run(main, &act::Record, label, cx)
+            .icon(icons::RECORD)
+            .disabled(why.is_some())
+            .why_disabled(why.unwrap_or(""))
+    }
+
     /// Playlist: show or hide the queue, clear it, the play order and saved playlists (S3.5).
     fn playlist_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let show = if self.queue_panel.is_open() { "Hide Queue" } else { "Show Queue" };

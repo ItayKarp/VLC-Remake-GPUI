@@ -179,6 +179,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::NextChapter, |this, _, cx| this.jump_chapter(Jump::Next, cx)),
     (&act::AddBookmark, |this, _, cx| this.add_bookmark(cx)),
     (&act::Snapshot, |this, _, cx| this.take_snapshot(cx)),
+    (&act::Record, |this, _, cx| this.toggle_recording(cx)),
     (&act::CycleRepeat, MainWindow::cycle_repeat),
     (&act::ToggleShuffle, MainWindow::toggle_shuffle),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),

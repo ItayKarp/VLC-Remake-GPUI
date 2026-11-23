@@ -70,6 +70,9 @@ flate2 = "1"
 # The OS window behind a GPUI window, for what GPUI has no call for: keeping a window above the
 # others and moving it to another display (S5.4.1). The version must match GPUI's.
 raw-window-handle = "0.6"
+# Free disk space, so a recording stops before the disk fills and its file can be finished
+# (S8.6). Pure Rust over rustix and windows-sys, which other crates already build.
+fs4 = "1"
 
 # The last.fm password (S5.5.3) lives in the OS keychain, never in a settings file: Keychain
 # Services on macOS, Credential Manager on Windows, the Secret Service (over zbus, pure Rust)

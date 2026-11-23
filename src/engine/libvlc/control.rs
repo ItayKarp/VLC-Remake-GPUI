@@ -12,7 +12,7 @@ use super::worker::{Refresh, Worker};
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::{TrackId, TrackKind};
-use crate::engine::values::{BackendSeek, Offset, StepDirection};
+use crate::engine::values::{BackendSeek, Offset, StepDirection, Volume};
 
 /// The frame rate assumed for a backward step when libVLC doesn't know the real one.
 const FALLBACK_FPS: f32 = 25.0;
@@ -26,6 +26,7 @@ impl Worker {
     fn stop(&mut self) {
         // A stop during a switch to software decoding must reach the player.
         self.shared.switching.store(false, Ordering::Relaxed);
+        self.recording_ends();
         self.end_hold();
         // SAFETY: the player is live for the worker's whole life.
         unsafe { (self.vlc.api.libvlc_media_player_stop)(self.handles.player) };
@@ -60,6 +61,13 @@ impl Worker {
         }
     }
 
+    /// Sets the output volume.
+    fn set_volume(&self, volume: Volume) {
+        let level = (volume.get() * FULL_VOLUME).round() as c_int;
+        // SAFETY: the player is live.
+        _ = unsafe { (self.vlc.api.libvlc_audio_set_volume)(self.handles.player, level) };
+    }
+
     /// Runs one command.
     pub(super) fn execute(&mut self, command: Command) {
         let vlc = Arc::clone(&self.vlc);
@@ -78,10 +86,7 @@ impl Worker {
                 Command::SetRate(rate) => {
                     _ = (api.libvlc_media_player_set_rate)(player, rate.get());
                 }
-                Command::SetVolume(volume) => {
-                    let level = (volume.get() * FULL_VOLUME).round() as c_int;
-                    _ = (api.libvlc_audio_set_volume)(player, level);
-                }
+                Command::SetVolume(volume) => self.set_volume(volume),
                 Command::SetMute(muted) => self.set_mute(muted),
                 Command::SelectTrack(kind, track) => self.select_track(kind, track),
                 Command::SetAudioDelay(delay) => self.set_delays(Some(delay), None),
@@ -102,6 +107,7 @@ impl Worker {
                 Command::SetVideoFilters(filters) => self.set_video_filters(filters),
                 Command::SetColors(colors) => self.set_colors(colors),
                 Command::SetHdrMode(mode) => self.set_hdr_mode(mode),
+                Command::Record(folder) => self.record(folder.as_deref()),
             }
         }
     }

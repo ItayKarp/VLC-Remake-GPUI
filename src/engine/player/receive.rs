@@ -50,6 +50,7 @@ impl Player {
             BackendEvent::FrameStepped => self.step_done(cx),
             BackendEvent::AudioDevices(devices) => self.devices_reported(devices, cx),
             BackendEvent::Corked(corked) => self.corked(corked, cx),
+            BackendEvent::Recording(recording) => self.recording_reported(recording, cx),
         }
         cx.notify();
     }
@@ -71,6 +72,9 @@ impl Player {
         self.state = next;
         if next == PlaybackState::Playing {
             self.audio.sounding_since = Some(Instant::now());
+        }
+        if let Some(clock) = &mut self.recording {
+            clock.follow(next == PlaybackState::Playing, Instant::now());
         }
         cx.emit(PlayerEvent::StateChanged(next));
         match next {

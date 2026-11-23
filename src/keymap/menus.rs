@@ -58,7 +58,6 @@ pub const PENDING: &[&dyn Action] = &[
     &act::OpenCaptureDevice, // S8.9
     &act::Convert,           // S8.10
     &act::CustomizePlayer,   // S8.7
-    &act::Record,            // S8.6
     &act::NextProgram,       // S8.9
 ];
 
@@ -261,6 +260,6 @@ mod tests {
         };
         assert!(action.partial_eq(&FromMenuBar { command: label(&act::PlayPause) }));
         assert!(commands::by_label(label(&act::PlayPause)).is_some());
-        assert!(plain(&act::Record, "Record").is_none(), "Record is pending");
+        assert!(plain(&act::NextProgram, "Next Program").is_none(), "Next Program is pending");
     }
 }

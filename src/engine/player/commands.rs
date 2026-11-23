@@ -102,8 +102,13 @@ impl Player {
 
     /// Seeks. While another seek is in flight only the latest target is kept, and a seek before
     /// the media says it is seekable waits for that (or is dropped if it never becomes so).
+    /// libVLC can't seek while recording, so that is refused with [`PlayerEvent::SeekRefused`].
     pub fn seek(&mut self, target: SeekTarget, cx: &mut Context<Self>) {
         if !self.state.is_active() || self.seeks.is_seekable() == Some(false) {
+            return;
+        }
+        if self.recording.is_some() {
+            cx.emit(PlayerEvent::SeekRefused);
             return;
         }
         let Some(seek) = self.resolve(target) else { return };
