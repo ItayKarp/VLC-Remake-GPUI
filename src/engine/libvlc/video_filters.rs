@@ -38,15 +38,26 @@ impl Worker {
         }
         self.video_filters = filters;
         self.apply_video_filters();
-        if !self.shows_video() {
-            return;
+        if self.shows_video() {
+            self.reopen_for_filters();
         }
-        if filters.transform != Transform::NONE && self.decoding == Decoding::Hardware {
+    }
+
+    /// Reopens the media playing where it is with a new video output, which builds the player's
+    /// filters into it; in software if they need it.
+    pub(super) fn reopen_for_filters(&mut self) {
+        if self.filters_need_software() && self.decoding == Decoding::Hardware {
             self.decoding = Decoding::Software;
             super::hardware::decoding(None);
         }
         tracing::info!("libvlc: new video filters; reopening the media where it is");
         self.reopen(self.playing_tracks(), Output::Rebuilt);
+    }
+
+    /// Whether the filters only work on software-decoded pictures: libVLC 3 can't transform
+    /// VideoToolbox's frames, nor enhance them (S7.3).
+    pub(super) fn filters_need_software(&self) -> bool {
+        self.video_filters.transform != Transform::NONE || self.enhanced
     }
 
     /// Sets the player's variables for the filters and the media open now, and tells the sink
@@ -76,7 +87,7 @@ impl Worker {
     }
 
     /// Whether video from the open media is showing, so new filters need a reopen.
-    fn shows_video(&self) -> bool {
+    pub(super) fn shows_video(&self) -> bool {
         !self.media.is_null()
             && self.shared.started.load(Ordering::Relaxed)
             && self.selected(TrackKind::Video).is_some()

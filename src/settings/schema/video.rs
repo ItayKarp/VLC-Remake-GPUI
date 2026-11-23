@@ -30,7 +30,8 @@ pub struct VideoSettings {
     /// (S1.4.3).
     #[serde(deserialize_with = "lenient")]
     pub keep_display_awake: bool,
-    /// "Picture": hue, brightness, contrast, saturation and gamma.
+    /// "Picture": hue, brightness, contrast, saturation and gamma, sharpening, banding removal and
+    /// film grain.
     #[serde(deserialize_with = "lenient")]
     pub picture: PictureSettings,
     /// "Deinterlacing": when.
@@ -94,7 +95,8 @@ impl Default for VideoSettings {
     }
 }
 
-/// "Picture", in libVLC's `adjust` units; the registry keeps each in range.
+/// "Picture", in libVLC's units (its `adjust`, `sharpen`, `gradfun` and `grain` filters'); the
+/// registry keeps each in range.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PictureSettings {
@@ -117,21 +119,52 @@ pub struct PictureSettings {
     /// "Gamma", 0.01 to 10.
     #[serde(deserialize_with = "lenient")]
     pub gamma: f32,
+    /// "Sharpen Sigma", 0 to 2; 0 is off.
+    #[serde(deserialize_with = "lenient")]
+    pub sharpen: f32,
+    /// "Banding Removal Radius", 4 to 32 pixels; 0 is off.
+    #[serde(deserialize_with = "lenient")]
+    pub deband_radius: u32,
+    /// "Film Grain Variance", 0 to 10; 0 is off.
+    #[serde(deserialize_with = "lenient")]
+    pub grain: f32,
 }
 
 impl PictureSettings {
     /// The adjustments to show the picture with: `None` while off, or while they change nothing.
     pub fn applied(&self) -> Option<Picture> {
-        let PictureSettings { enabled, hue, brightness, contrast, saturation, gamma } = *self;
-        let picture = Picture { hue, brightness, contrast, saturation, gamma };
+        let PictureSettings {
+            enabled,
+            hue,
+            brightness,
+            contrast,
+            saturation,
+            gamma,
+            sharpen,
+            deband_radius,
+            grain,
+        } = *self;
+        let picture =
+            Picture { hue, brightness, contrast, saturation, gamma, sharpen, deband_radius, grain };
         (enabled && !picture.is_neutral()).then_some(picture)
     }
 }
 
 impl Default for PictureSettings {
     fn default() -> Self {
-        let Picture { hue, brightness, contrast, saturation, gamma } = Picture::NEUTRAL;
-        Self { enabled: false, hue, brightness, contrast, saturation, gamma }
+        let Picture { hue, brightness, contrast, saturation, gamma, sharpen, deband_radius, grain } =
+            Picture::NEUTRAL;
+        Self {
+            enabled: false,
+            hue,
+            brightness,
+            contrast,
+            saturation,
+            gamma,
+            sharpen,
+            deband_radius,
+            grain,
+        }
     }
 }
 
@@ -147,5 +180,7 @@ mod tests {
         assert_eq!(picture.applied(), Some(Picture { brightness: 1.5, ..Picture::NEUTRAL }));
         let neutral = PictureSettings { enabled: true, ..PictureSettings::default() };
         assert_eq!(neutral.applied(), None, "no filter for a picture it wouldn't change");
+        let grainy = PictureSettings { enabled: true, grain: 2., ..PictureSettings::default() };
+        assert_eq!(grainy.applied(), Some(Picture { grain: 2., ..Picture::NEUTRAL }));
     }
 }

@@ -3,7 +3,8 @@
 //! outputs it makes later, and on the outputs already showing, so a change is seen at once.
 //!
 //! Turning the filter on or off rebuilds the output's filter chain, a brief re-init; moving a
-//! value while it is on doesn't, which is what lets a slider drag apply live.
+//! value while it is on doesn't, which is what lets a slider drag apply live. The picture's
+//! other filters, its enhancements (S7.3), are set alongside (`enhance.rs`).
 
 use std::ffi::{c_float, c_int, c_uint};
 
@@ -19,19 +20,22 @@ const SATURATION: c_uint = 4;
 const GAMMA: c_uint = 5;
 
 impl Worker {
-    /// Shows the picture adjusted as `picture` says from now on, or as the media has it.
-    pub(super) fn set_picture(&self, picture: Option<Picture>) {
+    /// Shows the picture adjusted and enhanced as `picture` says from now on, or as the media
+    /// has it.
+    pub(super) fn set_picture(&mut self, picture: Option<Picture>) {
+        let adjusted = picture.filter(Picture::is_adjusted);
         let api = &self.vlc.api;
         let player = self.handles.player;
         // SAFETY: the player is live; these only set its variables and its outputs'.
         unsafe {
-            if let Some(picture) = picture {
+            if let Some(picture) = adjusted {
                 for (option, value) in values(&picture) {
                     (api.libvlc_video_set_adjust_float)(player, option, value);
                 }
             }
-            (api.libvlc_video_set_adjust_int)(player, ENABLE, c_int::from(picture.is_some()));
+            (api.libvlc_video_set_adjust_int)(player, ENABLE, c_int::from(adjusted.is_some()));
         }
+        self.set_enhancements(picture.as_ref());
     }
 }
 

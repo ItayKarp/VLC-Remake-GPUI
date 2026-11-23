@@ -1,7 +1,8 @@
 //! The settings panel's Video tab (`controls-video_settings.png`): **Defaults** (flip, rotate,
 //! zoom, resolution, aspect ratio and crop, S7.2) with the **Crop** section's edges under them,
-//! then **Filters**, the effect sections (S7.1), now the Essential picture adjustments. All of
-//! them change what plays for the rest of the session. The other filters come with S7.3 to S7.5.
+//! then **Filters**, the effect sections (S7.1), now the Essential picture adjustments and
+//! enhancements (S7.3). All of them change what plays for the rest of the session. The other
+//! filters come with S7.4 and S7.5.
 
 use gpui::{Context, Div, Window, div, prelude::*, px};
 

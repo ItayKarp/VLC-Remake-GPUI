@@ -24,16 +24,16 @@ use crate::engine::values::{Generation, Start};
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
 
 /// How long the first pictures may take.
-const PATIENCE: Duration = Duration::from_secs(10);
+pub(super) const PATIENCE: Duration = Duration::from_secs(10);
 /// Pictures to receive before a file counts as playing.
-const PICTURES: usize = 10;
+pub(super) const PICTURES: usize = 10;
 
 /// A BGRA sink that records the size it agreed on and counts pictures.
 #[derive(Default)]
-struct CountingSink {
-    size: Mutex<Option<(u32, u32)>>,
-    buffer: Mutex<Vec<u8>>,
-    displayed: AtomicUsize,
+pub(super) struct CountingSink {
+    pub(super) size: Mutex<Option<(u32, u32)>>,
+    pub(super) buffer: Mutex<Vec<u8>>,
+    pub(super) displayed: AtomicUsize,
 }
 
 impl VideoSink for CountingSink {
@@ -190,7 +190,7 @@ fn the_picture_adjusts_live_while_playing() {
 }
 
 /// Waits until `check` passes, failing after [`PATIENCE`] waiting for `what`.
-fn wait_until(what: &str, check: impl Fn() -> bool) {
+pub(super) fn wait_until(what: &str, check: impl Fn() -> bool) {
     let deadline = Instant::now() + PATIENCE;
     while !check() {
         assert!(Instant::now() < deadline, "no {what}");

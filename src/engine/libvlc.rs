@@ -18,11 +18,15 @@ mod certificates;
 mod control;
 mod core_vars;
 mod decoding;
+mod enhance;
+#[cfg(test)]
+mod enhance_tests;
 mod equalizer;
 mod events;
 mod failure;
 mod frame_sink;
 pub mod hardware;
+mod hold;
 pub mod lengths;
 mod media_options;
 pub mod options;
@@ -31,6 +35,8 @@ mod prepare;
 pub mod preview;
 mod query;
 mod reopen;
+#[cfg(test)]
+mod reopen_tests;
 pub mod runtime;
 mod size_watch;
 mod subtitle_style;
@@ -145,6 +151,7 @@ impl LibVlcBackend {
             paused: AtomicBool::new(false),
             seeking: AtomicBool::new(false),
             switching: AtomicBool::new(false),
+            holding: AtomicBool::new(false),
         });
         let thread = thread::Builder::new()
             .name("libvlc-worker".into())

@@ -4,7 +4,8 @@
 //! and which subtitle files load and how they are read (Settings → Subtitles, S5.8.3).
 //!
 //! The video filters ([`VideoFilters`]: deinterlacing, flip and rotation) and the picture's
-//! adjustments ([`Picture`]) aren't options of the media: they reach the media playing too.
+//! adjustments and enhancements ([`Picture`]) aren't options of the media: they reach the media
+//! playing too.
 
 use serde::{Deserialize, Serialize};
 
@@ -49,8 +50,10 @@ impl Default for MediaOptions {
     }
 }
 
-/// libVLC's `adjust` filter's settings, in its own units. Unlike the options above, the player
-/// applies them live (S7.1), to the media playing and the media after it.
+/// How the picture is shown (S7.1, S7.3), in libVLC's own units: its `adjust` filter's hue,
+/// brightness, contrast, saturation and gamma, then its `sharpen`, `gradfun` (banding removal)
+/// and `grain` filters, each off at 0. Unlike the options above, the player applies them live, to
+/// the media playing and the media after it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Picture {
     /// Degrees, −180 to 180; 0 leaves colors as they are.
@@ -63,16 +66,37 @@ pub struct Picture {
     pub saturation: f32,
     /// 0.01 to 10; 1 is unchanged.
     pub gamma: f32,
+    /// The sharpening's strength (`sharpen-sigma`), 0 to 2; 0 is off.
+    pub sharpen: f32,
+    /// How far banding is smoothed (`gradfun-radius`), 4 to 32 pixels; 0 is off.
+    pub deband_radius: u32,
+    /// The film grain's variance (`grain-variance`), 0 to 10; 0 is off.
+    pub grain: f32,
 }
 
 impl Picture {
     /// The picture as the media has it.
-    pub const NEUTRAL: Self =
-        Self { hue: 0., brightness: 1., contrast: 1., saturation: 1., gamma: 1. };
+    pub const NEUTRAL: Self = Self {
+        hue: 0.,
+        brightness: 1.,
+        contrast: 1.,
+        saturation: 1.,
+        gamma: 1.,
+        sharpen: 0.,
+        deband_radius: 0,
+        grain: 0.,
+    };
 
     /// Whether every adjustment leaves the picture as it is, so no filter is needed.
     pub fn is_neutral(&self) -> bool {
         *self == Self::NEUTRAL
+    }
+
+    /// Whether the `adjust` filter changes anything: hue, brightness, contrast, saturation or
+    /// gamma.
+    pub fn is_adjusted(&self) -> bool {
+        let Self { hue, brightness, contrast, saturation, gamma, .. } = *self;
+        Self { hue, brightness, contrast, saturation, gamma, ..Self::NEUTRAL } != Self::NEUTRAL
     }
 }
 

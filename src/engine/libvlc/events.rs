@@ -82,6 +82,9 @@ pub struct Shared {
     /// Whether the worker is reopening the media where it is ([`super::reopen`]): its opening
     /// and stopping are hidden until it plays again.
     pub switching: AtomicBool,
+    /// Whether paused media reopened for new filters plays until its first picture shows
+    /// (`hold.rs`): it is reported paused meanwhile.
+    pub holding: AtomicBool,
 }
 
 impl Shared {
@@ -147,10 +150,15 @@ impl Shared {
     }
 
     fn playing(&self) {
-        self.paused.store(false, Ordering::Relaxed);
+        let holding = self.holding.load(Ordering::Relaxed);
+        if !holding {
+            self.paused.store(false, Ordering::Relaxed);
+        }
         let first = !self.started.swap(true, Ordering::Relaxed);
         let switched = self.switching.swap(false, Ordering::Relaxed);
-        self.state(PlaybackState::Playing);
+        if !holding {
+            self.state(PlaybackState::Playing);
+        }
         // Reopened media needs its tracks restored and per-media settings applied again.
         if first || switched {
             self.ask_worker(Message::Refresh(Refresh::Everything));
@@ -160,6 +168,7 @@ impl Shared {
     /// Paused, which media opened with `start-paused` (S3.4) is before it ever plays: that
     /// counts as started too, so its tracks and per-media settings are read.
     fn paused(&self) {
+        self.holding.store(false, Ordering::Relaxed);
         self.paused.store(true, Ordering::Relaxed);
         let first = !self.started.swap(true, Ordering::Relaxed);
         self.state(PlaybackState::Paused);

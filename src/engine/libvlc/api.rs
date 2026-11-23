@@ -218,6 +218,7 @@ libvlc_api! {
     libvlc_chapter_descriptions_release: fn(*mut *mut ChapterDescription, c_uint);
     libvlc_audio_set_volume: fn(Player, c_int) -> c_int;
     libvlc_audio_set_mute: fn(Player, c_int);
+    libvlc_audio_get_mute: fn(Player) -> c_int;
     libvlc_audio_get_track: fn(Player) -> c_int;
     libvlc_audio_set_track: fn(Player, c_int) -> c_int;
     libvlc_audio_get_track_description: fn(Player) -> *mut TrackDescription;

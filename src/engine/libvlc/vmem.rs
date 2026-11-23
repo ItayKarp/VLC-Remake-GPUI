@@ -2,8 +2,8 @@
 //!
 //! libVLC calls these functions on its video-output thread, one picture at a time: `format`
 //! when the output opens, then `lock`, a copy of the decoded picture into our planes, `unlock`
-//! and `display` per picture, and `cleanup` when the output closes. They only talk to the sink
-//! and never call libVLC.
+//! and `display` per picture, and `cleanup` when the output closes. They only talk to the sink,
+//! and to the worker once a picture it waits for shows, and never call libVLC.
 
 use std::ffi::{c_char, c_uint, c_void};
 use std::slice;
@@ -23,17 +23,40 @@ pub struct Vmem {
     /// Whether the user turned the picture a quarter turn (S7.2): libVLC's filters give it
     /// squeezed into the unturned size, so the sink asks for the sides swapped.
     transposed: AtomicBool,
+    /// What to do once the next picture shows (`hold.rs`).
+    next_picture: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 impl Vmem {
     /// A bridge to `sink`.
     pub fn new(sink: Arc<dyn VideoSink>) -> Self {
-        Self { sink, display: Mutex::new(None), transposed: AtomicBool::new(false) }
+        Self {
+            sink,
+            display: Mutex::new(None),
+            transposed: AtomicBool::new(false),
+            next_picture: Mutex::new(None),
+        }
+    }
+
+    /// Runs `then` once the next picture shows, on libVLC's video-output thread; it must not
+    /// call libVLC.
+    pub fn after_next_picture(&self, then: Box<dyn FnOnce() + Send>) {
+        *self.next_picture.lock().unwrap_or_else(PoisonError::into_inner) = Some(then);
+    }
+
+    /// Drops what [`Self::after_next_picture`] asked for, if it hasn't run.
+    pub fn forget_next_picture(&self) {
+        self.next_picture.lock().unwrap_or_else(PoisonError::into_inner).take();
     }
 
     /// Records the display size of the media about to play, for the next `format` call.
     pub fn set_display(&self, size: Option<VideoSize>) {
         *self.display.lock().unwrap_or_else(PoisonError::into_inner) = size;
+    }
+
+    /// Whether the display size of the media about to play is known: its parse found video.
+    pub fn knows_display(&self) -> bool {
+        self.display().is_some()
     }
 
     /// Records whether the picture is turned a quarter, for the next `format` call.
@@ -148,5 +171,10 @@ unsafe extern "C" fn on_unlock(opaque: *mut c_void, _picture: *mut c_void, _: *c
 
 unsafe extern "C" fn on_display(opaque: *mut c_void, _picture: *mut c_void) {
     // SAFETY: `opaque` is the pointer `install` registered.
-    unsafe { vmem(opaque).sink.display() };
+    let vmem = unsafe { vmem(opaque) };
+    vmem.sink.display();
+    let then = vmem.next_picture.lock().unwrap_or_else(PoisonError::into_inner).take();
+    if let Some(then) = then {
+        then();
+    }
 }

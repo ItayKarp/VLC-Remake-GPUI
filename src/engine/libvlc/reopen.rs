@@ -12,6 +12,7 @@
 use std::ffi::CString;
 use std::path::Path;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use super::api::Media;
 use super::decoding::{Decoding, SOFTWARE_DECODING};
@@ -54,15 +55,23 @@ impl Worker {
             self.add_option(media, &SOFTWARE_DECODING);
         }
         self.add_option(media, &[&self.resume_option()]);
-        if self.shared.paused.load(Ordering::Relaxed) {
+        // A new output draws nothing while paused, so it plays until its first picture shows.
+        let paused = self.shared.paused.load(Ordering::Relaxed);
+        let hold = paused && output == Output::Rebuilt && self.video.is_some();
+        if paused && !hold {
             self.add_option(media, &[":start-paused"]);
         }
         self.add_slaves(media);
         self.restore = Some(tracks);
         self.shared.switching.store(true, Ordering::Relaxed);
+        self.devices.settle(Instant::now());
         if output == Output::Rebuilt {
             // SAFETY: the player is live; the stop it reports is hidden while switching.
             unsafe { (self.vlc.api.libvlc_media_player_stop)(self.handles.player) };
+        }
+        // After the stop, whose closing output shows one last picture.
+        if hold {
+            self.hold_first_picture();
         }
         self.replace_media(media);
         self.play_media();

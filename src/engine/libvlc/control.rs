@@ -10,6 +10,7 @@ use super::decoding::{Slave, SlaveKind};
 use super::reopen::file_uri;
 use super::worker::{Refresh, Worker};
 use crate::engine::backend::{BackendEvent, Command};
+use crate::engine::state::PlaybackState;
 use crate::engine::tracks::{TrackId, TrackKind};
 use crate::engine::values::{BackendSeek, Offset, StepDirection};
 
@@ -22,12 +23,41 @@ const FULL_VOLUME: f32 = 100.0;
 
 impl Worker {
     /// Stops playback; the GPU no longer decodes anything.
-    fn stop(&self) {
+    fn stop(&mut self) {
         // A stop during a switch to software decoding must reach the player.
         self.shared.switching.store(false, Ordering::Relaxed);
+        self.end_hold();
         // SAFETY: the player is live for the worker's whole life.
         unsafe { (self.vlc.api.libvlc_media_player_stop)(self.handles.player) };
         super::hardware::decoding(None);
+    }
+
+    /// Plays; media held for its first picture after a reopen just keeps playing, unmuted.
+    fn play(&mut self) {
+        if self.end_hold() {
+            self.shared.paused.store(false, Ordering::Relaxed);
+            self.shared.send(BackendEvent::State(PlaybackState::Playing));
+        } else {
+            // SAFETY: the player is live.
+            _ = unsafe { (self.vlc.api.libvlc_media_player_play)(self.handles.player) };
+        }
+    }
+
+    /// Pauses, ending a hold for the first picture where it is.
+    fn pause(&mut self) {
+        self.pause_held();
+        // SAFETY: the player is live.
+        unsafe { (self.vlc.api.libvlc_media_player_set_pause)(self.handles.player, 1) };
+    }
+
+    /// Mutes or unmutes, or keeps it for after a hold for the first picture, which is muted.
+    fn set_mute(&mut self, muted: bool) {
+        if !self.hold_mute(muted) {
+            // SAFETY: the player is live.
+            unsafe {
+                (self.vlc.api.libvlc_audio_set_mute)(self.handles.player, c_int::from(muted));
+            };
+        }
     }
 
     /// Runs one command.
@@ -40,8 +70,8 @@ impl Worker {
         unsafe {
             match command {
                 Command::Open { media, start, generation } => self.open(media, start, generation),
-                Command::Play => _ = (api.libvlc_media_player_play)(player),
-                Command::Pause => (api.libvlc_media_player_set_pause)(player, 1),
+                Command::Play => self.play(),
+                Command::Pause => self.pause(),
                 Command::Stop => self.stop(),
                 Command::Seek(to) => self.seek(to),
                 Command::FrameStep(direction) => self.frame_step(direction),
@@ -52,7 +82,7 @@ impl Worker {
                     let level = (volume.get() * FULL_VOLUME).round() as c_int;
                     _ = (api.libvlc_audio_set_volume)(player, level);
                 }
-                Command::SetMute(muted) => (api.libvlc_audio_set_mute)(player, c_int::from(muted)),
+                Command::SetMute(muted) => self.set_mute(muted),
                 Command::SelectTrack(kind, track) => self.select_track(kind, track),
                 Command::SetAudioDelay(delay) => {
                     self.audio_delay = delay;

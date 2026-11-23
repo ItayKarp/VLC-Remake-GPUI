@@ -204,8 +204,9 @@ pub trait Backend: Send {
     fn set_media_options(&mut self, options: &MediaOptions);
     /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.
     fn set_equalizer(&mut self, equalizer: Option<Equalizer>);
-    /// Adjusts the picture's hue, brightness, contrast, saturation and gamma from now on, for
-    /// this and later media; `None` shows it as the media has it. Seen at once.
+    /// Adjusts the picture's hue, brightness, contrast, saturation and gamma, and sharpens,
+    /// debands or grains it, from now on, for this and later media; `None` shows it as the
+    /// media has it. Seen at once.
     fn set_picture(&mut self, picture: Option<Picture>);
     /// Passes video through `filters` from now on, for this and later media. The media playing
     /// is reopened where it is for it, so the change is seen at once.

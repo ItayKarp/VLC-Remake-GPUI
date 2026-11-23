@@ -18,7 +18,6 @@ use super::query::{FIRST_TRANSPOSED_ORIENTATION, display_size};
 use super::worker::Worker;
 use crate::app::media::Media as Source;
 use crate::engine::media_info::VideoSize;
-use crate::engine::transform::Transform;
 
 /// `libvlc_media_parse_local`: read the file's headers, no network.
 pub(super) const PARSE_LOCAL: c_int = 0;
@@ -104,10 +103,9 @@ impl Worker {
         };
         video.set_display(geometry.map(|geometry| geometry.display));
         self.quarter_turned = geometry.is_some_and(|geometry| geometry.quarter_turned);
-        let rotated = geometry.is_some_and(|geometry| geometry.rotated)
-            || self.video_filters.transform != Transform::NONE;
-        if rotated {
-            tracing::info!("libvlc: rotated video; decoding in software so it can be rotated");
+        let rotated = geometry.is_some_and(|geometry| geometry.rotated);
+        if rotated || self.filters_need_software() {
+            tracing::info!("libvlc: rotated or filtered video; decoding in software for it");
         } else if super::system_options::hardware_decoding() && super::hardware::allowed(source) {
             return Decoding::Hardware;
         }

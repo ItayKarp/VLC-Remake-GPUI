@@ -12,6 +12,8 @@ use crate::engine::backend::BackendEvent;
 
 /// How often the device list is read again.
 pub const DEVICE_POLL: Duration = Duration::from_secs(2);
+/// How long the list is left unread after the media is reopened where it is.
+const SETTLE: Duration = Duration::from_millis(1500);
 
 /// The id libVLC's output gives the OS default. CoreAudio lists it as "System Sound Output
 /// Device" with id `0`, and follows the OS default while it is selected.
@@ -50,12 +52,15 @@ pub fn arguments(config: AudioConfig) -> Vec<String> {
 pub struct DeviceWatch {
     known: Option<Vec<AudioDevice>>,
     next_poll: Instant,
+    /// Until when the list isn't read ([`Self::settle`]).
+    settled_at: Instant,
 }
 
 impl Default for DeviceWatch {
     /// A watch that reads the list at once.
     fn default() -> Self {
-        Self { known: None, next_poll: Instant::now() }
+        let now = Instant::now();
+        Self { known: None, next_poll: now, settled_at: now }
     }
 }
 
@@ -63,6 +68,14 @@ impl DeviceWatch {
     /// How long until the list is due to be read, from `now`.
     pub fn until_poll(&self, now: Instant) -> Duration {
         self.next_poll.saturating_duration_since(now)
+    }
+
+    /// Leaves the list unread for a while from `now`: a reopen stops libVLC's audio output,
+    /// which then lists no devices until a while after the new one starts, and that would read
+    /// as the device going away.
+    pub fn settle(&mut self, now: Instant) {
+        self.settled_at = now + SETTLE;
+        self.next_poll = self.next_poll.max(self.settled_at);
     }
 }
 
@@ -74,8 +87,14 @@ impl Worker {
         }
     }
 
-    /// Reads the device list now, and reports it if it changed.
+    /// Reads the device list now, and reports it if it changed; put off while it settles after
+    /// a reopen ([`DeviceWatch::settle`]).
     pub(super) fn poll_devices(&mut self) {
+        let now = Instant::now();
+        if now < self.devices.settled_at {
+            self.devices.next_poll = self.devices.settled_at;
+            return;
+        }
         self.devices.next_poll = Instant::now() + DEVICE_POLL;
         let devices = self.read_devices();
         if self.devices.known.as_ref() != Some(&devices) {
@@ -152,5 +171,19 @@ impl Worker {
             unsafe { (api.libvlc_audio_output_device_list_release)(list) };
         }
         devices
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_settling_list_is_read_once_it_has_settled() {
+        let mut watch = DeviceWatch::default();
+        let now = Instant::now();
+        assert!(watch.until_poll(now).is_zero(), "read at once at first");
+        watch.settle(now);
+        assert_eq!(watch.until_poll(now), SETTLE);
     }
 }

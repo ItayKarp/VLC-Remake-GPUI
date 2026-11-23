@@ -1603,14 +1603,16 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S7.1  **Size:** S  **Design refs:** `panels/video/essential/*`, Settings → Video "Picture"
 
 **Subtasks**
-- [ ] S7.3.1 Hue, Brightness, Contrast, Saturation and Gamma (the libVLC "adjust" filter), plus Sharpen Sigma, Banding Removal Radius (gradfun) and Film Grain Variance.
-- [ ] S7.3.2 Define ranges and defaults; the design has no value readouts. Proposal (from the libVLC defaults): Hue −180…180 (0), Brightness 0–2 (1), Contrast 0–2 (1), Saturation 0–3 (1), Gamma 0.01–10 (1), Sharpen 0–2 (0.05), Banding radius 4–32 (16), Grain 0–10 (2).
-- [ ] S7.3.3 Show the value while dragging (tooltip) even though the design has no readout, so changes are reversible.
-- [ ] S7.3.4 "Reset picture" in Settings → Video resets this section.
+- [x] S7.3.1 Hue, Brightness, Contrast, Saturation and Gamma (the libVLC "adjust" filter), plus Sharpen Sigma, Banding Removal Radius (gradfun) and Film Grain Variance. *(The three join the Essential section under its toggle and Settings → Video → Picture under "Adjust the picture", in `Picture` with the adjust values. libVLC's `gradfun`, `sharpen` and `grain` filters (`engine/libvlc/enhance.rs`): each value is set on the player and, through `vlc_list_children`, on its running video outputs, whose filters take it at once, so a drag applies live; a filter crossing 0 is written into the `video-filter` chain of both, a brief re-init. They can't take VideoToolbox's frames, so turning one on over hardware-decoded video reopens it in software where it is, unseen, and later media opens in software while one is on. An ignored smoke test checks film grain goes on, changes live and goes off. Fixed with it, for flip and rotation too (S7.2): a paused video reopened for filters showed black, as libVLC 3 draws nothing into a new output while paused, so it now plays muted until its first picture shows and pauses there, reported paused throughout (`engine/libvlc/hold.rs`), as does a video opening paused, the last session restored (S3.4), when its parse found video; and the reopen's stopped audio output listed no devices, which read as the device going away, so the list is left unread for 1.5 s after a reopen. Smoke tests check all three.)*
+- [x] S7.3.2 Define ranges and defaults; the design has no value readouts. Proposal (from the libVLC defaults): Hue −180…180 (0), Brightness 0–2 (1), Contrast 0–2 (1), Saturation 0–3 (1), Gamma 0.01–10 (1), Sharpen 0–2 (0.05), Banding radius 4–32 (16), Grain 0–10 (2). *(As proposed for the picture. The three enhancements have no neutral value in libVLC, so each slider's minimum is off and the default: Sharpen 0–2 in 0.01 (ticks every 0.5), Banding radius 0 or 4–32 px in steps of 4 (ticks every 4), Grain 0–10 in 0.1 (ticks every 1); the ticks follow the mock.)*
+- [x] S7.3.3 Show the value while dragging (tooltip) even though the design has no readout, so changes are reversible. *(The kit slider's drag tooltip, in each setting's format: "-30°", "1.25", "16 px", "Off" at an enhancement's 0.)*
+- [x] S7.3.4 "Reset picture" in Settings → Video resets this section. *(It puts the eight values back in Settings and lets the panel's held ones follow them again, leaving the toggle as it is.)*
 
 **Edge cases**
 - Filters on HDR content: apply them after tone-mapping, or disable them while HDR passthrough is active.
 - Some filters need a CPU format conversion: performance warning, as in S7.1.
+
+*(Edge cases: HDR waits for S7.5. The enhancements decode in software rather than convert; no performance warning yet, as for S7.1.)*
 
 ---
 

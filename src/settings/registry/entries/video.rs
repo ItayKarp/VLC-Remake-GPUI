@@ -17,6 +17,8 @@ const DEINTERLACING: (Category, &str) = (Category::Video, "Deinterlacing");
 /// What the picture rows change, and how they relate to the player's panel (D24).
 const PICTURE_INFO: &str = "Seen at once, and kept for every video. The player's settings panel \
                             can change it for the rest of the session.";
+/// What an enhancement's slider says at 0.
+const OFF: &str = "Off";
 
 impl SettingChoice for Deinterlace {
     const VALUES: &'static [Self] = &[Self::Automatic, Self::On, Self::Off];
@@ -66,12 +68,24 @@ fn degrees(value: f64) -> String {
     format!("{value:.0}°")
 }
 
-/// Puts every picture value back, leaving "Adjust the picture" as it is.
+/// An enhancement's strength as its slider says it: "Off" at 0, else "0.5".
+fn strength(value: f64) -> String {
+    if value > 0. { plain(value) } else { OFF.to_owned() }
+}
+
+/// A banding removal radius as its slider says it: "Off" at 0, else "16 px".
+fn radius(value: f64) -> String {
+    if value > 0. { format!("{value:.0} px") } else { OFF.to_owned() }
+}
+
+/// Puts every picture value back, here and in the player's panel (S7.3.4), leaving "Adjust the
+/// picture" as it is.
 fn reset_picture(_: &mut gpui::Window, cx: &mut gpui::App) {
     settings::update(cx, |settings| {
         let picture = &mut settings.prefs.video.picture;
         *picture = PictureSettings { enabled: picture.enabled, ..PictureSettings::default() };
     });
+    crate::effects::reset(cx, crate::effects::VIDEO_ESSENTIAL.controls.iter().copied());
 }
 
 /// Says when the player's panel has changed the picture for this session, so this page's values
@@ -189,6 +203,46 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         ),
         (0.01, 10., 0.01),
     ),
+    picture_row(
+        "video.picture.sharpen",
+        "Sharpen Sigma",
+        (
+            Control::Slider { marks: Marks::Ticks(0.5), format: strength },
+            number!(f32: prefs.video.picture.sharpen),
+        ),
+        (0., 2., 0.01),
+    )
+    .info(
+        "Sharpens edges; 0 is off. A little goes a long way. Seen at once, kept for every video.",
+    ),
+    picture_row(
+        "video.picture.deband_radius",
+        "Banding Removal Radius",
+        (
+            Control::Slider { marks: Marks::Ticks(4.), format: radius },
+            number!(u32: prefs.video.picture.deband_radius),
+        ),
+        (0., 32., 4.),
+    )
+    .info(
+        "Smooths the steps in gradients (skies, dark scenes) over this many pixels; 0 is off. \
+         Seen at once, kept for every video.",
+    )
+    .keywords(&["deband", "gradfun", "gradient", "filter"]),
+    picture_row(
+        "video.picture.grain",
+        "Film Grain Variance",
+        (
+            Control::Slider { marks: Marks::Ticks(1.), format: strength },
+            number!(f32: prefs.video.picture.grain),
+        ),
+        (0., 10., 0.1),
+    )
+    .info(
+        "Adds film grain, which can hide banding and compression; 0 is off. Seen at once, kept \
+         for every video.",
+    )
+    .keywords(&["noise", "film", "texture", "filter"]),
     SettingDef::new(
         "video.reset_picture",
         PICTURE,
@@ -196,7 +250,11 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Button { label: "Reset", action: reset_picture },
         Binding::ACTION,
     )
-    .info("Puts hue, brightness, contrast, saturation and gamma back as the media has them.")
+    .info(
+        "Puts the picture back as the media has it: hue, brightness, contrast, saturation and \
+         gamma, with sharpening, banding removal and film grain off. The player's settings \
+         panel follows.",
+    )
     .keywords(&["default", "color"]),
     SettingDef::new(
         "video.deinterlace",

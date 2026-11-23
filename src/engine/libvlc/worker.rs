@@ -14,6 +14,7 @@ use super::audio::DeviceWatch;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
+use super::hold::Hold;
 use super::reopen::Restore;
 use super::size_watch::{SIZE_POLL, SizeWatch};
 use super::track_list::Defaults;
@@ -55,6 +56,8 @@ pub enum Message {
     Ended,
     /// libVLC reported an error, which the worker classifies.
     Failed,
+    /// The picture held media waited for showed (`hold.rs`).
+    PictureShown,
     /// Stop, release everything, and exit.
     Shutdown,
 }
@@ -100,10 +103,14 @@ pub struct Worker {
     pub(super) restore: Option<Restore>,
     /// The filters video passes through.
     pub(super) video_filters: VideoFilters,
+    /// Whether one of the picture's enhancements (S7.3) is on, which decodes in software.
+    pub(super) enhanced: bool,
     /// Whether the open file stores its picture a quarter turn from upright.
     pub(super) quarter_turned: bool,
     /// When to switch to software decoding for a shown subtitle.
     pub(super) switch_due: Option<Instant>,
+    /// Paused media playing until its first picture shows after a reopen.
+    pub(super) hold: Option<Hold>,
 }
 
 impl Worker {
@@ -132,8 +139,10 @@ impl Worker {
             slaves: Vec::new(),
             restore: None,
             video_filters: VideoFilters::default(),
+            enhanced: false,
             quarter_turned: false,
             switch_due: None,
+            hold: None,
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -147,11 +156,13 @@ impl Worker {
                 Message::Refresh(what) => self.refresh(what),
                 Message::Ended => self.ended(),
                 Message::Failed => self.failed(),
+                Message::PictureShown => self.pause_held(),
                 Message::Shutdown => break,
             }
             // A steady stream of messages must not starve the device list or the switch.
             self.poll_devices_if_due();
             self.switch_if_due(Instant::now());
+            self.pause_held_if_due(Instant::now());
         }
         self.release();
     }
@@ -183,6 +194,9 @@ impl Worker {
         if let Some(switch) = self.until_switch(now) {
             wait = wait.min(switch);
         }
+        if let Some(hold) = self.until_hold_ends(now) {
+            wait = wait.min(hold);
+        }
         wait
     }
 
@@ -190,11 +204,15 @@ impl Worker {
     /// `start` says, as open `generation`.
     pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
         super::hardware::decoding(None);
+        self.end_hold();
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
+        // A new output draws nothing while paused, so video opening paused plays until its
+        // first picture shows (`hold.rs`).
+        let hold = start.paused && !media.is_null() && self.expects_picture();
         if !media.is_null() {
-            self.add_start_options(media, start);
+            self.add_start_options(media, Start { paused: start.paused && !hold, ..start });
             self.add_media_options(media);
         }
         // Before the new output opens, for the new file's orientation.
@@ -217,6 +235,11 @@ impl Worker {
         ];
         for flag in flags {
             flag.store(false, Ordering::Relaxed);
+        }
+        // After `set_media`, whose stopping output may show one last picture.
+        if hold {
+            self.shared.paused.store(true, Ordering::Relaxed);
+            self.hold_first_picture();
         }
         if media.is_null() {
             tracing::warn!("libvlc: couldn't create the media: {}", self.vlc.last_error());
@@ -264,6 +287,7 @@ impl Worker {
     fn idle(&mut self, idle_since: Instant) {
         self.poll_devices_if_due();
         self.switch_if_due(Instant::now());
+        self.pause_held_if_due(Instant::now());
         if self.size_watch.is_watching(Instant::now()) {
             self.send_video_size();
         }

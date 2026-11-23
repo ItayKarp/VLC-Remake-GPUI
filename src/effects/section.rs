@@ -22,8 +22,8 @@ impl EffectSection {
     }
 }
 
-/// The Video tab's Essential filters (`panels/video/essential`): the picture's adjustments.
-/// Sharpen, banding removal and film grain join them with S7.3.
+/// The Video tab's Essential filters (`panels/video/essential`): the picture's adjustments, then
+/// sharpening, banding removal and film grain (S7.3).
 pub const VIDEO_ESSENTIAL: EffectSection = EffectSection {
     id: "video.essential",
     title: "Essential",
@@ -34,6 +34,9 @@ pub const VIDEO_ESSENTIAL: EffectSection = EffectSection {
         "video.picture.contrast",
         "video.picture.saturation",
         "video.picture.gamma",
+        "video.picture.sharpen",
+        "video.picture.deband_radius",
+        "video.picture.grain",
     ],
 };
 
@@ -75,7 +78,7 @@ mod tests {
             let def = registry::find(key).expect("each control is a setting");
             assert!(matches!(def.control, Control::Slider { .. }), "{key}");
         }
-        assert_eq!(VIDEO_ESSENTIAL.keys().count(), 6);
+        assert_eq!(VIDEO_ESSENTIAL.keys().count(), 9);
     }
 
     #[test]
