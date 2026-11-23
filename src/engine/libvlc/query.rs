@@ -17,7 +17,7 @@ const META_TITLE: c_int = 0;
 const META_ARTIST: c_int = 1;
 const META_ALBUM: c_int = 4;
 /// `libvlc_video_orient_left_top` and the three after it swap width and height.
-const FIRST_TRANSPOSED_ORIENTATION: c_int = 4;
+pub(super) const FIRST_TRANSPOSED_ORIENTATION: c_int = 4;
 /// Pixel aspect ratios this close to 1:1 count as square: rescaling a picture by a pixel or two
 /// costs a scaler pass and shows no difference (`odd-1919x1079.mkv` is 17264:17271).
 const SQUARE_TOLERANCE: f64 = 0.01;
@@ -75,7 +75,10 @@ impl Worker {
     }
 
     fn send_size_of(&self, streams: &[Stream]) {
-        let size = streams.iter().find_map(|stream| stream.size);
+        let size = streams.iter().find_map(|stream| stream.size).map(|size| {
+            let turned = self.video_filters.transform.swaps_sides();
+            if turned { VideoSize { width: size.height, height: size.width } } else { size }
+        });
         let has_video = streams.iter().any(|stream| stream.kind == Some(TrackKind::Video));
         self.size_watch.observe(has_video && size.is_none(), Instant::now());
         self.shared.send(BackendEvent::VideoSize(size));

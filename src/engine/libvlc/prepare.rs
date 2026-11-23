@@ -3,7 +3,8 @@
 //! `vmem` proposes the decoder's coded size (1920×1088 for most 1080p H.264) in storage pixels.
 //! Knowing the display size first lets the sink ask for it, so libVLC crops the padding and
 //! squares anamorphic pixels itself. And libVLC 3 can only rotate software-decoded pictures, so
-//! a rotated track is opened with hardware decoding off, or no picture would appear.
+//! a rotated track, or one the user flips or turns (S7.2), is opened with hardware decoding off,
+//! or no picture would appear.
 //!
 //! Network media is not parsed (it could take seconds); it plays at the proposed size.
 
@@ -13,10 +14,11 @@ use std::time::{Duration, Instant};
 
 use super::api::{LibVlc, Media, MediaTrack, VideoTrack};
 use super::decoding::{Decoding, SOFTWARE_DECODING};
-use super::query::display_size;
+use super::query::{FIRST_TRANSPOSED_ORIENTATION, display_size};
 use super::worker::Worker;
 use crate::app::media::Media as Source;
 use crate::engine::media_info::VideoSize;
+use crate::engine::transform::Transform;
 
 /// `libvlc_media_parse_local`: read the file's headers, no network.
 pub(super) const PARSE_LOCAL: c_int = 0;
@@ -83,22 +85,27 @@ pub(super) unsafe fn parse_with(
 struct Geometry {
     display: VideoSize,
     rotated: bool,
+    /// Stored a quarter turn from upright, so turning it upright swaps its sides.
+    quarter_turned: bool,
 }
 
 impl Worker {
-    /// Tells the video sink the display size of `media` (a local `source` only), and turns
-    /// hardware decoding off when the track is rotated, Settings → Performance turned it off, or
-    /// it crashed on this media or GPU before ([`super::hardware`]);
-    /// returns how it will be decoded. Blocks the worker for the parse, at most
-    /// [`PARSE_TIMEOUT`].
-    pub(super) fn prepare_video(&self, media: *mut Media, source: &Source) -> Decoding {
+    /// Tells the video sink the display size of `media` (a local `source` only), notes whether
+    /// it is stored a quarter turn from upright, and turns hardware decoding off when the track
+    /// is rotated or the user flips or turns it, Settings → Performance turned it off, or it
+    /// crashed on this media or GPU before ([`super::hardware`]); returns how it will be
+    /// decoded. Blocks the worker for the parse, at most [`PARSE_TIMEOUT`].
+    pub(super) fn prepare_video(&mut self, media: *mut Media, source: &Source) -> Decoding {
+        self.quarter_turned = false;
         let Some(video) = &self.video else { return Decoding::Hardware };
         let geometry = match source {
             Source::File(_) if self.parse(media) => self.geometry(media),
             _ => None,
         };
         video.set_display(geometry.map(|geometry| geometry.display));
-        let rotated = geometry.is_some_and(|geometry| geometry.rotated);
+        self.quarter_turned = geometry.is_some_and(|geometry| geometry.quarter_turned);
+        let rotated = geometry.is_some_and(|geometry| geometry.rotated)
+            || self.video_filters.transform != Transform::NONE;
         if rotated {
             tracing::info!("libvlc: rotated video; decoding in software so it can be rotated");
         } else if super::system_options::hardware_decoding() && super::hardware::allowed(source) {
@@ -147,7 +154,11 @@ pub(super) unsafe fn video_track(track: &MediaTrack) -> Option<&VideoTrack> {
 }
 
 fn geometry(video: &VideoTrack) -> Option<Geometry> {
-    Some(Geometry { display: display_size(video)?, rotated: video.orientation != UPRIGHT })
+    Some(Geometry {
+        display: display_size(video)?,
+        rotated: video.orientation != UPRIGHT,
+        quarter_turned: video.orientation >= FIRST_TRANSPOSED_ORIENTATION,
+    })
 }
 
 #[cfg(test)]
@@ -171,9 +182,10 @@ mod tests {
     #[test]
     fn rotated_tracks_are_flagged_and_their_sides_swapped() {
         let rotated = geometry(&video(1920, 1080, 5)).expect("known size");
-        assert!(rotated.rotated);
+        assert!(rotated.rotated && rotated.quarter_turned);
         assert_eq!(rotated.display, VideoSize { width: 1080, height: 1920 });
-        assert!(geometry(&video(1920, 1080, 3)).expect("upside down").rotated);
+        let upside_down = geometry(&video(1920, 1080, 3)).expect("upside down");
+        assert!(upside_down.rotated && !upside_down.quarter_turned);
         assert!(!geometry(&video(1920, 1080, 0)).expect("known size").rotated);
     }
 

@@ -14,7 +14,7 @@ use futures::channel::mpsc;
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::media_info::{Chapter, Metadata, VideoSize};
-use super::media_options::{MediaOptions, Picture};
+use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -141,6 +141,8 @@ pub enum Command {
     SetEqualizer(Option<Equalizer>),
     /// Adjust the picture this way, or show it as the media has it.
     SetPicture(Option<Picture>),
+    /// Pass video through these filters.
+    SetVideoFilters(VideoFilters),
 }
 
 /// A playback backend.
@@ -205,6 +207,9 @@ pub trait Backend: Send {
     /// Adjusts the picture's hue, brightness, contrast, saturation and gamma from now on, for
     /// this and later media; `None` shows it as the media has it. Seen at once.
     fn set_picture(&mut self, picture: Option<Picture>);
+    /// Passes video through `filters` from now on, for this and later media. The media playing
+    /// is reopened where it is for it, so the change is seen at once.
+    fn set_video_filters(&mut self, filters: VideoFilters);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

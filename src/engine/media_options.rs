@@ -1,12 +1,16 @@
 //! How new media opens, beyond where it starts: the stream quality adaptive streams pick, the
-//! language disc menus show in and how precisely seeks land (Settings → Playback, S5.7), and
-//! whether video is decoded and its deinterlacing (Settings → Video, S5.8.1), whether audio is (Settings → Audio, S5.8.2), and which subtitle files load and how
-//! they are read (Settings → Subtitles, S5.8.3).
+//! language disc menus show in and how precisely seeks land (Settings → Playback, S5.7),
+//! whether video is decoded (Settings → Video, S5.8.1) and audio is (Settings → Audio, S5.8.2),
+//! and which subtitle files load and how they are read (Settings → Subtitles, S5.8.3).
+//!
+//! The video filters ([`VideoFilters`]: deinterlacing, flip and rotation) and the picture's
+//! adjustments ([`Picture`]) aren't options of the media: they reach the media playing too.
 
 use serde::{Deserialize, Serialize};
 
 use super::language::Language;
 use super::subtitle_style::{FileMatching, SubtitleLoading};
+use super::transform::Transform;
 
 /// Options every media opened from now on gets.
 #[allow(
@@ -25,8 +29,6 @@ pub struct MediaOptions {
     pub video: bool,
     /// Whether audio tracks are decoded at all; off plays the picture silently.
     pub audio: bool,
-    /// Whether interlaced video is deinterlaced, and how.
-    pub deinterlace: Deinterlacing,
     /// Which subtitle files load with the media, and how they are read.
     pub subtitles: SubtitleLoading,
 }
@@ -39,7 +41,6 @@ impl Default for MediaOptions {
             precise_seeks: true,
             video: true,
             audio: true,
-            deinterlace: Deinterlacing::default(),
             subtitles: SubtitleLoading {
                 files: Some(FileMatching::default()),
                 ..SubtitleLoading::default()
@@ -79,6 +80,16 @@ impl Default for Picture {
     fn default() -> Self {
         Self::NEUTRAL
     }
+}
+
+/// The filters video passes through, which libVLC builds into each video output: changing one
+/// reopens the media playing where it is (S7.2), so it is seen at once, and later media keeps it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct VideoFilters {
+    /// Flip and rotation.
+    pub transform: Transform,
+    /// Whether interlaced video is deinterlaced, and how.
+    pub deinterlace: Deinterlacing,
 }
 
 /// Whether interlaced video is deinterlaced, and how.

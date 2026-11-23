@@ -1,12 +1,16 @@
 //! Video settings (Settings → Video, "Video Defaults", S5.8.1): whether video is decoded, going
 //! fullscreen when a video starts, keeping the display awake, the picture adjustments, the
-//! deinterlacing and the framing new media starts with.
+//! deinterlacing, the flip and rotation, and the framing (S7.2) every video shows with.
 
 use serde::{Deserialize, Serialize};
 
 use super::super::lenient::lenient;
-use crate::engine::media_options::{Deinterlace, DeinterlaceMethod, Picture};
-use crate::video::framing::{AspectRatio, Crop};
+use crate::engine::media_options::{Deinterlace, DeinterlaceMethod, Deinterlacing, Picture};
+use crate::engine::transform::{Flip, Rotation, Transform};
+use crate::video::framing::{AspectRatio, Crop, CropEdges, Zoom};
+
+/// The Custom aspect ratio until the user types one: ultrawide cinema.
+const DEFAULT_CUSTOM_RATIO: &str = "2.4:1";
 
 /// Video preferences that follow the user between machines.
 #[allow(
@@ -38,9 +42,36 @@ pub struct VideoSettings {
     /// "Aspect ratio".
     #[serde(deserialize_with = "lenient")]
     pub aspect_ratio: AspectRatio,
+    /// "Custom ratio": the aspect ratio's Custom shape, as typed ("64:27").
+    #[serde(deserialize_with = "lenient")]
+    pub custom_aspect_ratio: String,
     /// "Crop".
     #[serde(deserialize_with = "lenient")]
     pub crop: Crop,
+    /// "Trim edges" and its pixels: the crop panel's Top, Bottom, Left and Right (S7.2.5).
+    #[serde(deserialize_with = "lenient")]
+    pub crop_edges: CropEdges,
+    /// "Zoom".
+    #[serde(deserialize_with = "lenient")]
+    pub zoom: Zoom,
+    /// "Flip".
+    #[serde(deserialize_with = "lenient")]
+    pub flip: Flip,
+    /// "Rotate".
+    #[serde(deserialize_with = "lenient")]
+    pub rotation: Rotation,
+}
+
+impl VideoSettings {
+    /// The flip and rotation.
+    pub fn transform(&self) -> Transform {
+        Transform { flip: self.flip, rotation: self.rotation }
+    }
+
+    /// The deinterlacing.
+    pub fn deinterlacing(&self) -> Deinterlacing {
+        Deinterlacing { mode: self.deinterlace, method: self.deinterlace_method }
+    }
 }
 
 impl Default for VideoSettings {
@@ -53,7 +84,12 @@ impl Default for VideoSettings {
             deinterlace: Deinterlace::default(),
             deinterlace_method: DeinterlaceMethod::default(),
             aspect_ratio: AspectRatio::default(),
+            custom_aspect_ratio: DEFAULT_CUSTOM_RATIO.to_owned(),
             crop: Crop::default(),
+            crop_edges: CropEdges::default(),
+            zoom: Zoom::default(),
+            flip: Flip::default(),
+            rotation: Rotation::default(),
         }
     }
 }

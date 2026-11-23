@@ -18,6 +18,7 @@ use crate::engine::audio::AudioConfig;
 use crate::engine::backend::{self, Backend, BackendEvent};
 use crate::engine::media_info::VideoSize;
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
+use crate::engine::state::PlaybackState;
 use crate::engine::subtitle_style::SubtitleStyle;
 use crate::engine::values::{Generation, Start};
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
@@ -185,5 +186,66 @@ fn the_picture_adjusts_live_while_playing() {
     assert!(mean_level(&sink) > shown * 0.9, "stopped, nothing draws");
     backend.open(&bars, Start::default(), Generation::default().next().next());
     wait_for_level(&sink, "the next media", |level| level < shown / 2.);
+    assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
+}
+
+/// Waits until `check` passes, failing after [`PATIENCE`] waiting for `what`.
+fn wait_until(what: &str, check: impl Fn() -> bool) {
+    let deadline = Instant::now() + PATIENCE;
+    while !check() {
+        assert!(Instant::now() < deadline, "no {what}");
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// The mean color (red, green, blue) of the picture's top tenth.
+fn top_color(sink: &CountingSink) -> [f64; 3] {
+    let Some((width, height)) = *sink.size.lock().unwrap() else { return [0.; 3] };
+    let buffer = sink.buffer.lock().unwrap();
+    let rows = (width * (height / 10) * 4) as usize;
+    let pixels = buffer.get(..rows).unwrap_or_default().as_chunks::<4>().0;
+    let sum = pixels.iter().fold([0_u64; 3], |[r, g, b], pixel| {
+        [r + u64::from(pixel[2]), g + u64::from(pixel[1]), b + u64::from(pixel[0])]
+    });
+    sum.map(|channel| channel as f64 / pixels.len().max(1) as f64)
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn a_quarter_turn_reopens_the_video_upright_on_its_side() {
+    use crate::engine::media_options::VideoFilters;
+    use crate::engine::transform::{Rotation, Transform};
+
+    // SAFETY: as in `shown_size`.
+    unsafe { super::runtime::prepare_environment() };
+    let sink = Arc::new(CountingSink::default());
+    let (events, mut receiver) = backend::channel();
+    let mut backend = Box::new(
+        LibVlcBackend::new(
+            events,
+            Some(sink.clone()),
+            AudioConfig::default(),
+            &SubtitleStyle::default(),
+        )
+        .expect("libVLC"),
+    );
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/spike-media");
+    let media = Media::File(path.join("1080p60-h264.mp4"));
+    backend.open(&media, Start::default(), Generation::default().next());
+    wait_until("pictures", || sink.displayed.load(Ordering::Relaxed) >= PICTURES);
+    assert_eq!(*sink.size.lock().unwrap(), Some((1920, 1080)));
+    while receiver.try_recv().is_ok() {}
+    let turned = Transform { rotation: Rotation::Quarter, ..Transform::NONE };
+    backend.set_video_filters(VideoFilters { transform: turned, ..VideoFilters::default() });
+    wait_until("a portrait size", || *sink.size.lock().unwrap() == Some((1080, 1920)));
+    // The test card's left bar is red; turned clockwise, it lies along the top.
+    wait_until("a red top", || {
+        let [red, green, blue] = top_color(&sink);
+        red > 150. && green < 80. && blue < 80.
+    });
+    let hidden = [PlaybackState::Opening, PlaybackState::Stopped].map(BackendEvent::State);
+    while let Ok(tagged) = receiver.try_recv() {
+        assert!(!hidden.contains(&tagged.event), "the reopen showed: {:?}", tagged.event);
+    }
     assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
 }

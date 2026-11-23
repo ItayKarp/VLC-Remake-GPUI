@@ -1,7 +1,9 @@
 //! The video menu's Video, Audio and Subtitle submenus (S2.9.3).
 //!
-//! - **Video:** Video Track ▸ and Fullscreen. Aspect ratio, crop and zoom aren't in the engine
-//!   yet, and Take Snapshot comes with S8.4, so they aren't listed.
+//! - **Video:** Video Track ▸, the framing (Zoom ▸, Aspect Ratio ▸, Crop ▸, Flip ▸ and Rotate ▸,
+//!   S7.2), Deinterlace ▸ and its Deinterlacing Method ▸ (S7.2.6), and Fullscreen. Like the
+//!   player's settings panel, they change what plays for the session, not Settings (D24). Take
+//!   Snapshot comes with S8.4.
 //! - **Audio:** Audio Track ▸, Audio Device ▸ (as in the track popover, S2.6.3), Stereo Mode ▸
 //!   (Settings → Audio "Speaker setup"), Mute, and the volume keys' commands. The visualizer
 //!   comes with S7.8.
@@ -16,6 +18,7 @@ use gpui::{App, Entity, WeakEntity, Window};
 
 use super::{NOTHING_PLAYING, on_main, run};
 use crate::assets::icons;
+use crate::effects;
 use crate::engine::audio::{OutputDevice, SpeakerSetup};
 use crate::engine::player::Player;
 use crate::engine::sidecar;
@@ -24,8 +27,19 @@ use crate::engine::values::Offset;
 use crate::keymap::actions as act;
 use crate::main_window::MainWindow;
 use crate::settings;
-use crate::settings::registry::TEXT_ENCODINGS;
+use crate::settings::registry::{self, Control, TEXT_ENCODINGS, Value};
 use crate::ui::menu::MenuItem;
+
+/// The Video menu's submenus of a setting held for the session: its key and the title.
+const SESSION_MENUS: [(&str, &str); 7] = [
+    ("video.zoom", "Zoom"),
+    ("video.aspect_ratio", "Aspect Ratio"),
+    ("video.crop", "Crop"),
+    ("video.flip", "Flip"),
+    ("video.rotation", "Rotate"),
+    ("video.deinterlace", "Deinterlace"),
+    ("video.deinterlace_method", "Deinterlacing Method"),
+];
 
 impl MainWindow {
     /// Video ▸.
@@ -42,6 +56,9 @@ impl MainWindow {
             .map(|player| track_menu(TrackKind::Video, &player, cx))
             .into_iter()
             .collect();
+        items.push(MenuItem::Separator);
+        items.extend(SESSION_MENUS.iter().map(|(key, title)| session_menu(key, title, cx)));
+        items.push(MenuItem::Separator);
         items.push(run(main, &act::ToggleFullscreen, fullscreen, cx).icon(icons::FULLSCREEN));
         MenuItem::submenu("Video", items).icon(icons::VIDEO)
     }
@@ -159,6 +176,30 @@ fn encoding_menu(player: &Entity<Player>, cx: &App) -> MenuItem {
         MenuItem::radio(label, checked, reread(Some(encoding)))
     }));
     MenuItem::submenu("Text Encoding", items)
+}
+
+/// A submenu of the choices of the setting `key`, the one in effect checked; picking one holds
+/// it for the session. Disabled, saying why, while the setting depends on another that is off
+/// (the method while deinterlacing is).
+fn session_menu(key: &'static str, title: &'static str, cx: &App) -> MenuItem {
+    let Some(def) = registry::find(key) else { return MenuItem::submenu(title, Vec::new()) };
+    let (Control::Dropdown(choices) | Control::Segmented(choices)) = def.control else {
+        return MenuItem::submenu(title, Vec::new());
+    };
+    let effective = effects::effective(cx);
+    let current = def.value(&effective);
+    let items = choices.iter().map(|choice| {
+        let checked = current == Value::Choice(choice.id);
+        MenuItem::radio(choice.label, checked, move |_, cx| {
+            effects::set(cx, key, Value::Choice(choice.id));
+        })
+    });
+    let menu = MenuItem::submenu(title, items.collect());
+    if def.is_enabled(&effective) {
+        menu
+    } else {
+        menu.disabled(true).why_disabled("Deinterlacing is off")
+    }
 }
 
 /// What Settings → Subtitles calls `encoding` ("Hebrew (Windows-1255)"), or its own name.

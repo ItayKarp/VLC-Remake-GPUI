@@ -79,8 +79,8 @@ pub struct Shared {
     pub paused: AtomicBool,
     /// Whether a seek waits for libVLC's next time report to complete.
     pub seeking: AtomicBool,
-    /// Whether the worker is reopening the media to decode it in software
-    /// ([`super::decoding`]): its opening and stopping are hidden until it plays again.
+    /// Whether the worker is reopening the media where it is ([`super::reopen`]): its opening
+    /// and stopping are hidden until it plays again.
     pub switching: AtomicBool,
 }
 

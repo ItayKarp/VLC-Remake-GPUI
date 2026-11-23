@@ -11,16 +11,17 @@ use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::audio::DeviceWatch;
-use super::decoding::{Decoding, Restore, Slave};
+use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
 use super::failure;
+use super::reopen::Restore;
 use super::size_watch::{SIZE_POLL, SizeWatch};
 use super::track_list::Defaults;
 use super::vmem::Vmem;
 use crate::app::media::Media as Source;
 use crate::engine::audio::SpeakerSetup;
 use crate::engine::backend::{BackendEvent, Command};
-use crate::engine::media_options::MediaOptions;
+use crate::engine::media_options::{MediaOptions, VideoFilters};
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::engine::values::{Generation, Offset, Start};
 
@@ -95,8 +96,12 @@ pub struct Worker {
     pub(super) decoding: Decoding,
     /// The subtitle and audio files added to the open media, in order.
     pub(super) slaves: Vec<Slave>,
-    /// The tracks to select again after switching to software decoding.
+    /// The tracks to select again after a reopen.
     pub(super) restore: Option<Restore>,
+    /// The filters video passes through.
+    pub(super) video_filters: VideoFilters,
+    /// Whether the open file stores its picture a quarter turn from upright.
+    pub(super) quarter_turned: bool,
     /// When to switch to software decoding for a shown subtitle.
     pub(super) switch_due: Option<Instant>,
 }
@@ -126,6 +131,8 @@ impl Worker {
             decoding: Decoding::default(),
             slaves: Vec::new(),
             restore: None,
+            video_filters: VideoFilters::default(),
+            quarter_turned: false,
             switch_due: None,
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
@@ -190,6 +197,8 @@ impl Worker {
             self.add_start_options(media, start);
             self.add_media_options(media);
         }
+        // Before the new output opens, for the new file's orientation.
+        self.apply_video_filters();
         // `set_media` stops the previous media first; its events still carry the old
         // generation, because the new one is published only afterwards.
         self.replace_media(media);

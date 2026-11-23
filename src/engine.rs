@@ -21,6 +21,7 @@
 //!   precision (S5.7).
 //! - [`tags`]: a file's tags, tracks and cover, read without playing it (S4.3.1).
 //! - [`subtitle_sync`]: a subtitle track's delay, speed and duration factor (S6.3).
+//! - [`transform`]: flipping and rotating the picture (S7.2).
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 
 pub mod audio;
@@ -49,6 +50,7 @@ pub mod tags;
 mod tests;
 pub mod thumbnail;
 pub mod tracks;
+pub mod transform;
 mod unavailable;
 pub mod values;
 pub mod video;

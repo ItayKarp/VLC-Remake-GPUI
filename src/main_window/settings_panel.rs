@@ -10,7 +10,8 @@
 //! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6) and the speed (`playback.rs`).
 //! Its other designed rows (Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with
 //! their stories (S8.13, S7.8) and are hidden until then, as are the Audio tab's settings (Stage
-//! 7). The Video tab holds the effect sections (`video.rs`, `effect_section.rs`, S7.1). The
+//! 7). The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
+//! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1). The
 //! Subtitles tab holds the subtitle defaults and the showing subtitle's synchronization
 //! (`subtitles.rs`, S6.3). Those three tabs have a footer that stays put while they scroll: the
 //! preset picker (S5.11), the same as at the foot of the Settings pages, opening upward; **Save
@@ -24,6 +25,8 @@
 //! popover or menu, the window losing focus, its media going, and fullscreen. The track popover's
 //! Show Preferences opens it on the matching tab.
 
+mod crop_section;
+mod custom_ratio;
 mod effect_section;
 mod number_row;
 mod playback;
@@ -31,6 +34,7 @@ mod subtitle_defaults;
 mod subtitles;
 mod sync_rules;
 mod video;
+mod video_defaults;
 
 use gpui::{
     App, AppContext as _, Context, Div, Entity, FocusHandle, KeyDownEvent, MouseDownEvent,
@@ -39,14 +43,16 @@ use gpui::{
 
 pub(super) use playback::SpeedControls;
 
+use self::crop_section::CropControls;
 use self::effect_section::EffectControls;
 use self::subtitles::SubtitleControls;
+use self::video_defaults::DefaultsControls;
 
 use super::MainWindow;
 use super::bar_panel;
 use super::track_popover::tab_icon;
 use crate::assets::icons;
-use crate::effects::{self, EffectSection, VIDEO_ESSENTIAL};
+use crate::effects::{self, EffectSection, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL};
 use crate::engine::tracks::TrackKind;
 use crate::settings::registry::Category;
 use crate::settings_view::PresetPicker;
@@ -94,9 +100,23 @@ impl PanelTab {
     /// The tab's effect sections (S7.1), in order.
     fn sections(self) -> &'static [EffectSection] {
         match self {
-            Self::Video => &[VIDEO_ESSENTIAL],
+            Self::Video => &[VIDEO_CROP, VIDEO_ESSENTIAL],
             Self::Playback | Self::Audio | Self::Subtitles => &[],
         }
+    }
+
+    /// The tab's session values outside its sections (the Video tab's Defaults, S7.2).
+    fn defaults(self) -> &'static [&'static str] {
+        match self {
+            Self::Video => VIDEO_DEFAULTS,
+            Self::Playback | Self::Audio | Self::Subtitles => &[],
+        }
+    }
+
+    /// Every setting the tab holds for the session: its Defaults, then its sections'.
+    fn session_keys(self) -> impl Iterator<Item = &'static str> {
+        let sections = self.sections().iter().flat_map(EffectSection::keys);
+        self.defaults().iter().copied().chain(sections)
     }
 
     /// The Settings window's page with the tab's defaults.
@@ -137,8 +157,11 @@ pub(super) struct SettingsPanel {
     speed: SpeedControls,
     /// The Subtitles tab's defaults and synchronization.
     subtitles: SubtitleControls,
-    /// Every tab's effect sections.
+    /// Every tab's effect sections of sliders.
     effects: Vec<EffectControls>,
+    /// The Video tab's Defaults rows and Crop section.
+    video_defaults: DefaultsControls,
+    crop: CropControls,
     /// The footer's preset picker.
     presets: Entity<PresetPicker>,
 }
@@ -155,8 +178,11 @@ impl SettingsPanel {
             effects: PanelTab::ALL
                 .iter()
                 .flat_map(|tab| tab.sections())
+                .filter(|section| **section != VIDEO_CROP)
                 .map(|section| EffectControls::new(*section, window, cx))
                 .collect(),
+            video_defaults: DefaultsControls::new(window, cx),
+            crop: CropControls::new(window, cx),
             presets: cx.new(|cx| PresetPicker::new(window, cx)),
         }
     }
@@ -307,7 +333,7 @@ impl MainWindow {
 }
 
 /// The footer of the Video, Audio and Subtitles tabs: the preset picker, Save as Default where
-/// the tab has effect sections, and Open Advanced Settings, which opens `tab`'s page in the
+/// the tab holds session values, and Open Advanced Settings, which opens `tab`'s page in the
 /// Settings window.
 fn footer(
     tab: PanelTab,
@@ -317,7 +343,7 @@ fn footer(
     cx: &App,
 ) -> Div {
     let inner = bar_panel::width(window) - 2. * FOOTER_PADDING;
-    let save = (!tab.sections().is_empty()).then(|| save_as_default(tab, inner, cx));
+    let save = tab.session_keys().next().is_some().then(|| save_as_default(tab, inner, cx));
     let advanced = Button::new("open-advanced-settings", "Open Advanced Settings")
         .icon(icons::SETTINGS)
         .style(ButtonStyle::Ghost)
@@ -338,17 +364,14 @@ fn footer(
 /// Save as Default (S7.1.5): writes `tab`'s session values into its Settings page; dimmed while
 /// the panel changed nothing there.
 fn save_as_default(tab: PanelTab, width: f32, cx: &App) -> Button {
-    let sections = tab.sections();
-    let changed = sections.iter().any(|section| effects::any_changed(cx, section));
+    let changed = tab.session_keys().any(|key| effects::is_changed(cx, key));
     let page = tab.label();
     Button::new("save-as-default", "Save as Default")
         .style(ButtonStyle::Ghost)
         .width(width)
         .disabled(!changed)
         .tooltip(format!("Keep these as Settings → {page}, for later sessions"), None::<&str>)
-        .on_click(move |_, _, cx| {
-            effects::save_as_default(cx, sections.iter().flat_map(EffectSection::keys));
-        })
+        .on_click(move |_, _, cx| effects::save_as_default(cx, tab.session_keys()))
 }
 
 /// A section: its heading, the line saying what its rows change, then the rows added to it.

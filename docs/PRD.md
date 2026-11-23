@@ -1580,12 +1580,12 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S7.1, S1.4  **Size:** M  **Design refs:** `controls-video_settings.png`, `panels/video/crop/*`
 
 **Subtasks**
-- [ ] S7.2.1 **Flip**: a segmented control, None | Horizontal | Vertical.
-- [ ] S7.2.2 **Rotate**: degrees ("0 deg"). Snap to 90° steps; arbitrary angles are optional.
-- [ ] S7.2.3 **Zoom** ("1:1 Original", ½, 2×, fit, fill), **Aspect Ratio** (Default, 16:9, 4:3, 21:9, 1:1, 16:10, 2.35:1, custom), **Crop** (Default, plus presets).
-- [ ] S7.2.4 **Resolution** (Best Available, for adaptive streams) and **Render** ("Local"; it lists cast targets once S8.11 exists).
-- [ ] S7.2.5 Crop panel: **Top, Bottom, Left and Right in px**, with link toggles (link top and bottom, link left and right). The linked state isn't designed; design it.
-- [ ] S7.2.6 Deinterlacing mode and method (Settings → Video; also in the Video ▸ submenu).
+- [x] S7.2.1 **Flip**: a segmented control, None | Horizontal | Vertical. *(`engine/transform.rs`: flip then rotation as one libVLC `transform-type`. libVLC 3 ignores video filters given as media options (its video outputs hang off the player), so `video-filter`, `transform-type`, `deinterlace` and `deinterlace-mode` are set as the player's variables through libvlccore (`libvlc/core_vars.rs`); a change reopens the media where it is, unseen, stopping first so a fresh video output reads them (`libvlc/reopen.rs`, `libvlc/video_filters.rs`), decoding in software as libVLC 3 needs to transform. Settings → Video → Framing has the same rows.)*
+- [x] S7.2.2 **Rotate**: degrees ("0 deg"). Snap to 90° steps; arbitrary angles are optional. *(A field: any angle typed snaps to the nearest quarter turn, −90 is 270. libVLC squeezes a quarter-turned picture into the unturned size, so `vmem` asks for the sides swapped and libVLC stretches it back; the reported video size is swapped too, so resizing to fit and the aspect use the turned size. Arbitrary angles not offered.)*
+- [x] S7.2.3 **Zoom** ("1:1 Original", ½, 2×, fit, fill), **Aspect Ratio** (Default, 16:9, 4:3, 21:9, 1:1, 16:10, 2.35:1, custom), **Crop** (Default, plus presets). *(Drawn by the app (`video/framing/`). Zoom defaults to Fit to Window rather than the mock's "1:1 Original", which would overflow most windows; fixed zooms count video pixels as device pixels. 21:9 added. Custom shows a Custom Ratio field under Aspect Ratio ("21:9", "2.35:1" or "2.4", 1:10 to 10:1; `settings_panel/custom_ratio.rs`), and Settings → Video a "Custom ratio" row while Custom is picked.)*
+- [x] S7.2.4 **Resolution** (Best Available, for adaptive streams) and **Render** ("Local"; it lists cast targets once S8.11 exists). *(Resolution is Settings → Playback's preferred quality held for the session; it reaches the next stream opened. Render is hidden until S8.11, as is HDR until S7.5.)*
+- [x] S7.2.5 Crop panel: **Top, Bottom, Left and Right in px**, with link toggles (link top and bottom, link left and right). The linked state isn't designed; design it. *(`settings_panel/crop_section.rs`, an effect section with title, Reset and toggle (D23). Link icon: halves apart unlinked (the mock), joined in the accent linked; linking copies the first edge to the second; links last the session. Design sign-off pending.)*
+- [x] S7.2.6 Deinterlacing mode and method (Settings → Video; also in the Video ▸ submenu). *(Now applied live as player variables, automatic included; before this they were media options libVLC 3 never passed to the video output. The Video ▸ menu also lists Zoom, Aspect Ratio, Crop, Flip and Rotate, all session values.)*
 
 **Edge cases**
 - A crop that exceeds the frame (Left + Right ≥ width): clamp so at least a 16 px picture remains, and show validation.
@@ -1593,6 +1593,8 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 - Rotating 90° swaps the dimensions: the window's "Resize to fit video" logic and the aspect ratio must use the rotated size.
 - Rotation combined with metadata rotation: they add up; show the effective rotation.
 - A zoom larger than the window: pan by dragging (or don't support it; decide).
+
+*(Edge cases: crops leave at least 16 px, the field saying the most it may be for the video playing; edges count the video's own pixels (already squared and turned as it arrives), said in a tooltip; rotation adds to the file's and the size follows it, but the effective rotation isn't shown yet; a zoom past the window is centered and clipped, no panning.)*
 
 ---
 

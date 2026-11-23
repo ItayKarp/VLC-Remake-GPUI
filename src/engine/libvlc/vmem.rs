@@ -7,6 +7,7 @@
 
 use std::ffi::{c_char, c_uint, c_void};
 use std::slice;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use super::api::{LibVlc, MediaPlayer};
@@ -19,12 +20,15 @@ pub struct Vmem {
     sink: Arc<dyn VideoSink>,
     /// The open media's display size, read before playback; `None` when unknown.
     display: Mutex<Option<VideoSize>>,
+    /// Whether the user turned the picture a quarter turn (S7.2): libVLC's filters give it
+    /// squeezed into the unturned size, so the sink asks for the sides swapped.
+    transposed: AtomicBool,
 }
 
 impl Vmem {
     /// A bridge to `sink`.
     pub fn new(sink: Arc<dyn VideoSink>) -> Self {
-        Self { sink, display: Mutex::new(None) }
+        Self { sink, display: Mutex::new(None), transposed: AtomicBool::new(false) }
     }
 
     /// Records the display size of the media about to play, for the next `format` call.
@@ -32,8 +36,24 @@ impl Vmem {
         *self.display.lock().unwrap_or_else(PoisonError::into_inner) = size;
     }
 
+    /// Records whether the picture is turned a quarter, for the next `format` call.
+    pub fn set_transposed(&self, transposed: bool) {
+        self.transposed.store(transposed, Ordering::Relaxed);
+    }
+
     fn display(&self) -> Option<VideoSize> {
         *self.display.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The size libVLC `proposed` and the display size, with their sides swapped when the
+    /// picture is turned a quarter.
+    fn turned(&self, proposed: (c_uint, c_uint)) -> ((c_uint, c_uint), Option<VideoSize>) {
+        let display = self.display();
+        if !self.transposed.load(Ordering::Relaxed) {
+            return (proposed, display);
+        }
+        let display = display.map(|size| VideoSize { width: size.height, height: size.width });
+        ((proposed.1, proposed.0), display)
     }
 }
 
@@ -74,11 +94,12 @@ unsafe extern "C" fn on_format(
     // line tables of `MAX_PLANES` entries each.
     unsafe {
         let vmem = vmem(*opaque);
+        let ((proposed_width, proposed_height), display) = vmem.turned((*width, *height));
         let mut format = Format {
             chroma: *chroma.cast::<[u8; 4]>(),
-            width: *width,
-            height: *height,
-            display: vmem.display(),
+            width: proposed_width,
+            height: proposed_height,
+            display,
             ..Format::default()
         };
         let proposed = (format.width, format.height);

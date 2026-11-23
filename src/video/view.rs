@@ -1,5 +1,6 @@
 //! [`VideoView`]: the video area. It redraws when the engine delivers a picture, paints it
-//! letterboxed on black at Settings → Video's aspect ratio and crop (S5.8.1), shows a placeholder
+//! letterboxed on black, framed as Settings → Video and the player's panel say (aspect ratio,
+//! crop, trimmed edges and zoom: S5.8.1, S7.2), shows a placeholder
 //! for audio-only media, saying so when Settings turned video off, and toggles fullscreen on a
 //! double-click (S1.4.1, S1.4.2, S1.4.4). Over the picture it draws the subtitle files the app
 //! draws itself (S6.2), clear of the control bar while that covers the video's bottom.
@@ -17,8 +18,9 @@ use gpui::{
 use super::Output;
 use super::frame::Frame;
 use super::frame_slot::{Delivery, FrameSlot};
-use super::framing::{self, AspectRatio, Crop};
+use super::framing::{self, Framing, Source};
 use super::subtitles::{self, Covered, Overlay, Placing};
+use crate::effects::{self, EffectSession};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::keymap::actions::ToggleFullscreen;
 use crate::settings::{self, SettingsStore};
@@ -44,8 +46,8 @@ pub struct VideoView {
     /// The visibility of the window the view is in.
     visibility: Subscription,
     _changes: Subscription,
-    /// Redraws when the aspect ratio or crop changes.
-    _settings: Subscription,
+    /// Redraw when the framing changes, in Settings or the player's panel.
+    _settings: [Subscription; 2],
 }
 
 impl VideoView {
@@ -82,7 +84,10 @@ impl VideoView {
             _follow: cx.spawn(async move |this, cx| follow_frames(woken, this, cx).await),
             visibility,
             _changes: changes,
-            _settings: cx.observe_global::<SettingsStore>(|_, cx| cx.notify()),
+            _settings: [
+                cx.observe_global::<SettingsStore>(|_, cx| cx.notify()),
+                cx.observe_global::<EffectSession>(|_, cx| cx.notify()),
+            ],
         }
     }
 
@@ -134,13 +139,13 @@ impl VideoView {
         }
     }
 
-    /// The picture's display aspect: the player's (squares anamorphic pixels that arrived
-    /// late) or else the picture's own.
-    fn aspect(&self, frame: &Frame, cx: &App) -> (u32, u32) {
-        self.player
-            .read(cx)
-            .video_size()
-            .map_or_else(|| frame.size(), |size| (size.width, size.height))
+    /// The picture as framing sees it: its display aspect, the player's (which squares
+    /// anamorphic pixels that arrived late) or else its own, and its size in pixels.
+    fn source(&self, frame: &Frame, cx: &App) -> Source {
+        let pixels = frame.size();
+        let aspect =
+            self.player.read(cx).video_size().map_or(pixels, |size| (size.width, size.height));
+        Source { aspect, pixels }
     }
 
     /// The subtitle cues the app draws now, if any show.
@@ -168,15 +173,15 @@ impl VideoView {
 impl Render for VideoView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.advance(window);
-        let video = &settings::get(cx).prefs.video;
-        let (framing, video_on) = ((video.aspect_ratio, video.crop), video.enabled);
-        let aspect = self.shown.as_ref().map(|frame| self.aspect(frame, cx));
+        let video = &effects::effective(cx).prefs.video;
+        let (framing, video_on) = (Framing::of(video), video.enabled);
+        let source = self.shown.as_ref().map(|frame| self.source(frame, cx));
         let picture =
-            self.shown.clone().zip(aspect).map(|(frame, aspect)| picture(frame, aspect, framing));
+            self.shown.clone().zip(source).map(|(frame, source)| picture(frame, source, framing));
         let placeholder = self.is_audio_only(cx).then(|| placeholder(video_on));
-        let video_height = aspect.map_or(0, |(_, height)| height);
+        let video_height = source.map_or(0, |source| source.aspect.1);
         let subtitles = self.overlay(cx).map(|overlay| {
-            let scene = Scene { aspect, framing, video_height, covered: self.covered };
+            let scene = Scene { source, framing, video_height, covered: self.covered };
             drawn_subtitles(overlay, scene)
         });
         div()
@@ -200,12 +205,12 @@ impl Render for VideoView {
     }
 }
 
-/// Where drawn subtitles go: the picture's aspect and framing, its height in the video's pixels,
-/// and what the bars over the view cover.
+/// Where drawn subtitles go: the picture and its framing, its height in the video's pixels, and
+/// what the bars over the view cover.
 #[derive(Clone, Copy)]
 struct Scene {
-    aspect: Option<(u32, u32)>,
-    framing: (AspectRatio, Crop),
+    source: Option<Source>,
+    framing: Framing,
     video_height: u32,
     covered: Covered,
 }
@@ -216,8 +221,8 @@ fn drawn_subtitles(overlay: Overlay, scene: Scene) -> impl IntoElement {
         |_, _, _| {},
         move |bounds, (), window, cx| {
             let scale = window.scale_factor();
-            let picture = scene.aspect.map_or(bounds, |aspect| {
-                framing::frame(bounds, aspect, scene.framing.0, scene.framing.1, scale).shown
+            let picture = scene.source.map_or(bounds, |source| {
+                framing::frame(bounds, source, scene.framing, scale).shown
             });
             let Scene { video_height, covered, .. } = scene;
             let placing = Placing { view: bounds, picture, video_height, covered };
@@ -230,13 +235,13 @@ fn drawn_subtitles(overlay: Overlay, scene: Scene) -> impl IntoElement {
     .size_full()
 }
 
-/// Paints `frame`, of display `aspect`, letterboxed at the aspect ratio and crop of `framing`.
-fn picture(frame: Frame, aspect: (u32, u32), framing: (AspectRatio, Crop)) -> impl IntoElement {
+/// Paints `frame`, which is `source`, letterboxed as `framing` says.
+fn picture(frame: Frame, source: Source, framing: Framing) -> impl IntoElement {
     canvas(
         |_, _, _| {},
         move |bounds, (), window, _| {
             let scale = window.scale_factor();
-            let framed = framing::frame(bounds, aspect, framing.0, framing.1, scale);
+            let framed = framing::frame(bounds, source, framing, scale);
             let mask = ContentMask { bounds: framed.shown };
             window.with_content_mask(Some(mask), |window| frame.paint(framed.picture, window));
         },

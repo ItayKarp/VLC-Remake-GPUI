@@ -31,7 +31,7 @@ const TITLE_GAP: f32 = 8.;
 /// The text size of the title, the header and the slider labels.
 const TEXT: f32 = 14.;
 /// The box's padding, and the space above each slider's label.
-const BOX_PADDING: f32 = 16.;
+pub(super) const BOX_PADDING: f32 = 16.;
 const ROW_GAP: f32 = 12.;
 /// The chevron's size.
 const CHEVRON: f32 = 20.;
@@ -83,9 +83,7 @@ impl EffectControls {
 
     /// The section: its title row, then its box.
     pub(super) fn render(&self, p: &Palette, cx: &App) -> Div {
-        let section = self.section;
-        let expanded = is_expanded(cx, &section);
-        let content = expanded.then(|| {
+        let content = is_expanded(cx, &self.section).then(|| {
             div().flex().flex_col().px(px(BOX_PADDING)).pb(px(BOX_PADDING)).children(
                 self.sliders.iter().map(|(_, label, slider)| {
                     div()
@@ -100,18 +98,24 @@ impl EffectControls {
                 }),
             )
         });
-        // Folded, the box is a well (`video_essential-collapsed`); open, its sliders' tracks are
-        // wells themselves, so it keeps the panel's color inside a border.
-        let fold = div()
-            .flex()
-            .flex_col()
-            .rounded(px(metrics::RADIUS_LARGE))
-            .when(expanded, |fold| fold.border_1().border_color(p.divider))
-            .when(!expanded, |fold| fold.bg(p.well))
-            .child(header(&section, expanded, p))
-            .children(content);
-        div().flex().flex_col().child(title_row(&section, p, cx)).child(fold)
+        folding(&self.section, content, p, cx)
     }
+}
+
+/// `section`'s title row over its box, which holds `content` while open (`None` folded).
+pub(super) fn folding(section: &EffectSection, content: Option<Div>, p: &Palette, cx: &App) -> Div {
+    let expanded = content.is_some();
+    // Folded, the box is a well (`video_essential-collapsed`); open, its controls are wells
+    // themselves, so it keeps the panel's color inside a border.
+    let fold = div()
+        .flex()
+        .flex_col()
+        .rounded(px(metrics::RADIUS_LARGE))
+        .when(expanded, |fold| fold.border_1().border_color(p.divider))
+        .when(!expanded, |fold| fold.bg(p.well))
+        .child(header(section, expanded, p))
+        .children(content);
+    div().flex().flex_col().child(title_row(section, p, cx)).child(fold)
 }
 
 /// The section's title, its Reset and its toggle.
@@ -193,7 +197,7 @@ fn make_slider(
 }
 
 /// An id for one of `section`'s elements, `what` it is.
-fn element_id(what: &str, section: &EffectSection) -> SharedString {
+pub(super) fn element_id(what: &str, section: &EffectSection) -> SharedString {
     format!("{what}-{}", section.id).into()
 }
 
@@ -206,7 +210,7 @@ fn number(value: Option<&Value>) -> Option<f64> {
 }
 
 /// Whether `section` was left open.
-fn is_expanded(cx: &App, section: &EffectSection) -> bool {
+pub(super) fn is_expanded(cx: &App, section: &EffectSection) -> bool {
     settings::get(cx).local.expanded_effects.iter().any(|id| id == section.id)
 }
 

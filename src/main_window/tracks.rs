@@ -1,5 +1,6 @@
 //! The main window's side of tracks (S1.6): it gives the player the preferred languages, default
-//! tracks and the options new media opens with (S5.7, S5.8.1) from the settings and follows changes to
+//! tracks, the options new media opens with (S5.7, S5.8.1) and the video filters (S7.2) from the
+//! settings in effect (Settings with the player's panel over them, S7.1) and follows changes to
 //! them, and cycles audio (B) and subtitles (V), saying
 //! which track plays now over the video (S2.10.2); a newer message replaces the last, so a held
 //! key doesn't stack them.
@@ -7,18 +8,19 @@
 use gpui::{Context, Entity, Subscription};
 
 use super::MainWindow;
+use crate::effects::{self, EffectSession};
 use crate::engine::language::{self, Language};
-use crate::engine::media_options::{Deinterlacing, MediaOptions};
+use crate::engine::media_options::{MediaOptions, VideoFilters};
 use crate::engine::player::Player;
 use crate::engine::tracks::auto::{SubtitleMode, TrackPreferences};
 use crate::engine::tracks::{Cycled, TrackKind, Tracks};
-use crate::settings::{self, Settings, SettingsStore};
+use crate::settings::{Settings, SettingsStore};
 
 /// What the window keeps about tracks.
 #[derive(Default)]
 pub(super) struct TrackWatch {
-    /// Re-applies the track and media settings to the player when they change.
-    settings: Option<Subscription>,
+    /// Re-apply the track and media settings to the player when they change.
+    settings: Option<[Subscription; 2]>,
     /// Gives the player the picture's adjustments, once a media option, live now (S7.1).
     pub(super) picture: super::picture::PictureWatch,
 }
@@ -27,14 +29,20 @@ impl MainWindow {
     /// Gives a new `player` the track preferences and media options, and follows later changes
     /// to them.
     pub(super) fn set_up_tracks(&mut self, player: &Entity<Player>, cx: &mut Context<Self>) {
-        let settings = settings::get(cx).clone();
+        let settings = effects::effective(cx);
         player.update(cx, |player, cx| apply(&settings, player, cx));
-        let player = player.downgrade();
-        self.tracks.settings = Some(cx.observe_global::<SettingsStore>(move |_, cx| {
-            let settings = settings::get(cx).clone();
-            // The player lives as long as the window that owns this subscription.
-            let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
-        }));
+        let follow = |player: &Entity<Player>| {
+            let player = player.downgrade();
+            move |_: &mut Self, cx: &mut Context<Self>| {
+                let settings = effects::effective(cx);
+                // The player lives as long as the window that owns this subscription.
+                let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
+            }
+        };
+        self.tracks.settings = Some([
+            cx.observe_global::<SettingsStore>(follow(player)),
+            cx.observe_global::<EffectSession>(follow(player)),
+        ]);
     }
 
     /// Selects the next track of `kind` and names it over the video.
@@ -54,6 +62,11 @@ impl MainWindow {
 fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
     player.set_track_preferences(preferences(settings));
     player.set_media_options(media_options(settings));
+    let video = &settings.prefs.video;
+    player.set_video_filters(VideoFilters {
+        transform: video.transform(),
+        deinterlace: video.deinterlacing(),
+    });
     player.set_file_styles(settings.prefs.subtitles.file_styles, cx);
 }
 
@@ -85,7 +98,6 @@ fn media_options(settings: &Settings) -> MediaOptions {
         precise_seeks: player.seek_precisely,
         video: video.enabled,
         audio: settings.prefs.audio.enabled,
-        deinterlace: Deinterlacing { mode: video.deinterlace, method: video.deinterlace_method },
         subtitles: super::subtitle_style::loading(&settings.prefs.subtitles),
     }
 }

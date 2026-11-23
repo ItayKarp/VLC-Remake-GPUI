@@ -238,6 +238,11 @@ impl TextInput {
         cx.notify();
     }
 
+    /// The validation feedback showing.
+    pub fn validation(&self) -> &Validation {
+        &self.validation
+    }
+
     /// Whether a validation error is showing.
     pub fn is_invalid(&self) -> bool {
         matches!(self.validation, Validation::Error(_))

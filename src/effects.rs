@@ -22,7 +22,7 @@ mod session;
 
 use gpui::{App, BorrowAppContext as _, Global};
 
-pub use section::{EffectSection, VIDEO_ESSENTIAL};
+pub use section::{EffectSection, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL};
 pub use session::Session;
 
 use crate::settings::registry::{self, Value};
@@ -67,6 +67,17 @@ pub fn is_changed(cx: &App, key: &str) -> bool {
 /// Whether the panel holds a value for any of `section`'s settings.
 pub fn any_changed(cx: &App, section: &EffectSection) -> bool {
     section.keys().any(|key| is_changed(cx, key))
+}
+
+/// Whether the panel holds a value for any of the Video tab's framing: its Defaults rows or its
+/// Crop section.
+pub fn framing_changed(cx: &App) -> bool {
+    VIDEO_DEFAULTS.iter().copied().chain(VIDEO_CROP.keys()).any(|key| is_changed(cx, key))
+}
+
+/// Sets `key`, a control outside any section, for the session.
+pub fn set(cx: &mut App, key: &'static str, to: Value) {
+    update(cx, |session| session.set(key, to));
 }
 
 /// Sets `section`'s toggle for the session.
@@ -140,6 +151,19 @@ mod tests {
             assert_eq!(brightness(cx), Some(Value::Number(0.5)));
             settings::update(cx, |s| s.prefs.video.picture.brightness = 0.75);
             assert_eq!(brightness(cx), Some(Value::Number(0.75)), "it follows Settings again");
+        });
+    }
+
+    #[gpui::test]
+    fn a_framing_value_is_held_for_the_session(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            settings::init_in_memory(cx);
+            assert!(!framing_changed(cx));
+            set(cx, "video.rotation", Value::Choice("90"));
+            assert!(framing_changed(cx));
+            let video = effective(cx).prefs.video;
+            assert_eq!(video.rotation, crate::engine::transform::Rotation::Quarter);
+            assert_eq!(settings::get(cx).prefs.video.rotation.degrees(), 0, "never saved");
         });
     }
 

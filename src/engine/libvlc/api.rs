@@ -9,6 +9,7 @@ use anyhow::{Context as _, Result};
 use libloading::Library;
 
 use super::certificates::{DialogCallbacks, DialogId};
+use super::core_vars::CoreVars;
 use super::runtime::Runtime;
 
 /// Declares an opaque libVLC handle type.
@@ -270,6 +271,8 @@ pub const LIBRARIES: [&str; 2] = ["libvlccore.so.9", "libvlc.so.5"];
 pub struct LibVlc {
     /// The resolved entry points.
     pub api: Api,
+    /// The core's variable calls.
+    pub(super) core: CoreVars,
     _libraries: Vec<Library>,
 }
 
@@ -286,7 +289,8 @@ impl LibVlc {
             })
             .collect::<Result<Vec<_>>>()?;
         let api = Api::resolve(&libraries[1])?;
-        Ok(Self { api, _libraries: libraries })
+        let core = CoreVars::resolve(&libraries[0])?;
+        Ok(Self { api, core, _libraries: libraries })
     }
 
     /// The libVLC version string, such as `3.0.23 Vetinari`.

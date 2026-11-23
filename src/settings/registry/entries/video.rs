@@ -1,5 +1,6 @@
-//! Video ("Video Defaults", S5.8.1): the output, the picture, deinterlacing and framing new media
-//! starts with. The in-player panels (Stage 7) change the playing media only (S5.8.4).
+//! Video ("Video Defaults", S5.8.1): the output, the picture and deinterlacing every video shows
+//! with; the framing, flip and rotation are in `video_framing.rs`. The in-player panels (Stage 7)
+//! change them for the session only (S5.8.4, D24).
 //!
 //! "Play video as desktop wallpaper" isn't offered: video draws inside VLC's own windows, and a
 //! wallpaper needs a window behind the desktop icons that only Windows has.
@@ -9,12 +10,10 @@ use super::super::value::{Binding, Choice, SettingChoice, choice, number, toggle
 use crate::engine::media_options::{Deinterlace, DeinterlaceMethod};
 use crate::settings::registry::Category;
 use crate::settings::{self, PictureSettings};
-use crate::video::framing::{AspectRatio, Crop};
 
 const OUTPUT: (Category, &str) = (Category::Video, "Output");
 const PICTURE: (Category, &str) = (Category::Video, "Picture");
 const DEINTERLACING: (Category, &str) = (Category::Video, "Deinterlacing");
-const FRAMING: (Category, &str) = (Category::Video, "Framing");
 /// What the picture rows change, and how they relate to the player's panel (D24).
 const PICTURE_INFO: &str = "Seen at once, and kept for every video. The player's settings panel \
                             can change it for the rest of the session.";
@@ -54,56 +53,6 @@ impl SettingChoice for DeinterlaceMethod {
         Choice::new("yadif2x", "Yadif (2x)"),
         Choice::new("phosphor", "Phosphor"),
         Choice::new("ivtc", "Film NTSC (IVTC)"),
-    ];
-}
-
-impl SettingChoice for AspectRatio {
-    const VALUES: &'static [Self] = &[
-        Self::Automatic,
-        Self::Square,
-        Self::Standard,
-        Self::FiveByFour,
-        Self::Wide,
-        Self::SixteenByTen,
-        Self::Ratio221,
-        Self::Ratio235,
-        Self::Ratio239,
-    ];
-    const CHOICES: &'static [Choice] = &[
-        Choice::new("automatic", "Automatic"),
-        Choice::new("1:1", "1:1"),
-        Choice::new("4:3", "4:3"),
-        Choice::new("5:4", "5:4"),
-        Choice::new("16:9", "16:9"),
-        Choice::new("16:10", "16:10"),
-        Choice::new("2.21:1", "2.21:1"),
-        Choice::new("2.35:1", "2.35:1"),
-        Choice::new("2.39:1", "2.39:1"),
-    ];
-}
-
-impl SettingChoice for Crop {
-    const VALUES: &'static [Self] = &[
-        Self::None,
-        Self::Square,
-        Self::Standard,
-        Self::Wide,
-        Self::SixteenByTen,
-        Self::Ratio185,
-        Self::Ratio221,
-        Self::Ratio235,
-        Self::Ratio239,
-    ];
-    const CHOICES: &'static [Choice] = &[
-        Choice::new("none", "None"),
-        Choice::new("1:1", "1:1"),
-        Choice::new("4:3", "4:3"),
-        Choice::new("16:9", "16:9"),
-        Choice::new("16:10", "16:10"),
-        Choice::new("1.85:1", "1.85:1"),
-        Choice::new("2.21:1", "2.21:1"),
-        Choice::new("2.35:1", "2.35:1"),
-        Choice::new("2.39:1", "2.39:1"),
     ];
 }
 
@@ -258,9 +207,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .info(
         "Removes the comb lines of interlaced video (TV recordings, DVDs). Automatic does it \
-         when the video says it is interlaced.",
+         when the video says it is interlaced. A change reopens the video where it is.",
     )
-    .applies(ApplyMode::NextMedia)
     .keywords(&["interlaced", "comb", "tv", "dvd"]),
     SettingDef::new(
         "video.deinterlace_method",
@@ -274,24 +222,5 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          the frame rate, Blend is cheap; Film NTSC undoes the telecine of film on NTSC discs.",
     )
     .depends_on("video.deinterlace", Condition::IsNot("off"))
-    .applies(ApplyMode::NextMedia)
     .keywords(&["yadif", "bob", "blend", "telecine"]),
-    SettingDef::new(
-        "video.aspect_ratio",
-        FRAMING,
-        "Aspect ratio",
-        Control::Dropdown(AspectRatio::CHOICES),
-        choice!(prefs.video.aspect_ratio),
-    )
-    .info("The shape the picture is stretched to. Automatic keeps the media's own.")
-    .keywords(&["stretch", "widescreen", "16:9", "4:3"]),
-    SettingDef::new(
-        "video.crop",
-        FRAMING,
-        "Crop",
-        Control::Dropdown(Crop::CHOICES),
-        choice!(prefs.video.crop),
-    )
-    .info("Trims the picture to this shape, keeping its middle, to hide black bars.")
-    .keywords(&["black bars", "trim", "zoom", "letterbox"]),
 ];

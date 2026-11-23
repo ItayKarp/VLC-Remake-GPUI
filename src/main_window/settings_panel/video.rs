@@ -1,11 +1,11 @@
-//! The settings panel's Video tab (`controls-video_settings.png`): **Filters**, the effect
-//! sections that change what plays for the rest of the session (S7.1), now the Essential picture
-//! adjustments. The designed Defaults rows (flip, rotate, zoom, aspect ratio, crop, resolution,
-//! render) come with S7.2, and the other filters with S7.3 to S7.5.
+//! The settings panel's Video tab (`controls-video_settings.png`): **Defaults** (flip, rotate,
+//! zoom, resolution, aspect ratio and crop, S7.2) with the **Crop** section's edges under them,
+//! then **Filters**, the effect sections (S7.1), now the Essential picture adjustments. All of
+//! them change what plays for the rest of the session. The other filters come with S7.3 to S7.5.
 
-use gpui::{Context, Div, Window, div, prelude::*};
+use gpui::{Context, Div, Window, div, prelude::*, px};
 
-use super::{PanelTab, section};
+use super::{PanelTab, SECTION_PADDING, section};
 use crate::main_window::MainWindow;
 use crate::theme::Palette;
 
@@ -14,20 +14,28 @@ const FILTERS_NOTE: &str = "For what plays until VLC quits. Double-click a slide
                             back; Save as Default keeps them for later sessions.";
 
 impl MainWindow {
-    /// The Video tab: Filters and its sections.
+    /// The Video tab: Defaults and the Crop section, then Filters and its sections.
     pub(super) fn render_video_tab(
         &mut self,
         p: &Palette,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
+        self.settings_panel.video_defaults.sync(window, cx);
+        self.settings_panel.crop.sync(window, cx);
         let shown = PanelTab::Video.sections();
         let sections = self.settings_panel.effects.iter().filter(|c| shown.contains(&c.section));
         for controls in sections.clone() {
             controls.sync(window, cx);
         }
+        let defaults = div()
+            .flex()
+            .flex_col()
+            .p(px(SECTION_PADDING))
+            .child(self.render_video_defaults(p, cx))
+            .child(self.render_crop_section(p, cx));
         let filters = section("Filters", FILTERS_NOTE, p)
             .children(sections.map(|controls| controls.render(p, cx)));
-        div().flex().flex_col().child(filters)
+        div().flex().flex_col().child(defaults).child(div().h(px(1.)).bg(p.divider)).child(filters)
     }
 }

@@ -6,7 +6,8 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use super::decoding::{Slave, SlaveKind, file_uri};
+use super::decoding::{Slave, SlaveKind};
+use super::reopen::file_uri;
 use super::worker::{Refresh, Worker};
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::tracks::{TrackId, TrackKind};
@@ -70,6 +71,7 @@ impl Worker {
                 Command::SetMediaOptions(options) => self.media_options = options,
                 Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
                 Command::SetPicture(picture) => self.set_picture(picture),
+                Command::SetVideoFilters(filters) => self.set_video_filters(filters),
             }
         }
     }

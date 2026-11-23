@@ -1,29 +1,38 @@
 //! Where the picture goes inside the video area (S1.4.1): the largest rectangle of the video's
 //! display aspect that fits, centred, with its edges on whole device pixels so HiDPI screens
-//! show no blurred or half-covered row at the bars.
+//! show no blurred or half-covered row at the bars; and [`centered`], the same for any size.
 
-use gpui::{Bounds, Pixels, point, px, size};
+use gpui::{Bounds, Pixels, point, px};
 
 /// The picture's rectangle inside `container` for a video shown at `aspect` (width, height,
 /// in square pixels), snapped to the device pixels of a screen with `scale` pixels per point.
 pub fn letterbox(container: Bounds<Pixels>, aspect: (u32, u32), scale: f32) -> Bounds<Pixels> {
-    let (left, top) = (f32::from(container.origin.x), f32::from(container.origin.y));
     let (width, height) = (f32::from(container.size.width), f32::from(container.size.height));
     let ratio = aspect.0.max(1) as f32 / aspect.1.max(1) as f32;
-    let (fit_width, fit_height) = if width / height.max(f32::MIN_POSITIVE) > ratio {
+    let fit = if width / height.max(f32::MIN_POSITIVE) > ratio {
         (height * ratio, height)
     } else {
         (width, width / ratio)
     };
+    centered(container, fit, scale)
+}
+
+/// A rectangle of `size` (width, height) centered in `container`, which it may overflow, its
+/// edges snapped to the device pixels of a screen with `scale` pixels per point.
+pub fn centered(container: Bounds<Pixels>, size: (f32, f32), scale: f32) -> Bounds<Pixels> {
+    let (left, top) = (f32::from(container.origin.x), f32::from(container.origin.y));
+    let (width, height) = (f32::from(container.size.width), f32::from(container.size.height));
     let snap = |value: f32| (value * scale).round() / scale;
     let (center_x, center_y) = (left + width / 2.0, top + height / 2.0);
-    let (x0, x1) = (snap(center_x - fit_width / 2.0), snap(center_x + fit_width / 2.0));
-    let (y0, y1) = (snap(center_y - fit_height / 2.0), snap(center_y + fit_height / 2.0));
-    Bounds { origin: point(px(x0), px(y0)), size: size(px(x1 - x0), px(y1 - y0)) }
+    let (x0, x1) = (snap(center_x - size.0 / 2.0), snap(center_x + size.0 / 2.0));
+    let (y0, y1) = (snap(center_y - size.1 / 2.0), snap(center_y + size.1 / 2.0));
+    Bounds { origin: point(px(x0), px(y0)), size: gpui::size(px(x1 - x0), px(y1 - y0)) }
 }
 
 #[cfg(test)]
 mod tests {
+    use gpui::size;
+
     use super::*;
 
     fn area(width: f32, height: f32) -> Bounds<Pixels> {

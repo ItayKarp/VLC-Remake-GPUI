@@ -9,7 +9,7 @@
 //! see [`Locations`]. `RVLC_CONFIG_DIR` puts both in one directory.
 
 mod document;
-mod lenient;
+pub(crate) mod lenient;
 mod migrate;
 mod paths;
 pub mod presets;
@@ -41,7 +41,7 @@ pub use schema::{
     PictureSettings, PlayerSettings, PostProcessing, Preferences, Preset, PresetSettings,
     QueueSiblings, RecordingSettings, ResumePolicy, Settings, SizeValues, SkipLength,
     SkipLoopFilter, StartupVolume, SubtitleArea, SubtitleSettings, Tuning, VideoQuality,
-    WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
+    VideoSettings, WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;

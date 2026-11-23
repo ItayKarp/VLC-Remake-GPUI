@@ -96,6 +96,9 @@ icons! {
     FOLDER => "folder.svg",
     FILE => "file.svg",
     RESTORE => "restore.svg",
+    /// The crop panel's linked edges (S7.2.5): joined, and apart.
+    LINK => "link.svg",
+    LINK_OFF => "link-off.svg",
     // Component kit (S0.4).
     CHEVRON_DOWN => "chevron-down.svg",
     CHEVRON_UP => "chevron-up.svg",

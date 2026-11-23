@@ -16,6 +16,7 @@ mod audio;
 mod audio_effects;
 mod certificates;
 mod control;
+mod core_vars;
 mod decoding;
 mod equalizer;
 mod events;
@@ -29,6 +30,7 @@ mod picture;
 mod prepare;
 pub mod preview;
 mod query;
+mod reopen;
 pub mod runtime;
 mod size_watch;
 mod subtitle_style;
@@ -38,6 +40,7 @@ pub mod tags;
 mod tests;
 pub mod thumbnail;
 mod track_list;
+mod video_filters;
 #[cfg(test)]
 mod video_tests;
 mod vmem;
@@ -59,7 +62,7 @@ use self::worker::{Handles, Message, Worker};
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
-use super::media_options::{MediaOptions, Picture};
+use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -239,6 +242,10 @@ impl Backend for LibVlcBackend {
 
     fn set_picture(&mut self, picture: Option<Picture>) {
         self.send(Command::SetPicture(picture));
+    }
+
+    fn set_video_filters(&mut self, filters: VideoFilters) {
+        self.send(Command::SetVideoFilters(filters));
     }
 
     fn shut_down(mut self: Box<Self>) {

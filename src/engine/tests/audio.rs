@@ -128,3 +128,20 @@ fn only_a_changed_picture_reaches_the_backend(cx: &mut TestAppContext) {
     assert_eq!(rig.mock.take_commands(), [Command::SetPicture(bright), Command::SetPicture(None)]);
     assert_eq!(rig.player.read_with(cx, |player, _| player.picture()), None);
 }
+
+#[gpui::test]
+fn only_changed_video_filters_reach_the_backend(cx: &mut TestAppContext) {
+    use crate::engine::media_options::VideoFilters;
+    use crate::engine::transform::{Rotation, Transform};
+
+    let rig = Rig::new(cx, MockMedia::default());
+    rig.mock.take_commands();
+    let turned = VideoFilters {
+        transform: Transform { rotation: Rotation::Quarter, ..Transform::NONE },
+        ..VideoFilters::default()
+    };
+    rig.run(cx, |player, _| player.set_video_filters(VideoFilters::default()));
+    rig.run(cx, |player, _| player.set_video_filters(turned));
+    rig.run(cx, |player, _| player.set_video_filters(turned));
+    assert_eq!(rig.mock.take_commands(), [Command::SetVideoFilters(turned)]);
+}

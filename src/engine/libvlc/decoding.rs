@@ -4,22 +4,20 @@
 //! hardware frames (VideoToolbox's `CVPN`: "no matching alpha blending routine"), so subtitles
 //! over hardware-decoded video never appear. Software decoding costs far more CPU, so media
 //! opens with hardware decoding, and only once a subtitle shows over video does the worker
-//! reopen it in software: at the same position, paused if it was, with the same tracks and the
-//! subtitle and audio files added to it. The player doesn't see the reopen: the callback hides its
-//! opening and stopping, and the track list waits until the selection is restored.
+//! reopen it in software where it is ([`super::reopen`]).
 //!
 //! A subtitle must stay shown for [`SWITCH_DELAY`] first: libVLC picks one by itself as playback
 //! starts, and the player's auto-selection may turn it off right after. It stays in software
 //! when subtitles are turned off again, so toggling them doesn't reopen the media each time.
 
 use std::ffi::{CString, c_int};
-use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use super::api::Media;
+use super::reopen::{Output, Restore};
 use super::worker::Worker;
-use crate::engine::tracks::{TrackId, TrackKind, Tracks};
+use crate::engine::tracks::{TrackKind, Tracks};
 use crate::engine::values::Start;
 
 /// Media options that decode in software. `any` keeps the other decoders (subtitles) usable.
@@ -30,8 +28,6 @@ const SWITCH_DELAY: Duration = Duration::from_millis(300);
 const SLAVE_SUBTITLE: c_int = 0;
 /// `libvlc_media_slave_type_audio`.
 const SLAVE_AUDIO: c_int = 1;
-/// `libvlc_media_slave_priority`'s highest value, as for files the user picks.
-const SLAVE_PRIORITY_USER: u32 = 4;
 
 /// A file added to the open media: a subtitle the user added or one found beside the video
 /// (S6.1), or an audio track (S4.8.1).
@@ -80,13 +76,6 @@ pub enum Decoding {
     Software,
 }
 
-/// The tracks to select again once the reopened media plays.
-#[derive(Clone, Copy, Debug)]
-pub struct Restore {
-    audio: Option<TrackId>,
-    subtitle: Option<TrackId>,
-}
-
 impl Worker {
     /// Keeps the crash marker ([`super::hardware`]) while the GPU decodes this media's video.
     pub(super) fn mark_hardware(&self, tracks: &Tracks) {
@@ -132,44 +121,12 @@ impl Worker {
             && !self.shared.switching.load(Ordering::Relaxed)
     }
 
-    /// Reopens the media in software where it is, to restore `tracks`' selection once it
-    /// plays.
+    /// Reopens the media in software where it is, with `tracks`' selection.
     fn switch_to_software(&mut self, tracks: &Tracks) {
-        let Some(source) = self.source.clone() else { return };
-        let media = self.new_media(&source);
-        if media.is_null() {
-            return;
-        }
         tracing::info!("libvlc: a subtitle shows; decoding in software so it can be drawn");
-        // Not parsed again: the sink keeps the display size from the open, and parsing the
-        // playing file before `set_media` stalls libVLC's input thread when it stops.
-        self.add_option(media, &SOFTWARE_DECODING);
-        self.add_option(media, &[&self.resume_option()]);
-        if self.shared.paused.load(Ordering::Relaxed) {
-            self.add_option(media, &[":start-paused"]);
-        }
-        self.add_slaves(media);
         self.decoding = Decoding::Software;
         super::hardware::decoding(None);
-        self.restore = Some(Restore { audio: tracks.audio, subtitle: tracks.subtitle });
-        self.shared.switching.store(true, Ordering::Relaxed);
-        self.replace_media(media);
-        self.play_media();
-    }
-
-    /// Selects the tracks that played before the switch, once the reopened media plays.
-    pub(super) fn restore_tracks(&mut self) {
-        let Some(restore) = self.restore.take() else { return };
-        let api = &self.vlc.api;
-        // SAFETY: the player is live.
-        unsafe {
-            if let Some(audio) = restore.audio {
-                (api.libvlc_audio_set_track)(self.handles.player, audio.0);
-            }
-            if let Some(subtitle) = restore.subtitle {
-                (api.libvlc_video_set_spu)(self.handles.player, subtitle.0);
-            }
-        }
+        self.reopen(Restore { audio: tracks.audio, subtitle: tracks.subtitle }, Output::Kept);
     }
 
     /// Adds media options, as `prepare_video` and the switch do.
@@ -192,36 +149,4 @@ impl Worker {
             self.add_option(media, &[":start-paused"]);
         }
     }
-
-    /// Starts the reopened media where the old one was.
-    fn resume_option(&self) -> String {
-        // SAFETY: the player is live.
-        let millis = unsafe { (self.vlc.api.libvlc_media_player_get_time)(self.handles.player) };
-        format!(":start-time={:.3}", millis.max(0) as f64 / 1000.0)
-    }
-
-    /// Opens the subtitle and audio files added to the old one with the reopened media. They get the
-    /// same track ids as before, since they are added in the same order after the same tracks.
-    fn add_slaves(&self, media: *mut Media) {
-        for slave in &self.slaves {
-            let Some(uri) = file_uri(&slave.path) else { continue };
-            // SAFETY: the media is live and `uri` is NUL-terminated.
-            let added = unsafe {
-                (self.vlc.api.libvlc_media_slaves_add)(
-                    media,
-                    slave.kind.libvlc_type(),
-                    SLAVE_PRIORITY_USER,
-                    uri.as_ptr(),
-                )
-            };
-            if added != 0 {
-                tracing::warn!("libvlc: couldn't carry an added {:?} file over", slave.kind);
-            }
-        }
-    }
-}
-
-/// The `file://` URI libVLC takes for a subtitle or audio file at `path`.
-pub(super) fn file_uri(path: &Path) -> Option<CString> {
-    url::Url::from_file_path(path).ok().and_then(|uri| CString::new(uri.as_str()).ok())
 }

@@ -37,6 +37,31 @@ pub const VIDEO_ESSENTIAL: EffectSection = EffectSection {
     ],
 };
 
+/// The Video tab's Crop (`panels/video/crop`): pixels trimmed off each edge (S7.2.5).
+pub const VIDEO_CROP: EffectSection = EffectSection {
+    id: "video.crop",
+    title: "Crop",
+    toggle: "video.crop_edges.enabled",
+    controls: &[
+        "video.crop_edges.top",
+        "video.crop_edges.bottom",
+        "video.crop_edges.left",
+        "video.crop_edges.right",
+    ],
+};
+
+/// The Video tab's Defaults rows (S7.2, `controls-video_settings.png`), each a setting the panel
+/// holds for the session like a section's controls, but with no toggle of their own.
+pub const VIDEO_DEFAULTS: &[&str] = &[
+    "video.flip",
+    "video.rotation",
+    "video.zoom",
+    "player.video_quality",
+    "video.aspect_ratio",
+    "video.custom_aspect_ratio",
+    "video.crop",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,5 +76,16 @@ mod tests {
             assert!(matches!(def.control, Control::Slider { .. }), "{key}");
         }
         assert_eq!(VIDEO_ESSENTIAL.keys().count(), 6);
+    }
+
+    #[test]
+    fn the_crop_section_and_the_defaults_are_settings() {
+        for key in VIDEO_CROP.controls {
+            let def = registry::find(key).expect("each edge is a setting");
+            assert!(matches!(def.control, Control::Number { .. }), "{key}");
+        }
+        for key in VIDEO_DEFAULTS {
+            assert!(registry::find(key).is_some(), "{key}");
+        }
     }
 }

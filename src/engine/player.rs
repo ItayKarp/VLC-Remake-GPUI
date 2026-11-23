@@ -26,7 +26,7 @@ use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::media_info::{Chapter, Metadata, VideoSize};
-use super::media_options::{MediaOptions, Picture};
+use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::position::PositionTracker;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
@@ -135,6 +135,8 @@ pub struct Player {
     media_options: MediaOptions,
     /// The picture's adjustments, as last given to the backend; `None` while off.
     picture: Option<Picture>,
+    /// The video filters, as last given to the backend.
+    video_filters: VideoFilters,
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
@@ -170,6 +172,7 @@ impl Player {
             track_choices: TrackChoices::default(),
             media_options: MediaOptions::default(),
             picture: None,
+            video_filters: VideoFilters::default(),
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),
