@@ -108,6 +108,7 @@ impl Worker {
                 Command::SetColors(colors) => self.set_colors(colors),
                 Command::SetHdrMode(mode) => self.set_hdr_mode(mode),
                 Command::Record(folder) => self.record(folder.as_deref()),
+                Command::Navigate(to) => self.navigate(to),
             }
         }
     }

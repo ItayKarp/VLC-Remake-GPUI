@@ -303,17 +303,24 @@ impl Worker {
         }
     }
 
+    /// A new media for `source`, with a device's own options (S8.9); NULL if libVLC refused.
     pub(super) fn new_media(&self, source: &Source) -> *mut Media {
         let (text, from_path) = match source {
             Source::File(path) => (path.to_string_lossy().into_owned(), true),
             Source::Url(url) => (url.clone(), false),
+            Source::Device(device) => (device.mrl().to_owned(), false),
         };
         let Ok(text) = CString::new(text) else { return std::ptr::null_mut() };
         let api = &self.vlc.api;
         let create =
             if from_path { api.libvlc_media_new_path } else { api.libvlc_media_new_location };
         // SAFETY: the instance is live and `text` is NUL-terminated.
-        unsafe { create(self.handles.instance, text.as_ptr()) }
+        let media = unsafe { create(self.handles.instance, text.as_ptr()) };
+        if let (Source::Device(device), false) = (source, media.is_null()) {
+            let options: Vec<&str> = device.options().iter().map(String::as_str).collect();
+            self.add_option(media, &options);
+        }
+        media
     }
 
     /// Nothing arrived since `idle_since`: reads the device list and switches to software

@@ -19,6 +19,7 @@ use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
 use super::recording::Recording;
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
@@ -285,6 +286,10 @@ impl Backend for MockBackend {
         self.note(Command::Record(folder.map(Path::to_path_buf)));
         let answer = if folder.is_some() { Recording::Started } else { Recording::Stopped };
         self.respond([BackendEvent::Recording(answer)]);
+    }
+
+    fn navigate(&mut self, to: Navigation) {
+        self.note(Command::Navigate(to));
     }
 
     fn shut_down(self: Box<Self>) {

@@ -5,6 +5,7 @@ mod audio;
 mod audio_delay;
 mod commands;
 mod drawn;
+mod navigation;
 mod picture;
 mod receive;
 mod recording;
@@ -33,6 +34,7 @@ use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::{Programs, Titles};
 use super::position::PositionTracker;
 use super::recording::Recording;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
@@ -88,6 +90,10 @@ pub enum PlayerEvent {
     RecordingChanged(Recording),
     /// A seek was refused, as libVLC can't seek while recording (S8.6).
     SeekRefused,
+    /// The programs, or the one playing, changed; see [`Player::programs`].
+    ProgramsChanged,
+    /// The titles, or the one playing, changed; see [`Player::titles`].
+    TitlesChanged,
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -135,6 +141,10 @@ struct Info {
     hdr: HdrStatus,
     chapters: Vec<Chapter>,
     metadata: Metadata,
+    /// The stream's programs (S8.9.3).
+    programs: Programs,
+    /// The disc's titles (S8.9.1).
+    titles: Titles,
 }
 
 /// The playback engine as a GPUI entity. Commands are methods; changes arrive as

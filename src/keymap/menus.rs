@@ -60,10 +60,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
 /// (S2.9.4); their keys say "Coming soon" in debug builds. Remove a command from here when it
 /// gets its effect.
 pub const PENDING: &[&dyn Action] = &[
-    &act::OpenDisc,          // S8.9
-    &act::OpenCaptureDevice, // S8.9
-    &act::Convert,           // S8.10
-    &act::NextProgram,       // S8.9
+    &act::Convert, // S8.10
 ];
 
 /// Whether `action` is one of the [`PENDING`] commands.
@@ -181,6 +178,8 @@ fn playback_menu() -> Menu {
             plain(&act::NextItem, "Next Item"),
             plain(&act::PreviousChapter, "Previous Chapter"),
             plain(&act::NextChapter, "Next Chapter"),
+            plain(&act::NextProgram, "Next Program"),
+            plain(&act::DiscMenu, "Disc Menu"),
             item(&act::AddBookmark, "Add Bookmark"),
             plain(&act::Record, "Record"),
             SEPARATOR,
@@ -265,6 +264,7 @@ mod tests {
         };
         assert!(action.partial_eq(&FromMenuBar { command: label(&act::PlayPause) }));
         assert!(commands::by_label(label(&act::PlayPause)).is_some());
-        assert!(plain(&act::NextProgram, "Next Program").is_none(), "Next Program is pending");
+        assert!(plain(&act::NextProgram, "Next Program").is_some(), "Next Program shipped (S8.9)");
+        assert!(item(&act::Convert, "Convert…").is_none(), "Convert is pending");
     }
 }

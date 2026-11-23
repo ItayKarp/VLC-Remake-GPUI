@@ -19,6 +19,7 @@ use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::{Navigation, Programs, Titles};
 use super::recording::Recording;
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
@@ -63,6 +64,10 @@ pub enum BackendEvent {
     Corked(bool),
     /// Recording the media (S8.6) started, stopped or was refused.
     Recording(Recording),
+    /// The stream's programs, or which one plays, changed (S8.9.3).
+    Programs(Programs),
+    /// The disc's titles, or which one plays, changed (S8.9.1).
+    Titles(Titles),
 }
 
 impl BackendEvent {
@@ -167,6 +172,8 @@ pub enum Command {
     SetHdrMode(HdrMode),
     /// Record the media playing into this folder, or stop recording with `None`.
     Record(Option<PathBuf>),
+    /// Move to another program or title, or press a key in a disc's menu.
+    Navigate(Navigation),
 }
 
 /// A playback backend.
@@ -258,6 +265,10 @@ pub trait Backend: Send {
     /// stops with `None` (S8.6). Answered by [`BackendEvent::Recording`]: started or refused,
     /// and stopped once the recording ends, whether this stopped it or the media did.
     fn record(&mut self, folder: Option<&Path>);
+    /// Plays another program or title of the open media, or presses a key in the disc menu
+    /// showing (S8.9). Programs and titles are reported with [`BackendEvent::Programs`] and
+    /// [`BackendEvent::Titles`], again once the move is made.
+    fn navigate(&mut self, to: Navigation);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

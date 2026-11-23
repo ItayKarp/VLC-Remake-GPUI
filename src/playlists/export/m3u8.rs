@@ -26,6 +26,7 @@ pub fn render(export: &Export, folder: &Path) -> String {
 fn location(item: &Item, paths: PathStyle, folder: &Path) -> String {
     let path = match &item.media {
         Media::Url(url) => return url.clone(),
+        Media::Device(device) => return device.mrl().to_owned(),
         Media::File(path) => path,
     };
     let relative = match paths {

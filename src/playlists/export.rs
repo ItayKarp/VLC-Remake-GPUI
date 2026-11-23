@@ -84,6 +84,7 @@ impl Item {
                 path.file_stem().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
             }
             Media::Url(url) => url.clone(),
+            Media::Device(device) => device.display_name(),
         }
     }
 }

@@ -30,9 +30,13 @@ impl Worker {
         match what {
             Refresh::Tracks => {
                 self.send_tracks();
+                self.send_programs();
                 self.apply_visualizer();
             }
-            Refresh::Chapters => self.send_chapters(),
+            Refresh::Chapters => {
+                self.send_titles();
+                self.send_chapters();
+            }
             Refresh::Metadata => self.send_metadata(),
             Refresh::AudioDevices => self.poll_devices(),
             Refresh::Audible => self.restart_visualizer(),
@@ -41,6 +45,8 @@ impl Worker {
                 self.apply_delays();
                 self.apply_speaker_setup();
                 self.send_tracks();
+                self.send_programs();
+                self.send_titles();
                 self.send_chapters();
                 self.send_metadata();
                 self.watch_colour(Instant::now());

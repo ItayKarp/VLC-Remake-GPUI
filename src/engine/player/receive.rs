@@ -8,6 +8,7 @@ use gpui::Context;
 use super::{Intent, Player, PlayerEvent};
 use crate::engine::backend::{BackendEvent, Tagged};
 use crate::engine::hdr::HdrStatus;
+use crate::engine::media_info::Chapter;
 use crate::engine::state::PlaybackState;
 
 impl Player {
@@ -38,10 +39,7 @@ impl Player {
                 }
             }
             BackendEvent::Hdr(status) => self.hdr_reported(status, cx),
-            BackendEvent::Chapters(chapters) => {
-                self.info.chapters = chapters;
-                cx.emit(PlayerEvent::ChaptersChanged);
-            }
+            BackendEvent::Chapters(chapters) => self.chapters_reported(chapters, cx),
             BackendEvent::Metadata(metadata) => {
                 self.info.metadata = metadata;
                 cx.emit(PlayerEvent::MetadataChanged);
@@ -51,8 +49,16 @@ impl Player {
             BackendEvent::AudioDevices(devices) => self.devices_reported(devices, cx),
             BackendEvent::Corked(corked) => self.corked(corked, cx),
             BackendEvent::Recording(recording) => self.recording_reported(recording, cx),
+            BackendEvent::Programs(programs) => self.programs_reported(programs, cx),
+            BackendEvent::Titles(titles) => self.titles_reported(titles, cx),
         }
         cx.notify();
+    }
+
+    /// Keeps the chapters the backend reported, and says so.
+    fn chapters_reported(&mut self, chapters: Vec<Chapter>, cx: &mut Context<Self>) {
+        self.info.chapters = chapters;
+        cx.emit(PlayerEvent::ChaptersChanged);
     }
 
     /// Keeps what the backend found about the video's colors, and says when it changed.

@@ -8,6 +8,7 @@
 //! Each Item and When Playback Finishes (S3.3), and the saved playlists (S3.5).
 //! Record (S8.6) reads Stop Recording while recording.
 
+mod disc;
 mod media;
 mod playback;
 
@@ -192,6 +193,9 @@ fn open_media_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem {
         main_menu::dispatching(&act::OpenFile, "Open File(s)…", cx).icon(icons::FILE),
         main_menu::dispatching(&act::OpenFolder, "Open Folder…", cx).icon(icons::FOLDER),
         main_menu::dispatching(&act::OpenFromClipboard, "Open from Clipboard", cx),
+        main_menu::dispatching(&act::OpenDisc, "Open Disc…", cx).icon(icons::DISC),
+        main_menu::dispatching(&act::OpenCaptureDevice, "Open Capture Device…", cx)
+            .icon(icons::CAPTURE_DEVICE),
         MenuItem::Separator,
         on_main(main, "Add to Queue…", |_, window, cx| MainWindow::prompt_to_enqueue(window, cx)),
         on_main(main, "Play Next…", |_, window, cx| MainWindow::prompt_to_play_next(window, cx)),

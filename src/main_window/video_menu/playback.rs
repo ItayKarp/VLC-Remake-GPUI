@@ -1,7 +1,7 @@
 //! The video menu's Playback and More Settings submenus (S2.9.3).
 //!
 //! **Playback:** Speed ▸ (common speeds, then Faster, Slower and Normal Speed), Chapter ▸ when
-//! the media has chapters (S8.2), Jump Forward and Jump Backward by the short skip, and Jump to Time,
+//! the media has chapters (S8.2), Title ▸ and Program ▸ when it has several (S8.9), Jump Forward and Jump Backward by the short skip, and Jump to Time,
 //! which opens the current time for typing (S2.4), and Add Bookmark (S8.3.2). A-B loop isn't in
 //! the engine yet, so it isn't listed.
 //!
@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use gpui::{App, Context, WeakEntity};
 
-use super::{NOTHING_PLAYING, on_main, run};
+use super::{NOTHING_PLAYING, disc, on_main, run};
 use crate::assets::icons;
 use crate::keymap::actions as act;
 use crate::main_window::MainWindow;
@@ -44,6 +44,8 @@ impl MainWindow {
         let mut items = vec![self.speed_menu(main, cx)];
         let position = player.read(cx).position();
         items.extend(chapter_menu(main, self.chapters(cx), position, cx));
+        items.extend(disc::title_menu(main, player.read(cx).titles(), cx));
+        items.extend(disc::program_menu(main, player.read(cx).programs(), cx));
         items.extend([
             MenuItem::Separator,
             run(main, &act::SeekForward, "Jump Forward", cx)

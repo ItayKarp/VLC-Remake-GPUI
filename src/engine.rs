@@ -26,12 +26,15 @@
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 //! - [`waveform`]: a file's loudness along its length, for the waveform seek bar (S7.8.2).
 //! - [`recording`]: what becomes of recording the media playing (S8.6).
+//! - [`navigation`]: a stream's programs, a disc's titles and its menus (S8.9).
+//! - [`discs`]: an audio CD's tracks, read without playing it (S8.9.1).
 
 pub mod audio;
 pub mod backend;
 mod coalesce;
 pub mod colors;
 pub mod cues;
+pub mod discs;
 pub mod hdr;
 pub mod language;
 pub mod lengths;
@@ -39,6 +42,7 @@ pub mod libvlc;
 pub mod media_info;
 pub mod media_options;
 pub mod mock;
+pub mod navigation;
 pub mod player;
 mod position;
 mod preflight;

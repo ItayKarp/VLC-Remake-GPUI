@@ -113,6 +113,10 @@ actions!(
         NextFrame,
         /// Switch to the next program (DVB service).
         NextProgram,
+        /// Go to the disc's menu (S8.9.1).
+        DiscMenu,
+        /// Press the highlighted button of the disc menu showing (S8.9.1).
+        SelectInDiscMenu,
         /// Switch to the next subtitle track.
         CycleSubtitleTrack,
         /// Ask for subtitle files to add to the playing media (S6.1.4).

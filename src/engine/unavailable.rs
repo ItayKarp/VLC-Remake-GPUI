@@ -11,6 +11,7 @@ use super::backend::{Backend, BackendEvent, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
 use super::recording::Recording;
 use super::state::{ErrorKind, PlaybackState};
 use super::tracks::{TrackId, TrackKind};
@@ -91,6 +92,8 @@ impl Backend for UnavailableBackend {
             self.events.send(Generation::default(), refused);
         }
     }
+
+    fn navigate(&mut self, _: Navigation) {}
 
     fn shut_down(self: Box<Self>) {}
 }

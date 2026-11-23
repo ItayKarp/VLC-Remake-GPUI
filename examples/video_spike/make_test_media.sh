@@ -106,4 +106,10 @@ make tracks.mkv -f lavfi -i "$(card 640x360 30 10)" -f lavfi -i "$(tone 10)" \
   -disposition:s:0 forced -disposition:s:1 0
 rm -f "$srt"
 
+# Two programs (services) in one transport stream, named in its service table, as a DVB
+# broadcast has them (S8.9.3): X switches between them.
+make two-programs.ts -f lavfi -i "$(card 320x240 25 10)" -f lavfi -i "testsrc=size=320x240:rate=25:duration=10" \
+  -f lavfi -i "$(tone 10)" -map 0:v -map 2:a -map 1:v -map 2:a -c:v mpeg2video -c:a mp2 \
+  -program title=News:program_num=1:st=0:st=1 -program title=Sport:program_num=2:st=2:st=3
+
 echo "corpus ready in $out"

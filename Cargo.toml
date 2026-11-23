@@ -88,7 +88,13 @@ objc2-core-video = { version = "=0.3.2", features = ["CVBase", "CVBuffer", "CVIm
 # Hides the pointer with the auto-hidden controls (S2.8.1); GPUI only hides it while typing.
 # Keeps windows above the others and moves them (S5.4.1). Asks whether a screen shows HDR (S7.5.3).
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "NSButton", "NSControl", "NSCursor", "NSResponder", "NSScreen", "NSView", "NSWindow"] }
-objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSGeometry"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSArray", "NSGeometry", "NSString"] }
+# Open Capture Device (S8.9.2): the cameras and capture cards plugged in and whether this app may
+# use them (AVFoundation), and the displays to capture and whether it may record the screen
+# (CoreGraphics). Open Disc reads mounted volumes' devices with libc's `statfs`.
+objc2-av-foundation = { version = "=0.3.2", default-features = false, features = ["std", "AVCaptureDevice", "AVMediaFormat"] }
+objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["std", "libc", "CGDirectDisplay", "CGDisplayConfiguration", "CGError", "CGWindow"] }
+libc = "0.2"
 
 # Asks the desktop's screen saver not to start during video (S1.4.3). GPUI's portal support
 # already builds zbus 5.

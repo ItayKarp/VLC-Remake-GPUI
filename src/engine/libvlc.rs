@@ -23,6 +23,7 @@ mod control;
 mod core_vars;
 mod cpu_filters;
 mod decoding;
+pub mod disc_tracks;
 mod enhance;
 #[cfg(test)]
 mod enhance_tests;
@@ -38,6 +39,9 @@ mod hold;
 mod instance;
 pub mod lengths;
 mod media_options;
+mod navigation;
+#[cfg(test)]
+mod navigation_tests;
 pub mod options;
 mod picture;
 mod prepare;
@@ -89,6 +93,7 @@ use super::backend::{Backend, Command, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -295,6 +300,10 @@ impl Backend for LibVlcBackend {
 
     fn record(&mut self, folder: Option<&Path>) {
         self.send(Command::Record(folder.map(Path::to_path_buf)));
+    }
+
+    fn navigate(&mut self, to: Navigation) {
+        self.send(Command::Navigate(to));
     }
 
     fn shut_down(mut self: Box<Self>) {

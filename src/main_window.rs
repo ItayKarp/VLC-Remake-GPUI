@@ -23,7 +23,10 @@ mod auto_hide;
 mod bar_panel;
 mod control_bar;
 mod customize;
+mod device_dialog;
+mod device_failure;
 mod diagnostics;
+mod disc_navigation;
 mod empty_state;
 mod flash;
 mod frame_step;
@@ -42,6 +45,8 @@ mod new_playlist;
 mod notice;
 mod now_playing;
 mod now_playing_notice;
+mod open_capture;
+mod open_disc;
 mod opening;
 mod osd;
 mod picture;
@@ -344,7 +349,7 @@ impl Render for MainWindow {
         let root = Self::player_keys(focus::tab_navigation(div()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
         let root = Self::menu_actions(Self::playlist_actions(root, cx), cx);
-        Self::open_actions(Self::network_actions(root, cx), cx)
+        Self::open_actions(Self::open_dialog_actions(root, cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))
