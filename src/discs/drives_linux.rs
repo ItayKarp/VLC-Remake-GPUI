@@ -15,15 +15,13 @@ const MOUNTS: &str = "/proc/mounts";
 /// The optical drives, each with where its disc is mounted, if it is.
 pub fn discs() -> Vec<Disc> {
     let mounts = fs::read_to_string(MOUNTS).unwrap_or_default();
-    let mut drives: Vec<String> = fs::read_dir(BLOCK_CLASS)
-        .map(|entries| {
-            entries
-                .flatten()
-                .map(|entry| entry.file_name().to_string_lossy().into_owned())
-                .filter(|name| name.starts_with(OPTICAL_PREFIX))
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut drives: Vec<String> = fs::read_dir(BLOCK_CLASS).map_or_default(|entries| {
+        entries
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with(OPTICAL_PREFIX))
+            .collect()
+    });
     drives.sort();
     drives.iter().map(|name| disc(name, &mounts)).collect()
 }

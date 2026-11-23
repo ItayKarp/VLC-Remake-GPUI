@@ -86,6 +86,10 @@ pub enum Access {
     /// It may.
     Granted,
     /// It hasn't been asked; opening the device asks.
+    #[cfg_attr(
+        target_os = "linux",
+        allow(dead_code, reason = "Linux has no capture permissions, so nothing is unasked")
+    )]
     NotAsked,
     /// The user or a policy refused; only the OS's privacy settings can change it.
     Denied,
