@@ -10,6 +10,7 @@
 //!   everything that should follow the user between machines in [`Preferences`].
 
 mod audio;
+mod audio_effects;
 mod controls;
 mod equalizer;
 mod general;

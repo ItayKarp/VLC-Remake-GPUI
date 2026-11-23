@@ -188,7 +188,7 @@ fn the_device_list_arrives_without_media_even_with_passthrough() {
     let (events, mut receiver) = backend::channel();
     // SAFETY: run one at a time, as above.
     unsafe { super::runtime::prepare_environment() };
-    let audio = AudioConfig { passthrough: true, ..AudioConfig::default() };
+    let audio = AudioConfig { passthrough: true };
     let backend = Box::new(
         LibVlcBackend::new(events, None, audio, &SubtitleStyle::default()).expect("libVLC loads"),
     );

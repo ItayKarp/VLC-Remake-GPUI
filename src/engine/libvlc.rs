@@ -76,6 +76,7 @@ use self::events::Shared;
 use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
+use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup, StereoMode};
@@ -272,6 +273,10 @@ impl Backend for LibVlcBackend {
 
     fn set_equalizer(&mut self, equalizer: Option<Equalization>) {
         self.send(Command::SetEqualizer(equalizer));
+    }
+
+    fn set_audio_effects(&mut self, effects: AudioEffects) {
+        self.send(Command::SetAudioEffects(effects));
     }
 
     fn set_picture(&mut self, picture: Option<Picture>) {

@@ -1,12 +1,13 @@
 //! The [`Player`]'s audio (S1.5): volume within the maximum, mute, the output device and its
-//! hot-plug fallback, speaker setup and stereo mode (S7.6.2), the equalizer, the visualizer
-//! (S7.8.1), and pausing for another app's audio.
+//! hot-plug fallback, speaker setup and stereo mode (S7.6.2), the equalizer and the effects
+//! after it (S7.9), the visualizer (S7.8.1), and pausing for another app's audio.
 
 use std::time::{Duration, Instant};
 
 use gpui::{Context, Task};
 
 use super::{Intent, Player, PlayerEvent};
+use crate::engine::audio::effects::AudioEffects;
 use crate::engine::audio::equalizer::Equalization;
 use crate::engine::audio::visualizer::VisualEffect;
 use crate::engine::audio::{
@@ -32,6 +33,8 @@ pub(super) struct AudioState {
     stereo_mode: StereoMode,
     /// The equalizer sound goes through; `None` while it is off.
     equalizer: Option<Equalization>,
+    /// The effects after the equalizer.
+    effects: AudioEffects,
     /// The visualizer drawn for media without video; `None` while there is none.
     visualizer: Option<VisualEffect>,
     policy: AudioPolicy,
@@ -56,6 +59,7 @@ impl Default for AudioState {
             speaker_setup: SpeakerSetup::Automatic,
             stereo_mode: StereoMode::Stereo,
             equalizer: None,
+            effects: AudioEffects::default(),
             visualizer: None,
             policy: AudioPolicy::default(),
             devices: None,
@@ -193,6 +197,13 @@ impl Player {
         if self.audio.equalizer != equalizer {
             self.audio.equalizer = equalizer;
             self.with_backend(|backend| backend.set_equalizer(equalizer));
+        }
+    }
+
+    /// Plays through `effects` from now on; heard at once.
+    pub fn set_audio_effects(&mut self, effects: AudioEffects) {
+        if std::mem::replace(&mut self.audio.effects, effects) != effects {
+            self.with_backend(|backend| backend.set_audio_effects(effects));
         }
     }
 

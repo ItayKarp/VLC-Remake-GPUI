@@ -1,14 +1,12 @@
-//! Audio's Loudness and Effects sections (S5.8.2, `audio_01.png`, `audio_02.png`).
-//!
-//! libVLC 3 sets up its audio filters and replay gain when its output starts, from options the
-//! player's instance is made with, so those rows apply at the next launch. The equalizer, its
-//! preset, its bands and its 2 Pass change what plays at once (S7.7). The preset reads None while
+//! Audio's Loudness and Effects sections (S5.8.2, `audio_01.png`, `audio_02.png`): the loudness
+//! rows (S7.9.4), the equalizer (S7.7) and spatial audio; the Compressor, Spatializer and Stereo
+//! widening follow in `audio_sections.rs`. Every row is heard at once. The preset reads None while
 //! the equalizer is off ([`EqualizerPick`]); the bands stay usable then, as designed, and moving
 //! one turns the equalizer on, as moving a panel control turns its section on (D23).
 
 use gpui::App;
 
-use super::super::def::{ApplyMode, Condition, Control, MachineChoice, SettingDef};
+use super::super::def::{Condition, Control, MachineChoice, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, Value, choice, number, toggle};
 use crate::assets::equalizer_glyph;
 use crate::engine::audio::effects::{ReplayGain, SpatialMode};
@@ -85,8 +83,10 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.audio.normalize_loudness),
     )
-    .info("Turns loud passages down to the target level, so loud and quiet media sound alike.")
-    .applies(ApplyMode::Restart)
+    .info(
+        "Turns loud passages down to the target level, so loud and quiet media sound alike. \
+         Heard at once.",
+    )
     .keywords(&["volume", "level", "normalizer", "loud"]),
     SettingDef::new(
         "audio.loudness_target",
@@ -97,8 +97,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .info("How loud sound may get before it is turned down: lower is quieter. VLC uses 2.")
     .range(0.5, 10., 0.1)
-    .depends_on("audio.normalize_loudness", Condition::IsOn)
-    .applies(ApplyMode::Restart),
+    .depends_on("audio.normalize_loudness", Condition::IsOn),
     SettingDef::new(
         "audio.night_mode",
         LOUDNESS,
@@ -106,8 +105,10 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.audio.night_mode),
     )
-    .info("Softens explosions and music and lifts quiet dialogue, for listening at low volume.")
-    .applies(ApplyMode::Restart)
+    .info(
+        "Softens explosions and music and lifts quiet dialogue, for listening at low volume: a \
+         compressor preset, unless the Compressor below is on.",
+    )
     .keywords(&["compressor", "dynamic range", "dialogue", "quiet"]),
     SettingDef::new(
         "audio.replay_gain",
@@ -118,9 +119,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .info(
         "Uses the loudness tags in music files: Track makes every track equally loud, Album \
-         keeps an album's own loud and quiet tracks.",
+         keeps an album's own loud and quiet tracks. Files without tags play as they are.",
     )
-    .applies(ApplyMode::Restart)
     .keywords(&["replaygain", "music", "tags", "volume"]),
     SettingDef::new(
         "audio.replay_gain_preamp",
@@ -131,8 +131,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     )
     .info("Added to the tagged gain, in decibels; raise it if tagged music plays too quietly.")
     .range(-20., 20., 0.1)
-    .depends_on("audio.replay_gain", Condition::IsNot("off"))
-    .applies(ApplyMode::Restart),
+    .depends_on("audio.replay_gain", Condition::IsNot("off")),
     SettingDef::new(
         "audio.equalizer",
         EFFECTS,
@@ -181,7 +180,6 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         toggle!(prefs.audio.spatial_audio),
     )
     .info("Places sound around you in headphones, as the mode below says.")
-    .applies(ApplyMode::Restart)
     .keywords(&["3d", "surround", "headphones", "virtual"]),
     SettingDef::new(
         "audio.spatial_mode",
@@ -195,16 +193,5 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          Binaural renders 360° (ambisonic) sound for headphones.",
     )
     .depends_on("audio.spatial_audio", Condition::IsOn)
-    .applies(ApplyMode::Restart)
     .keywords(&["ambisonic", "360", "binaural", "hrtf"]),
-    SettingDef::new(
-        "audio.stereo_widening",
-        EFFECTS,
-        "Stereo widening",
-        Control::Toggle,
-        toggle!(prefs.audio.stereo_widening),
-    )
-    .info("Makes stereo sound wider than the speakers or headphones are apart.")
-    .applies(ApplyMode::Restart)
-    .keywords(&["stereo", "wide", "spread"]),
 ];

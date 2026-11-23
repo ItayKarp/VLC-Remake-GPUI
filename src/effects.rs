@@ -24,8 +24,8 @@ mod session;
 use gpui::{App, BorrowAppContext as _, Global};
 
 pub use section::{
-    AUDIO_DEFAULTS, AUDIO_EQUALIZER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS,
-    VIDEO_ESSENTIAL,
+    AUDIO_COMPRESSOR, AUDIO_DEFAULTS, AUDIO_EQUALIZER, AUDIO_SPATIALIZER, AUDIO_STEREO_WIDENER,
+    EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL,
 };
 pub use session::Session;
 

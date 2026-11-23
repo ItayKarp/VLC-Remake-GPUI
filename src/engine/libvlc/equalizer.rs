@@ -7,28 +7,33 @@
 //! always reopens the filter (libVLC rewrites the output's `audio-filter`), so the variable is
 //! set on the player and on its running audio output first, where the output keeps the value
 //! its first filter read.
+//!
+//! libVLC's call also sets the output's filter chain to the equalizer alone, so the chain with
+//! the other effects is written again after it (`audio_effects.rs`).
 
 use std::ffi::CStr;
 use std::ptr;
 
 use super::api::AudioEqualizer;
+use super::audio_effects::AUDIO_OUTPUT;
 use super::core_vars::Var;
 use super::worker::Worker;
 use crate::engine::audio::equalizer::{Equalization, Equalizer};
 
-/// libVLC's 2 Pass switch, and its audio outputs' object type.
+/// libVLC's 2 Pass switch.
 const TWO_PASS: &CStr = c"equalizer-2pass";
-const AUDIO_OUTPUT: &CStr = c"audio output";
 
 impl Worker {
     /// Plays through `equalization` from now on, or without an equalizer.
-    pub(super) fn set_equalizer(&self, equalization: Option<&Equalization>) {
+    pub(super) fn set_equalizer(&mut self, equalization: Option<&Equalization>) {
         if let Some(equalization) = equalization {
             self.set_two_pass(equalization.two_pass);
         }
         if let Err(problem) = self.try_set_equalizer(equalization.map(|eq| &eq.gains)) {
             tracing::warn!("libvlc: {problem}");
         }
+        self.equalizer_on = equalization.is_some();
+        self.write_audio_filters(false);
     }
 
     /// Sets `equalizer-2pass` on the player and its audio output, for the filter to read when

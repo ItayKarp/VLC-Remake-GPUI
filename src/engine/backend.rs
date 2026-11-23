@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use futures::channel::mpsc;
 
+use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
@@ -150,6 +151,8 @@ pub enum Command {
     SetMediaOptions(MediaOptions),
     /// Play through this equalizer, or none.
     SetEqualizer(Option<Equalization>),
+    /// Play through these effects.
+    SetAudioEffects(AudioEffects),
     /// Adjust the picture this way, or show it as the media has it.
     SetPicture(Option<Picture>),
     /// Pass video through these filters.
@@ -228,6 +231,10 @@ pub trait Backend: Send {
     fn set_media_options(&mut self, options: &MediaOptions);
     /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.
     fn set_equalizer(&mut self, equalizer: Option<Equalization>);
+    /// Plays through `effects` from now on, for this and later media: the compressor,
+    /// spatializer, stereo widener, spatial audio, normalizer and replay gain (S7.9), after the
+    /// equalizer. Heard at once.
+    fn set_audio_effects(&mut self, effects: AudioEffects);
     /// Adjusts the picture's hue, brightness, contrast, saturation and gamma, and sharpens,
     /// debands or grains it, from now on, for this and later media; `None` shows it as the
     /// media has it. Seen at once.

@@ -51,7 +51,6 @@ pub fn arguments(config: AudioConfig) -> Vec<String> {
         #[cfg(windows)]
         arguments.push(MMDEVICE_PASSTHROUGH.to_owned());
     }
-    arguments.extend(super::audio_effects::arguments(&config.effects));
     arguments
 }
 

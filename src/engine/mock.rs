@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
+use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
@@ -257,6 +258,10 @@ impl Backend for MockBackend {
 
     fn set_equalizer(&mut self, equalizer: Option<Equalization>) {
         self.record(Command::SetEqualizer(equalizer));
+    }
+
+    fn set_audio_effects(&mut self, effects: AudioEffects) {
+        self.record(Command::SetAudioEffects(effects));
     }
 
     fn set_picture(&mut self, picture: Option<Picture>) {

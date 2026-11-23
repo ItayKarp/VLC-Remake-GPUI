@@ -10,8 +10,9 @@
 //! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6), the Audio Visualizer
 //! (`visualizer_row.rs`, S7.8) and the speed (`playback.rs`). Its other designed rows (Show
 //! Statistics, Reverse, Sleep Timer) come with their story (S8.13) and are hidden until then. The Audio tab holds its Defaults, the
-//! stereo mode with its Test, and the playing track's delay (`audio.rs`, S7.6); its Filters come
-//! with S7.7. The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
+//! stereo mode with its Test, the playing track's delay (`audio.rs`, S7.6), and its effect
+//! sections: the Equalizer (`equalizer_section.rs`, S7.7), then the Compressor, Spatializer and
+//! Stereo Widener (S7.9). The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
 //! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1), Colors
 //! with its own (`colors_section.rs`, S7.4). The
 //! Subtitles tab holds the subtitle defaults and the showing subtitle's synchronization
@@ -64,7 +65,8 @@ use super::bar_panel;
 use super::track_popover::tab_icon;
 use crate::assets::icons;
 use crate::effects::{
-    self, AUDIO_DEFAULTS, AUDIO_EQUALIZER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL,
+    self, AUDIO_COMPRESSOR, AUDIO_DEFAULTS, AUDIO_EQUALIZER, AUDIO_SPATIALIZER,
+    AUDIO_STEREO_WIDENER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL,
 };
 use crate::engine::tracks::TrackKind;
 use crate::settings::registry::Category;
@@ -107,7 +109,9 @@ impl PanelTab {
     fn sections(self) -> &'static [EffectSection] {
         match self {
             Self::Video => &[VIDEO_CROP, VIDEO_ESSENTIAL, VIDEO_COLORS],
-            Self::Audio => &[AUDIO_EQUALIZER],
+            Self::Audio => {
+                &[AUDIO_EQUALIZER, AUDIO_COMPRESSOR, AUDIO_SPATIALIZER, AUDIO_STEREO_WIDENER]
+            }
             Self::Playback | Self::Subtitles => &[],
         }
     }

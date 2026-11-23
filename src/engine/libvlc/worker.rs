@@ -24,6 +24,7 @@ use super::track_list::Defaults;
 use super::visualizer::Visuals;
 use super::vmem::Vmem;
 use crate::app::media::Media as Source;
+use crate::engine::audio::effects::AudioEffects;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::media_options::{MediaOptions, VideoFilters};
 use crate::engine::state::{ErrorKind, PlaybackState};
@@ -122,6 +123,9 @@ pub struct Worker {
     pub(super) hdr: HdrState,
     /// The visualizer wanted, and the one drawing (S7.8.1).
     pub(super) visuals: Visuals,
+    /// The audio effects after the equalizer (S7.9), and whether the equalizer is on.
+    pub(super) audio_effects: AudioEffects,
+    pub(super) equalizer_on: bool,
 }
 
 impl Worker {
@@ -157,6 +161,8 @@ impl Worker {
             hold: None,
             hdr: HdrState::default(),
             visuals: Visuals::default(),
+            audio_effects: AudioEffects::default(),
+            equalizer_on: false,
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker

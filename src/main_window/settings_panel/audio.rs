@@ -7,19 +7,24 @@
 //! Save as Default keeps it there. Test plays a tone on the left, then the right, through the mode
 //! in use at a fixed level, pausing the media meanwhile (`engine/player/test_tone.rs`), and says
 //! which side sounds over the video. The delay belongs to the audio track playing (S7.6.3), as
-//! the J and K keys' does; with no audio playing the row is disabled. The Equalizer section
-//! follows (`equalizer_section.rs`, S7.7).
+//! the J and K keys' does; with no audio playing the row is disabled. The effect sections follow:
+//! the Equalizer (`equalizer_section.rs`, S7.7), then the Compressor, Spatializer and Stereo
+//! Widener (S7.9), sliders like the Video tab's sections (`effect_section.rs`), in the order sound
+//! goes through them. A line over them says when passthrough is on, as sound sent undecoded
+//! skips them, and one under the Stereo Widener when the track playing is mono, which it can't
+//! widen.
 
 use gpui::{
     App, AppContext as _, Context, Div, Entity, SharedString, Subscription, Window, div,
     prelude::*, px,
 };
 
+use super::effect_section::EffectControls;
 use super::equalizer_section::EqualizerControls;
 use super::number_row::{Changed, NumberRow};
 use super::subtitles::{MS_PER_SECOND, track_delay_spec};
 use super::track_defaults::{DefaultsRows, TrackDefaults};
-use super::{SECTION_NOTE_GAP, SECTION_NOTE_TEXT, section};
+use super::{PanelTab, SECTION_NOTE_GAP, SECTION_NOTE_TEXT, SECTION_PADDING, section};
 use crate::effects;
 use crate::engine::audio::test_tone;
 use crate::engine::player::Player;
@@ -38,6 +43,10 @@ const ROW_TEXT: f32 = 14.;
 const NOTE_GAP: f32 = 8.;
 /// The space around the effect sections.
 const EFFECTS_PADDING: f32 = 8.;
+/// What the effects can't do with passthrough on, and with a mono track.
+const PASSTHROUGH_NOTE: &str = "Passthrough is on: AC3 and DTS sound reaches the receiver \
+                                undecoded, without these effects.";
+const MONO_NOTE: &str = "This track is mono, so the Stereo Widener has nothing to widen.";
 
 /// The tab's controls.
 pub(in crate::main_window) struct AudioControls {
@@ -95,7 +104,21 @@ impl MainWindow {
         let note =
             target.unwrap_or_else(|| "Pick an audio track to sync it with the video.".into());
         let sync = section("Synchronization", note, p).child(controls.delay.clone());
-        let equalizer = controls.equalizer.render(p, cx);
+        let effects = div()
+            .flex()
+            .flex_col()
+            .py(px(EFFECTS_PADDING))
+            .px(px(SECTION_PADDING))
+            .children(
+                effects::effective(cx)
+                    .prefs
+                    .audio
+                    .passthrough
+                    .then(|| effects_note(PASSTHROUGH_NOTE, p)),
+            )
+            .child(controls.equalizer.render(p, cx))
+            .children(self.audio_sections().map(|controls| controls.render(p, cx)))
+            .children(self.plays_mono(cx).then(|| effects_note(MONO_NOTE, p)));
         div()
             .flex()
             .flex_col()
@@ -103,7 +126,22 @@ impl MainWindow {
             .child(div().h(px(1.)).bg(p.divider))
             .child(sync)
             .child(div().h(px(1.)).bg(p.divider))
-            .child(div().py(px(EFFECTS_PADDING)).child(equalizer))
+            .child(effects)
+    }
+
+    /// The Audio tab's sections of sliders, after the Equalizer.
+    fn audio_sections(&self) -> impl Iterator<Item = &EffectControls> {
+        let shown = PanelTab::Audio.sections();
+        self.settings_panel.effects.iter().filter(|controls| shown.contains(&controls.section))
+    }
+
+    /// Whether the audio track playing has one channel.
+    fn plays_mono(&self, cx: &App) -> bool {
+        let Some(player) = self.loaded_player(cx).map(|player| player.read(cx)) else {
+            return false;
+        };
+        let track = player.audio_track().and_then(|id| player.tracks().get(id));
+        track.is_some_and(|track| track.channels == Some(1))
     }
 
     /// "For “English 5.1” in this video."; `None` while no audio plays.
@@ -117,6 +155,9 @@ impl MainWindow {
     fn sync_audio_controls(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.settings_panel.audio.defaults.sync(window, cx);
         self.settings_panel.audio.equalizer.sync(window, cx);
+        for controls in self.audio_sections() {
+            controls.sync(window, cx);
+        }
         let index = stereo_index(cx);
         let controls = &self.settings_panel.audio;
         controls.stereo.update(cx, |dropdown, cx| dropdown.set_selected(index, cx));
@@ -159,6 +200,16 @@ fn stereo_row(p: &Palette, cx: &mut Context<MainWindow>) -> Div {
         .text_color(p.text_muted)
         .child("Stereo Mode")
         .child(test)
+}
+
+/// A line about the effect sections.
+fn effects_note(text: &'static str, p: &Palette) -> Div {
+    div()
+        .pb(px(NOTE_GAP))
+        .pl(px(4.))
+        .text_size(px(SECTION_NOTE_TEXT))
+        .text_color(p.text_muted)
+        .child(text)
 }
 
 /// The line under the stereo mode: it changes the session, unlike the rows above it.

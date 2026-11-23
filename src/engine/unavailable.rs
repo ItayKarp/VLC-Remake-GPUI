@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
@@ -73,6 +74,7 @@ impl Backend for UnavailableBackend {
     fn set_media_options(&mut self, _: &MediaOptions) {}
 
     fn set_equalizer(&mut self, _: Option<Equalization>) {}
+    fn set_audio_effects(&mut self, _: AudioEffects) {}
 
     fn set_picture(&mut self, _: Option<Picture>) {}
 

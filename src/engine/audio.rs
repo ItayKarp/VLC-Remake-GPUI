@@ -82,8 +82,6 @@ pub enum StereoMode {
 pub struct AudioConfig {
     /// Send AC3 and DTS undecoded to the receiver (HDMI, S/PDIF) where the device takes them.
     pub passthrough: bool,
-    /// The loudness filters, replay gain and effects.
-    pub effects: effects::AudioEffects,
 }
 
 /// What the player does on its own when the audio situation changes.

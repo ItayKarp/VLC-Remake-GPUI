@@ -97,6 +97,7 @@ impl Worker {
                 Command::SetVisualizer(effect) => self.set_visualizer(effect),
                 Command::SetMediaOptions(options) => self.media_options = options,
                 Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
+                Command::SetAudioEffects(effects) => self.set_audio_effects(effects),
                 Command::SetPicture(picture) => self.set_picture(picture),
                 Command::SetVideoFilters(filters) => self.set_video_filters(filters),
                 Command::SetColors(colors) => self.set_colors(colors),

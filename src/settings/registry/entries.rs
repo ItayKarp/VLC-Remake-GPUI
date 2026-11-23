@@ -4,6 +4,7 @@
 
 mod audio;
 mod audio_effects;
+mod audio_sections;
 mod controls;
 mod diagnostics;
 mod general;
@@ -28,8 +29,8 @@ use super::value::Value;
 use crate::engine::language::Language;
 
 /// Every category's rows, in sidebar order (General, Interface and Playback in two parts each,
-/// Video in four, Audio in three, Subtitles in two).
-pub(super) static PAGES: [&[SettingDef]; 21] = [
+/// Video in four, Audio in four, Subtitles in two).
+pub(super) static PAGES: [&[SettingDef]; 22] = [
     general::ENTRIES,
     diagnostics::ENTRIES,
     window::ENTRIES,
@@ -44,6 +45,7 @@ pub(super) static PAGES: [&[SettingDef]; 21] = [
     video_colors::ENTRIES,
     audio::ENTRIES,
     audio_effects::ENTRIES,
+    audio_sections::ENTRIES,
     audio::LANGUAGE_ENTRIES,
     subtitles::ENTRIES,
     subtitle_style::ENTRIES,

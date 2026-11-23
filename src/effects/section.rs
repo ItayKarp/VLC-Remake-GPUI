@@ -86,6 +86,49 @@ pub const AUDIO_EQUALIZER: EffectSection = EffectSection {
     controls: &["audio.equalizer_bands", "audio.equalizer_preset", "audio.equalizer_two_pass"],
 };
 
+/// The Audio tab's Compressor (`panels/audio/compressor`, S7.9.1).
+pub const AUDIO_COMPRESSOR: EffectSection = EffectSection {
+    id: "audio.compressor",
+    title: "Compressor",
+    toggle: "audio.compressor.enabled",
+    controls: &[
+        "audio.compressor.rms_peak",
+        "audio.compressor.attack",
+        "audio.compressor.release",
+        "audio.compressor.threshold",
+        "audio.compressor.ratio",
+        "audio.compressor.knee",
+        "audio.compressor.makeup_gain",
+    ],
+};
+
+/// The Audio tab's Spatializer (`panels/audio/spatializer`, S7.9.2): a room's reverberation.
+pub const AUDIO_SPATIALIZER: EffectSection = EffectSection {
+    id: "audio.spatializer",
+    title: "Spatializer",
+    toggle: "audio.spatializer.enabled",
+    controls: &[
+        "audio.spatializer.size",
+        "audio.spatializer.width",
+        "audio.spatializer.wet",
+        "audio.spatializer.dry",
+        "audio.spatializer.damp",
+    ],
+};
+
+/// The Audio tab's Stereo Widener (`panels/audio/stereo_widener`, S7.9.3).
+pub const AUDIO_STEREO_WIDENER: EffectSection = EffectSection {
+    id: "audio.stereo_widener",
+    title: "Stereo Widener",
+    toggle: "audio.stereo_widener.enabled",
+    controls: &[
+        "audio.stereo_widener.delay",
+        "audio.stereo_widener.feedback",
+        "audio.stereo_widener.crossfeed",
+        "audio.stereo_widener.dry_mix",
+    ],
+};
+
 /// The Video tab's Defaults rows (S7.2, `controls-video_settings.png`), each a setting the panel
 /// holds for the session like a section's controls, but with no toggle of their own.
 pub const VIDEO_DEFAULTS: &[&str] = &[
@@ -117,6 +160,19 @@ mod tests {
             assert!(matches!(def.control, Control::Slider { .. }), "{key}");
         }
         assert_eq!(VIDEO_ESSENTIAL.keys().count(), 9);
+    }
+
+    #[test]
+    fn the_audio_sections_are_sliders_under_their_toggle() {
+        for section in [AUDIO_COMPRESSOR, AUDIO_SPATIALIZER, AUDIO_STEREO_WIDENER] {
+            let toggle = registry::find(section.toggle).expect("the toggle is a setting");
+            assert!(matches!(toggle.control, Control::Toggle), "{}", section.id);
+            for key in section.controls {
+                let def = registry::find(key).expect("each control is a setting");
+                assert!(matches!(def.control, Control::Slider { .. }), "{key}");
+                assert_eq!(def.dependency.map(|d| d.key), Some(section.toggle), "{key}");
+            }
+        }
     }
 
     #[test]

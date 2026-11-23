@@ -1,11 +1,12 @@
 //! Audio settings (S1.5, Settings → Audio, S5.8.2): whether audio plays, the volume range,
-//! startup volume and step, the speaker setup, stereo mode (S7.6.2) and passthrough, loudness and effects, the
-//! equalizer, the visualizer (S7.8), the preferred languages (S1.6.3), and the machine-local output device and last
-//! volume.
+//! startup volume and step, the speaker setup, stereo mode (S7.6.2) and passthrough, loudness,
+//! the equalizer and the effects after it (S7.9, `audio_effects.rs`), the visualizer (S7.8), the
+//! preferred languages (S1.6.3), and the machine-local output device and last volume.
 
 use serde::{Deserialize, Serialize};
 
 use super::super::lenient::lenient;
+use super::audio_effects::{CompressorSettings, SpatializerSettings, StereoWidenerSettings};
 use crate::engine::audio::effects::{ReplayGain, SpatialMode};
 use crate::engine::audio::equalizer::{BANDS, Equalizer, Preset};
 use crate::engine::audio::visualizer::Visualizer;
@@ -61,19 +62,20 @@ pub struct AudioSettings {
     /// media plays the first one it has; empty keeps the media's own default.
     #[serde(deserialize_with = "lenient")]
     pub preferred_languages: Vec<String>,
-    /// "Normalize loudness": evens out the volume to [`Self::loudness_target`]. Next launch.
+    /// "Normalize loudness": evens out the volume to [`Self::loudness_target`].
     #[serde(deserialize_with = "lenient")]
     pub normalize_loudness: bool,
     /// "Target level", 0.5 to 10: louder passages than this are turned down.
     #[serde(deserialize_with = "lenient")]
     pub loudness_target: f32,
-    /// "Night mode": a compressor that softens loud passages. Next launch.
+    /// "Night mode": a compressor preset that softens loud passages and lifts quiet ones,
+    /// unless the Compressor's own section is on.
     #[serde(deserialize_with = "lenient")]
     pub night_mode: bool,
-    /// "Replay gain". Next launch.
+    /// "Replay gain".
     #[serde(deserialize_with = "lenient")]
     pub replay_gain: ReplayGain,
-    /// "Replay gain preamp", in dB. Next launch.
+    /// "Replay gain preamp", in dB.
     #[serde(deserialize_with = "lenient")]
     pub replay_gain_preamp: f32,
     /// "Equalizer": sound goes through the bands below.
@@ -96,15 +98,21 @@ pub struct AudioSettings {
     /// "2 Pass": the equalizer runs twice, for a stronger effect (S7.7.5).
     #[serde(deserialize_with = "lenient")]
     pub equalizer_two_pass: bool,
-    /// "Spatial audio", in [`Self::spatial_mode`]. Next launch.
+    /// "Compressor" (S7.9.1).
+    #[serde(deserialize_with = "lenient")]
+    pub compressor: CompressorSettings,
+    /// "Spatializer" (S7.9.2).
+    #[serde(deserialize_with = "lenient")]
+    pub spatializer: SpatializerSettings,
+    /// "Spatial audio", in [`Self::spatial_mode`].
     #[serde(deserialize_with = "lenient")]
     pub spatial_audio: bool,
     /// "Spatial audio mode".
     #[serde(deserialize_with = "lenient")]
     pub spatial_mode: SpatialMode,
-    /// "Stereo widening". Next launch.
+    /// "Stereo widening" and the Stereo Widener's values (S7.9.3).
     #[serde(deserialize_with = "lenient")]
-    pub stereo_widening: bool,
+    pub stereo_widener: StereoWidenerSettings,
     /// "Audio Visualizer" (S7.8): what is drawn for media without video, or the waveform seek
     /// bar.
     #[serde(deserialize_with = "lenient")]
@@ -135,9 +143,11 @@ impl Default for AudioSettings {
             equalizer_preamp: Equalizer::FLAT.preamp,
             equalizer_bands: Equalizer::FLAT.bands,
             equalizer_two_pass: false,
+            compressor: CompressorSettings::default(),
+            spatializer: SpatializerSettings::default(),
             spatial_audio: false,
             spatial_mode: SpatialMode::default(),
-            stereo_widening: false,
+            stereo_widener: StereoWidenerSettings::default(),
             visualizer: Visualizer::Disabled,
         }
     }

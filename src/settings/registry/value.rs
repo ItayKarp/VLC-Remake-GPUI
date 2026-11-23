@@ -112,7 +112,11 @@ macro_rules! toggle {
 macro_rules! number {
     ($ty:ty : $($field:ident).+) => {
         $crate::settings::registry::Binding {
-            get: |s| $crate::settings::registry::Value::Number(f64::from(s.$($field).+)),
+            get: |s| {
+                $crate::settings::registry::Value::Number(
+                    $crate::settings::registry::value::widen(s.$($field).+),
+                )
+            },
             set: |s, value| {
                 if let $crate::settings::registry::Value::Number(number) = value {
                     s.$($field).+ = $crate::settings::registry::value::round::<$ty>(number);
@@ -167,6 +171,13 @@ impl FromNumber for f32 {
     fn from_number(number: f64) -> Self {
         number as f32
     }
+}
+
+/// A stored number as the registry's `f64`, for the [`number`] macro: an `f32` by its shortest
+/// decimal, so 0.2 reads as 0.2 rather than 0.200000003, which a step of 0.01 would move.
+pub(crate) fn widen<T: Into<f64> + std::fmt::Display>(number: T) -> f64 {
+    let exact = number.to_string().parse().ok();
+    exact.unwrap_or_else(|| number.into())
 }
 
 /// `number` as `T`, for the [`number`] macro.
