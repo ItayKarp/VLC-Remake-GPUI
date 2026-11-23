@@ -37,8 +37,9 @@ fn the_audio_page_matches_the_design() {
 }
 
 /// The share of differing pixels in the Effects view: the text, the search's marks, and the
-/// spatial audio rows the search leaves out. Measured near 3.6% on macOS (November 2026).
-const EFFECTS_MAX_MISMATCH: f64 = 0.05;
+/// spatial audio rows the search leaves out. Measured near 3.6% on macOS and 5.2% on Linux, whose
+/// IBM Plex Sans sets the many labels differently (November 2026).
+const EFFECTS_MAX_MISMATCH: f64 = 0.06;
 
 #[test]
 fn the_audio_effects_match_the_design() {
