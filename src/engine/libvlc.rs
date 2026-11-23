@@ -25,6 +25,7 @@ pub mod hardware;
 pub mod lengths;
 mod media_options;
 pub mod options;
+mod picture;
 mod prepare;
 pub mod preview;
 mod query;
@@ -58,7 +59,7 @@ use self::worker::{Handles, Message, Worker};
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
 use super::backend::{Backend, Command, EventSender};
-use super::media_options::MediaOptions;
+use super::media_options::{MediaOptions, Picture};
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -234,6 +235,10 @@ impl Backend for LibVlcBackend {
 
     fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
         self.send(Command::SetEqualizer(equalizer));
+    }
+
+    fn set_picture(&mut self, picture: Option<Picture>) {
+        self.send(Command::SetPicture(picture));
     }
 
     fn shut_down(mut self: Box<Self>) {

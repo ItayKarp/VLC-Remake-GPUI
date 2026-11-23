@@ -6,6 +6,7 @@ mod assets;
 mod cursor;
 mod db;
 mod diagnostics;
+mod effects;
 #[allow(dead_code, reason = "the S1.2 engine; the player screen (S2) is its first caller")]
 mod engine;
 mod history;

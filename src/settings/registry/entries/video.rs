@@ -15,9 +15,9 @@ const OUTPUT: (Category, &str) = (Category::Video, "Output");
 const PICTURE: (Category, &str) = (Category::Video, "Picture");
 const DEINTERLACING: (Category, &str) = (Category::Video, "Deinterlacing");
 const FRAMING: (Category, &str) = (Category::Video, "Framing");
-/// Why picture changes wait for the next file: they are libVLC filter options.
-const PICTURE_INFO: &str = "Applies to the next file you open; the video panel changes the \
-                            playing one.";
+/// What the picture rows change, and how they relate to the player's panel (D24).
+const PICTURE_INFO: &str = "Seen at once, and kept for every video. The player's settings panel \
+                            can change it for the rest of the session.";
 
 impl SettingChoice for Deinterlace {
     const VALUES: &'static [Self] = &[Self::Automatic, Self::On, Self::Off];
@@ -117,9 +117,22 @@ fn degrees(value: f64) -> String {
     format!("{value:.0}°")
 }
 
-/// Puts every picture setting back.
+/// Puts every picture value back, leaving "Adjust the picture" as it is.
 fn reset_picture(_: &mut gpui::Window, cx: &mut gpui::App) {
-    settings::update(cx, |settings| settings.prefs.video.picture = PictureSettings::default());
+    settings::update(cx, |settings| {
+        let picture = &mut settings.prefs.video.picture;
+        *picture = PictureSettings { enabled: picture.enabled, ..PictureSettings::default() };
+    });
+}
+
+/// Says when the player's panel has changed the picture for this session, so this page's values
+/// aren't what plays (D24).
+fn picture_overridden(cx: &gpui::App) -> Option<String> {
+    crate::effects::any_changed(cx, &crate::effects::VIDEO_ESSENTIAL).then(|| {
+        "The player's settings panel changed these for this session; its Save as Default \
+         writes them here."
+            .to_owned()
+    })
 }
 
 /// A picture row: `slider` over `range` (minimum, maximum, step).
@@ -132,7 +145,7 @@ const fn picture_row(
     SettingDef::new(key, PICTURE, label, slider.0, slider.1)
         .info(PICTURE_INFO)
         .range(range.0, range.1, range.2)
-        .applies(ApplyMode::NextMedia)
+        .depends_on("video.picture.enabled", Condition::IsOn)
         .keywords(&["color", "adjust", "image", "filter"])
 }
 
@@ -172,6 +185,16 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          window that shows.",
     )
     .keywords(&["sleep", "display", "power", "idle", "inhibit"]),
+    SettingDef::new(
+        "video.picture.enabled",
+        PICTURE,
+        "Adjust the picture",
+        Control::Toggle,
+        toggle!(prefs.video.picture.enabled),
+    )
+    .info(PICTURE_INFO)
+    .hint(picture_overridden)
+    .keywords(&["color", "adjust", "image", "filter", "essential"]),
     picture_row(
         "video.picture.hue",
         "Hue",

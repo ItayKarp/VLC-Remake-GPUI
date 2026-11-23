@@ -173,6 +173,9 @@ pub struct LocalState {
     /// `navigation::view` writes them; the others show as lists.
     #[serde(deserialize_with = "lenient")]
     pub library_grid: Vec<String>,
+    /// The player panel's effect sections left expanded (S7.1.2), by their ids.
+    #[serde(deserialize_with = "lenient")]
+    pub expanded_effects: Vec<String>,
     /// How each library place sorts when it isn't its default (S4.7.2): the sort's name by the
     /// place's route, as `navigation::sort` writes them. Local: routes name folders.
     #[serde(deserialize_with = "lenient")]

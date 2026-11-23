@@ -1,5 +1,5 @@
 //! Player audio tests (S1.5): the volume range, mute, hot-plug fallback and pausing for
-//! another app's audio.
+//! another app's audio; and the live effects beside them, the picture's adjustments (S7.1).
 
 use gpui::TestAppContext;
 
@@ -113,4 +113,18 @@ fn the_policy_can_keep_playing(cx: &mut TestAppContext) {
     assert_eq!(rig.state(cx), PlaybackState::Playing);
     assert_eq!(rig.count(&PlayerEvent::AudioDeviceLost(device("1"))), 1);
     assert_eq!(rig.player.read_with(cx, |player, _| player.duration()), Some(secs(60)));
+}
+
+#[gpui::test]
+fn only_a_changed_picture_reaches_the_backend(cx: &mut TestAppContext) {
+    use crate::engine::media_options::Picture;
+
+    let rig = Rig::new(cx, MockMedia::default());
+    rig.mock.take_commands();
+    let bright = Some(Picture { brightness: 1.5, ..Picture::NEUTRAL });
+    rig.run(cx, |player, _| player.set_picture(bright));
+    rig.run(cx, |player, _| player.set_picture(bright));
+    rig.run(cx, |player, _| player.set_picture(None));
+    assert_eq!(rig.mock.take_commands(), [Command::SetPicture(bright), Command::SetPicture(None)]);
+    assert_eq!(rig.player.read_with(cx, |player, _| player.picture()), None);
 }

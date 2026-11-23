@@ -69,6 +69,7 @@ impl MainWindow {
         self.player = Some((player.clone(), events));
         self.set_up_audio(&player, cx);
         self.set_up_tracks(&player, cx);
+        self.set_up_picture(&player, cx);
         player
     }
 

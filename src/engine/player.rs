@@ -4,6 +4,7 @@
 mod audio;
 mod commands;
 mod drawn;
+mod picture;
 mod receive;
 mod subtitle_files;
 mod sync;
@@ -25,7 +26,7 @@ use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::media_info::{Chapter, Metadata, VideoSize};
-use super::media_options::MediaOptions;
+use super::media_options::{MediaOptions, Picture};
 use super::position::PositionTracker;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
@@ -132,6 +133,8 @@ pub struct Player {
     track_choices: TrackChoices,
     /// The options media opens with, as last given to the backend.
     media_options: MediaOptions,
+    /// The picture's adjustments, as last given to the backend; `None` while off.
+    picture: Option<Picture>,
     position: PositionTracker,
     seeks: SeekQueue,
     steps: FrameSteps,
@@ -166,6 +169,7 @@ impl Player {
             audio: AudioState::default(),
             track_choices: TrackChoices::default(),
             media_options: MediaOptions::default(),
+            picture: None,
             position: PositionTracker::default(),
             seeks: SeekQueue::default(),
             steps: FrameSteps::default(),

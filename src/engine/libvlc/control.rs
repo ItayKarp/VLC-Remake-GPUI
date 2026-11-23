@@ -69,6 +69,7 @@ impl Worker {
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
                 Command::SetMediaOptions(options) => self.media_options = options,
                 Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
+                Command::SetPicture(picture) => self.set_picture(picture),
             }
         }
     }

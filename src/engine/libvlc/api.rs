@@ -243,6 +243,8 @@ libvlc_api! {
     libvlc_audio_equalizer_get_amp_at_index: fn(*mut AudioEqualizer, c_uint) -> c_float;
     libvlc_audio_equalizer_get_preset_count: fn() -> c_uint;
     libvlc_media_player_set_equalizer: fn(Player, *mut AudioEqualizer) -> c_int;
+    libvlc_video_set_adjust_int: fn(Player, c_uint, c_int);
+    libvlc_video_set_adjust_float: fn(Player, c_uint, c_float);
     libvlc_video_set_callbacks: fn(
         Player,
         LockCallback,

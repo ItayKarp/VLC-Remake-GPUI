@@ -8,12 +8,13 @@
 //! The sync belongs to the subtitle showing (D24), and is remembered for it in this video
 //! (S6.3.4). With no subtitle showing the rows are disabled. Speed and duration factor only
 //! reach subtitles the app draws (S6.2), so they're disabled, with a note, while libVLC draws
-//! the one showing (pictures, styled ASS/SSA). The designed Appearance rows wait for the panels'
-//! session values (S7.1).
+//! the one showing (pictures, styled ASS/SSA). The designed Appearance rows are still to come:
+//! the session values they need exist now (S7.1, `effects`).
 
-use gpui::{Context, Div, Entity, SharedString, Subscription, Window, div, prelude::*, px};
+use gpui::{Context, Div, Entity, Subscription, Window, div, prelude::*, px};
 
 use super::number_row::{Changed, NumberRow, Spec};
+use super::section;
 use super::subtitle_defaults::DefaultsRows;
 use super::sync_rules;
 use crate::engine::subtitle_sync::{
@@ -36,11 +37,6 @@ const SPEED_STEP: f64 = 0.001;
 const DURATION_STEP: f64 = 0.05;
 /// Milliseconds in a second.
 const MS_PER_SECOND: f64 = 1_000.;
-/// The sections' padding, heading size, and the note's size and space.
-const PADDING: f32 = 20.;
-const HEADING_TEXT: f32 = 16.;
-const NOTE_TEXT: f32 = 12.;
-const NOTE_GAP: f32 = 4.;
 /// The Defaults rows' height, text size and control width.
 const ROW_HEIGHT: f32 = 52.;
 const ROW_TEXT: f32 = 14.;
@@ -237,14 +233,6 @@ fn duration_spec() -> Spec {
         format: sync_rules::duration_text,
         parse: sync_rules::parse_duration,
     }
-}
-
-/// A section: its heading, the line saying what its rows change, then the rows added to it.
-fn section(heading: &'static str, note: impl Into<SharedString>, p: &Palette) -> Div {
-    let title = div().text_size(px(HEADING_TEXT)).text_color(p.text).child(heading);
-    let note =
-        div().pt(px(NOTE_GAP)).text_size(px(NOTE_TEXT)).text_color(p.text_muted).child(note.into());
-    div().flex().flex_col().p(px(PADDING)).child(title).child(note)
 }
 
 /// A Defaults row: the label, and `control` in the right-hand column.

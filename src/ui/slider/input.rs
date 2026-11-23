@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use gpui::{Context, KeyDownEvent, Keystroke, MouseDownEvent, Pixels, Point, Window, px};
 
-use super::{Changed, Interaction, KEY_REPEAT_INTERVAL, Orientation, Slider, Throttle};
+use super::{Changed, Interaction, KEY_REPEAT_INTERVAL, Orientation, Reset, Slider, Throttle};
 
 impl Slider {
     /// The track position under `position`, 0.0 to 1.0 (unclamped), once laid out.
@@ -34,6 +34,7 @@ impl Slider {
             let default = self.model.default;
             self.set_from_user(default, cx);
             self.sync_field(window, cx);
+            cx.emit(Reset);
             return;
         }
         self.interaction = Interaction::Dragging;

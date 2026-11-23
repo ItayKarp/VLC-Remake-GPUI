@@ -1560,15 +1560,15 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 **Depends on:** S2.7, S5.1, S5.11  **Size:** M
 
 **Subtasks**
-- [ ] S7.1.1 An effect state model: `session` (the current media) → `defaults` (the Settings pages) → `preset` (S5.11) → optionally `per-file` overrides. Decide (D13) which layers ship in v1. Recommendation: session plus defaults plus presets; per-file only for subtitle and audio delay. How session and defaults relate is decided in S5.8.4 (D24).
-- [ ] S7.1.2 Collapsible sections: "Expand Settings ›" and "Collapse Settings ⌄", with the expanded state remembered per section.
-- [ ] S7.1.3 **No section in the design has an on/off switch or a name in its collapsed state** (they all just say "Expand Settings"). Add a section title and an enable toggle to each header, otherwise users can't tell what is active. Needs design.
-- [ ] S7.1.4 Per-control reset (double-click the slider) and a "Reset section" action.
-- [ ] S7.1.5 Panel footer: the **Default Preset** dropdown (which opens upward) and **Open Advanced Settings** (opens the matching Settings category), plus **Save as Default**, which writes the tab's session values into its Settings page (S5.8.4, D24; not in the design, so design it).
-- [ ] S7.1.6 Apply changes live with throttling (about 30 Hz while dragging) to avoid pops and clicks in the audio and stutter in the video.
+- [x] S7.1.1 An effect state model: `session` (the current media) → `defaults` (the Settings pages) → `preset` (S5.11) → optionally `per-file` overrides. Decide (D13) which layers ship in v1. Recommendation: session plus defaults plus presets; per-file only for subtitle and audio delay. How session and defaults relate is decided in S5.8.4 (D24). *(Decided (D13) as recommended: `effects.rs` holds the session, the panel's values by registry key, written over the settings in effect (defaults through the preset in use) through the registry's bindings; a held value wins over a default changed in Settings until it is reset or saved, and lasts until VLC quits. Per-file values stay the delays', kept with the history (S6.3.4). The first effect is the picture (Hue, Brightness, Contrast, Saturation, Gamma), now applied live through `libvlc_video_set_adjust_*` instead of per-media options, kept for later media; Settings → Video gains **Adjust the picture** (off by default, as VLC), the sliders depending on it, applying at once, with a hint while the panel overrides them. An ignored smoke test checks the picture changes live and on the next media's new video output.)*
+- [x] S7.1.2 Collapsible sections: "Expand Settings ›" and "Collapse Settings ⌄", with the expanded state remembered per section. *(`settings_panel/effect_section.rs`: a well folded, a bordered box open; Enter/Space toggle it; remembered across launches in `local.expanded_effects`.)*
+- [x] S7.1.3 **No section in the design has an on/off switch or a name in its collapsed state** (they all just say "Expand Settings"). Add a section title and an enable toggle to each header, otherwise users can't tell what is active. Needs design. *(D23: a row over the box with the title, Reset and the toggle; moving a control of a section that is off turns it on. Design sign-off pending.)*
+- [x] S7.1.4 Per-control reset (double-click the slider) and a "Reset section" action. *(A double-click puts a slider back on its Settings default and lets it follow Settings again (the kit slider's new `Reset` event); the title row's Reset does the whole section, dimmed while nothing differs.)*
+- [x] S7.1.5 Panel footer: the **Default Preset** dropdown (which opens upward) and **Open Advanced Settings** (opens the matching Settings category), plus **Save as Default**, which writes the tab's session values into its Settings page (S5.8.4, D24; not in the design, so design it). *(Save as Default sits between the two on tabs with effect sections, dimmed while the panel changed nothing there; it writes through `settings::update`, so to the preset in use.)*
+- [x] S7.1.6 Apply changes live with throttling (about 30 Hz while dragging) to avoid pops and clicks in the audio and stutter in the video. *(`main_window/picture.rs` paces the player at 33 ms with the slider's `Throttle`, now generic, the last value always sent.)*
 
 **Edge cases**
-- Effects that the backend can only apply by restarting the video output (some video filters in libVLC 3): apply on release instead of while dragging, and show a brief re-init.
+- Effects that the backend can only apply by restarting the video output (some video filters in libVLC 3): apply on release instead of while dragging, and show a brief re-init. *(The picture needs none: only turning the filter on or off rebuilds the chain, on a toggle, not a drag. Later filters that do (S7.3–S7.4) will need it.)*
 - An effect isn't available in this build or on this platform (a missing plugin): hide or disable it with a reason.
 - Turning on a filter that's too heavy for the CPU (an 8K source): monitor dropped frames and offer to turn the filter off.
 - Effects plus hardware decoding: some filters force a copy back from the GPU, which costs performance. Warn in the Performance settings.
@@ -2157,7 +2157,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D10 | Sort persistence (per folder or per section) and which sorts each view offers | S4.7 | Per folder; hide sorts that don't apply |
 | D11 | Where media folders are managed in Settings (not designed) | S5.9.3 | **Built as recommended (S5.9.3):** a "Media Folders" list at the top of Library settings; design sign-off pending |
 | D12 | Profiles versus setting presets | S5.11, S8.8 | A profile = layout + preset; one system |
-| D13 | Effect persistence layers | S7.1 | Session + defaults + presets; per-file only for delays |
+| D13 | Effect persistence layers | S7.1 | **Decided (S7.1):** session + defaults + presets; per-file only for delays |
 | D14 | When the waveform seek bar appears | S7.8.3 | Audio media in music mode; optional for video |
 | D15 | What triggers music mode | S8.1 | Media type (audio-only); profiles may override |
 | D16 | Subtitles added via the dialog: link in the DB or copy next to the media | S6.4.6 | **Decided (S6.4):** link in `library.db` by default; "Copy next to video" copies it as `<video>.<lang>.<ext>` and links the copy |
@@ -2167,7 +2167,7 @@ Each decision blocks the stories listed with it. The "Recommendation" column is 
 | D20 | Product name and logo (VideoLAN trademarks) | S9.9.1 — **before any public build** | Get permission, or rebrand |
 | D21 | Restoring volume above 100% at launch | S1.5.2 | Cap the restored value at 100% |
 | D22 | How the Video tab of the track popover is opened | S2.6.1 | **Decided (S2.6):** reachable inside the popover; shown only with 2+ video tracks |
-| D23 | Effect sections have no title or enable toggle in the design | S7.1.3 | Add a title and toggle to each section header |
+| D23 | Effect sections have no title or enable toggle in the design | S7.1.3 | **Built as recommended (S7.1.3):** a title, Reset and toggle over each section; design sign-off pending |
 | D24 | How the Video, Audio and Subtitles Settings pages relate to the in-player panels | S5.8.4 | **Decided (S5.8.4):** pages are defaults, panels change the session until quit and win over a default changed meanwhile; Save as Default writes back |
 | D25 | Who draws subtitles: libVLC 3 blends them into the frame with a style read at launch, so it can't restyle live, use the black bars or move above the control bar | S6.2 | **Decided (S6.2):** the app draws the text subtitle files it can read (SRT, WebVTT, ASS/SSA with Embedded Sub Format off, MicroDVD with its frame rate) with GPUI; libVLC keeps picture subtitles, styled ASS/SSA with Embedded Sub Format on, the rarer text formats and subtitles inside the video, until libVLC 4 |
 

@@ -62,6 +62,10 @@ impl Default for VideoSettings {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PictureSettings {
+    /// "Adjust the picture": off, the values below are kept but the picture shows as the media
+    /// has it. Off by default, as in VLC.
+    #[serde(deserialize_with = "lenient")]
+    pub enabled: bool,
     /// "Hue", −180 to 180 degrees.
     #[serde(deserialize_with = "lenient")]
     pub hue: f32,
@@ -79,22 +83,33 @@ pub struct PictureSettings {
     pub gamma: f32,
 }
 
+impl PictureSettings {
+    /// The adjustments to show the picture with: `None` while off, or while they change nothing.
+    pub fn applied(&self) -> Option<Picture> {
+        let PictureSettings { enabled, hue, brightness, contrast, saturation, gamma } = *self;
+        let picture = Picture { hue, brightness, contrast, saturation, gamma };
+        (enabled && !picture.is_neutral()).then_some(picture)
+    }
+}
+
 impl Default for PictureSettings {
     fn default() -> Self {
-        Self::from(Picture::NEUTRAL)
+        let Picture { hue, brightness, contrast, saturation, gamma } = Picture::NEUTRAL;
+        Self { enabled: false, hue, brightness, contrast, saturation, gamma }
     }
 }
 
-impl From<Picture> for PictureSettings {
-    fn from(picture: Picture) -> Self {
-        let Picture { hue, brightness, contrast, saturation, gamma } = picture;
-        Self { hue, brightness, contrast, saturation, gamma }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl From<PictureSettings> for Picture {
-    fn from(picture: PictureSettings) -> Self {
-        let PictureSettings { hue, brightness, contrast, saturation, gamma } = picture;
-        Self { hue, brightness, contrast, saturation, gamma }
+    #[test]
+    fn the_picture_applies_only_while_on_and_changed() {
+        let mut picture = PictureSettings { brightness: 1.5, ..PictureSettings::default() };
+        assert_eq!(picture.applied(), None, "off by default");
+        picture.enabled = true;
+        assert_eq!(picture.applied(), Some(Picture { brightness: 1.5, ..Picture::NEUTRAL }));
+        let neutral = PictureSettings { enabled: true, ..PictureSettings::default() };
+        assert_eq!(neutral.applied(), None, "no filter for a picture it wouldn't change");
     }
 }

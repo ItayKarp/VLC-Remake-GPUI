@@ -59,6 +59,11 @@ enum Tone {
 /// The value changed.
 pub struct Changed(pub f64);
 
+/// The user double-clicked the slider to put it back on its default; sent after the
+/// [`Changed`] that moved it there, if it moved. The owner may take it as "follow the default
+/// again" (an effect's per-control reset, S7.1.4).
+pub struct Reset;
+
 /// What the pointer and keys can do with the slider.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Interaction {
@@ -95,6 +100,7 @@ pub struct Slider {
 }
 
 impl EventEmitter<Changed> for Slider {}
+impl EventEmitter<Reset> for Slider {}
 
 impl Focusable for Slider {
     fn focus_handle(&self, _: &App) -> FocusHandle {
@@ -190,6 +196,11 @@ impl Slider {
             self.sync_field(window, cx);
             cx.notify();
         }
+    }
+
+    /// Makes `default` the value a double-click goes back to (clamped to the range).
+    pub fn set_default(&mut self, default: f64) {
+        self.model.default = default.clamp(self.model.min, self.model.max);
     }
 
     /// Enables or disables the slider (and its field); a disabled slider is faded and takes no

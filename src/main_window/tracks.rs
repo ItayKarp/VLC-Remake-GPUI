@@ -19,6 +19,8 @@ use crate::settings::{self, Settings, SettingsStore};
 pub(super) struct TrackWatch {
     /// Re-applies the track and media settings to the player when they change.
     settings: Option<Subscription>,
+    /// Gives the player the picture's adjustments, once a media option, live now (S7.1).
+    pub(super) picture: super::picture::PictureWatch,
 }
 
 impl MainWindow {
@@ -83,7 +85,6 @@ fn media_options(settings: &Settings) -> MediaOptions {
         precise_seeks: player.seek_precisely,
         video: video.enabled,
         audio: settings.prefs.audio.enabled,
-        picture: video.picture.into(),
         deinterlace: Deinterlacing { mode: video.deinterlace, method: video.deinterlace_method },
         subtitles: super::subtitle_style::loading(&settings.prefs.subtitles),
     }

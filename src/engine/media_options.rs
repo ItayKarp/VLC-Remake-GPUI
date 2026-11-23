@@ -1,7 +1,6 @@
 //! How new media opens, beyond where it starts: the stream quality adaptive streams pick, the
 //! language disc menus show in and how precisely seeks land (Settings → Playback, S5.7), and
-//! whether video is decoded, its picture adjustments and its deinterlacing (Settings → Video,
-//! S5.8.1), whether audio is (Settings → Audio, S5.8.2), and which subtitle files load and how
+//! whether video is decoded and its deinterlacing (Settings → Video, S5.8.1), whether audio is (Settings → Audio, S5.8.2), and which subtitle files load and how
 //! they are read (Settings → Subtitles, S5.8.3).
 
 use serde::{Deserialize, Serialize};
@@ -26,8 +25,6 @@ pub struct MediaOptions {
     pub video: bool,
     /// Whether audio tracks are decoded at all; off plays the picture silently.
     pub audio: bool,
-    /// The picture's hue, brightness, contrast, saturation and gamma.
-    pub picture: Picture,
     /// Whether interlaced video is deinterlaced, and how.
     pub deinterlace: Deinterlacing,
     /// Which subtitle files load with the media, and how they are read.
@@ -42,7 +39,6 @@ impl Default for MediaOptions {
             precise_seeks: true,
             video: true,
             audio: true,
-            picture: Picture::default(),
             deinterlace: Deinterlacing::default(),
             subtitles: SubtitleLoading {
                 files: Some(FileMatching::default()),
@@ -52,7 +48,8 @@ impl Default for MediaOptions {
     }
 }
 
-/// libVLC's `adjust` filter's settings, in its own units.
+/// libVLC's `adjust` filter's settings, in its own units. Unlike the options above, the player
+/// applies them live (S7.1), to the media playing and the media after it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Picture {
     /// Degrees, −180 to 180; 0 leaves colors as they are.

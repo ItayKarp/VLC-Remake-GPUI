@@ -44,6 +44,7 @@ use self::controls::RowState;
 use self::row::RowLabel;
 use self::widgets::Widgets;
 use crate::app::audio_devices::AudioDevices;
+use crate::effects::EffectSession;
 use crate::settings::registry::{self, ApplyMode, Category, SettingDef, Value};
 use crate::settings::{self, Settings, SettingsStore};
 use crate::theme::{self, Palette};
@@ -64,6 +65,8 @@ pub struct SettingsPage {
     edited: HashSet<&'static str>,
     _settings: Subscription,
     _devices: Subscription,
+    /// Redraws the hints that tell of the player panel's session values (S7.1).
+    _effects: Subscription,
 }
 
 impl SettingsPage {
@@ -78,6 +81,7 @@ impl SettingsPage {
         let devices = cx.observe_global_in::<AudioDevices>(window, |this, window, cx| {
             this.sync_widgets(window, cx);
         });
+        let effects = cx.observe_global::<EffectSession>(|_, cx| cx.notify());
         let defs: Vec<_> = registry::in_category(category).collect();
         let widgets = Widgets::new(&defs, window, cx);
         let page = Self {
@@ -88,6 +92,7 @@ impl SettingsPage {
             edited: HashSet::new(),
             _settings: settings,
             _devices: devices,
+            _effects: effects,
         };
         page.widgets.sync(&defs, window, cx);
         page

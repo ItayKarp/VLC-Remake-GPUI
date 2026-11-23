@@ -1,12 +1,13 @@
 //! [`MediaOptions`] as libVLC's per-media input options: `preferred-resolution` for adaptive
 //! streams, `menu-language` for DVD and Blu-ray menus, `input-fast-seek` for keyframe seeks,
-//! `no-video` for sound only, `no-audio` for a silent picture, the `adjust` filter for the picture, and `deinterlace` with
-//! `deinterlace-mode`, and the subtitle files and encoding (`subtitle_style.rs`). Options left at libVLC's own default (best quality, the disc's language,
-//! precise seeks, video on, an unchanged picture, automatic deinterlacing) are not added.
+//! `no-video` for sound only, `no-audio` for a silent picture, `deinterlace` with
+//! `deinterlace-mode`, and the subtitle files and encoding (`subtitle_style.rs`). Options left at
+//! libVLC's own default (best quality, the disc's language, precise seeks, video on, automatic
+//! deinterlacing) are not added. The picture's adjustments are live instead (`picture.rs`).
 
 use super::api::Media;
 use super::worker::Worker;
-use crate::engine::media_options::{Deinterlace, DeinterlaceMethod, MediaOptions, Picture};
+use crate::engine::media_options::{Deinterlace, DeinterlaceMethod, MediaOptions};
 
 impl Worker {
     /// Adds the media options the UI set to `media`, which is live and not yet playing.
@@ -35,25 +36,9 @@ fn libvlc_options(options: &MediaOptions) -> Vec<String> {
     if !options.audio {
         added.push(":no-audio".to_owned());
     }
-    added.extend(picture_options(&options.picture));
     added.extend(deinterlace_options(options.deinterlace.mode, options.deinterlace.method));
     added.extend(super::subtitle_style::media_options(&options.subtitles));
     added
-}
-
-/// The `adjust` filter set to `picture`, unless it changes nothing.
-fn picture_options(picture: &Picture) -> Vec<String> {
-    if picture.is_neutral() {
-        return Vec::new();
-    }
-    vec![
-        ":video-filter=adjust".to_owned(),
-        format!(":hue={}", picture.hue),
-        format!(":brightness={}", picture.brightness),
-        format!(":contrast={}", picture.contrast),
-        format!(":saturation={}", picture.saturation),
-        format!(":gamma={}", picture.gamma),
-    ]
 }
 
 /// `deinterlace` (libVLC: -1 automatic, 0 off, 1 on) and its method, where not the default.
@@ -99,23 +84,6 @@ mod tests {
     fn video_off_decodes_none() {
         let options = MediaOptions { video: false, ..MediaOptions::default() };
         assert_eq!(libvlc_options(&options), [":no-video"]);
-    }
-
-    #[test]
-    fn a_changed_picture_adds_the_adjust_filter_with_every_value() {
-        let picture = Picture { hue: -30., saturation: 0., ..Picture::NEUTRAL };
-        let options = MediaOptions { picture, ..MediaOptions::default() };
-        assert_eq!(
-            libvlc_options(&options),
-            [
-                ":video-filter=adjust",
-                ":hue=-30",
-                ":brightness=1",
-                ":contrast=1",
-                ":saturation=0",
-                ":gamma=1",
-            ]
-        );
     }
 
     #[test]

@@ -14,7 +14,7 @@ use std::time::Duration;
 use super::audio::equalizer::Equalizer;
 use super::audio::{OutputDevice, SpeakerSetup};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
-use super::media_options::MediaOptions;
+use super::media_options::{MediaOptions, Picture};
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -242,6 +242,10 @@ impl Backend for MockBackend {
 
     fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
         self.record(Command::SetEqualizer(equalizer));
+    }
+
+    fn set_picture(&mut self, picture: Option<Picture>) {
+        self.record(Command::SetPicture(picture));
     }
 
     fn shut_down(self: Box<Self>) {

@@ -14,7 +14,7 @@ use futures::channel::mpsc;
 use super::audio::equalizer::Equalizer;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
 use super::media_info::{Chapter, Metadata, VideoSize};
-use super::media_options::MediaOptions;
+use super::media_options::{MediaOptions, Picture};
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -139,6 +139,8 @@ pub enum Command {
     SetMediaOptions(MediaOptions),
     /// Play through this equalizer, or none.
     SetEqualizer(Option<Equalizer>),
+    /// Adjust the picture this way, or show it as the media has it.
+    SetPicture(Option<Picture>),
 }
 
 /// A playback backend.
@@ -200,6 +202,9 @@ pub trait Backend: Send {
     fn set_media_options(&mut self, options: &MediaOptions);
     /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.
     fn set_equalizer(&mut self, equalizer: Option<Equalizer>);
+    /// Adjusts the picture's hue, brightness, contrast, saturation and gamma from now on, for
+    /// this and later media; `None` shows it as the media has it. Seen at once.
+    fn set_picture(&mut self, picture: Option<Picture>);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

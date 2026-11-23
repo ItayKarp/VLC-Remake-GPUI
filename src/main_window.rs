@@ -36,6 +36,7 @@ mod now_playing;
 mod now_playing_notice;
 mod opening;
 mod osd;
+mod picture;
 mod play_order;
 mod player_keys;
 mod properties;
@@ -108,7 +109,7 @@ pub struct MainWindow {
     video: Option<Entity<VideoView>>,
     /// The audio settings subscription and what was said about devices (S1.5).
     audio: audio::AudioWatch,
-    /// The track settings subscription and the last track toast (S1.6).
+    /// The track and media settings subscription (S1.6), and the picture's adjustments (S7.1).
     tracks: tracks::TrackWatch,
     /// Audio files waiting for their media to open (S4.8.1).
     audio_tracks: audio_tracks::PendingAudio,
