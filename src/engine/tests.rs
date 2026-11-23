@@ -5,6 +5,7 @@ mod audio;
 mod audio_channels;
 mod drawn;
 mod linked;
+mod recording;
 mod sync;
 mod tracks;
 

@@ -253,8 +253,10 @@ impl MainWindow {
         if chrome.layout == Layout::Fullscreen {
             return;
         }
-        let around =
-            Surround { chrome: super::viewport::surround(chrome), min: app::MAIN_MIN_SIZE };
+        let around = Surround {
+            chrome: super::viewport::surround(chrome, self.control_bar_height()),
+            min: app::MAIN_MIN_SIZE,
+        };
         self.windowing.prefs.fit_video(window, video, around, cx);
     }
 }

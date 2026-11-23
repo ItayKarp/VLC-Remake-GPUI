@@ -2,23 +2,43 @@
 //! command's name and shortcut from the keymap. Commands whose stories haven't shipped are left
 //! out (S2.9.4); one nothing can run right now is greyed out and says why on hover.
 
-use gpui::{Action, App, Context, Div, WeakEntity, Window, prelude::*};
+use gpui::{Action, AnyElement, App, Context, DismissEvent, Div, WeakEntity, Window, prelude::*};
 
 use super::MainWindow;
 use crate::app::request::OpenRequest;
 use crate::keymap;
-use crate::keymap::actions::{About, FromMenuBar};
+use crate::keymap::actions::{About, CustomizePlayer, FromMenuBar};
 use crate::keymap::commands;
 use crate::keymap::menus::{self, MAIN_MENU, MainMenuEntry};
 use crate::opening::recent;
-use crate::ui::menu::MenuItem;
+use crate::ui::menu::{ContextMenu, MenuItem};
 
 impl MainWindow {
-    /// Adds the handlers for Keyboard Shortcuts, About VLC and the macOS menu bar's player
-    /// commands.
+    /// Opens the `…` menu below its button, or closes it.
+    pub(super) fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.take().is_some() {
+            cx.notify();
+            return;
+        }
+        self.close_popovers(window, cx);
+        let items = items(&cx.entity().downgrade(), window, cx);
+        let menu = ContextMenu::build(items, window, cx);
+        let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
+            this.menu = None;
+            cx.notify();
+        });
+        self.menu = Some((menu, subscription));
+        cx.notify();
+    }
+
+    /// Adds the handlers for Keyboard Shortcuts, About VLC, Customize Player and the macOS menu
+    /// bar's player commands.
     pub(super) fn menu_actions(root: Div, cx: &mut Context<Self>) -> Div {
         Self::shortcuts_dialog_action(root, cx)
             .on_action(cx.listener(|this, _: &About, window, cx| this.show_about(window, cx)))
+            .on_action(cx.listener(|this, _: &CustomizePlayer, window, cx| {
+                this.customize_player(window, cx);
+            }))
             .on_action(cx.listener(Self::run_from_menu_bar))
     }
 
@@ -32,6 +52,20 @@ impl MainWindow {
         if let Some(command) = commands::by_label(chosen.command) {
             self.perform(command.action, window, cx);
         }
+    }
+}
+
+impl MainWindow {
+    /// The menus that are open: `…`, the bar's overflow, the queue's sort, the video's and the
+    /// library sidebar's.
+    pub(super) fn render_menus(&self) -> impl Iterator<Item = AnyElement> {
+        let menus = [
+            self.render_menu(),
+            self.render_overflow_menu(),
+            self.render_sort_menu(),
+            self.render_video_menu(),
+        ];
+        menus.into_iter().flatten().chain(self.render_library_menus())
     }
 }
 
@@ -50,6 +84,7 @@ fn item(
         MainMenuEntry::Command { action, .. } if menus::is_pending(*action) => None,
         MainMenuEntry::Command { action, icon } => Some(command(*action, icon, window, cx)),
         MainMenuEntry::Recent { icon } => Some(recent_menu(main, cx).icon(icon)),
+        MainMenuEntry::Profile { icon } => Some(super::profiles::profile_menu(main, cx).icon(icon)),
     }
 }
 

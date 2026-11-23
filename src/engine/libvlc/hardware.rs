@@ -49,6 +49,7 @@ pub fn media_key(source: &Source) -> String {
     match source {
         Source::File(path) => path.to_string_lossy().into_owned(),
         Source::Url(url) => url.clone(),
+        Source::Device(device) => device.to_stored(),
     }
 }
 

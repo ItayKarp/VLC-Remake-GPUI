@@ -5,8 +5,10 @@ mod audio;
 mod audio_delay;
 mod commands;
 mod drawn;
+mod navigation;
 mod picture;
 mod receive;
+mod recording;
 mod subtitle_files;
 mod sync;
 mod test_tone;
@@ -23,6 +25,7 @@ pub use self::subtitle_files::Linked;
 pub use self::timeline::CueSpan;
 
 use self::audio::AudioState;
+use self::recording::RecordClock;
 use self::tracks::TrackChoices;
 use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
@@ -31,7 +34,9 @@ use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::{Programs, Titles};
 use super::position::PositionTracker;
+use super::recording::Recording;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
 use super::subtitle_sync::{SubtitleKey, SubtitleSync};
@@ -80,6 +85,15 @@ pub enum PlayerEvent {
     AudioDeviceLost(AudioDevice),
     /// A frame step finished; see [`Player::is_stepping`] for whether more are on the way.
     FrameStepped,
+    /// Recording started, stopped (its file finished) or was refused; see
+    /// [`Player::recorded`].
+    RecordingChanged(Recording),
+    /// A seek was refused, as libVLC can't seek while recording (S8.6).
+    SeekRefused,
+    /// The programs, or the one playing, changed; see [`Player::programs`].
+    ProgramsChanged,
+    /// The titles, or the one playing, changed; see [`Player::titles`].
+    TitlesChanged,
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -127,6 +141,10 @@ struct Info {
     hdr: HdrStatus,
     chapters: Vec<Chapter>,
     metadata: Metadata,
+    /// The stream's programs (S8.9.3).
+    programs: Programs,
+    /// The disc's titles (S8.9.1).
+    titles: Titles,
 }
 
 /// The playback engine as a GPUI entity. Commands are methods; changes arrive as
@@ -161,6 +179,8 @@ pub struct Player {
     file_styles: bool,
     /// The subtitle delay the backend was last given, which outlives the media (`sync.rs`).
     backend_subtitle_delay: Offset,
+    /// How long the running recording has recorded (S8.6); `None` while not recording.
+    recording: Option<RecordClock>,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -196,6 +216,7 @@ impl Player {
             subtitle_loads: None,
             file_styles: true,
             backend_subtitle_delay: Offset::default(),
+            recording: None,
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

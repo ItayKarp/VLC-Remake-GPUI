@@ -108,7 +108,7 @@ impl MainWindow {
     }
 
     /// Plays the current item from its start: a seek while it's loaded, else a fresh open.
-    fn restart(&self, cx: &mut Context<Self>) {
+    pub(super) fn restart(&self, cx: &mut Context<Self>) {
         let Some(player) = self.loaded_player(cx) else { return };
         player.update(cx, |player, cx| {
             if player.state().is_active() {

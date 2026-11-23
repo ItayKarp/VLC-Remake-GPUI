@@ -8,8 +8,10 @@
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
 //! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
 //! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
-//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4). Picture in
-//! Picture pops the player out into a small window above the others (S8.5).
+//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4), and Shift+R
+//! records what plays (S8.6). Picture in
+//! Picture pops the player out into a small window above the others (S8.5). The bars show what
+//! the player layout says, which Customize Player edits (S8.7).
 //! Onboarding hands off to it (S0.2).
 
 mod about;
@@ -20,7 +22,11 @@ mod audio_tracks;
 mod auto_hide;
 mod bar_panel;
 mod control_bar;
+mod customize;
+mod device_dialog;
+mod device_failure;
 mod diagnostics;
+mod disc_navigation;
 mod empty_state;
 mod flash;
 mod frame_step;
@@ -39,15 +45,20 @@ mod new_playlist;
 mod notice;
 mod now_playing;
 mod now_playing_notice;
+mod open_capture;
+mod open_disc;
 mod opening;
 mod osd;
 mod picture;
 mod pip;
 mod play_order;
 mod player_keys;
+mod playing_id;
+mod profiles;
 mod properties;
 mod queue_panel;
 mod queue_play;
+mod recording;
 mod saved_playlists;
 mod seek_bar;
 mod seeking;
@@ -72,8 +83,8 @@ mod volume_slider;
 mod wheel;
 
 use gpui::{
-    AnyElement, App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString,
-    Subscription, Window, div, prelude::*, px,
+    App, Context, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription, Window, div,
+    prelude::*, px,
 };
 
 use self::auto_hide::rules::Chrome;
@@ -145,6 +156,8 @@ pub struct MainWindow {
     volume_slider: volume_slider::VolumeSlider,
     /// The message over the video (S2.5.7, S2.10.2).
     osd: osd::Osd,
+    /// The recording being made (S8.6).
+    recording: recording::RecordingWatch,
     /// Whether frame steps are taking a while (S2.10.3).
     frame_step: frame_step::FrameStepWait,
     /// Clicks and sideways scrolling on the video (S2.10.1).
@@ -169,11 +182,18 @@ pub struct MainWindow {
     modals: Entity<ModalLayer>,
     /// Settings → Interface's Window section and notification for this window (S5.4).
     windowing: video_window::Windowing,
+    /// Customize Player, while it's open (S8.7).
+    customizing: Option<customize::Customizing>,
+    /// The playing file's row in the library, for the bar's Favorite and Thumbnail (S8.7.6).
+    playing_id: playing_id::PlayingId,
+    /// The profile media switched to by itself, and the one to go back to (S8.8.3).
+    auto_profile: profiles::AutoProfile,
 }
 
 impl MainWindow {
     /// Builds the window's view, opening `request` and showing any pending settings
     /// notices.
+    #[allow(clippy::too_many_lines, reason = "one struct literal, a line per field")]
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::follow_window(window, cx);
         let mut this = Self {
@@ -200,6 +220,7 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            recording: recording::RecordingWatch::default(),
             frame_step: frame_step::FrameStepWait::default(),
             video_mouse: video_mouse::VideoMouse::default(),
             track_popover: track_popover::TrackPopover::new(cx),
@@ -212,6 +233,9 @@ impl MainWindow {
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
             windowing: video_window::Windowing::default(),
+            customizing: None,
+            playing_id: playing_id::PlayingId::default(),
+            auto_profile: profiles::AutoProfile::default(),
         };
         this.start(request, window, cx);
         this
@@ -221,6 +245,7 @@ impl MainWindow {
     /// last session back, and opens `request`.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
+        self.control_bar.sync_layout(cx);
         self.plan_compact_start(cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
@@ -247,6 +272,7 @@ impl MainWindow {
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_global_in::<settings::SettingsStore>(window, |this, window, cx| {
             this.sync_video_window(window, cx);
+            this.control_bar.sync_layout(cx);
             cx.notify();
         })
         .detach();
@@ -263,22 +289,6 @@ impl MainWindow {
     /// Shows `toast` at the bottom right of the window.
     pub fn show_toast(&mut self, toast: Toast, cx: &mut Context<Self>) {
         self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
-    }
-
-    fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.menu.take().is_some() {
-            cx.notify();
-            return;
-        }
-        self.close_popovers(window, cx);
-        let items = main_menu::items(&cx.entity().downgrade(), window, cx);
-        let menu = ContextMenu::build(items, window, cx);
-        let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
-            this.menu = None;
-            cx.notify();
-        });
-        self.menu = Some((menu, subscription));
-        cx.notify();
     }
 
     /// Names the OS window (taskbar, Alt+Tab, Mission Control) like the title bar (S2.1.5).
@@ -300,7 +310,7 @@ impl MainWindow {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let (top, bottom) = viewport::content_insets(chrome);
+        let (top, bottom) = viewport::content_insets(chrome, self.control_bar_height());
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
             Some(video) => {
@@ -311,6 +321,7 @@ impl MainWindow {
                 }))
                 .child(self.video_area(shown, window, cx))
                 .children(self.render_osd(p, cx))
+                .children(self.render_recording_badge(p, cx))
             }
             None => area.child(
                 div()
@@ -323,26 +334,12 @@ impl MainWindow {
     }
 }
 
-impl MainWindow {
-    /// The menus that are open: `…`, the bar's overflow, the queue's sort, the video's and the
-    /// library sidebar's.
-    fn render_menus(&self) -> impl Iterator<Item = AnyElement> {
-        let menus = [
-            self.render_menu(),
-            self.render_overflow_menu(),
-            self.render_sort_menu(),
-            self.render_video_menu(),
-        ];
-        menus.into_iter().flatten().chain(self.render_library_menus())
-    }
-}
-
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
         self.windowing.prefs.sync(window, cx);
         self.release_previews(window);
-        self.sync_music_mode(window, cx);
+        self.sync_media(window, cx);
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
         self.fit_library(window, cx);
@@ -352,7 +349,7 @@ impl Render for MainWindow {
         let root = Self::player_keys(focus::tab_navigation(div()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
         let root = Self::menu_actions(Self::playlist_actions(root, cx), cx);
-        Self::open_actions(Self::network_actions(root, cx), cx)
+        Self::open_actions(Self::open_dialog_actions(root, cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))
@@ -372,6 +369,7 @@ impl Render for MainWindow {
             .children(self.render_library(&p, chrome, cx))
             .children(chrome.title_bar.then(|| self.render_title_bar(&p, window, cx)))
             .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
+            .children(self.render_customize_palette(chrome.title_bar, &p, cx))
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
             .children((!full).then(|| self.render_queue_panel(&p, window, cx)).flatten())

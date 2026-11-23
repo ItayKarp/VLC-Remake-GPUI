@@ -145,14 +145,20 @@ impl MainWindow {
         let body = Self::render_track_tab(kind, &snapshot, p, cx);
         let footer = footer(kind, bar_panel::width(window), cx);
         Some(
-            bar_panel::surface("track-popover", DESIGN_HEIGHT, window, p)
-                .track_focus(&self.track_popover.focus)
-                .key_context(focus::context(&["TrackPopover", focus::CONTROL]))
-                .on_key_down(cx.listener(Self::on_track_popover_key))
-                .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_tracks))
-                .child(Self::render_track_tabs(&tabs, kind, p, cx))
-                .child(body)
-                .child(footer),
+            bar_panel::surface(
+                "track-popover",
+                DESIGN_HEIGHT,
+                self.control_bar_height(),
+                window,
+                p,
+            )
+            .track_focus(&self.track_popover.focus)
+            .key_context(focus::context(&["TrackPopover", focus::CONTROL]))
+            .on_key_down(cx.listener(Self::on_track_popover_key))
+            .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_tracks))
+            .child(Self::render_track_tabs(&tabs, kind, p, cx))
+            .child(body)
+            .child(footer),
         )
     }
 

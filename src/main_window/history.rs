@@ -78,7 +78,11 @@ impl MainWindow {
     /// Records what the player does.
     pub(super) fn on_history_event(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
         match event {
-            PlayerEvent::StateChanged(PlaybackState::Opening) => self.begin_history(cx),
+            PlayerEvent::StateChanged(PlaybackState::Opening) => {
+                self.begin_history(cx);
+                // After the play is recorded, so a first play has its row.
+                self.look_up_playing_id(cx);
+            }
             PlayerEvent::StateChanged(PlaybackState::Playing) => self.count_play(),
             PlayerEvent::StateChanged(PlaybackState::Paused) => self.track_progress(true, cx),
             PlayerEvent::StateChanged(PlaybackState::Stopped | PlaybackState::Error(_)) => {

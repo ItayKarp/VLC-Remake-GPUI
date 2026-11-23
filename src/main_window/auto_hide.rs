@@ -24,7 +24,6 @@ use gpui::{
 };
 
 use self::rules::{Chrome, IdleTimer, PointerAnchor, Prefs, Situation, Tick};
-use super::control_bar::CONTROL_BAR_HEIGHT;
 use super::video_menu::VideoMenu;
 use super::viewport;
 use super::{MainWindow, TITLE_BAR_HEIGHT};
@@ -125,7 +124,8 @@ impl MainWindow {
     /// (S6.2.5).
     fn sync_video_cover(&self, chrome: Chrome, cx: &mut Context<Self>) {
         let here = self.showing_video(cx).is_some();
-        let (top, bottom) = if here { viewport::covered(chrome) } else { (0., 0.) };
+        let (top, bottom) =
+            if here { viewport::covered(chrome, self.control_bar_height()) } else { (0., 0.) };
         let covered = Covered { top: px(top), bottom: px(bottom) };
         if let Some(video) = &self.video {
             video.update(cx, |video, cx| video.set_covered(covered, cx));
@@ -268,7 +268,7 @@ impl MainWindow {
         let decorated = settings::get(cx).prefs.interface.show_window_decorations;
         let title = (!window.is_fullscreen() && decorated).then_some(TITLE_BAR_HEIGHT);
         let height = f32::from(window.viewport_size().height);
-        rules::over_bars(f32::from(pointer.y), height, CONTROL_BAR_HEIGHT, title)
+        rules::over_bars(f32::from(pointer.y), height, self.control_bar_height(), title)
     }
 
     pub(super) fn has_open_overlay(&self) -> bool {
@@ -280,6 +280,7 @@ impl MainWindow {
             || self.queue_panel.is_open()
             || self.control_bar.is_editing_time()
             || self.library_panel.has_open_menu()
+            || self.is_customizing()
     }
 
     /// Keyboard focus is on one of the window's controls (Tab reached it), not the player.

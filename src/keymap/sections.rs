@@ -43,6 +43,8 @@ pub const SECTIONS: &[Section] = &[
             &act::CycleRepeat,
             &act::ToggleShuffle,
             &act::NextProgram,
+            &act::DiscMenu,
+            &act::SelectInDiscMenu,
             &act::PreviousFrame,
             &act::NextFrame,
             &act::Faster,

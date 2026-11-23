@@ -157,6 +157,9 @@ pub const COMMANDS: &[Command] = &[
     held("Previous frame", keys(&[","]), &act::PreviousFrame),
     held("Next frame", keys(&["."]), &act::NextFrame),
     cmd("Next program / Service ID", Player, keys(&["x"]), &act::NextProgram),
+    // VLC's key for the DVD menu; in a menu the arrows move and Enter (or Space) chooses.
+    cmd("Disc menu", Player, keys(&["shift-m"]), &act::DiscMenu),
+    cmd("Choose in disc menu", Player, keys(&["enter"]), &act::SelectInDiscMenu),
     // VLC's keys (S2.7.3); a held key keeps changing the speed.
     held("Faster", keys(&["]"]), &act::Faster),
     held("Slower", keys(&["["]), &act::Slower),

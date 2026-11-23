@@ -3,9 +3,11 @@
 
 mod app;
 mod assets;
+mod capture;
 mod cursor;
 mod db;
 mod diagnostics;
+mod discs;
 mod effects;
 #[allow(dead_code, reason = "the S1.2 engine; the player screen (S2) is its first caller")]
 mod engine;
@@ -20,10 +22,12 @@ mod network;
 mod onboarding;
 mod opening;
 mod pip_window;
+mod player_layout;
 mod playlists;
 mod power;
 mod privacy;
 mod queue;
+mod recording;
 #[cfg(test)]
 mod screenshot_test;
 mod session;

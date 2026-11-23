@@ -30,6 +30,8 @@ opaque! {
     EventManager;
     /// `libvlc_equalizer_t`.
     AudioEqualizer;
+    /// `libvlc_media_list_t`.
+    MediaList;
 }
 
 /// `libvlc_event_t`: the event type, its sender, and a union of per-type payloads.
@@ -146,6 +148,16 @@ pub struct ChapterDescription {
     pub name: *mut c_char,
 }
 
+/// `libvlc_title_description_t`.
+#[repr(C)]
+pub struct TitleDescription {
+    /// Length, in milliseconds.
+    pub duration: i64,
+    pub name: *mut c_char,
+    /// `libvlc_title_menu` (1) and `libvlc_title_interactive` (2).
+    pub flags: c_uint,
+}
+
 /// `libvlc_audio_output_device_t`: one node of a linked list of output devices.
 #[repr(C)]
 pub struct AudioOutputDevice {
@@ -216,6 +228,18 @@ libvlc_api! {
     libvlc_media_player_get_full_chapter_descriptions:
         fn(Player, c_int, *mut *mut *mut ChapterDescription) -> c_int;
     libvlc_chapter_descriptions_release: fn(*mut *mut ChapterDescription, c_uint);
+    libvlc_media_player_get_full_title_descriptions:
+        fn(Player, *mut *mut *mut TitleDescription) -> c_int;
+    libvlc_title_descriptions_release: fn(*mut *mut TitleDescription, c_uint);
+    libvlc_media_player_get_title: fn(Player) -> c_int;
+    libvlc_media_player_set_title: fn(Player, c_int);
+    libvlc_media_player_navigate: fn(Player, c_uint);
+    libvlc_media_subitems: fn(*mut Media) -> *mut MediaList;
+    libvlc_media_list_lock: fn(*mut MediaList);
+    libvlc_media_list_unlock: fn(*mut MediaList);
+    libvlc_media_list_count: fn(*mut MediaList) -> c_int;
+    libvlc_media_list_item_at_index: fn(*mut MediaList, c_int) -> *mut Media;
+    libvlc_media_list_release: fn(*mut MediaList);
     libvlc_audio_set_volume: fn(Player, c_int) -> c_int;
     libvlc_audio_set_mute: fn(Player, c_int);
     libvlc_audio_get_mute: fn(Player) -> c_int;

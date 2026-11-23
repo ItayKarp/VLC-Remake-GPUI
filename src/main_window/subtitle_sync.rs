@@ -125,12 +125,9 @@ pub(super) fn remembers(media: &Media, cx: &App) -> bool {
     settings::get(cx).prefs.privacy.save_recently_played && !exclusions::excluded(media, cx)
 }
 
-/// How the table names `media`: its stored path, or its URL.
+/// How the table names `media`: its stored path, its URL, or its device's stored form.
 pub(super) fn media_location(media: &Media) -> String {
-    match media {
-        Media::File(path) => stored_path::encode(path),
-        Media::Url(url) => url.clone(),
-    }
+    media.to_stored()
 }
 
 /// How the table names a subtitle track: `file:` and its stored path, or `stream:` and its id.

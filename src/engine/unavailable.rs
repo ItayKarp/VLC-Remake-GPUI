@@ -11,6 +11,8 @@ use super::backend::{Backend, BackendEvent, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
+use super::recording::Recording;
 use super::state::{ErrorKind, PlaybackState};
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -83,6 +85,15 @@ impl Backend for UnavailableBackend {
     fn set_colors(&mut self, _: Colors) {}
 
     fn set_hdr_mode(&mut self, _: HdrMode) {}
+
+    fn record(&mut self, folder: Option<&Path>) {
+        if folder.is_some() {
+            let refused = BackendEvent::Recording(Recording::Refused);
+            self.events.send(Generation::default(), refused);
+        }
+    }
+
+    fn navigate(&mut self, _: Navigation) {}
 
     fn shut_down(self: Box<Self>) {}
 }

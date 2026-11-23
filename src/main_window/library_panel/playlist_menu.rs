@@ -91,6 +91,15 @@ impl MainWindow {
     ) {
         let reads: Vec<Task<Option<Vec<Media>>>> =
             playlists.iter().map(|summary| playlists::items(summary.id, cx)).collect();
+        // One playlist filling the queue names it (Customize Player's Playlist Name, S8.7.6).
+        let title = match playlists {
+            [summary]
+                if matches!(playing, Playing::Placed(Placement::Replace) | Playing::Shuffled) =>
+            {
+                Some(summary.title.clone())
+            }
+            _ => None,
+        };
         cx.spawn_in(window, async move |this, cx| {
             let mut media = Vec::new();
             for read in reads {
@@ -99,20 +108,34 @@ impl MainWindow {
             if media.is_empty() {
                 return;
             }
-            this.update_in(cx, |this, window, cx| match playing {
-                Playing::Placed(placement) => {
-                    this.open(OpenRequest::placed(media, placement), window, cx);
-                }
-                Playing::Shuffled => {
-                    this.queue.set_shuffle(true);
-                    let start = queue::random_start(media.len());
-                    this.play_cards(media, start, window, cx);
-                    this.show_osd("Shuffle: On", cx);
-                }
+            this.update_in(cx, |this, window, cx| {
+                this.queue.expect_title(title, &media);
+                this.play_read_playlists(media, playing, window, cx);
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Plays `media`, the playlists' items once read, as `playing` says.
+    fn play_read_playlists(
+        &mut self,
+        media: Vec<Media>,
+        playing: Playing,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match playing {
+            Playing::Placed(placement) => {
+                self.open(OpenRequest::placed(media, placement), window, cx);
+            }
+            Playing::Shuffled => {
+                self.queue.set_shuffle(true);
+                let start = queue::random_start(media.len());
+                self.play_cards(media, start, window, cx);
+                self.show_osd("Shuffle: On", cx);
+            }
+        }
     }
 
     /// Properties & Metadata of playlist `summary`: its title, how many items it has, and

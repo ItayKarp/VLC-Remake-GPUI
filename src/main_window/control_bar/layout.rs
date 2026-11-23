@@ -1,49 +1,8 @@
-//! The control bar as data (S2.2.1): which items it shows, in what order, and the gaps that
-//! split them into groups. The bar is drawn from a [`Slot`] list, so Customize Player (S8.7)
-//! can rearrange it by editing the list.
-//!
-//! Each [`Item`] also says how wide it is at least and how readily it gives way on a narrow
-//! window (S2.2.5); `fit.rs` decides what stays.
+//! How each layout [`Item`] takes part in fitting a bar to a narrow window (S2.2.5): how wide it
+//! is at least and how readily it gives way. `fit.rs` decides what stays. What the bar shows
+//! comes from the player layout (`player_layout`, S8.7).
 
-/// One control the bar can show.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Item {
-    /// Restarts the item, or goes to the previous one.
-    Previous,
-    /// Jumps back 15 s (music mode, S8.1.2).
-    Back15,
-    /// Plays or pauses.
-    PlayPause,
-    /// Jumps forward 15 s (music mode, S8.1.2).
-    Forward15,
-    /// Goes to the next item.
-    Next,
-    /// The playback position (`00:02:10`).
-    CurrentTime,
-    /// The seek bar; it takes the room the other items leave.
-    SeekBar,
-    /// The media's length (`00:25:40`).
-    Duration,
-    /// The speaker (mute) and the volume wedge.
-    Volume,
-    /// The audio tracks.
-    Audio,
-    /// The subtitle tracks.
-    Subtitles,
-    /// The playback settings panel.
-    Settings,
-    /// The queue.
-    List,
-}
-
-/// One entry in the bar's layout.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Slot {
-    /// A control.
-    Item(Item),
-    /// Extra space between two groups, in pixels, on top of the usual gap between items.
-    Gap(f32),
-}
+use crate::player_layout::Item;
 
 /// What happens to an item that doesn't fit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,74 +42,39 @@ pub const ICON: f32 = 20.;
 pub const LEVEL_WIDTH: f32 = 93.;
 /// The space between the speaker and the volume wedge.
 pub const LEVEL_GAP: f32 = 6.;
+/// The widest a name (the title, the file's or the folder's) gets in the bar; past it, it's cut
+/// with an ellipsis.
+pub const NAME_WIDTH: f32 = 160.;
+/// The folder chip's width in the bar, its name cut to fit.
+pub const CHIP_WIDTH: f32 = 120.;
+/// The Thumbnail item's width: a 16:9 tile as tall as a button.
+pub const THUMBNAIL_WIDTH: f32 = 50.;
+/// A divider's line, with the room around it.
+pub const DIVIDER_WIDTH: f32 = 1.;
 
-impl Item {
-    /// How this item takes part in fitting the bar.
-    pub fn fit(self) -> Fit {
-        let (width, priority, dropped) = match self {
-            Item::PlayPause => (PILL_WIDTH, u8::MAX, Dropped::Never),
-            Item::SeekBar => (SEEK_MIN, 90, Dropped::Hidden),
-            Item::CurrentTime => (TIME_WIDTH, 80, Dropped::Hidden),
-            Item::Previous | Item::Next => (BUTTON, 70, Dropped::Overflow),
-            Item::Back15 | Item::Forward15 => (BUTTON, 65, Dropped::Overflow),
-            Item::Duration => (TIME_WIDTH, 60, Dropped::Hidden),
-            Item::Volume => (BUTTON + LEVEL_GAP + LEVEL_WIDTH, 50, Dropped::Overflow),
-            Item::Audio | Item::Subtitles => (BUTTON, 40, Dropped::Overflow),
-            Item::List => (BUTTON, 30, Dropped::Overflow),
-            Item::Settings => (BUTTON, 20, Dropped::Overflow),
-        };
-        Fit { width, priority, dropped }
-    }
-}
-
-/// The designed bar (`controls-default.png`): transport, then time and seeking, the volume,
-/// and the panel buttons.
-pub fn default_layout() -> Vec<Slot> {
-    use Item::{
-        Audio, CurrentTime, Duration, List, Next, PlayPause, Previous, SeekBar, Settings,
-        Subtitles, Volume,
+/// How `item` takes part in fitting the bar.
+pub fn fit(item: Item) -> Fit {
+    let (width, priority, dropped) = match item {
+        Item::PlayPause => (PILL_WIDTH, u8::MAX, Dropped::Never),
+        // The main menu has no other way in off macOS.
+        Item::Menu => (BUTTON, u8::MAX, Dropped::Never),
+        Item::SeekBar => (SEEK_MIN, 90, Dropped::Hidden),
+        Item::CurrentTime => (TIME_WIDTH, 80, Dropped::Hidden),
+        Item::Previous | Item::Next => (BUTTON, 70, Dropped::Overflow),
+        Item::Back15 | Item::Forward15 | Item::Back10 | Item::Forward10 => {
+            (BUTTON, 65, Dropped::Overflow)
+        }
+        Item::Duration => (TIME_WIDTH, 60, Dropped::Hidden),
+        Item::Volume => (BUTTON + LEVEL_GAP + LEVEL_WIDTH, 50, Dropped::Overflow),
+        Item::Audio | Item::Subtitles => (BUTTON, 40, Dropped::Overflow),
+        Item::List => (BUTTON, 30, Dropped::Overflow),
+        Item::Settings => (BUTTON, 20, Dropped::Overflow),
+        Item::Title | Item::FileName | Item::FolderName | Item::ArtistName | Item::PlaylistName => {
+            (NAME_WIDTH, 5, Dropped::Hidden)
+        }
+        Item::Thumbnail => (THUMBNAIL_WIDTH, 5, Dropped::Hidden),
+        Item::Folder => (CHIP_WIDTH, 5, Dropped::Hidden),
+        _ => (BUTTON, 10, Dropped::Overflow),
     };
-    vec![
-        Slot::Item(Previous),
-        Slot::Item(PlayPause),
-        Slot::Item(Next),
-        Slot::Gap(16.),
-        Slot::Item(CurrentTime),
-        Slot::Item(SeekBar),
-        Slot::Item(Duration),
-        Slot::Gap(12.),
-        Slot::Item(Volume),
-        Slot::Gap(8.),
-        Slot::Item(Audio),
-        Slot::Item(Subtitles),
-        Slot::Item(Settings),
-        Slot::Item(List),
-    ]
-}
-
-/// Music mode's bar (S8.1.2, `controls-music.png`): the transport gains Back 15 s and Forward
-/// 15 s, and Subtitles goes. Settings stays, as `controls-music.png` has it: its panel holds
-/// the speed and the Audio Visualizer, which music wants as much as video does.
-pub fn music_layout() -> Vec<Slot> {
-    use Item::{
-        Audio, Back15, CurrentTime, Duration, Forward15, List, Next, PlayPause, Previous, SeekBar,
-        Settings, Volume,
-    };
-    vec![
-        Slot::Item(Previous),
-        Slot::Item(Back15),
-        Slot::Item(PlayPause),
-        Slot::Item(Forward15),
-        Slot::Item(Next),
-        Slot::Gap(16.),
-        Slot::Item(CurrentTime),
-        Slot::Item(SeekBar),
-        Slot::Item(Duration),
-        Slot::Gap(12.),
-        Slot::Item(Volume),
-        Slot::Gap(8.),
-        Slot::Item(Audio),
-        Slot::Item(Settings),
-        Slot::Item(List),
-    ]
+    Fit { width, priority, dropped }
 }

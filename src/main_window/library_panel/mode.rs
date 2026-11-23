@@ -22,7 +22,6 @@ use crate::db::metadata::MediaKind;
 use crate::library;
 use crate::main_window::TITLE_BAR_HEIGHT;
 use crate::main_window::auto_hide::rules::Chrome;
-use crate::main_window::control_bar::CONTROL_BAR_HEIGHT;
 use crate::navigation::Presentation;
 use crate::navigation::route::Route;
 use crate::settings::{self, SettingsStore};
@@ -42,7 +41,7 @@ impl MainWindow {
             return None;
         }
         let top = if chrome.title_bar { TITLE_BAR_HEIGHT } else { 0. };
-        let bottom = if chrome.controls { CONTROL_BAR_HEIGHT } else { 0. };
+        let bottom = if chrome.controls { self.control_bar_height() } else { 0. };
         let insets = match self.library_panel.shown? {
             Presentation::Full => (top, 0.),
             Presentation::Overlay if chrome.controls => (top, bottom),
@@ -100,6 +99,16 @@ impl MainWindow {
         let roots = (local.media_folders.as_slice(), local.music_folders.as_slice());
         let route = source_route(folder, kind, roots)
             .unwrap_or_else(|| Route::Videos(Some(folder.to_path_buf())));
+        self.show_library_route(route, window, cx);
+    }
+
+    /// Opens the library at `route`: in the sidebar unless it already shows.
+    pub(in crate::main_window) fn show_library_route(
+        &mut self,
+        route: Route,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.library_panel.is_open() {
             self.show_library(Some(Presentation::Overlay), window, cx);
         }

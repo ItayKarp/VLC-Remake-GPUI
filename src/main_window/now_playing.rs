@@ -15,7 +15,7 @@ use gpui::{
 };
 
 use super::MainWindow;
-use super::subtitle_style;
+use super::{device_failure, subtitle_style};
 use crate::app::media::Media;
 use crate::engine;
 use crate::engine::player::{Player, PlayerEvent};
@@ -120,10 +120,10 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.on_history_event(event, cx);
+        self.on_side_events(event, cx);
         match event {
             PlayerEvent::EndReached => self.advance(window, cx),
-            PlayerEvent::Error(_) => self.skip_failed(window, cx),
+            PlayerEvent::Error(kind) => self.failed(*kind, window, cx),
             PlayerEvent::StateChanged(state) => {
                 if *state == PlaybackState::Playing {
                     self.skips.played();
@@ -156,12 +156,24 @@ impl MainWindow {
                 }
             }
             PlayerEvent::HdrChanged(status) => self.warn_hdr(*status, cx),
-            // The title bar names the media by its title tag (S2.1.2).
-            PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),
         }
-        // The control bar shows the position, length, volume and what Play/Pause would do.
+        // The control bar shows the position, length, volume and what Play/Pause would do, and
+        // the title bar names the media by its title tag (S2.1.2).
         cx.notify();
+    }
+
+    /// What the history, recording and disc menus follow of `event`.
+    fn on_side_events(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
+        self.on_history_event(event, cx);
+        self.on_recording_event(event, cx);
+        self.on_disc_event(event, cx);
+    }
+
+    /// Playback failed: says why for a disc or device, and moves on in the queue.
+    fn failed(&mut self, kind: ErrorKind, window: &mut Window, cx: &mut Context<Self>) {
+        self.explain_device_failure(kind, cx);
+        self.skip_failed(window, cx);
     }
 
     /// Stops what is opening: resolving items, and the engine's open.
@@ -209,7 +221,12 @@ impl MainWindow {
             PlaybackState::Paused => format!("Paused: {name}"),
             PlaybackState::Ended => format!("Finished {name}"),
             PlaybackState::Stopped => format!("Stopped {name}"),
-            PlaybackState::Error(kind) => format!("Couldn't play {name}: {}", error_message(kind)),
+            PlaybackState::Error(kind) => {
+                let device = player.media().and_then(Media::as_device);
+                let reason =
+                    device.map_or(error_message(kind), |d| device_failure::reason(d, kind));
+                format!("Couldn't play {name}: {reason}")
+            }
         };
         Some((text.into(), false))
     }

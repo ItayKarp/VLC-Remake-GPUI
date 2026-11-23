@@ -7,7 +7,8 @@
 //! everywhere are what's in effect, so nothing else knows about presets ([`layer`]).
 //!
 //! A player profile (S8.8, D12) is a player layout plus one of these presets, not a second
-//! system.
+//! system (`settings::profiles`): renaming or deleting a preset renames or forgets it in the
+//! profiles that use it.
 
 pub mod file;
 mod layer;
@@ -44,7 +45,13 @@ pub fn add(cx: &mut App, preset: Preset) -> String {
 
 /// Renames preset `from` to `to`; answers the name it got, or `None` when `to` is empty.
 pub fn rename(cx: &mut App, from: &str, to: &str) -> Option<String> {
-    edit(cx, |_, prefs| Layer::rename(prefs, from, to))
+    edit(cx, |_, prefs| {
+        let renamed = Layer::rename(prefs, from, to);
+        if let Some(to) = &renamed {
+            super::profiles::book::preset_renamed(prefs, from, to);
+        }
+        renamed
+    })
 }
 
 /// Copies preset `name` under a numbered name; answers the copy's name.
@@ -54,7 +61,10 @@ pub fn duplicate(cx: &mut App, name: &str) -> Option<String> {
 
 /// Deletes preset `name`, going back to Default Preset when it's in use.
 pub fn delete(cx: &mut App, name: &str) {
-    edit(cx, |layer, prefs| layer.delete(prefs, name));
+    edit(cx, |layer, prefs| {
+        layer.delete(prefs, name);
+        super::profiles::book::preset_deleted(prefs, name);
+    });
 }
 
 /// Runs `f` on the presets and saves when anything changed. Views observing the settings see

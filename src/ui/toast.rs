@@ -193,7 +193,7 @@ fn trim(toasts: &mut Vec<Toast>, max: usize) {
 
 impl Toasts {
     /// One toast card: icon or thumbnail, message, the buttons and a dismiss button. With a
-    /// thumbnail the buttons go under the message, as there may be several.
+    /// thumbnail or several buttons, the buttons go under the message, so it keeps its width.
     fn render_toast(toast: &Toast, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
         let id = toast.id;
         let buttons = toast.actions.iter().enumerate().map(|(index, action)| {
@@ -206,18 +206,23 @@ impl Toasts {
                 }),
             )
         });
-        let message = message(toast.message.clone(), p.text_strong).pt(px(4.));
+        // Long paths wrap anywhere rather than overflow.
+        let message = message(toast.message.clone(), p.text_strong).pt(px(4.)).overflow_hidden();
         let card = toast_card(id, p);
         let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
             .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx)));
-        let Some(thumbnail) = toast.thumbnail.clone() else {
-            let icon = two_tone(icons2::INFO, ICON_SIZE, p.icon, toast.level.color(p));
-            return card
-                .child(div().pt(px(4.)).child(icon))
-                .child(message)
-                .children(buttons)
-                .child(close);
+        let lead = match toast.thumbnail.clone() {
+            Some(thumbnail) => thumbnail_image(thumbnail, p),
+            None => div().pt(px(4.)).child(two_tone(
+                icons2::INFO,
+                ICON_SIZE,
+                p.icon,
+                toast.level.color(p),
+            )),
         };
+        if toast.thumbnail.is_none() && toast.actions.len() <= 1 {
+            return card.child(lead).child(message).children(buttons).child(close);
+        }
         let body = div()
             .flex_1()
             .min_w_0()
@@ -225,7 +230,7 @@ impl Toasts {
             .flex_col()
             .child(message)
             .child(div().flex().flex_row().flex_wrap().ml(px(-8.)).children(buttons));
-        card.child(thumbnail_image(thumbnail, p)).child(body).child(close)
+        card.child(lead).child(body).child(close)
     }
 }
 

@@ -82,10 +82,12 @@ impl Pattern {
         match (self, media) {
             (Self::Location(glob), Media::File(path)) => glob.matches(&path_text(path)),
             (Self::Location(glob), Media::Url(url)) => glob.matches(url),
+            (Self::Location(glob), Media::Device(device)) => glob.matches(device.mrl()),
             (Self::Name(glob), Media::File(path)) => {
                 path.iter().any(|part| glob.matches(&part.to_string_lossy()))
             }
             (Self::Name(glob), Media::Url(url)) => url_parts(url).any(|part| glob.matches(part)),
+            (Self::Name(glob), Media::Device(device)) => glob.matches(&device.display_name()),
         }
     }
 }

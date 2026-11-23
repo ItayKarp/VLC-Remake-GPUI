@@ -25,6 +25,11 @@ pub enum MainMenuEntry {
         /// The icon path.
         icon: &'static str,
     },
+    /// Profile (S8.8): the profiles, the one in use checked, and + New.
+    Profile {
+        /// The icon path.
+        icon: &'static str,
+    },
 }
 
 const fn command(action: &'static dyn Action, icon: &'static str) -> MainMenuEntry {
@@ -32,8 +37,8 @@ const fn command(action: &'static dyn Action, icon: &'static str) -> MainMenuEnt
 }
 
 /// The main menu, top to bottom as designed, plus "Run Setup Again" (S0.2.5) and
-/// "Copy Debug Info" (S0.7.4), which the Help menu holds on macOS. Profile (S8.8) joins after
-/// Open Recent with its story; the pending commands are filtered out when the menu opens.
+/// "Copy Debug Info" (S0.7.4), which the Help menu holds on macOS. The pending commands are
+/// filtered out when the menu opens.
 pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenFile, icons::FILE),
     command(&act::OpenFolder, icons::FOLDER),
@@ -42,6 +47,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenCaptureDevice, icons::CAPTURE_DEVICE),
     command(&act::Convert, icons::CONVERT),
     MainMenuEntry::Recent { icon: icons::RECENT },
+    MainMenuEntry::Profile { icon: icons::PROFILE },
     command(&act::ShowKeyboardShortcuts, icons::HOTKEYS),
     command(&act::CustomizePlayer, icons::PAINT),
     command(&act::OpenSettings, icons::SETTINGS),
@@ -54,12 +60,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
 /// (S2.9.4); their keys say "Coming soon" in debug builds. Remove a command from here when it
 /// gets its effect.
 pub const PENDING: &[&dyn Action] = &[
-    &act::OpenDisc,          // S8.9
-    &act::OpenCaptureDevice, // S8.9
-    &act::Convert,           // S8.10
-    &act::CustomizePlayer,   // S8.7
-    &act::Record,            // S8.6
-    &act::NextProgram,       // S8.9
+    &act::Convert, // S8.10
 ];
 
 /// Whether `action` is one of the [`PENDING`] commands.
@@ -177,6 +178,8 @@ fn playback_menu() -> Menu {
             plain(&act::NextItem, "Next Item"),
             plain(&act::PreviousChapter, "Previous Chapter"),
             plain(&act::NextChapter, "Next Chapter"),
+            plain(&act::NextProgram, "Next Program"),
+            plain(&act::DiscMenu, "Disc Menu"),
             item(&act::AddBookmark, "Add Bookmark"),
             plain(&act::Record, "Record"),
             SEPARATOR,
@@ -261,6 +264,7 @@ mod tests {
         };
         assert!(action.partial_eq(&FromMenuBar { command: label(&act::PlayPause) }));
         assert!(commands::by_label(label(&act::PlayPause)).is_some());
-        assert!(plain(&act::Record, "Record").is_none(), "Record is pending");
+        assert!(plain(&act::NextProgram, "Next Program").is_some(), "Next Program shipped (S8.9)");
+        assert!(item(&act::Convert, "Convert…").is_none(), "Convert is pending");
     }
 }

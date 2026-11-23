@@ -19,6 +19,8 @@ use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
+use super::recording::Recording;
 use super::state::PlaybackState;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -115,7 +117,7 @@ impl MockBackend {
         self
     }
 
-    fn record(&self, command: Command) {
+    fn note(&self, command: Command) {
         lock(&self.shared).commands.push(command);
     }
 
@@ -161,123 +163,133 @@ impl MockBackend {
 impl Backend for MockBackend {
     fn open(&mut self, media: &Media, start: Start, generation: Generation) {
         lock(&self.shared).generation = generation;
-        self.record(Command::Open { media: media.clone(), start, generation });
+        self.note(Command::Open { media: media.clone(), start, generation });
         self.respond(self.opened(start));
     }
 
     fn play(&mut self) {
-        self.record(Command::Play);
+        self.note(Command::Play);
         self.respond([BackendEvent::State(PlaybackState::Playing)]);
     }
 
     fn pause(&mut self) {
-        self.record(Command::Pause);
+        self.note(Command::Pause);
         self.respond([BackendEvent::State(PlaybackState::Paused)]);
     }
 
     fn stop(&mut self) {
-        self.record(Command::Stop);
+        self.note(Command::Stop);
         self.respond([BackendEvent::State(PlaybackState::Stopped)]);
     }
 
     fn seek(&mut self, to: BackendSeek) {
-        self.record(Command::Seek(to));
+        self.note(Command::Seek(to));
         self.respond(self.seeked(to));
     }
 
     fn frame_step(&mut self, direction: StepDirection) {
-        self.record(Command::FrameStep(direction));
+        self.note(Command::FrameStep(direction));
         self.respond([BackendEvent::State(PlaybackState::Paused), BackendEvent::FrameStepped]);
     }
 
     fn set_rate(&mut self, rate: Rate) {
-        self.record(Command::SetRate(rate));
+        self.note(Command::SetRate(rate));
     }
 
     fn set_volume(&mut self, volume: Volume) {
-        self.record(Command::SetVolume(volume));
+        self.note(Command::SetVolume(volume));
     }
 
     fn set_mute(&mut self, muted: bool) {
-        self.record(Command::SetMute(muted));
+        self.note(Command::SetMute(muted));
     }
 
     fn select_track(&mut self, kind: TrackKind, track: Option<TrackId>) {
-        self.record(Command::SelectTrack(kind, track));
+        self.note(Command::SelectTrack(kind, track));
         self.media.tracks.select(kind, track);
         self.respond([BackendEvent::Tracks(self.media.tracks.clone())]);
     }
 
     fn set_audio_delay(&mut self, delay: Offset) {
-        self.record(Command::SetAudioDelay(delay));
+        self.note(Command::SetAudioDelay(delay));
     }
 
     fn set_subtitle_delay(&mut self, delay: Offset) {
-        self.record(Command::SetSubtitleDelay(delay));
+        self.note(Command::SetSubtitleDelay(delay));
     }
 
     fn add_subtitle(&mut self, path: &Path) {
-        self.record(Command::AddSubtitle(path.to_path_buf()));
+        self.note(Command::AddSubtitle(path.to_path_buf()));
     }
 
     fn load_subtitle(&mut self, path: &Path) {
-        self.record(Command::LoadSubtitle(path.to_path_buf()));
+        self.note(Command::LoadSubtitle(path.to_path_buf()));
     }
 
     fn add_audio(&mut self, path: &Path) {
-        self.record(Command::AddAudio(path.to_path_buf()));
+        self.note(Command::AddAudio(path.to_path_buf()));
     }
 
     fn set_audio_device(&mut self, device: &OutputDevice) {
-        self.record(Command::SetAudioDevice(device.clone()));
+        self.note(Command::SetAudioDevice(device.clone()));
     }
 
     fn refresh_audio_devices(&mut self) {
-        self.record(Command::RefreshAudioDevices);
+        self.note(Command::RefreshAudioDevices);
     }
 
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
-        self.record(Command::SetSpeakerSetup(setup));
+        self.note(Command::SetSpeakerSetup(setup));
     }
 
     fn set_stereo_mode(&mut self, mode: StereoMode) {
-        self.record(Command::SetStereoMode(mode));
+        self.note(Command::SetStereoMode(mode));
     }
 
     fn play_test_tone(&mut self) {
-        self.record(Command::PlayTestTone);
+        self.note(Command::PlayTestTone);
     }
 
     fn set_visualizer(&mut self, effect: Option<VisualEffect>) {
-        self.record(Command::SetVisualizer(effect));
+        self.note(Command::SetVisualizer(effect));
     }
 
     fn set_media_options(&mut self, options: &MediaOptions) {
-        self.record(Command::SetMediaOptions(options.clone()));
+        self.note(Command::SetMediaOptions(options.clone()));
     }
 
     fn set_equalizer(&mut self, equalizer: Option<Equalization>) {
-        self.record(Command::SetEqualizer(equalizer));
+        self.note(Command::SetEqualizer(equalizer));
     }
 
     fn set_audio_effects(&mut self, effects: AudioEffects) {
-        self.record(Command::SetAudioEffects(effects));
+        self.note(Command::SetAudioEffects(effects));
     }
 
     fn set_picture(&mut self, picture: Option<Picture>) {
-        self.record(Command::SetPicture(picture));
+        self.note(Command::SetPicture(picture));
     }
 
     fn set_video_filters(&mut self, filters: VideoFilters) {
-        self.record(Command::SetVideoFilters(filters));
+        self.note(Command::SetVideoFilters(filters));
     }
 
     fn set_colors(&mut self, colors: Colors) {
-        self.record(Command::SetColors(colors));
+        self.note(Command::SetColors(colors));
     }
 
     fn set_hdr_mode(&mut self, mode: HdrMode) {
-        self.record(Command::SetHdrMode(mode));
+        self.note(Command::SetHdrMode(mode));
+    }
+
+    fn record(&mut self, folder: Option<&Path>) {
+        self.note(Command::Record(folder.map(Path::to_path_buf)));
+        let answer = if folder.is_some() { Recording::Started } else { Recording::Stopped };
+        self.respond([BackendEvent::Recording(answer)]);
+    }
+
+    fn navigate(&mut self, to: Navigation) {
+        self.note(Command::Navigate(to));
     }
 
     fn shut_down(self: Box<Self>) {

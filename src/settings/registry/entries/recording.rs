@@ -86,8 +86,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         toggle!(prefs.recording.keep_original_encoding),
     )
     .info(
-        "Saves the stream as it arrives, which is fast and keeps its quality. Off, recordings \
-         are converted with the Streaming settings below.",
+        "Saves the stream as it arrives, which is fast and keeps its quality. Recordings are \
+         always saved this way for now: converting them while recording isn't available yet.",
     )
     .keywords(&["record", "stream copy", "remux", "transcode"]),
     SettingDef::new(

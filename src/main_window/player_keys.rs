@@ -104,6 +104,8 @@ impl MainWindow {
                 PreviousFrame,
                 NextFrame,
                 NextProgram,
+                DiscMenu,
+                SelectInDiscMenu,
                 Faster,
                 Slower,
                 NormalSpeed,
@@ -131,6 +133,10 @@ impl MainWindow {
         let Some(command) = commands::find(action) else {
             return;
         };
+        // While a disc menu shows, the arrows and Space are its keys.
+        if self.disc_menu_key(action, cx) {
+            return;
+        }
         if self.repeat.admit(command, Instant::now()) && !self.perform(action, window, cx) {
             self.not_yet(command, cx);
         }
@@ -179,6 +185,10 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::NextChapter, |this, _, cx| this.jump_chapter(Jump::Next, cx)),
     (&act::AddBookmark, |this, _, cx| this.add_bookmark(cx)),
     (&act::Snapshot, |this, _, cx| this.take_snapshot(cx)),
+    (&act::Record, |this, _, cx| this.toggle_recording(cx)),
+    (&act::NextProgram, |this, _, cx| this.next_program(cx)),
+    (&act::DiscMenu, |this, _, cx| this.go_to_disc_menu(cx)),
+    (&act::SelectInDiscMenu, |this, _, cx| this.select_in_disc_menu(cx)),
     (&act::CycleRepeat, MainWindow::cycle_repeat),
     (&act::ToggleShuffle, MainWindow::toggle_shuffle),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),
