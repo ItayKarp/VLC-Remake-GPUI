@@ -4,7 +4,7 @@
 //! **Layers (D13).** What plays is the Settings pages' values (the defaults, through the preset
 //! in use, S5.11) with the panel's session values written over them ([`Session`]). Per-file
 //! values exist only for the subtitle and audio delays, which belong to one media's track (S6.3,
-//! S7.6) and live with the playback history, not here.
+//! S7.6) and live with the player (the subtitle sync also with the playback history), not here.
 //!
 //! **Session and defaults (D24).** A value the panel changes lasts until VLC quits, carried from
 //! item to item, and is never saved; while it is held, changing its default in Settings doesn't
@@ -22,7 +22,9 @@ mod session;
 
 use gpui::{App, BorrowAppContext as _, Global};
 
-pub use section::{EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL};
+pub use section::{
+    AUDIO_DEFAULTS, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL,
+};
 pub use session::Session;
 
 use crate::settings::registry::{self, Value};

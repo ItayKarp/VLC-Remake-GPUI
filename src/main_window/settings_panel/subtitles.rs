@@ -1,5 +1,5 @@
 //! The settings panel's Subtitles tab (S6.3, `controls-subtitle_settings.png`): **Defaults** for
-//! media opened next (`subtitle_defaults.rs`), and **Synchronization** for the subtitle showing
+//! media opened next (`track_defaults.rs`), and **Synchronization** for the subtitle showing
 //! now: Subtitle Track Delay (a field to the millisecond and a −10 s … +10 s slider filled from
 //! 0 s), Subtitle Speed and Subtitle Duration Factor, and Reset, which puts that subtitle's three
 //! back. Each heading has a line under it saying what its rows change, since the two sections
@@ -15,8 +15,8 @@ use gpui::{Context, Div, Entity, Subscription, Window, div, prelude::*, px};
 
 use super::number_row::{Changed, NumberRow, Spec};
 use super::section;
-use super::subtitle_defaults::DefaultsRows;
 use super::sync_rules;
+use super::track_defaults::{DefaultsRows, TrackDefaults};
 use crate::engine::subtitle_sync::{
     MAX_DELAY_MS, MAX_DURATION_FACTOR, MAX_SPEED, MIN_SPEED, SubtitleKey, SubtitleSync,
 };
@@ -36,11 +36,7 @@ const DELAY_BIG_STEP: f64 = 1.;
 const SPEED_STEP: f64 = 0.001;
 const DURATION_STEP: f64 = 0.05;
 /// Milliseconds in a second.
-const MS_PER_SECOND: f64 = 1_000.;
-/// The Defaults rows' height, text size and control width.
-const ROW_HEIGHT: f32 = 52.;
-const ROW_TEXT: f32 = 14.;
-const CONTROL_WIDTH: f32 = 140.;
+pub(super) const MS_PER_SECOND: f64 = 1_000.;
 
 /// Which of a sync's values a row edits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,7 +80,8 @@ impl SubtitleControls {
             follow(&speed, SyncValue::Speed, cx),
             follow(&duration, SyncValue::Duration, cx),
         ];
-        Self { defaults: DefaultsRows::new(window, cx), delay, speed, duration, _events: events }
+        let defaults = DefaultsRows::new(TrackDefaults::Subtitle, window, cx);
+        Self { defaults, delay, speed, duration, _events: events }
     }
 }
 
@@ -106,12 +103,9 @@ impl MainWindow {
     }
 
     fn render_subtitle_defaults(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let rows = &self.settings_panel.subtitles.defaults;
-        let track =
-            div().on_key_down(cx.listener(Self::on_default_track_key)).child(rows.track.clone());
+        let rows = self.settings_panel.subtitles.defaults.render(p, cx);
         section("Defaults", "For videos you open next. The subtitle button picks this video's.", p)
-            .child(labelled("Subtitle Track", track, p))
-            .child(labelled("Subtitle Language", rows.language.clone(), p))
+            .children(rows)
     }
 
     fn render_synchronization(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
@@ -198,11 +192,17 @@ impl MainWindow {
 
 /// Subtitle Track Delay: −10 s … +10 s on the slider, ten minutes either way in the field.
 fn delay_spec() -> Spec {
+    track_delay_spec("Subtitle Track Delay")
+}
+
+/// A track delay labelled `label`: −10 s … +10 s on the slider, ten minutes either way in the
+/// field, the arrow keys moving 50 ms as the delay keys do (S6.3.2, S7.6.3).
+pub(super) fn track_delay_spec(label: &'static str) -> Spec {
     let mut model = SliderModel::new(-DELAY_SLIDER, DELAY_SLIDER, DELAY_STEP, 0.);
     model.big_step = DELAY_BIG_STEP;
     debug_assert!(MAX_DELAY_MS as f64 / MS_PER_SECOND >= DELAY_SLIDER);
     Spec {
-        label: "Subtitle Track Delay",
+        label,
         model,
         centered: true,
         marks: Some((DELAY_SLIDER, sync_rules::delay_mark)),
@@ -233,18 +233,4 @@ fn duration_spec() -> Spec {
         format: sync_rules::duration_text,
         parse: sync_rules::parse_duration,
     }
-}
-
-/// A Defaults row: the label, and `control` in the right-hand column.
-fn labelled(label: &'static str, control: impl IntoElement, p: &Palette) -> Div {
-    div()
-        .h(px(ROW_HEIGHT))
-        .flex()
-        .items_center()
-        .justify_between()
-        .pl(px(4.))
-        .text_size(px(ROW_TEXT))
-        .text_color(p.text_muted)
-        .child(label)
-        .child(div().w(px(CONTROL_WIDTH)).flex_none().child(control))
 }

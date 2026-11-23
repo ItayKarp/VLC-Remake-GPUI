@@ -10,7 +10,7 @@ use crate::app::media::Media;
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::TrackKind;
-use crate::engine::values::{BackendSeek, Offset, Rate, SeekTarget, Start, StepDirection};
+use crate::engine::values::{BackendSeek, Rate, SeekTarget, Start, StepDirection};
 
 impl Player {
     /// Opens `media` and starts playing it, cancelling whatever was open. A local path that
@@ -27,6 +27,7 @@ impl Player {
         self.audio.user_took_over();
         self.info = Info::default();
         self.push_subtitle_delay();
+        self.push_audio_delay();
         self.track_choices.forget_media();
         self.position.reset();
         self.seeks.reset();
@@ -131,13 +132,6 @@ impl Player {
     pub fn set_rate(&mut self, rate: Rate, cx: &mut Context<Self>) {
         self.controls.rate = rate;
         self.with_backend(|backend| backend.set_rate(rate));
-        cx.notify();
-    }
-
-    /// Delays audio against video.
-    pub fn set_audio_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
-        self.controls.audio_delay = delay;
-        self.with_backend(|backend| backend.set_audio_delay(delay));
         cx.notify();
     }
 

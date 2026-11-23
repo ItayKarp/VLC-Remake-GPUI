@@ -90,6 +90,10 @@ pub const VIDEO_DEFAULTS: &[&str] = &[
     "video.hdr",
 ];
 
+/// The Audio tab's Defaults rows the panel holds for the session (S7.6): the stereo mode. Its
+/// track and language rows are the defaults themselves, as on the Subtitles tab.
+pub const AUDIO_DEFAULTS: &[&str] = &["audio.stereo_mode"];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,7 +116,7 @@ mod tests {
             let def = registry::find(key).expect("each edge is a setting");
             assert!(matches!(def.control, Control::Number { .. }), "{key}");
         }
-        for key in VIDEO_DEFAULTS.iter().chain(VIDEO_COLORS.controls) {
+        for key in VIDEO_DEFAULTS.iter().chain(AUDIO_DEFAULTS).chain(VIDEO_COLORS.controls) {
             assert!(registry::find(key).is_some(), "{key}");
         }
     }

@@ -13,6 +13,7 @@
 mod about;
 mod add_subtitles;
 mod audio;
+mod audio_delay;
 mod audio_tracks;
 mod auto_hide;
 mod bar_panel;

@@ -12,7 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use super::audio::equalizer::Equalizer;
-use super::audio::{OutputDevice, SpeakerSetup};
+use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
@@ -236,6 +236,14 @@ impl Backend for MockBackend {
 
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
         self.record(Command::SetSpeakerSetup(setup));
+    }
+
+    fn set_stereo_mode(&mut self, mode: StereoMode) {
+        self.record(Command::SetStereoMode(mode));
+    }
+
+    fn play_test_tone(&mut self) {
+        self.record(Command::PlayTestTone);
     }
 
     fn set_media_options(&mut self, options: &MediaOptions) {

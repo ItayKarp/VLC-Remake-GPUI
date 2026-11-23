@@ -236,6 +236,7 @@ libvlc_api! {
     libvlc_audio_output_device_list_release: fn(*mut AudioOutputDevice);
     libvlc_audio_output_device_set: fn(Player, *const c_char, *const c_char);
     libvlc_audio_set_channel: fn(Player, c_int) -> c_int;
+    libvlc_audio_get_channel: fn(Player) -> c_int;
     libvlc_audio_equalizer_new: fn() -> *mut AudioEqualizer;
     libvlc_audio_equalizer_new_from_preset: fn(c_uint) -> *mut AudioEqualizer;
     libvlc_audio_equalizer_release: fn(*mut AudioEqualizer);

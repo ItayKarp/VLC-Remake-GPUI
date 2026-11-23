@@ -1,13 +1,14 @@
 //! Audio output on the worker thread (S1.5): reading the device list, choosing a device, and
-//! the speaker setup. libVLC 3 sends no event when a device is plugged in or out, so the list
+//! how channels are mixed: the speaker setup and the stereo mode (S7.6.2), both libVLC's
+//! `stereo-mode`, where any mode but Stereo wins. libVLC 3 sends no event when a device is plugged in or out, so the list
 //! is read again every [`DEVICE_POLL`].
 
 use std::ffi::{CString, c_int};
 use std::time::{Duration, Instant};
 
-use super::api::borrowed_string;
+use super::api::{LibVlc, MediaPlayer, borrowed_string};
 use super::worker::Worker;
-use crate::engine::audio::{AudioConfig, AudioDevice, OutputDevice, SpeakerSetup};
+use crate::engine::audio::{AudioConfig, AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
 use crate::engine::backend::BackendEvent;
 
 /// How often the device list is read again.
@@ -24,10 +25,17 @@ const SYSTEM_DEFAULT_ID: &str = "0";
 #[cfg(not(target_os = "macos"))]
 const SYSTEM_DEFAULT_ID: &str = "";
 
-/// `libvlc_AudioChannel_Stereo`: downmix to two channels.
-const CHANNEL_STEREO: c_int = 1;
 /// libVLC's "unset" stereo mode: the output follows the device.
 const CHANNEL_AUTOMATIC: c_int = 0;
+/// libVLC 3's `stereo-mode` values (`AOUT_VAR_CHAN_*`); the libVLC API names the first five,
+/// and its core takes Headphones and Mono too.
+const CHANNEL_STEREO: c_int = 1;
+const CHANNEL_REVERSE_STEREO: c_int = 2;
+const CHANNEL_LEFT: c_int = 3;
+const CHANNEL_RIGHT: c_int = 4;
+const CHANNEL_DOLBY_SURROUND: c_int = 5;
+const CHANNEL_HEADPHONES: c_int = 6;
+const CHANNEL_MONO: c_int = 7;
 
 /// Turns passthrough on for every output: a libVLC core option.
 const PASSTHROUGH: &str = "--spdif";
@@ -45,6 +53,33 @@ pub fn arguments(config: AudioConfig) -> Vec<String> {
     }
     arguments.extend(super::audio_effects::arguments(&config.effects));
     arguments
+}
+
+/// How channels are mixed: the speaker setup and the stereo mode.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Channels {
+    /// The speaker setup, used while the stereo mode is Stereo.
+    pub setup: SpeakerSetup,
+    /// The stereo mode.
+    pub stereo: StereoMode,
+}
+
+impl Channels {
+    /// libVLC's `stereo-mode` for these.
+    pub fn stereo_mode(self) -> c_int {
+        match self.stereo {
+            StereoMode::Stereo => match self.setup {
+                SpeakerSetup::Automatic => CHANNEL_AUTOMATIC,
+                SpeakerSetup::Stereo => CHANNEL_STEREO,
+            },
+            StereoMode::Mono => CHANNEL_MONO,
+            StereoMode::Left => CHANNEL_LEFT,
+            StereoMode::Right => CHANNEL_RIGHT,
+            StereoMode::ReverseStereo => CHANNEL_REVERSE_STEREO,
+            StereoMode::DolbySurround => CHANNEL_DOLBY_SURROUND,
+            StereoMode::Headphones => CHANNEL_HEADPHONES,
+        }
+    }
 }
 
 /// When the device list is next read, and what it held last time.
@@ -103,47 +138,36 @@ impl Worker {
         }
     }
 
-    /// Plays through `device` from now on.
-    pub(super) fn set_audio_device(&self, device: &OutputDevice) {
-        let id = match device {
-            OutputDevice::SystemDefault => SYSTEM_DEFAULT_ID,
-            OutputDevice::Device(id) => id,
-        };
-        let Ok(id) = CString::new(id) else { return };
-        // SAFETY: the player is live; a NULL module means the current output, and `id` is
-        // NUL-terminated for the call.
-        unsafe {
-            (self.vlc.api.libvlc_audio_output_device_set)(
-                self.handles.player,
-                std::ptr::null(),
-                id.as_ptr(),
-            );
-        }
+    /// Plays through `device` from now on, the test tone too.
+    pub(super) fn set_audio_device(&mut self, device: &OutputDevice) {
+        self.test_tone.device = device.clone();
+        set_device(&self.vlc, self.handles.player, device);
     }
 
     /// Mixes for `setup` from now on.
     pub(super) fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
-        self.speaker_setup = setup;
-        self.apply_channels(setup);
+        self.channels.setup = setup;
+        self.apply_channels();
     }
 
-    /// Applies a forced speaker setup to newly started media. Automatic is libVLC's own
-    /// behavior, and setting it would restart the output for nothing.
+    /// Plays the channels as `mode` says from now on.
+    pub(super) fn set_stereo_mode(&mut self, mode: StereoMode) {
+        self.channels.stereo = mode;
+        self.apply_channels();
+    }
+
+    /// Applies a forced mix to newly started media. Automatic is libVLC's own behavior, and
+    /// setting it would restart the output for nothing.
     pub(super) fn apply_speaker_setup(&self) {
-        if self.speaker_setup != SpeakerSetup::Automatic {
-            self.apply_channels(self.speaker_setup);
+        if self.channels.stereo_mode() != CHANNEL_AUTOMATIC {
+            self.apply_channels();
         }
     }
 
-    fn apply_channels(&self, setup: SpeakerSetup) {
-        let channel = match setup {
-            SpeakerSetup::Automatic => CHANNEL_AUTOMATIC,
-            SpeakerSetup::Stereo => CHANNEL_STEREO,
-        };
-        // SAFETY: the player is live.
-        if unsafe { (self.vlc.api.libvlc_audio_set_channel)(self.handles.player, channel) } != 0 {
+    fn apply_channels(&self) {
+        if !set_channels(&self.vlc, self.handles.player, self.channels) {
             // Without an output yet; applied again when the next media starts.
-            tracing::debug!("libvlc: couldn't set the speaker setup now");
+            tracing::debug!("libvlc: couldn't set the channels now");
         }
     }
 
@@ -174,9 +198,40 @@ impl Worker {
     }
 }
 
+/// Plays `player`'s sound through `device`.
+pub(super) fn set_device(vlc: &LibVlc, player: *mut MediaPlayer, device: &OutputDevice) {
+    let id = match device {
+        OutputDevice::SystemDefault => SYSTEM_DEFAULT_ID,
+        OutputDevice::Device(id) => id,
+    };
+    let Ok(id) = CString::new(id) else { return };
+    // SAFETY: the player is live; a NULL module means the current output, and `id` is
+    // NUL-terminated for the call.
+    unsafe { (vlc.api.libvlc_audio_output_device_set)(player, std::ptr::null(), id.as_ptr()) };
+}
+
+/// Mixes `player`'s channels as `channels` says; `false` while it has no output.
+pub(super) fn set_channels(vlc: &LibVlc, player: *mut MediaPlayer, channels: Channels) -> bool {
+    // SAFETY: the player is live.
+    unsafe { (vlc.api.libvlc_audio_set_channel)(player, channels.stereo_mode()) == 0 }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stereo_mode_wins_over_the_speaker_setup() {
+        let mut channels = Channels::default();
+        assert_eq!(channels.stereo_mode(), CHANNEL_AUTOMATIC);
+        channels.setup = SpeakerSetup::Stereo;
+        assert_eq!(channels.stereo_mode(), CHANNEL_STEREO);
+        channels.stereo = StereoMode::ReverseStereo;
+        assert_eq!(channels.stereo_mode(), CHANNEL_REVERSE_STEREO);
+        channels.setup = SpeakerSetup::Automatic;
+        channels.stereo = StereoMode::Mono;
+        assert_eq!(channels.stereo_mode(), CHANNEL_MONO);
+    }
 
     #[test]
     fn a_settling_list_is_read_once_it_has_settled() {

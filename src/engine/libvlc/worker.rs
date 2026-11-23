@@ -10,7 +10,7 @@ use std::sync::{Arc, PoisonError};
 use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
-use super::audio::DeviceWatch;
+use super::audio::{Channels, DeviceWatch};
 use super::cpu_filters::CpuFilters;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
@@ -19,10 +19,10 @@ use super::hdr::HdrState;
 use super::hold::Hold;
 use super::reopen::Restore;
 use super::size_watch::{SIZE_POLL, SizeWatch};
+use super::test_tone::TestTone;
 use super::track_list::Defaults;
 use super::vmem::Vmem;
 use crate::app::media::Media as Source;
-use crate::engine::audio::SpeakerSetup;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::media_options::{MediaOptions, VideoFilters};
 use crate::engine::state::{ErrorKind, PlaybackState};
@@ -89,8 +89,10 @@ pub struct Worker {
     /// Where video goes; `None` decodes and discards it.
     pub(super) video: Option<Arc<Vmem>>,
     pub(super) size_watch: SizeWatch,
-    /// The forced speaker setup, re-applied to each media.
-    pub(super) speaker_setup: SpeakerSetup,
+    /// How channels are mixed, re-applied to each media.
+    pub(super) channels: Channels,
+    /// The Stereo Mode's test tone player.
+    pub(super) test_tone: TestTone,
     /// The options each new media opens with.
     pub(super) media_options: MediaOptions,
     /// When the output device list is read next.
@@ -135,7 +137,8 @@ impl Worker {
             subtitle_delay: Offset::default(),
             video,
             size_watch: SizeWatch::default(),
-            speaker_setup: SpeakerSetup::Automatic,
+            channels: Channels::default(),
+            test_tone: TestTone::default(),
             media_options: MediaOptions::default(),
             devices: DeviceWatch::default(),
             defaults: Defaults::default(),
@@ -358,6 +361,7 @@ impl Worker {
     }
 
     fn release(mut self) {
+        self.release_test_tone();
         let api = &self.vlc.api;
         // SAFETY: the handles are live and released once. `stop` joins libVLC's threads, and
         // after the player is released no callback can run, so `shared` may then be dropped.

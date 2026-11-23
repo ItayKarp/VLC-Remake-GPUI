@@ -2,12 +2,14 @@
 //! turns backend events into [`PlayerEvent`]s for the UI.
 
 mod audio;
+mod audio_delay;
 mod commands;
 mod drawn;
 mod picture;
 mod receive;
 mod subtitle_files;
 mod sync;
+mod test_tone;
 mod timeline;
 mod tracks;
 
@@ -95,7 +97,8 @@ struct Controls {
     rate: Rate,
     volume: Volume,
     muted: bool,
-    audio_delay: Offset,
+    /// The audio delay the backend was last given, which outlives the media (`audio_delay.rs`).
+    backend_audio_delay: Offset,
 }
 
 /// What the backend reported about the open media.
@@ -117,6 +120,8 @@ struct Info {
     drawn: Option<TrackId>,
     /// Each subtitle track's delay, speed and duration factor (S6.3), set or remembered.
     syncs: HashMap<SubtitleKey, SubtitleSync>,
+    /// Each audio track's delay (S7.6.3), once set.
+    audio_delays: HashMap<TrackId, Offset>,
     video_size: Option<VideoSize>,
     /// The video's colors and how it is tone-mapped (S7.5).
     hdr: HdrStatus,
@@ -259,11 +264,6 @@ impl Player {
     /// Whether the output is muted.
     pub fn is_muted(&self) -> bool {
         self.controls.muted
-    }
-
-    /// The audio delay against video.
-    pub fn audio_delay(&self) -> Offset {
-        self.controls.audio_delay
     }
 
     /// The media's tracks and the selected ones.

@@ -17,6 +17,7 @@
 
 pub mod activity;
 pub mod artwork;
+pub mod audio_delay;
 pub mod files;
 pub mod folders;
 pub mod media;

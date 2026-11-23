@@ -2,6 +2,7 @@
 //! edge cases.
 
 mod audio;
+mod audio_channels;
 mod drawn;
 mod linked;
 mod sync;

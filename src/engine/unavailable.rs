@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use super::audio::equalizer::Equalizer;
-use super::audio::{OutputDevice, SpeakerSetup};
+use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
@@ -65,6 +65,8 @@ impl Backend for UnavailableBackend {
     fn refresh_audio_devices(&mut self) {}
 
     fn set_speaker_setup(&mut self, _: SpeakerSetup) {}
+    fn set_stereo_mode(&mut self, _: StereoMode) {}
+    fn play_test_tone(&mut self) {}
 
     fn set_media_options(&mut self, _: &MediaOptions) {}
 

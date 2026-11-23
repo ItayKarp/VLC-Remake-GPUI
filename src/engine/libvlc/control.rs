@@ -92,6 +92,8 @@ impl Worker {
                 Command::SetAudioDevice(device) => self.set_audio_device(&device),
                 Command::RefreshAudioDevices => self.poll_devices(),
                 Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
+                Command::SetStereoMode(mode) => self.set_stereo_mode(mode),
+                Command::PlayTestTone => self.play_test_tone(),
                 Command::SetMediaOptions(options) => self.media_options = options,
                 Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
                 Command::SetPicture(picture) => self.set_picture(picture),

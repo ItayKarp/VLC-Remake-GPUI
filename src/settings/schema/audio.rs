@@ -1,14 +1,14 @@
 //! Audio settings (S1.5, Settings → Audio, S5.8.2): whether audio plays, the volume range,
-//! startup volume and step, the speaker setup and passthrough, loudness and effects, the
+//! startup volume and step, the speaker setup, stereo mode (S7.6.2) and passthrough, loudness and effects, the
 //! equalizer, the preferred languages (S1.6.3), and the machine-local output device and last
 //! volume.
 
 use serde::{Deserialize, Serialize};
 
 use super::super::lenient::lenient;
-use crate::engine::audio::SpeakerSetup;
 use crate::engine::audio::effects::{ReplayGain, SpatialMode};
 use crate::engine::audio::equalizer::{BANDS, Equalizer, Preset};
+use crate::engine::audio::{SpeakerSetup, StereoMode};
 
 /// "Maximum volume" by default, in percent.
 pub const DEFAULT_MAX_VOLUME_PERCENT: u32 = 125;
@@ -45,6 +45,10 @@ pub struct AudioSettings {
     /// "Speaker setup".
     #[serde(deserialize_with = "lenient")]
     pub speaker_setup: SpeakerSetup,
+    /// "Stereo mode" (S7.6.2): how the two channels play; any but Stereo wins over the speaker
+    /// setup.
+    #[serde(deserialize_with = "lenient")]
+    pub stereo_mode: StereoMode,
     /// Sends AC3 and DTS undecoded over HDMI or S/PDIF (advanced). Applies from the next
     /// launch.
     #[serde(deserialize_with = "lenient")]
@@ -120,6 +124,7 @@ impl Default for AudioSettings {
             startup_volume_percent: DEFAULT_STARTUP_VOLUME_PERCENT,
             volume_step_percent: DEFAULT_VOLUME_STEP_PERCENT,
             speaker_setup: SpeakerSetup::default(),
+            stereo_mode: StereoMode::default(),
             passthrough: false,
             pause_on_device_disconnect: true,
             preferred_languages: Vec::new(),

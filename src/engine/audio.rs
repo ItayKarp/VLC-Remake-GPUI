@@ -4,6 +4,7 @@
 pub mod effects;
 pub mod equalizer;
 pub mod hotplug;
+pub mod test_tone;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +52,27 @@ pub enum SpeakerSetup {
     Automatic,
     /// Always downmix to two channels.
     Stereo,
+}
+
+/// How the two channels play ("Stereo Mode", S7.6.2): as they are, or remixed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StereoMode {
+    /// As the media has them; the speaker setup decides how surround is mixed.
+    #[default]
+    Stereo,
+    /// Both channels mixed into one, on both speakers.
+    Mono,
+    /// The left channel on both speakers.
+    Left,
+    /// The right channel on both speakers.
+    Right,
+    /// Left and right swapped.
+    ReverseStereo,
+    /// Dolby Surround encoded in the two channels, decoded.
+    DolbySurround,
+    /// Surround mixed for headphones, as if heard from speakers around the listener.
+    Headphones,
 }
 
 /// Audio choices a backend makes once, when it is created. Changes apply to the next backend

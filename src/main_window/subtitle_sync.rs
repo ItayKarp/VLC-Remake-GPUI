@@ -121,12 +121,12 @@ fn remember(media: &Media, key: &SubtitleKey, sync: SubtitleSync, cx: &App) {
 }
 
 /// Whether what is played of `media` is remembered.
-fn remembers(media: &Media, cx: &App) -> bool {
+pub(super) fn remembers(media: &Media, cx: &App) -> bool {
     settings::get(cx).prefs.privacy.save_recently_played && !exclusions::excluded(media, cx)
 }
 
 /// How the table names `media`: its stored path, or its URL.
-fn media_location(media: &Media) -> String {
+pub(super) fn media_location(media: &Media) -> String {
     match media {
         Media::File(path) => stored_path::encode(path),
         Media::Url(url) => url.clone(),

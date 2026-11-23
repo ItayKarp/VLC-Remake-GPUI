@@ -92,6 +92,7 @@ impl Player {
             }
         }
         self.push_subtitle_delay();
+        self.push_audio_delay();
         cx.emit(PlayerEvent::TracksChanged);
     }
 
@@ -118,5 +119,6 @@ impl Player {
         }
         self.with_backend(|backend| backend.select_track(kind, track));
         self.info.tracks.select(kind, track);
+        self.push_audio_delay();
     }
 }

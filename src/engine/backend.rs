@@ -12,7 +12,7 @@ use std::time::Duration;
 use futures::channel::mpsc;
 
 use super::audio::equalizer::Equalizer;
-use super::audio::{AudioDevice, OutputDevice, SpeakerSetup};
+use super::audio::{AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
@@ -139,6 +139,10 @@ pub enum Command {
     RefreshAudioDevices,
     /// Set up the speakers.
     SetSpeakerSetup(SpeakerSetup),
+    /// Play the two channels this way.
+    SetStereoMode(StereoMode),
+    /// Play the left/right test tone.
+    PlayTestTone,
     /// Open later media with these options.
     SetMediaOptions(MediaOptions),
     /// Play through this equalizer, or none.
@@ -208,6 +212,12 @@ pub trait Backend: Send {
     fn refresh_audio_devices(&mut self);
     /// Mixes channels for `setup` from now on, for this and later media.
     fn set_speaker_setup(&mut self, setup: SpeakerSetup);
+    /// Plays the two channels as `mode` says from now on, for this and later media; heard at
+    /// once. Any mode but Stereo wins over the speaker setup.
+    fn set_stereo_mode(&mut self, mode: StereoMode);
+    /// Plays the left/right test tone ([`super::audio::test_tone`]) through the output device
+    /// and stereo mode in use, at its own fixed level, beside whatever plays.
+    fn play_test_tone(&mut self);
     /// Opens media with `options` from the next [`Self::open`] on; the open media keeps its own.
     fn set_media_options(&mut self, options: &MediaOptions);
     /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.

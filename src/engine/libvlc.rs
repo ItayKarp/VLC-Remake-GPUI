@@ -50,6 +50,7 @@ mod stream_colour;
 mod subtitle_style;
 pub mod system_options;
 pub mod tags;
+mod test_tone;
 #[cfg(test)]
 mod tests;
 pub mod thumbnail;
@@ -74,7 +75,7 @@ use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
 use super::audio::equalizer::Equalizer;
-use super::audio::{AudioConfig, OutputDevice, SpeakerSetup};
+use super::audio::{AudioConfig, OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, Command, EventSender};
 use super::colors::Colors;
 use super::hdr::HdrMode;
@@ -247,6 +248,14 @@ impl Backend for LibVlcBackend {
 
     fn set_speaker_setup(&mut self, setup: SpeakerSetup) {
         self.send(Command::SetSpeakerSetup(setup));
+    }
+
+    fn set_stereo_mode(&mut self, mode: StereoMode) {
+        self.send(Command::SetStereoMode(mode));
+    }
+
+    fn play_test_tone(&mut self) {
+        self.send(Command::PlayTestTone);
     }
 
     fn set_media_options(&mut self, options: &MediaOptions) {

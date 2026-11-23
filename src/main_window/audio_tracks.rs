@@ -1,7 +1,8 @@
 //! External audio tracks (S4.8.1's Add Audio Tracks): audio files picked for a library file are
 //! added to it as tracks and the first one plays. A file that isn't playing opens first, and the
 //! files join it once its player has it. An added track rarely lines up with the video, so the
-//! audio delay keys (J and K, as in VLC) move it earlier or later.
+//! audio delay keys (J and K, as in VLC) move it earlier or later; the delay belongs to the audio
+//! track playing (S7.6.3), and the settings panel's Audio tab sets it too.
 
 use std::path::PathBuf;
 
@@ -40,8 +41,20 @@ impl MainWindow {
             Shift::Later => DELAY_STEP_MS,
         };
         let delay = Offset::from_millis(player.read(cx).audio_delay().as_millis() + step);
-        player.update(cx, |player, cx| player.set_audio_delay(delay, cx));
+        self.set_audio_delay(delay, cx);
+    }
+
+    /// Delays the audio track playing by `delay` and says where it is now; with no audio
+    /// playing, says so instead.
+    pub(super) fn set_audio_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
+        let Some(player) = self.loaded_player(cx) else { return };
+        if !player.update(cx, |player, cx| player.set_audio_delay(delay, cx)) {
+            self.show_osd("No audio playing", cx);
+            return;
+        }
+        let delay = player.read(cx).audio_delay();
         self.show_osd(delay_message(delay), cx);
+        self.remember_audio_delay(cx);
     }
 
     /// Asks for audio files and plays `media` with them added as tracks.

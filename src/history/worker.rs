@@ -12,8 +12,8 @@ use super::SessionId;
 use super::resolve::{self, ORPHAN_LIFETIME, ResolveError};
 use crate::app::media::Media;
 use crate::db::media::{self, MediaId, Progress, Saved};
-use crate::db::subtitle_sync;
 use crate::db::{Database, now_ms};
+use crate::db::{audio_delay, subtitle_sync};
 use crate::logging;
 
 /// Work for the history thread.
@@ -103,6 +103,7 @@ impl Worker {
                 self.sessions.clear();
                 media::clear(self.database.connection())
                     .and_then(|()| subtitle_sync::clear(self.database.connection()))
+                    .and_then(|()| audio_delay::clear(self.database.connection()))
             }
             Job::ForgetPositions => media::forget_positions(self.database.connection()),
             Job::Database(work) => {

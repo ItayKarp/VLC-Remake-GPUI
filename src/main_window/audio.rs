@@ -1,11 +1,14 @@
 //! The main window's side of audio (S1.5): it sets a new player up from the audio settings
-//! (effects at its creation, S5.8.2), follows changes to them (the equalizer at once), remembers the volume, and tells the user when
-//! the device that played disappears or there is no device at all.
+//! (effects at its creation, S5.8.2), follows changes to them and to the settings panel's
+//! session values over them (the equalizer and stereo mode at once, S7.6.2), remembers the
+//! volume, and tells the user when the device that played disappears or there is no device at
+//! all.
 
-use gpui::{Context, Entity, Subscription};
+use gpui::{Context, Entity, Subscription, WeakEntity};
 
 use super::MainWindow;
 use crate::app::audio_devices;
+use crate::effects::{self, EffectSession};
 use crate::engine::audio::effects::AudioEffects;
 use crate::engine::audio::equalizer::{Equalizer, GAIN_RANGE};
 use crate::engine::audio::{AudioConfig, AudioPolicy, OutputDevice};
@@ -20,8 +23,8 @@ const VOLUME_STEP_RANGE: (u32, u32) = (1, 100);
 /// What the window keeps about audio.
 #[derive(Default)]
 pub(super) struct AudioWatch {
-    /// Re-applies the audio settings to the player when they change.
-    settings: Option<Subscription>,
+    /// Re-applies the audio settings to the player when they or the session change.
+    settings: Option<[Subscription; 2]>,
     /// Whether the user was told there is no audio device, so it is said once per absence.
     warned_no_device: bool,
 }
@@ -33,20 +36,26 @@ impl MainWindow {
         AudioConfig { passthrough: audio.passthrough, effects: effects(audio) }
     }
 
-    /// Sets a new `player` up from the settings, at the startup volume, and follows later
-    /// changes to the settings.
+    /// Sets a new `player` up from the settings in effect, at the startup volume, and follows
+    /// later changes to them.
     pub(super) fn set_up_audio(&mut self, player: &Entity<Player>, cx: &mut Context<Self>) {
-        let settings = settings::get(cx).clone();
+        let settings = effects::effective(cx);
         player.update(cx, |player, cx| {
             apply(&settings, player, cx);
             player.set_volume(startup_volume(&settings), cx);
         });
+        let follow = |player: WeakEntity<Player>| {
+            move |_: &mut Self, cx: &mut Context<Self>| {
+                let settings = effects::effective(cx);
+                // The player lives as long as the window that owns this subscription.
+                let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
+            }
+        };
         let player = player.downgrade();
-        self.audio.settings = Some(cx.observe_global::<SettingsStore>(move |_, cx| {
-            let settings = settings::get(cx).clone();
-            // The player lives as long as the window that owns this subscription.
-            let _ = player.update(cx, |player, cx| apply(&settings, player, cx));
-        }));
+        self.audio.settings = Some([
+            cx.observe_global::<SettingsStore>(follow(player.clone())),
+            cx.observe_global::<EffectSession>(follow(player)),
+        ]);
     }
 
     /// Handles the player's audio events.
@@ -83,6 +92,7 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
     player.set_max_volume(max_volume(settings), cx);
     player.set_audio_device(OutputDevice::from_id(&settings.local.audio.output_device), cx);
     player.set_speaker_setup(audio.speaker_setup, cx);
+    player.set_stereo_mode(audio.stereo_mode, cx);
     player.set_equalizer(audio.equalizer.then(|| equalizer(audio)));
     player.set_audio_policy(AudioPolicy {
         pause_on_device_loss: audio.pause_on_device_disconnect,

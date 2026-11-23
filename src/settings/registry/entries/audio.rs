@@ -5,7 +5,7 @@ use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, Value, choice, number, text, toggle};
 use super::languages;
 use crate::app::audio_devices;
-use crate::engine::audio::SpeakerSetup;
+use crate::engine::audio::{SpeakerSetup, StereoMode};
 use crate::settings::registry::Category;
 use crate::settings::{self, Settings, StartupVolume};
 
@@ -22,6 +22,27 @@ impl SettingChoice for SpeakerSetup {
     const VALUES: &'static [Self] = &[Self::Automatic, Self::Stereo];
     const CHOICES: &'static [Choice] =
         &[Choice::new("automatic", "Automatic"), Choice::new("stereo", "Stereo")];
+}
+
+impl SettingChoice for StereoMode {
+    const VALUES: &'static [Self] = &[
+        Self::Stereo,
+        Self::Mono,
+        Self::Left,
+        Self::Right,
+        Self::ReverseStereo,
+        Self::DolbySurround,
+        Self::Headphones,
+    ];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("stereo", "Stereo"),
+        Choice::new("mono", "Mono"),
+        Choice::new("left", "Left"),
+        Choice::new("right", "Right"),
+        Choice::new("reverse_stereo", "Reverse stereo"),
+        Choice::new("dolby_surround", "Dolby Surround"),
+        Choice::new("headphones", "Headphones"),
+    ];
 }
 
 impl SettingChoice for StartupVolume {
@@ -101,6 +122,19 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          stereo. Stereo always mixes it down to two channels.",
     )
     .keywords(&["channels", "surround", "5.1", "7.1", "downmix"]),
+    SettingDef::new(
+        "audio.stereo_mode",
+        OUTPUT,
+        "Stereo mode",
+        Control::Dropdown(StereoMode::CHOICES),
+        choice!(prefs.audio.stereo_mode),
+    )
+    .info(
+        "How the left and right channels play: as they are, mixed into one (Mono), one side on \
+         both speakers, swapped, Dolby Surround decoded, or surround mixed for headphones. Any \
+         but Stereo wins over the speaker setup.",
+    )
+    .keywords(&["mono", "left", "right", "reverse", "swap", "dolby", "headphones", "channels"]),
     SettingDef::new(
         "audio.pause_on_device_disconnect",
         OUTPUT,

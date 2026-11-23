@@ -1,16 +1,18 @@
 //! The [`Player`]'s audio (S1.5): volume within the maximum, mute, the output device and its
-//! hot-plug fallback, speaker setup, the equalizer, and pausing for another app's audio.
+//! hot-plug fallback, speaker setup and stereo mode (S7.6.2), the equalizer, and pausing for
+//! another app's audio.
 
-use gpui::Context;
+use gpui::{Context, Task};
 
 use super::{Intent, Player, PlayerEvent};
 use crate::engine::audio::equalizer::Equalizer;
-use crate::engine::audio::{AudioDevice, AudioPolicy, OutputDevice, SpeakerSetup, hotplug};
+use crate::engine::audio::{
+    AudioDevice, AudioPolicy, OutputDevice, SpeakerSetup, StereoMode, hotplug,
+};
 use crate::engine::state::PlaybackState;
 use crate::engine::values::{DEFAULT_MAX_VOLUME, MIN_MAX_VOLUME, Volume, VolumeChange};
 
 /// The player's audio state, kept across opens.
-#[derive(Clone, Debug)]
 pub(super) struct AudioState {
     /// The loudest volume allowed ("Maximum volume").
     max_volume: Volume,
@@ -19,6 +21,7 @@ pub(super) struct AudioState {
     /// The device sound goes to: the preferred one, or the default while it is unplugged.
     active: OutputDevice,
     speaker_setup: SpeakerSetup,
+    stereo_mode: StereoMode,
     /// The equalizer sound goes through; `None` while it is off.
     equalizer: Option<Equalizer>,
     policy: AudioPolicy,
@@ -26,6 +29,10 @@ pub(super) struct AudioState {
     devices: Option<Vec<AudioDevice>>,
     /// Whether the player paused for another app's audio, and resumes when it ends.
     paused_for_cork: bool,
+    /// Whether the player paused for the Stereo Mode's test tone, and resumes after it.
+    pub(super) paused_for_test: bool,
+    /// Ends the test tone's pause once the tone is over (`test_tone.rs`).
+    pub(super) test_ends: Option<Task<()>>,
 }
 
 impl Default for AudioState {
@@ -35,18 +42,22 @@ impl Default for AudioState {
             preferred: OutputDevice::SystemDefault,
             active: OutputDevice::SystemDefault,
             speaker_setup: SpeakerSetup::Automatic,
+            stereo_mode: StereoMode::Stereo,
             equalizer: None,
             policy: AudioPolicy::default(),
             devices: None,
             paused_for_cork: false,
+            paused_for_test: false,
+            test_ends: None,
         }
     }
 }
 
 impl AudioState {
-    /// Forgets a pause for another app's audio: the user took over playback.
+    /// Forgets a pause for another app's audio or the test tone: the user took over playback.
     pub(super) fn user_took_over(&mut self) {
         self.paused_for_cork = false;
+        self.paused_for_test = false;
     }
 }
 
@@ -150,6 +161,19 @@ impl Player {
         }
     }
 
+    /// How the two channels play.
+    pub fn stereo_mode(&self) -> StereoMode {
+        self.audio.stereo_mode
+    }
+
+    /// Plays the two channels as `mode` says; heard at once.
+    pub fn set_stereo_mode(&mut self, mode: StereoMode, cx: &mut Context<Self>) {
+        if std::mem::replace(&mut self.audio.stereo_mode, mode) != mode {
+            self.with_backend(|backend| backend.set_stereo_mode(mode));
+            cx.notify();
+        }
+    }
+
     /// Plays through `equalizer` from now on, or without one; heard at once.
     pub fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
         if self.audio.equalizer != equalizer {
@@ -204,7 +228,7 @@ impl Player {
     }
 
     /// Whether media is playing, or about to, because the user asked for it.
-    fn is_playing_for_user(&self) -> bool {
+    pub(super) fn is_playing_for_user(&self) -> bool {
         self.intent == Intent::Play
             && matches!(
                 self.state,

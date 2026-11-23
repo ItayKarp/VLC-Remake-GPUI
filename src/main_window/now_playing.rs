@@ -122,6 +122,7 @@ impl MainWindow {
                 if *state == PlaybackState::Opening {
                     self.windowing.start_fullscreen = true;
                     self.restore_subtitle_syncs(cx);
+                    self.restore_audio_delays(cx);
                     self.load_linked_subtitles(cx);
                 }
                 self.found_playing(*state, cx);
