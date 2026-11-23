@@ -1,9 +1,17 @@
 // CI for RedesignedVLC (S0.8.1): formatting, then clippy, the tests and a release build on
-// Linux, then SonarQube analysis with its quality gate.
+// Linux, then SonarQube analysis with its quality gate, then (on `staging` and `main`) a
+// GitHub release.
+//
+// Changes reach `main` only through pull requests: feature branch → `dev` → `staging` →
+// `main`. GitHub requires this pipeline to pass on a pull request before it can merge. Pull
+// requests into `staging` must come from `dev`, and into `main` from `staging` with a version
+// in Cargo.toml that hasn't been released yet. Every build keeps its Linux packages as
+// downloadable artifacts; a merge into `staging` publishes them as a pre-release
+// (`v0.2.0-rc.<build>`), and a merge into `main` as the release (`v0.2.0`).
 //
 // Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
-// build agent, triggered by GitHub's push webhook for `main`. Windows and macOS aren't built
-// here: there are no agents for them. Discord hears about builds from a service beside Jenkins
+// build agent, triggered by GitHub's push and pull request webhooks. Windows and macOS aren't
+// built here: there are no agents for them, so releases hold Linux arm64 packages only. Discord hears about builds from a service beside Jenkins
 // (`ci/discord_notifier`), which follows every stage live, so this file says nothing to it.
 //
 // Before the first run, set up Jenkins as the "Jenkins setup" block in `environment` below
@@ -39,6 +47,10 @@ pipeline {
     environment {
         CARGO_TERM_COLOR = 'always'
         RUST_BACKTRACE = '1'
+        // Debug and test builds keep file and line numbers (for panics and backtraces) but not
+        // the full debug info a debugger reads. A GPUI binary with full debug info outgrows the
+        // Pi's memory while linking; this checks and tests exactly the same code.
+        CARGO_PROFILE_DEV_DEBUG = 'line-tables-only'
         // Every cargo and rustup call uses this toolchain. Pin a version (for example
         // '1.100.0') to keep new clippy lints from failing builds unannounced.
         RUSTUP_TOOLCHAIN = 'stable'
@@ -54,9 +66,24 @@ pipeline {
         SONARQUBE_SERVER = 'sonarqube'
         // Manage Jenkins > Tools > SonarQube Scanner installations: the scanner's name.
         SONAR_SCANNER_TOOL = 'sonar-scanner'
+        // The repository releases go to, and a "Secret text" credential holding a GitHub token
+        // allowed to write its contents (tags and releases).
+        GITHUB_REPO = 'ItayKarp/VLC-Remake-GPUI'
+        RELEASE_CREDENTIALS_ID = 'github-release'
     }
 
     stages {
+        stage('Promotion rules') {
+            when {
+                beforeAgent true
+                changeRequest()
+            }
+            agent { label "${env.LINUX_AGENT}" }
+            steps {
+                checkPromotion()
+            }
+        }
+
         stage('Cache') {
             agent { label "${env.LINUX_AGENT}" }
             steps {
@@ -143,6 +170,11 @@ pipeline {
                     stage('Release build') {
                         steps {
                             sh "cargo build --release ${env.FEATURES}"
+                            script {
+                                if (env.BACKENDS == 'all') {
+                                    packageLinux()
+                                }
+                            }
                         }
                     }
                 }
@@ -163,7 +195,7 @@ pipeline {
                 script {
                     def scanner = tool env.SONAR_SCANNER_TOOL
                     withSonarQubeEnv(env.SONARQUBE_SERVER) {
-                        sh "\"${scanner}/bin/sonar-scanner\" -Dsonar.projectVersion=\"${crateVersion()}\""
+                        sh "\"${scanner}/bin/sonar-scanner\" -Dsonar.projectVersion=\"${crateVersion()}\" ${sonarProject()}"
                     }
                 }
             }
@@ -179,7 +211,74 @@ pipeline {
                 }
             }
         }
+
+        stage('Release') {
+            when {
+                beforeAgent true
+                anyOf { branch 'staging'; branch 'main' }
+            }
+            agent { label "${env.LINUX_AGENT}" }
+            steps {
+                unstash 'package'
+                withCredentials([string(credentialsId: env.RELEASE_CREDENTIALS_ID, variable: 'GH_TOKEN')]) {
+                    sh "bash ci/release.sh 'v${releaseVersion()}' ${env.BRANCH_NAME == 'main' ? 'release' : 'prerelease'}"
+                }
+            }
+        }
     }
+}
+
+/**
+ * Fails a pull request that skips a step of dev → staging → main, or that would release a
+ * version `main` already released.
+ */
+void checkPromotion() {
+    def source = [staging: 'dev', main: 'staging'][env.CHANGE_TARGET]
+    if (source && env.CHANGE_BRANCH != source) {
+        error "Pull requests into ${env.CHANGE_TARGET} come from ${source}, not ${env.CHANGE_BRANCH}"
+    }
+    if (env.CHANGE_TARGET == 'main') {
+        def tag = "v${crateVersion()}"
+        def released = sh(
+            returnStatus: true,
+            script: "git ls-remote --exit-code --tags 'https://github.com/${env.GITHUB_REPO}.git' 'refs/tags/${tag}' > /dev/null"
+        ) == 0
+        if (released) {
+            error "${tag} is already released: bump the version in Cargo.toml"
+        }
+        echo "Merging releases ${tag}"
+    }
+}
+
+/** The packages' version: the crate's, marked as a pre-release everywhere but `main`. */
+String releaseVersion() {
+    def version = crateVersion()
+    if (env.BRANCH_NAME == 'main') {
+        return version
+    }
+    if (env.BRANCH_NAME == 'staging') {
+        return "${version}-rc.${env.BUILD_NUMBER}"
+    }
+    def label = env.BRANCH_NAME.toLowerCase().replaceAll(/[^a-z0-9]/, '')
+    return "${version}-${label}.${env.BUILD_NUMBER}"
+}
+
+/** Packages the `all` cell's release build, keeps it with the build, and hands it to Release. */
+void packageLinux() {
+    sh "bash ci/package-linux.sh \"\${CARGO_TARGET_DIR:-target}/release/RedesignedVLC\" '${releaseVersion()}'"
+    archiveArtifacts artifacts: 'dist/*', fingerprint: true
+    stash name: 'package', includes: 'dist/*'
+}
+
+/**
+ * The SonarQube project this build reports to: one per long-lived branch, since the Community
+ * Build analyzes one branch per project. A pull request reports to its target's project, as
+ * the merge it builds is what that branch would become.
+ */
+String sonarProject() {
+    def branch = env.CHANGE_TARGET ?: env.BRANCH_NAME
+    def key = branch == 'main' ? 'redesigned-vlc' : "redesigned-vlc-${branch}"
+    return "-Dsonar.projectKey=${key} -Dsonar.projectName='RedesignedVLC (${branch})'"
 }
 
 /**
