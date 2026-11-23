@@ -48,7 +48,9 @@ impl Worker {
     /// Whether the media opening now will show a picture: video is decoded and its parse found
     /// a video track. Media without one would play, muted, until the hold gave up.
     pub(super) fn expects_picture(&self) -> bool {
-        self.media_options.video && self.video.as_ref().is_some_and(|video| video.knows_display())
+        self.media_options.video
+            && !self.is_casting()
+            && self.video.as_ref().is_some_and(|video| video.knows_display())
     }
 
     /// Pauses the held media where its first picture showed, and unmutes it.

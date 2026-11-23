@@ -32,6 +32,10 @@ opaque! {
     AudioEqualizer;
     /// `libvlc_media_list_t`.
     MediaList;
+    /// `libvlc_renderer_discoverer_t`.
+    RendererDiscoverer;
+    /// `libvlc_renderer_item_t`.
+    RendererItem;
 }
 
 /// `libvlc_event_t`: the event type, its sender, and a union of per-type payloads.
@@ -56,6 +60,8 @@ pub union EventData {
     pub time: i64,
     /// `new_seekable`, `new_pausable`, `new_count`, `new_scrambled`.
     pub int: c_int,
+    /// `renderer_discoverer_item_added.item` and `renderer_discoverer_item_deleted.item`.
+    pub renderer: *mut RendererItem,
 }
 
 /// `libvlc_callback_t`.
@@ -156,6 +162,13 @@ pub struct TitleDescription {
     pub name: *mut c_char,
     /// `libvlc_title_menu` (1) and `libvlc_title_interactive` (2).
     pub flags: c_uint,
+}
+
+/// `libvlc_rd_description_t`: a renderer discovery service.
+#[repr(C)]
+pub struct RendererService {
+    pub name: *mut c_char,
+    pub long_name: *mut c_char,
 }
 
 /// `libvlc_audio_output_device_t`: one node of a linked list of output devices.
@@ -285,6 +298,19 @@ libvlc_api! {
     libvlc_dialog_set_callbacks: fn(*mut Instance, *const DialogCallbacks, *mut c_void);
     libvlc_dialog_post_action: fn(*mut DialogId, c_int) -> c_int;
     libvlc_dialog_dismiss: fn(*mut DialogId) -> c_int;
+    libvlc_renderer_discoverer_list_get:
+        fn(*mut Instance, *mut *mut *mut RendererService) -> usize;
+    libvlc_renderer_discoverer_list_release: fn(*mut *mut RendererService, usize);
+    libvlc_renderer_discoverer_new: fn(*mut Instance, *const c_char) -> *mut RendererDiscoverer;
+    libvlc_renderer_discoverer_release: fn(*mut RendererDiscoverer);
+    libvlc_renderer_discoverer_start: fn(*mut RendererDiscoverer) -> c_int;
+    libvlc_renderer_discoverer_stop: fn(*mut RendererDiscoverer);
+    libvlc_renderer_discoverer_event_manager: fn(*mut RendererDiscoverer) -> *mut EventManager;
+    libvlc_renderer_item_hold: fn(*mut RendererItem) -> *mut RendererItem;
+    libvlc_renderer_item_release: fn(*mut RendererItem);
+    libvlc_renderer_item_name: fn(*const RendererItem) -> *const c_char;
+    libvlc_renderer_item_flags: fn(*const RendererItem) -> c_int;
+    libvlc_media_player_set_renderer: fn(Player, *mut RendererItem) -> c_int;
 }
 
 /// The libVLC libraries, core first, by their file names on this OS.

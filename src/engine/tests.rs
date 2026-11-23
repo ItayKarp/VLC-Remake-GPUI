@@ -3,6 +3,7 @@
 
 mod audio;
 mod audio_channels;
+mod casting;
 mod drawn;
 mod linked;
 mod recording;

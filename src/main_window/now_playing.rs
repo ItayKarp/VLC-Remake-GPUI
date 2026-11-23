@@ -168,6 +168,7 @@ impl MainWindow {
         self.on_history_event(event, cx);
         self.on_recording_event(event, cx);
         self.on_disc_event(event, cx);
+        self.on_cast_event(event, cx);
     }
 
     /// Playback failed: says why for a disc or device, and moves on in the queue.

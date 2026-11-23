@@ -21,6 +21,7 @@ mod audio_delay;
 mod audio_tracks;
 mod auto_hide;
 mod bar_panel;
+mod casting;
 mod control_bar;
 mod convert_dialog;
 mod customize;

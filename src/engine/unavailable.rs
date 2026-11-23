@@ -8,6 +8,7 @@ use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, EventSender};
+use super::cast::{CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
@@ -94,6 +95,10 @@ impl Backend for UnavailableBackend {
     }
 
     fn navigate(&mut self, _: Navigation) {}
+
+    fn set_cast_setup(&mut self, _: CastSetup) {}
+
+    fn cast(&mut self, _: Option<CastDeviceId>) {}
 
     fn shut_down(self: Box<Self>) {}
 }

@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::audio::{Channels, DeviceWatch};
+use super::casting::{Casting, RendererChange};
 use super::cpu_filters::CpuFilters;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
@@ -63,6 +64,8 @@ pub enum Message {
     Failed,
     /// The picture held media waited for showed (`hold.rs`).
     PictureShown,
+    /// A cast device appeared or went away (`casting.rs`).
+    Renderer(RendererChange),
     /// Stop, release everything, and exit.
     Shutdown,
 }
@@ -127,6 +130,8 @@ pub struct Worker {
     pub(super) equalizer_on: bool,
     /// When the running recording is checked on next (S8.6); `None` while not recording.
     pub(super) recording_check: Option<Instant>,
+    /// The cast devices found, and the one media plays on (S8.11).
+    pub(super) casting: Casting,
 }
 
 impl Worker {
@@ -165,6 +170,7 @@ impl Worker {
             audio_effects: AudioEffects::default(),
             equalizer_on: false,
             recording_check: None,
+            casting: Casting::default(),
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -179,6 +185,7 @@ impl Worker {
                 Message::Ended => self.ended(),
                 Message::Failed => self.failed(),
                 Message::PictureShown => self.pause_held(),
+                Message::Renderer(change) => self.renderer_changed(change),
                 Message::Shutdown => break,
             }
             // A steady stream of messages must not starve the device list or the switch.
@@ -388,6 +395,7 @@ impl Worker {
             (api.libvlc_media_player_release)(self.handles.player);
         }
         self.release_media();
+        self.release_casting();
         super::hardware::decoding(None);
         // SAFETY: nothing uses the instance any more.
         unsafe { (self.vlc.api.libvlc_release)(self.handles.instance) };

@@ -3,6 +3,7 @@
 
 mod audio;
 mod audio_delay;
+mod casting;
 mod commands;
 mod drawn;
 mod navigation;
@@ -25,10 +26,12 @@ pub use self::subtitle_files::Linked;
 pub use self::timeline::CueSpan;
 
 use self::audio::AudioState;
+use self::casting::CastState;
 use self::recording::RecordClock;
 use self::tracks::TrackChoices;
 use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
+use super::cast::CastDevice;
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
@@ -94,6 +97,12 @@ pub enum PlayerEvent {
     ProgramsChanged,
     /// The titles, or the one playing, changed; see [`Player::titles`].
     TitlesChanged,
+    /// The cast devices found changed; see [`Player::cast_devices`].
+    CastDevicesChanged,
+    /// Media started playing on a cast device or here again; see [`Player::cast_target`].
+    CastChanged,
+    /// The cast device media played on went away; it plays here again.
+    CastLost(CastDevice),
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -181,6 +190,8 @@ pub struct Player {
     backend_subtitle_delay: Offset,
     /// How long the running recording has recorded (S8.6); `None` while not recording.
     recording: Option<RecordClock>,
+    /// The cast devices found and the one media plays on (S8.11).
+    cast: CastState,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -217,6 +228,7 @@ impl Player {
             file_styles: true,
             backend_subtitle_delay: Offset::default(),
             recording: None,
+            cast: CastState::default(),
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

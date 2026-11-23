@@ -12,7 +12,7 @@
 //! Statistics, Reverse, Sleep Timer) come with their story (S8.13) and are hidden until then. The Audio tab holds its Defaults, the
 //! stereo mode with its Test, the playing track's delay (`audio.rs`, S7.6), and its effect
 //! sections: the Equalizer (`equalizer_section.rs`, S7.7), then the Compressor, Spatializer and
-//! Stereo Widener (S7.9). The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
+//! Stereo Widener (S7.9). The Video tab holds its Defaults (`video_defaults.rs`, S7.2, with Render in `render_row.rs`, S8.11), the Crop section
 //! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1), Colors
 //! with its own (`colors_section.rs`, S7.4). The
 //! Subtitles tab holds the subtitle defaults and the showing subtitle's synchronization
@@ -38,6 +38,7 @@ mod equalizer_section;
 mod footer;
 mod number_row;
 mod playback;
+mod render_row;
 mod subtitles;
 mod sync_rules;
 mod track_defaults;

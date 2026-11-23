@@ -1,6 +1,6 @@
 //! The main window's side of tracks (S1.6): it gives the player the preferred languages, default
-//! tracks, the options new media opens with (S5.7, S5.8.1) and the video filters (S7.2) from the
-//! settings in effect (Settings with the player's panel over them, S7.1) and follows changes to
+//! tracks, the options new media opens with (S5.7, S5.8.1), the video filters (S7.2) and the
+//! casting setup (S8.11) from the settings in effect (Settings with the player's panel over them, S7.1) and follows changes to
 //! them, and cycles audio (B) and subtitles (V), saying
 //! which track plays now over the video (S2.10.2); a newer message replaces the last, so a held
 //! key doesn't stack them.
@@ -68,6 +68,7 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
         deinterlace: video.deinterlacing(),
     });
     player.set_hdr_mode(video.hdr);
+    player.set_cast_setup(super::casting::setup(settings));
     player.set_file_styles(settings.prefs.subtitles.file_styles, cx);
 }
 

@@ -16,6 +16,7 @@ use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
+use super::cast::{CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
@@ -290,6 +291,14 @@ impl Backend for MockBackend {
 
     fn navigate(&mut self, to: Navigation) {
         self.note(Command::Navigate(to));
+    }
+
+    fn set_cast_setup(&mut self, setup: CastSetup) {
+        self.note(Command::SetCastSetup(setup));
+    }
+
+    fn cast(&mut self, device: Option<CastDeviceId>) {
+        self.note(Command::Cast(device));
     }
 
     fn shut_down(self: Box<Self>) {

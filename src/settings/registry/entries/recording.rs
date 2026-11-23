@@ -1,6 +1,7 @@
 //! Recording ("Recording, Casting & Streaming Out", `recording.png`, S5.10.3): where recordings
 //! go and how, finding cast devices, and what a stream sends. Recording (S8.6), casting (S8.11)
-//! and streaming out (S8.12) read these when they start, so changes count from the next one.
+//! and streaming out (S8.12) read these when they start, so changes count from the next one;
+//! "Discover cast devices" starts or stops looking at once.
 
 use super::super::def::{Control, PathPick, SettingDef};
 use super::super::value::{Choice, SettingChoice, Value, choice, text, toggle};
@@ -97,7 +98,10 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         Control::Toggle,
         toggle!(prefs.recording.discover_cast_devices),
     )
-    .info("Looks for Chromecasts and other cast devices on your network.")
+    .info(
+        "Looks for Chromecasts on your network, to play on one with the player's Render \
+         setting. Off, media playing on one comes back here.",
+    )
     .keywords(&["chromecast", "cast", "renderer", "tv"]),
     SettingDef::new(
         "recording.cast_quality",
@@ -107,8 +111,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         choice!(prefs.recording.cast_quality),
     )
     .info(
-        "How media the cast device can't play is converted. Lower uses less of your network; \
-         Automatic follows the network and the device.",
+        "How media the cast device can't play is converted, from the next cast on. Lower uses \
+         less of your network; Automatic is Medium.",
     )
     .keywords(&["chromecast", "cast", "bitrate", "transcode"]),
     include_row(

@@ -15,6 +15,7 @@ use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
+use super::cast::{CastDevice, CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
@@ -68,6 +69,10 @@ pub enum BackendEvent {
     Programs(Programs),
     /// The disc's titles, or which one plays, changed (S8.9.1).
     Titles(Titles),
+    /// The cast devices found on the network now (S8.11); sent whenever the list changes.
+    CastDevices(Vec<CastDevice>),
+    /// The device media was cast to went away, and media plays here again.
+    CastLost(CastDevice),
 }
 
 impl BackendEvent {
@@ -75,7 +80,14 @@ impl BackendEvent {
     /// Device and audio-focus events are about the machine, and always apply; so does the end
     /// of a recording, which another open ends.
     pub fn is_about_media(&self) -> bool {
-        !matches!(self, Self::AudioDevices(_) | Self::Corked(_) | Self::Recording(_))
+        !matches!(
+            self,
+            Self::AudioDevices(_)
+                | Self::Corked(_)
+                | Self::Recording(_)
+                | Self::CastDevices(_)
+                | Self::CastLost(_)
+        )
     }
 }
 
@@ -174,6 +186,10 @@ pub enum Command {
     Record(Option<PathBuf>),
     /// Move to another program or title, or press a key in a disc's menu.
     Navigate(Navigation),
+    /// Look for cast devices, and convert for them, this way.
+    SetCastSetup(CastSetup),
+    /// Play on this cast device, or here with `None`.
+    Cast(Option<CastDeviceId>),
 }
 
 /// A playback backend.
@@ -269,6 +285,14 @@ pub trait Backend: Send {
     /// showing (S8.9). Programs and titles are reported with [`BackendEvent::Programs`] and
     /// [`BackendEvent::Titles`], again once the move is made.
     fn navigate(&mut self, to: Navigation);
+    /// Looks for cast devices on the network or stops, and converts media for them, as `setup`
+    /// says (S8.11). Found devices are reported with [`BackendEvent::CastDevices`]; turning
+    /// discovery off empties the list and brings media casting back here.
+    fn set_cast_setup(&mut self, setup: CastSetup);
+    /// Plays this and later media on cast device `device`, or here with `None`, from where it
+    /// is. A device the backend doesn't know is ignored. If the device goes away meanwhile, media
+    /// plays here again and [`BackendEvent::CastLost`] says so.
+    fn cast(&mut self, device: Option<CastDeviceId>);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

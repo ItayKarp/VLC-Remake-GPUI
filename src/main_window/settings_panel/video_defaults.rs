@@ -8,8 +8,8 @@
 //! (−90 is 270). Flip and Rotate reopen the video where it is; the rest the app draws at once.
 //! Aspect Ratio's Custom shows a Custom Ratio field under it (`custom_ratio.rs`).
 //! Resolution only reaches streams that offer several, from the next one opened. HDR reopens
-//! HDR video where it is, with a line under it saying what plays and how it shows. The designed
-//! Render row (casting) comes with S8.11; until then it's hidden.
+//! HDR video where it is, with a line under it saying what plays and how it shows. Render
+//! (`render_row.rs`, S8.11) comes last: where media plays, here or on a cast device.
 
 use gpui::{
     App, AppContext as _, Context, Div, Entity, KeyDownEvent, SharedString, Subscription, Window,
@@ -17,6 +17,7 @@ use gpui::{
 };
 
 use super::custom_ratio::CustomRatioField;
+use super::render_row::RenderControl;
 use crate::effects::{self, VIDEO_DEFAULTS};
 use crate::engine::transform::Rotation;
 use crate::main_window::MainWindow;
@@ -44,7 +45,7 @@ const HDR: &str = "video.hdr";
 /// The rows' height, text size and control width, and the space under Flip's label.
 const ROW_HEIGHT: f32 = 68.;
 const ROW_TEXT: f32 = 14.;
-const CONTROL_WIDTH: f32 = 220.;
+pub(super) const CONTROL_WIDTH: f32 = 220.;
 const ROTATE_WIDTH: f32 = 136.;
 const LABEL_GAP: f32 = 12.;
 /// What the heading says the rows change.
@@ -65,6 +66,8 @@ pub(super) struct DefaultsControls {
     rotate: Entity<TextInput>,
     custom_ratio: CustomRatioField,
     dropdowns: Vec<DropdownRow>,
+    /// The Render row (S8.11).
+    pub(super) render: RenderControl,
     _events: Vec<Subscription>,
 }
 
@@ -91,7 +94,8 @@ impl DefaultsControls {
             dropdowns.push(DropdownRow { key, label, choices, dropdown });
         }
         let custom_ratio = CustomRatioField::new(window, cx);
-        Self { rotate, custom_ratio, dropdowns, _events: events }
+        let render = RenderControl::new(window, cx);
+        Self { rotate, custom_ratio, dropdowns, render, _events: events }
     }
 
     /// Shows the values in effect, changed here or in Settings.
@@ -141,6 +145,7 @@ impl MainWindow {
             .child(flip_row(p, cx))
             .child(labelled("Rotate", rotate, p))
             .children(dropdowns)
+            .child(self.render_render_row(p, cx))
     }
 
     fn on_rotate(field: &Entity<TextInput>, event: &text_input::Event, cx: &mut Context<Self>) {
@@ -206,7 +211,7 @@ fn heading(p: &Palette, cx: &App) -> Div {
 }
 
 /// A line under a row, about what it does to the media playing.
-fn note(text: String, p: &Palette) -> Div {
+pub(super) fn note(text: String, p: &Palette) -> Div {
     div()
         .pb(px(LABEL_GAP))
         .text_size(px(super::SECTION_NOTE_TEXT))
@@ -233,7 +238,7 @@ fn flip_row(p: &Palette, cx: &App) -> Div {
 }
 
 /// A row: the label, and `control` at the right.
-fn labelled(label: &'static str, control: impl IntoElement, p: &Palette) -> Div {
+pub(super) fn labelled(label: &'static str, control: impl IntoElement, p: &Palette) -> Div {
     div()
         .h(px(ROW_HEIGHT))
         .flex()

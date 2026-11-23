@@ -2,7 +2,6 @@
 
 use std::ffi::{CStr, c_int};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
@@ -12,7 +11,7 @@ use super::worker::{Refresh, Worker};
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::{TrackId, TrackKind};
-use crate::engine::values::{BackendSeek, Offset, StepDirection, Volume};
+use crate::engine::values::{BackendSeek, Offset, Rate, StepDirection, Volume};
 
 /// The frame rate assumed for a backward step when libVLC doesn't know the real one.
 const FALLBACK_FPS: f32 = 25.0;
@@ -61,6 +60,12 @@ impl Worker {
         }
     }
 
+    /// Sets the playback speed.
+    fn set_rate(&self, rate: Rate) {
+        // SAFETY: the player is live.
+        _ = unsafe { (self.vlc.api.libvlc_media_player_set_rate)(self.handles.player, rate.get()) };
+    }
+
     /// Sets the output volume.
     fn set_volume(&self, volume: Volume) {
         let level = (volume.get() * FULL_VOLUME).round() as c_int;
@@ -70,46 +75,39 @@ impl Worker {
 
     /// Runs one command.
     pub(super) fn execute(&mut self, command: Command) {
-        let vlc = Arc::clone(&self.vlc);
-        let api = &vlc.api;
-        let player = self.handles.player;
-        // SAFETY (every call below): the player is live for the worker's whole life, and each
-        // call matches its libVLC 3 signature.
-        unsafe {
-            match command {
-                Command::Open { media, start, generation } => self.open(media, start, generation),
-                Command::Play => self.play(),
-                Command::Pause => self.pause(),
-                Command::Stop => self.stop(),
-                Command::Seek(to) => self.seek(to),
-                Command::FrameStep(direction) => self.frame_step(direction),
-                Command::SetRate(rate) => {
-                    _ = (api.libvlc_media_player_set_rate)(player, rate.get());
-                }
-                Command::SetVolume(volume) => self.set_volume(volume),
-                Command::SetMute(muted) => self.set_mute(muted),
-                Command::SelectTrack(kind, track) => self.select_track(kind, track),
-                Command::SetAudioDelay(delay) => self.set_delays(Some(delay), None),
-                Command::SetSubtitleDelay(delay) => self.set_delays(None, Some(delay)),
-                Command::AddSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Shown),
-                Command::LoadSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Listed),
-                Command::AddAudio(path) => self.add_slave(SlaveKind::Audio, path, Attach::Shown),
-                Command::SetAudioDevice(device) => self.set_audio_device(&device),
-                Command::RefreshAudioDevices => self.poll_devices(),
-                Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
-                Command::SetStereoMode(mode) => self.set_stereo_mode(mode),
-                Command::PlayTestTone => self.play_test_tone(),
-                Command::SetVisualizer(effect) => self.set_visualizer(effect),
-                Command::SetMediaOptions(options) => self.media_options = options,
-                Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
-                Command::SetAudioEffects(effects) => self.set_audio_effects(effects),
-                Command::SetPicture(picture) => self.set_picture(picture),
-                Command::SetVideoFilters(filters) => self.set_video_filters(filters),
-                Command::SetColors(colors) => self.set_colors(colors),
-                Command::SetHdrMode(mode) => self.set_hdr_mode(mode),
-                Command::Record(folder) => self.record(folder.as_deref()),
-                Command::Navigate(to) => self.navigate(to),
-            }
+        match command {
+            Command::Open { media, start, generation } => self.open(media, start, generation),
+            Command::Play => self.play(),
+            Command::Pause => self.pause(),
+            Command::Stop => self.stop(),
+            Command::Seek(to) => self.seek(to),
+            Command::FrameStep(direction) => self.frame_step(direction),
+            Command::SetRate(rate) => self.set_rate(rate),
+            Command::SetVolume(volume) => self.set_volume(volume),
+            Command::SetMute(muted) => self.set_mute(muted),
+            Command::SelectTrack(kind, track) => self.select_track(kind, track),
+            Command::SetAudioDelay(delay) => self.set_delays(Some(delay), None),
+            Command::SetSubtitleDelay(delay) => self.set_delays(None, Some(delay)),
+            Command::AddSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Shown),
+            Command::LoadSubtitle(path) => self.add_slave(SUBTITLE, path, Attach::Listed),
+            Command::AddAudio(path) => self.add_slave(SlaveKind::Audio, path, Attach::Shown),
+            Command::SetAudioDevice(device) => self.set_audio_device(&device),
+            Command::RefreshAudioDevices => self.poll_devices(),
+            Command::SetSpeakerSetup(setup) => self.set_speaker_setup(setup),
+            Command::SetStereoMode(mode) => self.set_stereo_mode(mode),
+            Command::PlayTestTone => self.play_test_tone(),
+            Command::SetVisualizer(effect) => self.set_visualizer(effect),
+            Command::SetMediaOptions(options) => self.media_options = options,
+            Command::SetEqualizer(equalizer) => self.set_equalizer(equalizer.as_ref()),
+            Command::SetAudioEffects(effects) => self.set_audio_effects(effects),
+            Command::SetPicture(picture) => self.set_picture(picture),
+            Command::SetVideoFilters(filters) => self.set_video_filters(filters),
+            Command::SetColors(colors) => self.set_colors(colors),
+            Command::SetHdrMode(mode) => self.set_hdr_mode(mode),
+            Command::Record(folder) => self.record(folder.as_deref()),
+            Command::Navigate(to) => self.navigate(to),
+            Command::SetCastSetup(setup) => self.set_cast_setup(setup),
+            Command::Cast(device) => self.cast(device),
         }
     }
 

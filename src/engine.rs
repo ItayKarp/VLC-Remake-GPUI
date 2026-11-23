@@ -29,9 +29,11 @@
 //! - [`navigation`]: a stream's programs, a disc's titles and its menus (S8.9).
 //! - [`discs`]: an audio CD's tracks, read without playing it (S8.9.1).
 //! - [`convert`]: converting media to another format, on threads of their own (S8.10).
+//! - [`cast`]: the cast devices found on the network, and casting to one (S8.11).
 
 pub mod audio;
 pub mod backend;
+pub mod cast;
 mod coalesce;
 pub mod colors;
 pub mod convert;
