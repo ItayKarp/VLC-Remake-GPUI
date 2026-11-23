@@ -4,10 +4,14 @@
 //! stay where they are.
 //!
 //! A row left with nothing but gaps goes, unless it is the only one; dropping on the place for
-//! a new row adds one above the others, up to [`MAX_ROWS`].
+//! a new row adds one above the others, up to [`MAX_ROWS`]. Moving a unit a place at a time,
+//! for the keyboard, is `nudge.rs`.
+
+mod nudge;
 
 use std::ops::Range;
 
+pub use self::nudge::Step;
 use super::{Item, Layout, MAX_ROWS, Piece, Zone};
 
 /// What can be dragged around: one item (the timeline as [`Item::CurrentTime`]), a spacer or a
@@ -85,6 +89,7 @@ const PALETTE: &[Item] = &[
     Item::Subtitles,
     Item::Settings,
     Item::List,
+    Item::Fullscreen,
 ];
 
 impl Unit {
@@ -106,6 +111,7 @@ impl Layout {
     pub fn pieces(&self, zone: Zone) -> &[Piece] {
         match zone {
             Zone::TitleBar => &self.title_bar,
+            Zone::WindowControls => &self.window_controls,
             Zone::Row(row) => self.rows.get(row).map_or(&[], Vec::as_slice),
         }
     }
@@ -118,11 +124,12 @@ impl Layout {
 
     /// Whether `item` is in one of the bars.
     pub fn is_placed(&self, item: Item) -> bool {
-        let mut zones = std::iter::once(&self.title_bar).chain(&self.rows);
+        let mut zones = [&self.title_bar, &self.window_controls].into_iter().chain(&self.rows);
         zones.any(|pieces| pieces.contains(&Piece::Item(item)))
     }
 
-    /// The unit at `spot` and the pieces it covers; none for a gap or past the end.
+    /// The unit at `spot` and the pieces it covers; none for a gap, a window control that stays
+    /// put, or past the end.
     pub fn unit_at(&self, spot: Spot) -> Option<(Unit, Range<usize>)> {
         let pieces = self.pieces(spot.zone);
         let unit = match *pieces.get(spot.index)? {
@@ -130,6 +137,7 @@ impl Layout {
                 let start = pieces.iter().position(|p| *p == Piece::Item(Item::CurrentTime))?;
                 return Some((Unit::Item(Item::CurrentTime), start..start + 3));
             }
+            Piece::Item(item) if item.is_fixed() => return None,
             Piece::Item(item) => Unit::Item(item),
             Piece::Spacer => Unit::Spacer,
             Piece::Divider => Unit::Divider,
@@ -220,6 +228,7 @@ impl Layout {
     fn pieces_mut(&mut self, zone: Zone) -> &mut Vec<Piece> {
         match zone {
             Zone::TitleBar => &mut self.title_bar,
+            Zone::WindowControls => &mut self.window_controls,
             Zone::Row(row) => {
                 let last = self.rows.len().saturating_sub(1);
                 &mut self.rows[row.min(last)]

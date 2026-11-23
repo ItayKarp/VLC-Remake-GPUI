@@ -14,6 +14,10 @@ pub struct StoredLayout {
     /// The title bar's ids after the logo, left to right.
     #[serde(deserialize_with = "lenient")]
     pub title_bar: Vec<String>,
+    /// The window controls at the title bar's right end, left to right. Empty in a layout
+    /// saved before they could be customized, which gets the designed ones.
+    #[serde(deserialize_with = "lenient")]
+    pub window_controls: Vec<String>,
     /// The control bar's rows, top to bottom, each its ids left to right. Empty while the
     /// layout is the designed one.
     #[serde(deserialize_with = "lenient")]

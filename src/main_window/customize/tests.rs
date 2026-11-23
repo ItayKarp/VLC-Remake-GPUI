@@ -5,7 +5,7 @@ use gpui::{Modifiers, MouseButton, Point, TestAppContext, VisualTestContext, poi
 use crate::keymap::actions::CustomizePlayer;
 use crate::main_window::MainWindow;
 use crate::main_window::tests::{main_view, open, tap};
-use crate::player_layout::{Item, Layout, Piece, Zone};
+use crate::player_layout::{Item, Layout, Piece, Spot, Step, Unit, Zone};
 use crate::settings::{self, StoredLayout};
 
 fn customize(cx: &mut TestAppContext) -> &mut VisualTestContext {
@@ -96,4 +96,66 @@ fn a_title_bar_item_moves_into_the_control_bar(cx: &mut TestAppContext) {
     let layout = draft(cx);
     assert_eq!(layout.pieces(Zone::Row(0)).first(), Some(&Piece::Item(Item::Menu)));
     assert!(!layout.pieces(Zone::TitleBar).contains(&Piece::Item(Item::Menu)));
+}
+
+#[gpui::test]
+fn fullscreen_is_pulled_out_of_the_window_controls(cx: &mut TestAppContext) {
+    let cx = customize(cx);
+    let fullscreen = center(cx, "customize-Fullscreen");
+    let row = cx.debug_bounds("customize-row-0").expect("the bar is drawn");
+    drag(cx, fullscreen, point(row.right() - px(5.), row.center().y));
+    let layout = draft(cx);
+    assert_eq!(layout.pieces(Zone::Row(0)).last(), Some(&Piece::Item(Item::Fullscreen)));
+    let stays = [Item::Minimize, Item::Maximize, Item::Close].map(Piece::Item);
+    assert_eq!(layout.pieces(Zone::WindowControls), stays);
+}
+
+#[gpui::test]
+fn an_item_dropped_among_the_window_controls_joins_them(cx: &mut TestAppContext) {
+    let cx = customize(cx);
+    let stop = center(cx, "palette-Stop");
+    let controls = cx.debug_bounds("customize-window-controls").expect("they are drawn");
+    drag(cx, stop, point(controls.left() + px(2.), controls.center().y));
+    // Before the first one drawn: Fullscreen on macOS, where the traffic lights stand in for
+    // the others, Minimize elsewhere.
+    let controls = draft(cx).pieces(Zone::WindowControls).to_vec();
+    let stop = controls.iter().position(|piece| *piece == Piece::Item(Item::Stop));
+    let fullscreen = controls.iter().position(|piece| *piece == Piece::Item(Item::Fullscreen));
+    let expected = if cfg!(target_os = "macos") { fullscreen.map(|at| at - 1) } else { Some(0) };
+    assert_eq!(stop, expected);
+}
+
+#[gpui::test]
+fn the_list_moves_removes_and_adds_without_a_pointer(cx: &mut TestAppContext) {
+    let cx = customize(cx);
+    main_view(cx).update(cx, MainWindow::toggle_list);
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("customize-list").is_some(), "the list replaces the units");
+    let previous = Spot { zone: Zone::Row(0), index: 0 };
+    main_view(cx).update(cx, |main, cx| main.nudge_unit(previous, Step::Later, cx));
+    assert_eq!(draft(cx).pieces(Zone::Row(0))[1], Piece::Item(Item::Previous));
+    main_view(cx).update_in(cx, |main, window, cx| main.remove_listed(previous, window, cx));
+    assert!(!draft(cx).is_placed(Item::PlayPause));
+    main_view(cx).update_in(cx, |main, window, cx| {
+        main.add_listed(Unit::Item(Item::Stop), window, cx);
+    });
+    assert_eq!(draft(cx).pieces(Zone::Row(0)).last(), Some(&Piece::Item(Item::Stop)));
+}
+
+#[gpui::test]
+fn an_item_dropped_on_a_piece_lands_beside_it(cx: &mut TestAppContext) {
+    let cx = customize(cx);
+    let stop = center(cx, "palette-Stop");
+    let volume = center(cx, "customize-Volume");
+    // Just right of the volume's middle: after it, before Audio (the group gap between
+    // them stays put).
+    drag(cx, stop, point(volume.x + px(4.), volume.y));
+    let row = draft(cx).pieces(Zone::Row(0)).to_vec();
+    let audio = row.iter().position(|piece| *piece == Piece::Item(Item::Audio));
+    assert_eq!(audio.map(|at| row[at - 1]), Some(Piece::Item(Item::Stop)));
+    // And on a title bar piece: just left of the menu's middle, before it.
+    let snapshot = center(cx, "palette-Snapshot");
+    let menu = center(cx, "customize-Menu");
+    drag(cx, snapshot, point(menu.x - px(4.), menu.y));
+    assert_eq!(draft(cx).pieces(Zone::TitleBar).first(), Some(&Piece::Item(Item::Snapshot)));
 }

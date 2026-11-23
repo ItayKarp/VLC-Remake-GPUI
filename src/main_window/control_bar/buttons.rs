@@ -130,7 +130,7 @@ impl MainWindow {
         Some(ButtonItem { icon, label, press, enabled, selected: false })
     }
 
-    /// The buttons that open other parts of the app, or quit it.
+    /// The buttons that open other parts of the app, quit it or put it in fullscreen.
     fn app_button(&self, item: Item, cx: &App) -> Option<ButtonItem> {
         let (icon, press, enabled) = match item {
             Item::Quit => (icons::QUIT, Press::Dispatch(&act::Quit), true),
@@ -138,6 +138,8 @@ impl MainWindow {
             Item::Properties => {
                 (icons::INFO, Press::Dispatch(&act::ShowProperties), self.has_active_media(cx))
             }
+            // The window decides which screen fullscreen goes to (S5.4.1).
+            Item::Fullscreen => (icons::FULLSCREEN, Press::Dispatch(&act::ToggleFullscreen), true),
             Item::GoHome => (icons::HOME, Press::Library(LibraryPlace::Home), true),
             Item::Playlists => (icons::PLAYLIST, Press::Library(LibraryPlace::Playlists), true),
             _ => return None,

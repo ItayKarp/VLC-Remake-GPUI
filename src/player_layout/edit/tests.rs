@@ -102,3 +102,61 @@ fn gaps_arent_units() {
     let layout = Layout::designed();
     assert_eq!(layout.unit_at(spot(Zone::Row(0), 3)), None);
 }
+
+#[test]
+fn minimize_maximize_and_close_stay_put_but_fullscreen_moves() {
+    let mut layout = Layout::designed();
+    for index in [0, 1, 3] {
+        layout.remove(spot(Zone::WindowControls, index));
+        layout.move_unit(spot(Zone::WindowControls, index), Target::NewRow);
+    }
+    assert_eq!(layout, Layout::designed());
+    layout.move_unit(spot(Zone::WindowControls, 2), Target::Into(spot(Zone::Row(0), 0)));
+    assert_eq!(row(&layout, 0)[0], Piece::Item(Item::Fullscreen));
+    assert!(layout.palette().iter().all(|unit| *unit != Unit::Item(Item::Fullscreen)));
+    layout.remove(spot(Zone::Row(0), 0));
+    assert_eq!(layout.palette().last(), Some(&Unit::Item(Item::Fullscreen)));
+}
+
+#[test]
+fn nudging_steps_past_one_unit_and_skips_the_gaps() {
+    let mut layout = Layout::designed();
+    // Next, before the 16 px gap, steps past the whole timeline.
+    let landed = layout.nudge(spot(Zone::Row(0), 2), Step::Later);
+    assert_eq!(landed, Some(spot(Zone::Row(0), 6)));
+    assert_eq!(row(&layout, 0)[6], Piece::Item(Item::Next));
+    assert_eq!(row(&layout, 0)[2], Piece::Gap(16.));
+    // And back.
+    assert_eq!(layout.nudge(spot(Zone::Row(0), 6), Step::Earlier), Some(spot(Zone::Row(0), 3)));
+    assert_eq!(row(&layout, 0)[3], Piece::Item(Item::Next));
+}
+
+#[test]
+fn nudging_off_a_bar_s_end_goes_into_the_next_bar() {
+    let mut layout = Layout::designed();
+    // The title, last in the title bar, goes before Minimize.
+    let landed = layout.nudge(spot(Zone::TitleBar, 3), Step::Later);
+    assert_eq!(landed, Some(spot(Zone::WindowControls, 0)));
+    // Fullscreen steps past Close, then to the control bar's start.
+    let landed = layout.nudge(spot(Zone::WindowControls, 3), Step::Later);
+    assert_eq!(layout.pieces(Zone::WindowControls)[4], Piece::Item(Item::Fullscreen));
+    assert_eq!(landed, Some(spot(Zone::WindowControls, 4)));
+    assert_eq!(
+        layout.nudge(spot(Zone::WindowControls, 4), Step::Later),
+        Some(spot(Zone::Row(0), 0))
+    );
+    // Close stays put; the menu, first of all, can't go further up.
+    assert_eq!(layout.nudge(spot(Zone::WindowControls, 3), Step::Later), None);
+    assert_eq!(layout.nudge(spot(Zone::TitleBar, 0), Step::Earlier), None);
+}
+
+#[test]
+fn nudging_the_last_unit_out_of_a_row_follows_it_into_the_next() {
+    let mut layout = Layout::designed();
+    layout.move_unit(spot(Zone::Row(0), 0), Target::NewRow);
+    // Previous, alone in the top row, steps down: the row goes and the bar is one row again.
+    let landed = layout.nudge(spot(Zone::Row(0), 0), Step::Later);
+    assert_eq!(layout.rows.len(), 1);
+    assert_eq!(landed, Some(spot(Zone::Row(0), 0)));
+    assert_eq!(row(&layout, 0)[0], Piece::Item(Item::Previous));
+}

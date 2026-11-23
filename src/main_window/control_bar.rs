@@ -127,7 +127,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Div {
         if self.is_customizing() {
-            return self.render_edit_bar(p, cx);
+            return self.render_edit_bar(p, window, cx);
         }
         let width = f32::from(window.viewport_size().width);
         let fitted: Vec<fit::Fitted> =
@@ -147,10 +147,10 @@ impl MainWindow {
     }
 
     /// The bar in Customize Player's edit mode: every row's pieces outlined, none fitted away.
-    fn render_edit_bar(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
+    fn render_edit_bar(&self, p: &Palette, window: &Window, cx: &mut Context<Self>) -> Div {
         let rows = (0..self.bar_rows().len()).map(|row| {
             let zone = Zone::Row(row);
-            let pieces = self.render_edit_pieces(zone, Place::ControlBar, p, cx);
+            let pieces = self.render_edit_pieces(zone, p, window, cx);
             let area = bar_row().debug_selector(move || format!("customize-row-{row}"));
             Self::edit_drop_zone(area.overflow_hidden(), zone, cx).children(pieces)
         });
@@ -249,6 +249,8 @@ mod tests {
         let ids = |ids: &[&str]| ids.iter().map(|id| (*id).to_owned()).collect();
         let stored = StoredLayout {
             title_bar: ids(title_bar),
+            // None stored: the designed window controls.
+            window_controls: Vec::new(),
             controls: rows.iter().map(|row| ids(row)).collect(),
         };
         cx.update(|_, cx| settings::update(cx, |s| s.prefs.player_layout = stored));

@@ -8,11 +8,15 @@
 //!
 //! The time readouts and the seek bar are one unit, stored as `timeline`: they are three
 //! [`Item`]s only so a narrow window can hide them one at a time (S2.2.5).
+//!
+//! The window controls at the title bar's right end are a zone of their own (S8.7.4): Minimize,
+//! Maximize and Close stay there, while Fullscreen can be pulled out of the group and other
+//! items dropped into it.
 
 mod edit;
 mod stored;
 
-pub use self::edit::{Spot, Target, Unit};
+pub use self::edit::{Spot, Step, Target, Unit};
 use crate::settings::StoredLayout;
 
 /// The most rows the control bar can have.
@@ -110,6 +114,27 @@ pub enum Item {
     ArtistName,
     /// The saved playlist the queue was filled from, while it holds it.
     PlaylistName,
+    /// Minimizes the window. It stays among the window controls.
+    Minimize,
+    /// Maximizes the window, or restores it. It stays among the window controls.
+    Maximize,
+    /// Puts the player in fullscreen, or takes it out (S5.4).
+    Fullscreen,
+    /// Closes the window. It stays among the window controls, so it can't be lost.
+    Close,
+}
+
+impl Item {
+    /// Whether it is a window control that can't be moved or removed: Minimize, Maximize and
+    /// Close, which the OS's own shortcuts and the macOS traffic lights stand beside.
+    pub fn is_fixed(self) -> bool {
+        matches!(self, Item::Minimize | Item::Maximize | Item::Close)
+    }
+
+    /// Whether it is one of the window controls, Fullscreen among them.
+    pub fn is_window_control(self) -> bool {
+        self.is_fixed() || self == Item::Fullscreen
+    }
 }
 
 /// One entry in a bar's layout.
@@ -131,6 +156,8 @@ pub enum Piece {
 pub enum Zone {
     /// The title bar, after the logo.
     TitleBar,
+    /// The window controls at the title bar's right end.
+    WindowControls,
     /// A control bar row, counted from the top.
     Row(usize),
 }
@@ -150,6 +177,9 @@ pub struct Layout {
     /// The title bar's pieces after the logo, left to right. The title, when here, is drawn
     /// centered on the window rather than in line.
     pub title_bar: Vec<Piece>,
+    /// The title bar's right end, left to right: the window controls, and whatever was dropped
+    /// among them.
+    pub window_controls: Vec<Piece>,
     /// The control bar's rows, top to bottom: one or [`MAX_ROWS`].
     pub rows: Vec<Vec<Piece>>,
     unknown: Vec<Unknown>,
@@ -158,7 +188,12 @@ pub struct Layout {
 impl Layout {
     /// The designed player (`player_01.png`, `controls-default.png`).
     pub fn designed() -> Self {
-        Self { title_bar: designed_title_bar(), rows: vec![designed_row()], unknown: Vec::new() }
+        Self {
+            title_bar: designed_title_bar(),
+            window_controls: designed_window_controls(),
+            rows: vec![designed_row()],
+            unknown: Vec::new(),
+        }
     }
 
     /// The layout `stored` describes, or the designed one when it's empty.
@@ -174,6 +209,11 @@ impl Layout {
 
 fn designed_title_bar() -> Vec<Piece> {
     [Item::Menu, Item::Sidebar, Item::Folder, Item::Title].map(Piece::Item).to_vec()
+}
+
+/// The designed window controls (`player_customize_01.png`).
+fn designed_window_controls() -> Vec<Piece> {
+    [Item::Minimize, Item::Maximize, Item::Fullscreen, Item::Close].map(Piece::Item).to_vec()
 }
 
 /// The designed control bar (`controls-default.png`): transport, then time and seeking, the

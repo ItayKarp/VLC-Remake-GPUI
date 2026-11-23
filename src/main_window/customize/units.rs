@@ -54,6 +54,10 @@ pub(in crate::main_window) fn label(unit: Unit) -> &'static str {
         Item::Thumbnail => "Thumbnail",
         Item::ArtistName => "Artist Name",
         Item::PlaylistName => "Playlist Name",
+        Item::Minimize => "Minimize",
+        Item::Maximize => "Maximize",
+        Item::Fullscreen => "Fullscreen",
+        Item::Close => "Close",
     }
 }
 
@@ -103,5 +107,9 @@ pub(super) fn icon(unit: Unit) -> Option<&'static str> {
         Item::Bookmark => icons::BOOKMARK,
         Item::Bookmarks => icons::BOOKMARKS,
         Item::Playlists => icons::PLAYLIST,
+        Item::Minimize => icons::MINIMIZE,
+        Item::Maximize => icons::MAXIMIZE,
+        Item::Fullscreen => icons::FULLSCREEN,
+        Item::Close => icons::CLOSE,
     })
 }

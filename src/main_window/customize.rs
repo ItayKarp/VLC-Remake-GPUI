@@ -10,8 +10,10 @@
 //!
 //! While editing the bars aren't fitted to the window: every piece shows, so each can be picked
 //! up. Pieces' outlines are `outline.rs`, the palette `palette.rs`, their names and icons
-//! `units.rs`.
+//! `units.rs`. Without a pointer, the palette's list (`list.rs`) moves, removes and adds units
+//! with buttons.
 
+mod list;
 mod outline;
 mod palette;
 #[cfg(test)]
@@ -41,6 +43,8 @@ pub(super) struct Customizing {
     bounds: HashMap<(Zone, usize), Bounds<Pixels>>,
     /// The palette's focus, for Escape.
     focus: FocusHandle,
+    /// Whether the palette shows the layout as a list, for the keyboard.
+    as_list: bool,
 }
 
 impl MainWindow {
@@ -62,6 +66,7 @@ impl MainWindow {
             target: None,
             bounds: HashMap::new(),
             focus,
+            as_list: false,
         });
         cx.notify();
     }
@@ -95,6 +100,14 @@ impl MainWindow {
         }
         self.focus_handle.focus(window, cx);
         cx.notify();
+    }
+
+    /// Switches the palette between its units and the layout as a list.
+    fn toggle_list(&mut self, cx: &mut Context<Self>) {
+        if let Some(customizing) = &mut self.customizing {
+            customizing.as_list = !customizing.as_list;
+            cx.notify();
+        }
     }
 
     /// Puts the designed layout in the draft.

@@ -1,5 +1,6 @@
 //! The bars in edit mode: every unit outlined with a dashed border and draggable, a marker
-//! where a drop would land, and the place for a second row while a drag is on.
+//! where a drop would land, and the place for a second row while a drag is on. The window
+//! controls that stay put (Minimize, Maximize, Close) are outlined too, but don't drag.
 
 use gpui::{
     AnyElement, Context, Div, DragMoveEvent, ElementId, IntoElement, ParentElement, Render,
@@ -67,17 +68,21 @@ impl Render for UnitPreview {
 }
 
 impl MainWindow {
-    /// The pieces of `zone` in edit mode, drawn as in the bar `place`: each unit outlined and
+    /// The pieces of `zone` in edit mode, drawn as its bar draws them: each unit outlined and
     /// draggable, with a marker where a drop would land.
     pub(in crate::main_window) fn render_edit_pieces(
         &self,
         zone: Zone,
-        place: Place,
         p: &Palette,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let layout = self.shown_layout();
         let pieces = layout.pieces(zone).to_vec();
+        let place = match zone {
+            Zone::TitleBar | Zone::WindowControls => Place::TitleBar,
+            Zone::Row(_) => Place::ControlBar,
+        };
         // A drop place left from a drag that ended elsewhere means nothing.
         let target = self.customizing.as_ref().and_then(|c| c.target);
         let target = target.filter(|_| cx.has_active_drag());
@@ -89,12 +94,23 @@ impl MainWindow {
                 drawn.push(drop_marker(p));
             }
             let spot = Spot { zone, index };
+            let draw = |i: usize, cx: &mut Context<Self>| match pieces[i] {
+                Piece::Item(item) if zone == Zone::WindowControls && item.is_window_control() => {
+                    self.render_edit_window_control(item, p, window, cx)
+                }
+                piece => Some(self.render_piece(piece, place, p, cx)),
+            };
             let Some((unit, range)) = layout.unit_at(spot) else {
-                drawn.push(self.render_piece(pieces[index], place, p, cx));
+                let piece = draw(index, cx);
+                let fixed = matches!(pieces[index], Piece::Item(item) if item.is_fixed());
+                drawn.extend(match piece {
+                    Some(piece) if fixed => Some(Self::fixed_outline(spot, piece, p, cx)),
+                    piece => piece,
+                });
                 index += 1;
                 continue;
             };
-            let inner = range.clone().map(|i| self.render_piece(pieces[i], place, p, cx)).collect();
+            let inner = range.clone().filter_map(|i| draw(i, cx)).collect();
             drawn.push(Self::outlined(spot, unit, inner, p, cx));
             index = range.end;
         }
@@ -150,7 +166,9 @@ impl MainWindow {
             })
             .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<DraggedUnit>, _, _| {
                 this.track_piece(spot, event.bounds);
-            }));
+            }))
+            // It covers the piece, so the bar under it doesn't see a drop on it.
+            .on_drop(cx.listener(|this, dragged: &DraggedUnit, _, cx| this.drop_unit(dragged, cx)));
         div()
             .relative()
             .min_w(px(MIN_PIECE))
@@ -166,6 +184,30 @@ impl MainWindow {
             .children(inner)
             .child(handle)
             .into_any_element()
+    }
+
+    /// `inner`, the window control at `spot` that stays put, in a dashed outline that doesn't
+    /// drag and keeps it from being pressed, noting where it's drawn to place drops beside it.
+    fn fixed_outline(
+        spot: Spot,
+        inner: AnyElement,
+        p: &Palette,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let cover = div()
+            .id(piece_id(spot))
+            .absolute()
+            .inset_0()
+            .border_1()
+            .border_dashed()
+            .border_color(p.text_muted)
+            .occlude()
+            .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<DraggedUnit>, _, _| {
+                this.track_piece(spot, event.bounds);
+            }))
+            // It covers the piece, so the bar under it doesn't see a drop on it.
+            .on_drop(cx.listener(|this, dragged: &DraggedUnit, _, cx| this.drop_unit(dragged, cx)));
+        div().relative().flex_none().h_full().child(inner).child(cover).into_any_element()
     }
 
     /// Makes `area`, the bar holding `zone`, follow drags over it and take their drops.
@@ -219,6 +261,7 @@ impl MainWindow {
 fn piece_id(spot: Spot) -> ElementId {
     let zone = match spot.zone {
         Zone::TitleBar => "customize-title-bar",
+        Zone::WindowControls => "customize-window-controls",
         Zone::Row(0) => "customize-row-0",
         Zone::Row(_) => "customize-row-1",
     };
