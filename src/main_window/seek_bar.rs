@@ -6,12 +6,20 @@
 //! from a second, muted decoder ([`preview`]), never from seeking the main player. Media
 //! without a known length is live: the handle is hidden, seeking is off and a LIVE chip shows.
 //! Media that can't seek shows a "not allowed" cursor and ignores clicks.
+//!
+//! With Show Subtitle Timeline on Seekbar on, it shows a close-up of the time around the playhead
+//! with the lines of the subtitle showing instead ([`subtitle_timeline`], S6.6).
 
 mod card;
+mod cue_drag;
 mod geometry;
 mod preview;
 mod render;
+mod subtitle_timeline;
+mod timeline;
+mod timeline_track;
 
+use std::cell::Cell;
 use std::time::Duration;
 
 use futures::StreamExt as _;
@@ -19,8 +27,10 @@ use gpui::{
     App, AppContext as _, Context, Entity, FocusHandle, MouseDownEvent, Pixels, Point, Window,
 };
 
+use self::cue_drag::CueDrag;
 use self::geometry::{Scrub, Span};
 use self::preview::Previews;
+use self::timeline::{Timeline, Visible};
 use super::MainWindow;
 use crate::app::media::Media;
 use crate::engine::player::Player;
@@ -41,6 +51,12 @@ pub struct SeekBar {
     /// The drag in progress.
     scrub: Option<Scrub>,
     previews: Previews,
+    /// The subtitle timeline's window; drawing moves it along with the playhead.
+    timeline: Cell<Timeline>,
+    /// The window the timeline last showed, or `None` while the bar shows the whole media.
+    shown_timeline: Cell<Option<Visible>>,
+    /// A subtitle line being dragged on the timeline (S6.6.3).
+    cue_drag: Option<CueDrag>,
 }
 
 impl SeekBar {
@@ -52,12 +68,15 @@ impl SeekBar {
             hover_x: None,
             scrub: None,
             previews: Previews::default(),
+            timeline: Cell::default(),
+            shown_timeline: Cell::new(None),
+            cue_drag: None,
         }
     }
 
-    /// Whether the handle is being dragged.
+    /// Whether the handle or a subtitle line is being dragged.
     pub(super) fn is_scrubbing(&self) -> bool {
-        self.scrub.is_some()
+        self.scrub.is_some() || self.cue_drag.is_some()
     }
 
     /// The track's span in the last frame.
@@ -72,6 +91,23 @@ impl SeekBar {
             return Some(scrub.fraction());
         }
         Some(self.span()?.fraction_at(self.hover_x?))
+    }
+
+    /// The time at `fraction` along the track: of the timeline's window while it shows, else of
+    /// the media.
+    fn time_at(&self, fraction: f32, duration: Duration) -> Duration {
+        match self.shown_timeline.get() {
+            Some(shown) => shown.time_at(fraction),
+            None => geometry::time_at(fraction, duration),
+        }
+    }
+
+    /// Where seeking to `fraction` along the track goes.
+    fn target_at(&self, fraction: f32) -> SeekTarget {
+        match self.shown_timeline.get() {
+            Some(shown) => SeekTarget::Absolute(shown.time_at(fraction)),
+            None => SeekTarget::Fraction(fraction),
+        }
     }
 }
 
@@ -101,7 +137,9 @@ impl MainWindow {
     pub(super) fn reset_seek_bar(&mut self, state: PlaybackState) {
         if state == PlaybackState::Opening {
             self.seek_bar.scrub = None;
+            self.seek_bar.cue_drag = None;
             self.seek_bar.previews.forget();
+            self.seek_bar.timeline.get_mut().restart();
         }
     }
 
@@ -125,7 +163,7 @@ impl MainWindow {
     fn start_scrub(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         self.seek_bar.focus.focus(window, cx);
         let Some(span) = self.seek_bar.span() else { return };
-        if self.seekable(cx).is_none() {
+        if self.seekable(cx).is_none() || self.press_cue(event.position.x, span, cx) {
             return;
         }
         self.seek_bar.scrub = Some(Scrub::start(f32::from(event.position.x), span));
@@ -133,20 +171,27 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// Follows the pointer during a drag, wherever it is.
+    /// Follows the pointer during a drag, wherever it is: the handle, or a dragged subtitle line.
     fn scrub_to(&mut self, position: Point<Pixels>, fine: bool, cx: &mut Context<Self>) {
         let Some(span) = self.seek_bar.span() else { return };
+        if self.drag_cue(position.x, span, cx) {
+            return;
+        }
         let Some(scrub) = &mut self.seek_bar.scrub else { return };
         scrub.move_to(f32::from(position.x), fine, span);
         self.ask_preview(cx);
         cx.notify();
     }
 
-    /// Ends a drag: the player seeks to where the handle is.
+    /// Ends a drag: the player seeks to where the handle is, or the dragged line is let go.
     fn end_scrub(&mut self, cx: &mut Context<Self>) {
+        if self.release_cue(cx) {
+            return;
+        }
         let Some(scrub) = self.seek_bar.scrub.take() else { return };
         if let Some(Seekable { player, .. }) = self.seekable(cx) {
-            let target = SeekTarget::Fraction(scrub.fraction());
+            let target = self.seek_bar.target_at(scrub.fraction());
+            self.seek_bar.timeline.get_mut().unpin();
             player.update(cx, |player, cx| player.seek(target, cx));
         }
         cx.notify();
@@ -164,7 +209,7 @@ impl MainWindow {
         }
         // A picture of the very end would run the decoder past it: show the last moment.
         let last = seekable.duration.saturating_sub(END_MARGIN);
-        let time = geometry::time_at(fraction, seekable.duration).min(last);
+        let time = self.seek_bar.time_at(fraction, seekable.duration).min(last);
         self.seek_bar.previews.want(&seekable.media, time, seekable.duration);
     }
 

@@ -1,6 +1,8 @@
 //! Drawing the seek bar: the dark track, the played part in a dark accent, the accent handle,
 //! the buffered band for network streams (S2.3.5), the LIVE chip, and its accessible slider
-//! description (S2.3.6).
+//! description (S2.3.6). While it is a subtitle timeline (S6.6) the track shows the window's
+//! lines instead ([`super::timeline_track`]), between the timeline's buttons, and the slider still
+//! speaks of the media's current time and length.
 
 use std::time::Duration;
 
@@ -10,6 +12,9 @@ use gpui::{
 };
 
 use super::geometry;
+use super::subtitle_timeline::Frame;
+use super::timeline::Visible;
+use super::timeline_track;
 use crate::engine::player::Player;
 use crate::engine::state::PlaybackState;
 use crate::main_window::MainWindow;
@@ -50,18 +55,47 @@ impl MainWindow {
         p: &Palette,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let shown = self.shown_seek(cx);
+        let timeline = self.timeline_frame(cx);
+        let shown = self.shown_seek(timeline.as_ref().map(|frame| frame.visible), cx);
+        let inside = match &timeline {
+            Some(frame) => {
+                let handle = self.timeline_handle(frame, shown);
+                timeline_track::lines(p, frame, handle, PLAYED_TINT)
+            }
+            None => track(p, shown),
+        };
+        let area = Self::track_area(shown, cx)
+            .child(self.seek_bar.track.element())
+            .child(inside)
+            .children(shown.live.then(|| live_chip(p)));
         let bar = div()
             .id("seek-bar")
             .relative()
             .flex_1()
             .min_w(px(SEEK_MIN))
             .h(px(SEEK_HEIGHT))
+            .flex()
+            .items_center()
             .rounded(px(4.))
             .bg(p.sunken)
             .border_1()
             .border_color(p.divider)
             .track_focus(&self.seek_bar.focus)
+            .children(self.drag_listener(cx));
+        let bar = match timeline {
+            Some(_) => self.timeline_ends(bar, area, p, cx),
+            None => bar.child(area),
+        };
+        accessible(focus::ring(bar, p), shown, cx).into_any_element()
+    }
+
+    /// The part of the bar that seeks: all of it, or the timeline between its buttons.
+    fn track_area(shown: Shown, cx: &mut Context<Self>) -> Stateful<Div> {
+        div()
+            .id("seek-track")
+            .relative()
+            .flex_1()
+            .h_full()
             .cursor(if shown.seekable {
                 CursorStyle::PointingHand
             } else {
@@ -76,14 +110,17 @@ impl MainWindow {
                 }
             }))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::start_scrub))
-            .child(self.seek_bar.track.element())
-            .child(track(p, shown))
-            .children(shown.live.then(|| live_chip(p)))
-            .children(self.drag_listener(cx));
-        accessible(focus::ring(bar, p), shown, cx).into_any_element()
     }
 
-    fn shown_seek(&self, cx: &App) -> Shown {
+    /// Where the timeline's handle is: where it is dragged, or the playhead while it is in the
+    /// window.
+    fn timeline_handle(&self, frame: &Frame, shown: Shown) -> Option<f32> {
+        let showing = self.seek_bar.scrub.is_some() || frame.visible.covers(frame.position);
+        showing.then_some(shown.fraction)
+    }
+
+    /// What the bar shows; `timeline` is the subtitle timeline's window while it shows.
+    fn shown_seek(&self, timeline: Option<Visible>, cx: &App) -> Shown {
         let Some(player) = self.loaded_player(cx) else { return Shown::default() };
         let read = player.read(cx);
         let seekable = self.seekable(cx).is_some();
@@ -94,18 +131,25 @@ impl MainWindow {
             return Shown { live, ..Shown::default() };
         };
         let position = read.position();
-        let fraction = self
-            .seek_bar
-            .scrub
-            .map_or_else(|| geometry::fraction_of(position, duration), geometry::Scrub::fraction);
-        let buffered =
-            buffered(&player, cx).map(|fill| geometry::buffered_end(position, fill, duration));
+        let fraction = self.seek_bar.scrub.map_or_else(
+            || {
+                timeline.map_or(geometry::fraction_of(position, duration), |shown| {
+                    shown.fraction_of(position)
+                })
+            },
+            geometry::Scrub::fraction,
+        );
+        let buffered = buffered(&player, cx)
+            .filter(|_| timeline.is_none())
+            .map(|fill| geometry::buffered_end(position, fill, duration));
         Shown { fraction, times: Some((position, duration)), buffered, live: false, seekable }
     }
 
     /// While dragging, follows the pointer anywhere in the window (and past its edges).
     fn drag_listener(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        self.seek_bar.scrub?;
+        if !self.seek_bar.is_scrubbing() {
+            return None;
+        }
         let entity = cx.entity();
         let listener =
             canvas(|_, _, _| {}, move |_, (), window, _| listen_for_drag(entity, window));
@@ -132,18 +176,7 @@ fn track(p: &Palette, shown: Shown) -> Div {
             .w(relative(end - shown.fraction))
             .bg(blend(p.text, track, BUFFERED_TINT))
     });
-    let handle = shown.times.map(|_| {
-        div()
-            .absolute()
-            .top_0()
-            .bottom_0()
-            .left(relative(shown.fraction))
-            // Keeps the handle inside the track at both ends.
-            .ml(px(-HANDLE_WIDTH * shown.fraction))
-            .w(px(HANDLE_WIDTH))
-            .rounded(px(2.))
-            .bg(p.accent)
-    });
+    let handle = shown.times.map(|_| handle(p, shown.fraction));
     div()
         .absolute()
         .inset_0()
@@ -152,6 +185,20 @@ fn track(p: &Palette, shown: Shown) -> Div {
         .children(band)
         .child(div().h_full().w(relative(shown.fraction)).bg(blend(p.accent, track, PLAYED_TINT)))
         .children(handle)
+}
+
+/// The accent handle at `fraction` along the track.
+pub(super) fn handle(p: &Palette, fraction: f32) -> Div {
+    div()
+        .absolute()
+        .top_0()
+        .bottom_0()
+        .left(relative(fraction))
+        // Keeps the handle inside the track at both ends.
+        .ml(px(-HANDLE_WIDTH * fraction))
+        .w(px(HANDLE_WIDTH))
+        .rounded(px(2.))
+        .bg(p.accent)
 }
 
 /// The chip shown on a stream without a length (not designed).

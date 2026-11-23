@@ -1,6 +1,7 @@
 //! The main window's side of subtitle synchronization (S6.3): the delay keys (G and H, as in
-//! VLC) and the Subtitle menu's delay items, said over the video; and remembering each subtitle
-//! track's sync per media (S6.3.4), restored when the media opens again.
+//! VLC), the Subtitle menu's delay items and a line dragged on the seek bar's subtitle timeline
+//! (S6.6.3), said over the video; and remembering each subtitle track's sync per media (S6.3.4),
+//! restored when the media opens again.
 //!
 //! Syncs are remembered with the history: not while "Save recently played items" is off, nor
 //! for media its exclusions name, and Clear History forgets them.
@@ -49,6 +50,31 @@ impl MainWindow {
         if let Some(media) = player.read(cx).media().cloned() {
             remember(&media, &key, sync, cx);
         }
+    }
+
+    /// Moves the showing subtitle's delay to `delay` while one of its lines is dragged on the
+    /// seek bar (S6.6.3), saying it over the video. It is remembered once let go
+    /// ([`Self::remember_subtitle_sync`]), not at every step.
+    pub(super) fn drag_subtitle_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
+        let Some(player) = self.loaded_player(cx) else { return };
+        let sync = player.read(cx).subtitle_sync();
+        if sync.delay() == delay {
+            return;
+        }
+        let moved =
+            player.update(cx, |player, cx| player.set_subtitle_sync(sync.with_delay(delay), cx));
+        if moved.is_some() {
+            let shown = player.read(cx).subtitle_sync().delay();
+            self.show_osd(delay_message(shown), cx);
+        }
+    }
+
+    /// Remembers the showing subtitle track's sync for the media, as it is now.
+    pub(super) fn remember_subtitle_sync(&self, cx: &App) {
+        let Some(player) = self.loaded_player(cx) else { return };
+        let player = player.read(cx);
+        let (Some(media), Some(key)) = (player.media(), player.subtitle_key()) else { return };
+        remember(media, &key, player.subtitle_sync(), cx);
     }
 
     /// Hands the player the syncs remembered for the media it opens (a player event).

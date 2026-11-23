@@ -99,6 +99,12 @@ impl SubtitleSync {
         let delayed = Offset::from_millis(-self.delay.as_millis()).apply(media_time);
         delayed.mul_f64(f64::from(self.speed))
     }
+
+    /// The media time at which the file's `file_time` shows: [`Self::file_time`] undone, the
+    /// file's clock run back at its speed and then the delay added (S6.6's timeline).
+    pub fn media_time(self, file_time: Duration) -> Duration {
+        self.delay.apply(file_time.div_f64(f64::from(self.speed)))
+    }
 }
 
 #[cfg(test)]
@@ -124,6 +130,15 @@ mod tests {
         assert_eq!(sync.file_time(Duration::from_secs(1)), Duration::ZERO);
         let earlier = SubtitleSync::default().with_delay(Offset::from_millis(-500));
         assert_eq!(earlier.file_time(Duration::from_secs(1)), Duration::from_millis(1_500));
+    }
+
+    #[test]
+    fn media_time_undoes_file_time() {
+        let sync = SubtitleSync::default().with_delay(Offset::from_millis(2_000)).with_speed(2.);
+        assert_eq!(sync.media_time(Duration::from_secs(6)), Duration::from_secs(5));
+        let earlier = SubtitleSync::default().with_delay(Offset::from_millis(-500));
+        assert_eq!(earlier.media_time(Duration::from_millis(1_500)), Duration::from_secs(1));
+        assert_eq!(earlier.media_time(Duration::from_millis(200)), Duration::ZERO);
     }
 
     #[test]

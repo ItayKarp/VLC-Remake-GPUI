@@ -7,9 +7,9 @@
 //! resets it; and Save as Default (S7.1.5) writes a tab's values into its Settings page. Speed
 //! already works this way (S2.7.4), its default applying at the next launch.
 //!
-//! The Playback tab holds the speed (`playback.rs`). Its other designed rows (Show Subtitle
-//! Timeline on Seekbar, Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with their
-//! stories (S6.6, S8.13, S7.8) and are hidden until then, as are the Video and Audio tabs'
+//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6) and the speed (`playback.rs`).
+//! Its other designed rows (Show Statistics, Reverse, Sleep Timer, Audio Visualizer) come with
+//! their stories (S8.13, S7.8) and are hidden until then, as are the Video and Audio tabs'
 //! settings (Stage 7). The Subtitles tab holds the subtitle defaults and the showing subtitle's
 //! synchronization (`subtitles.rs`, S6.3). Those three tabs have a footer that stays put while they
 //! scroll: the preset picker (S5.11), the same as at the foot of the Settings pages, and **Open

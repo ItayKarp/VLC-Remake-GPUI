@@ -9,6 +9,10 @@
 //! media and across launches (`prefs.interface.duration_readout`). The time left is media time,
 //! as VLC shows it, whatever the playback rate. With the length unknown it shows `--:--:--` and
 //! can't be clicked.
+//!
+//! While the seek bar is a subtitle timeline (S6.6.2) they show its window's ends instead, each
+//! marked `*` (`00:01:50*`), and their tooltips give the current time and the length. The left
+//! one still opens the field, holding the current time; the right one switches nothing.
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, Div, Entity, Focusable, KeyDownEvent,
@@ -23,6 +27,7 @@ use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
 use crate::ui::text_input::{self, Look, TextInput, Validation};
+use crate::ui::tooltip;
 
 /// The readouts' text size.
 const TEXT_SIZE: f32 = 13.;
@@ -50,8 +55,16 @@ impl MainWindow {
         let player = self.loaded_player(cx).map(|player| player.read(cx));
         let text = clock::format(player.map_or_default(Player::position));
         let seekable = player.is_some_and(|player| player.is_seekable() != Some(false));
-        pill("current-time", p, text.clone())
-            .aria_label(SharedString::from(format!("Current time {text}. Jump to a time")))
+        let readout = match self.subtitle_timeline(cx) {
+            Some(shown) => {
+                let start = clock::format(shown.start);
+                let note = format!("Subtitle timeline from {start}. Now at {text}");
+                window_end("current-time", p, &start, note)
+            }
+            None => pill("current-time", p, text.clone())
+                .aria_label(SharedString::from(format!("Current time {text}. Jump to a time"))),
+        };
+        readout
             .when(seekable, |pill| {
                 clickable(pill, p).on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     this.start_time_edit(window, cx);
@@ -64,6 +77,12 @@ impl MainWindow {
     pub(super) fn render_duration(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         let player = self.loaded_player(cx).map(|player| player.read(cx));
         let duration = player.and_then(Player::duration);
+        if let (Some(timeline), Some(duration)) = (self.subtitle_timeline(cx), duration) {
+            let end = clock::format(timeline.end());
+            let note =
+                format!("Subtitle timeline to {end}. The media is {}", clock::format(duration));
+            return window_end("duration", p, &end, note).into_any_element();
+        }
         let shown = settings::get(cx).prefs.interface.duration_readout;
         let text = match (duration, shown) {
             (None, _) => clock::UNKNOWN.to_owned(),
@@ -182,6 +201,15 @@ fn frame(id: &'static str) -> Stateful<Div> {
 /// A readout showing `text` in muted digits.
 fn pill(id: &'static str, p: &Palette, text: String) -> Stateful<Div> {
     frame(id).justify_center().text_color(p.text_muted).role(accesskit::Role::Button).child(text)
+}
+
+/// A readout showing one end of the subtitle timeline's window, `time` marked `*`, with `note`
+/// as its tooltip and spoken name.
+fn window_end(id: &'static str, p: &Palette, time: &str, note: String) -> Stateful<Div> {
+    let note = SharedString::from(note);
+    pill(id, p, format!("{time}*"))
+        .aria_label(note.clone())
+        .tooltip(tooltip::text(note, None::<&str>))
 }
 
 /// Gives a readout its hover pill and a pointer.

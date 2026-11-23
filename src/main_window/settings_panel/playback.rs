@@ -1,5 +1,9 @@
-//! The settings panel's Playback tab (S2.7.2, `controls-playback.png`): the speed, as a field
-//! ("1x") and a slider from 0.25× to 2× with a tick and a label every quarter.
+//! The settings panel's Playback tab (S2.7.2, `controls-playback.png`): Show Subtitle Timeline on
+//! Seekbar (S6.6), and the speed, as a field ("1x") and a slider from 0.25× to 2× with a tick and
+//! a label every quarter.
+//!
+//! The timeline toggle is kept across launches (`prefs.interface.subtitle_timeline`). With no
+//! subtitle showing, or one whose times aren't known, it is disabled with a line saying why.
 //!
 //! The field takes up to 4× ([`rules::parse`] reads `1.5`, `1,5`, `1.5x`, `150%`); the slider
 //! then rests at its 2× end while the field shows the speed. Text that isn't a speed turns the
@@ -11,9 +15,11 @@ use gpui::{Context, Div, Entity, KeyDownEvent, Subscription, Window, div, prelud
 use crate::engine::values::MIN_RATE;
 use crate::main_window::MainWindow;
 use crate::main_window::speed::rules::{self, STEP};
+use crate::settings;
 use crate::theme::Palette;
 use crate::ui::slider::{self, Slider, SliderModel};
 use crate::ui::text_input::{self, TextInput, Validation};
+use crate::ui::toggle::Toggle;
 
 /// The slider's fastest speed; the field goes further.
 const SLIDER_MAX: f64 = 2.;
@@ -25,6 +31,11 @@ const ROW_TEXT: f32 = 14.;
 const FIELD_WIDTH: f32 = 140.;
 /// The tab's padding.
 const PADDING: f32 = 20.;
+/// The toggle row's height, and its hint's text size.
+const TOGGLE_ROW_HEIGHT: f32 = 52.;
+const HINT_TEXT: f32 = 12.;
+/// The timeline toggle's label.
+const TIMELINE_LABEL: &str = "Show Subtitle Timeline on Seekbar";
 
 /// The speed field and slider, and what they last showed.
 pub(in crate::main_window) struct SpeedControls {
@@ -59,7 +70,7 @@ impl SpeedControls {
 }
 
 impl MainWindow {
-    /// The Playback tab: the Speed row and the slider under it.
+    /// The Playback tab: the timeline toggle, then the Speed row and the slider under it.
     pub(super) fn render_playback_tab(
         &mut self,
         p: &Palette,
@@ -83,7 +94,44 @@ impl MainWindow {
             .text_color(p.text_muted)
             .child("Speed")
             .child(field);
-        div().flex().flex_col().px(px(PADDING)).child(row).child(speed.slider.clone())
+        div()
+            .flex()
+            .flex_col()
+            .px(px(PADDING))
+            .child(self.render_timeline_toggle(p, cx))
+            .child(row)
+            .child(speed.slider.clone())
+    }
+
+    /// Show Subtitle Timeline on Seekbar, and why it is disabled when it is.
+    fn render_timeline_toggle(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
+        let on = settings::get(cx).prefs.interface.subtitle_timeline;
+        let unavailable = self.subtitle_timeline_unavailable(cx);
+        let toggle = Toggle::new("subtitle-timeline", on, TIMELINE_LABEL)
+            .disabled(unavailable.is_some())
+            .on_change(|on, _, cx| {
+                settings::update(cx, |s| s.prefs.interface.subtitle_timeline = *on);
+            });
+        let row = div()
+            .h(px(TOGGLE_ROW_HEIGHT))
+            .flex()
+            .items_center()
+            .justify_between()
+            .gap(px(8.))
+            .pl(px(4.))
+            .text_size(px(ROW_TEXT))
+            .text_color(p.text_muted)
+            .child(TIMELINE_LABEL)
+            .child(toggle);
+        let hint = unavailable.map(|why| {
+            div()
+                .pl(px(4.))
+                .pb(px(8.))
+                .text_size(px(HINT_TEXT))
+                .text_color(p.text_muted)
+                .child(why.hint())
+        });
+        div().flex().flex_col().child(row).children(hint)
     }
 
     /// Shows the player's speed in the controls, and disables them for live streams.

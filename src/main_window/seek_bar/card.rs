@@ -46,7 +46,7 @@ impl MainWindow {
         let x = self.seek_bar.span()?.x_of(fraction);
         let width = if seekable.pictures { CARD_WIDTH } else { TIME_CARD_WIDTH };
         let window_width = f32::from(window.viewport_size().width);
-        let time = geometry::time_at(fraction, seekable.duration);
+        let time = self.seek_bar.time_at(fraction, seekable.duration);
         let picture = seekable.pictures.then(|| self.preview_frame(p, cx));
         let card = div()
             .absolute()

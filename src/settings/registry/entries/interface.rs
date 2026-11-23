@@ -110,6 +110,19 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .keywords(&["remaining time", "duration", "countdown"])
     .advanced(),
     SettingDef::new(
+        "interface.subtitle_timeline",
+        CONTROLS,
+        "Show subtitle timeline on the seek bar",
+        Control::Toggle,
+        toggle!(prefs.interface.subtitle_timeline),
+    )
+    .info(
+        "Turns the seek bar into a close-up of the time around the playhead, with a block for \
+         each line of the subtitle showing. The gear button's Playback tab switches it too.",
+    )
+    .keywords(&["subtitle timeline", "seekbar", "cues", "lines"])
+    .advanced(),
+    SettingDef::new(
         "interface.now_playing_notification",
         NOTIFICATIONS,
         "Show what starts playing",

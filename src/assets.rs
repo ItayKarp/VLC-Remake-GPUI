@@ -100,6 +100,7 @@ icons! {
     CHEVRON_DOWN => "chevron-down.svg",
     CHEVRON_UP => "chevron-up.svg",
     CHEVRON_RIGHT => "chevron-right.svg",
+    CHEVRON_LEFT => "chevron-left.svg",
     CHECK => "check.svg",
     INFO => "info.svg",
     INFO_TWO_TONE => "info-two-tone.svg",

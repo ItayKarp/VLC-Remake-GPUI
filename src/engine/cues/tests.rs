@@ -107,3 +107,18 @@ fn formats_libvlc_draws_and_empty_files_are_none() {
     assert_eq!(parse(Path::new("a.idx"), "# VobSub"), None);
     assert_eq!(parse(Path::new("a.srt"), "no cues here"), None);
 }
+
+#[test]
+fn between_finds_the_cues_reaching_a_range() {
+    let srt = "1\n00:00:01,000 --> 00:00:09,000\nLong\n\n\
+               2\n00:00:10,000 --> 00:00:11,000\nShort\n\n\
+               3\n00:00:20,000 --> 00:00:21,000\nLater\n";
+    let track = read("a.srt", srt);
+    let secs = Duration::from_secs;
+    let found: Vec<_> = track.between(secs(5), secs(15), 0.).collect();
+    assert_eq!(found, [(secs(1), secs(9)), (secs(10), secs(11))]);
+    assert_eq!(track.between(secs(12), secs(19), 0.).count(), 0);
+    assert_eq!(track.between(secs(21), secs(30), 0.).count(), 0, "a cue ending at it is gone");
+    let stretched: Vec<_> = track.between(secs(10), secs(15), 3.).collect();
+    assert_eq!(stretched, [(secs(10), secs(13))], "the first ends where the next begins");
+}

@@ -135,6 +135,26 @@ impl CueTrack {
             .collect()
     }
 
+    /// When each cue showing at some time in `from..to` starts and ends, earliest first, every
+    /// one stretched by `factor` as [`Self::at_stretched`] does (S6.6's timeline). Only the cues
+    /// that can reach the range are looked at, so a file of thousands costs a few.
+    pub fn between(
+        &self,
+        from: Duration,
+        to: Duration,
+        factor: f32,
+    ) -> impl Iterator<Item = (Duration, Duration)> + '_ {
+        let stretched = factor > 0.;
+        let reach = if stretched { self.longest.mul_f32(factor.max(1.)) } else { self.longest };
+        let end = self.cues.partition_point(|cue| cue.start < to);
+        let first = self.cues[..end].partition_point(|cue| cue.start + reach <= from);
+        (first..end).filter_map(move |index| {
+            let cue = &self.cues[index];
+            let ends = if stretched { self.stretched_end(index, factor) } else { cue.end };
+            (ends > from).then_some((cue.start, ends))
+        })
+    }
+
     /// When the cue at `index` ends, stretched by `factor`.
     fn stretched_end(&self, index: usize, factor: f32) -> Duration {
         let cue = &self.cues[index];

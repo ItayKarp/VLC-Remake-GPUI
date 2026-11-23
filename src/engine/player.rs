@@ -7,6 +7,7 @@ mod drawn;
 mod receive;
 mod subtitle_files;
 mod sync;
+mod timeline;
 mod tracks;
 
 use std::collections::HashMap;
@@ -16,6 +17,7 @@ use futures::StreamExt as _;
 use gpui::{AsyncApp, Context, EventEmitter, Subscription, Task, WeakEntity};
 
 pub use self::subtitle_files::Linked;
+pub use self::timeline::CueSpan;
 
 use self::audio::AudioState;
 use self::tracks::TrackChoices;

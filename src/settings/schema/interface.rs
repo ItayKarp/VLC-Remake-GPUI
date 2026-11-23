@@ -1,6 +1,7 @@
 //! Interface preferences (Settings → Interface, S5.4): the windows (where video plays, their size,
 //! level and frame), what the player's title bar shows (S2.1.2), what the control bar's duration
-//! readout shows (S2.4.3), when the controls hide (S2.8), and the now-playing notification.
+//! readout shows (S2.4.3), whether the seek bar shows the subtitle timeline (S6.6), when the
+//! controls hide (S2.8), and the now-playing notification.
 
 use std::time::Duration;
 
@@ -31,6 +32,10 @@ pub struct InterfaceSettings {
     /// Whether the duration readout shows the length or the time left; clicking it switches.
     #[serde(deserialize_with = "lenient")]
     pub duration_readout: DurationReadout,
+    /// "Show Subtitle Timeline on Seekbar" (S6.6): the seek bar shows a zoomed stretch around
+    /// the playhead with the lines of the subtitle showing, when their times are known.
+    #[serde(deserialize_with = "lenient")]
+    pub subtitle_timeline: bool,
     /// "Auto-hide the controls": where the title and control bars hide while video plays.
     #[serde(deserialize_with = "lenient")]
     pub auto_hide_controls: AutoHide,
@@ -142,6 +147,7 @@ impl Default for InterfaceSettings {
         Self {
             show_file_name_in_title_bar: true,
             duration_readout: DurationReadout::default(),
+            subtitle_timeline: false,
             auto_hide_controls: AutoHide::default(),
             hide_controls_after_ms: DEFAULT_HIDE_AFTER_MS,
             show_controls_in_fullscreen: true,
