@@ -14,6 +14,13 @@ pub enum DisplayRange {
     /// HDR (macOS's extended dynamic range).
     Hdr,
     /// SDR only.
+    #[cfg_attr(
+        not(target_os = "macos"),
+        allow(
+            dead_code,
+            reason = "only macOS asks its screens yet; elsewhere displays are Unknown"
+        )
+    )]
     Sdr,
     /// The OS wasn't asked.
     Unknown,
