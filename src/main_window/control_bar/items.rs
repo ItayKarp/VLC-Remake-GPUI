@@ -106,6 +106,10 @@ impl MainWindow {
                 self.show_library_route(route, window, cx);
             }
             Press::Replay => self.restart(cx),
+            Press::Favorite => self.toggle_playing_favorite(cx),
+            Press::Hdr => self.toggle_session_hdr(cx),
+            Press::Zoom => self.step_session_zoom(cx),
+            Press::RightSidebar => self.toggle_right_sidebar(window, cx),
         }
     }
 

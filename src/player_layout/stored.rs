@@ -54,6 +54,13 @@ const IDS: &[(Item, &str)] = &[
     (Item::Bookmark, "bookmark"),
     (Item::Bookmarks, "bookmarks"),
     (Item::Playlists, "playlists"),
+    (Item::Favorite, "favorite"),
+    (Item::Hdr, "hdr"),
+    (Item::Zoom, "zoom"),
+    (Item::RightSidebar, "right-sidebar"),
+    (Item::Thumbnail, "thumbnail"),
+    (Item::ArtistName, "artist-name"),
+    (Item::PlaylistName, "playlist-name"),
 ];
 
 /// The layout `stored` describes: the designed one when it has no rows.

@@ -96,6 +96,20 @@ pub enum Item {
     Bookmarks,
     /// Opens the library's saved playlists.
     Playlists,
+    /// Marks the playing file a favorite, or stops it being one (S4.8.3).
+    Favorite,
+    /// Switches the playing video's HDR tone mapping between Auto and Off (S7.5).
+    Hdr,
+    /// Steps the playing video's zoom: Fit, Fill, 1:1, 1:2, 2:1 (S7.2.3).
+    Zoom,
+    /// Shows or hides the panel on the right: the queue panel, on the tab it last showed.
+    RightSidebar,
+    /// The playing media's picture: its cover, or the library's thumbnail of it.
+    Thumbnail,
+    /// The playing media's artist tag.
+    ArtistName,
+    /// The saved playlist the queue was filled from, while it holds it.
+    PlaylistName,
 }
 
 /// One entry in a bar's layout.

@@ -64,9 +64,11 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         let items = playlists::items(summary.id, cx);
+        let title = (placement == Placement::Replace).then(|| summary.title.clone());
         cx.spawn_in(window, async move |this, cx| {
             let Some(items) = items.await.filter(|items| !items.is_empty()) else { return };
             this.update_in(cx, |this, window, cx| {
+                this.queue.expect_title(title, &items);
                 this.open(OpenRequest::placed(items, placement), window, cx);
             })
             .ok();

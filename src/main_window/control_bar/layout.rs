@@ -47,6 +47,8 @@ pub const LEVEL_GAP: f32 = 6.;
 pub const NAME_WIDTH: f32 = 160.;
 /// The folder chip's width in the bar, its name cut to fit.
 pub const CHIP_WIDTH: f32 = 120.;
+/// The Thumbnail item's width: a 16:9 tile as tall as a button.
+pub const THUMBNAIL_WIDTH: f32 = 50.;
 /// A divider's line, with the room around it.
 pub const DIVIDER_WIDTH: f32 = 1.;
 
@@ -67,7 +69,10 @@ pub fn fit(item: Item) -> Fit {
         Item::Audio | Item::Subtitles => (BUTTON, 40, Dropped::Overflow),
         Item::List => (BUTTON, 30, Dropped::Overflow),
         Item::Settings => (BUTTON, 20, Dropped::Overflow),
-        Item::Title | Item::FileName | Item::FolderName => (NAME_WIDTH, 5, Dropped::Hidden),
+        Item::Title | Item::FileName | Item::FolderName | Item::ArtistName | Item::PlaylistName => {
+            (NAME_WIDTH, 5, Dropped::Hidden)
+        }
+        Item::Thumbnail => (THUMBNAIL_WIDTH, 5, Dropped::Hidden),
         Item::Folder => (CHIP_WIDTH, 5, Dropped::Hidden),
         _ => (BUTTON, 10, Dropped::Overflow),
     };

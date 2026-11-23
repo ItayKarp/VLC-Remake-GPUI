@@ -14,6 +14,9 @@ fn the_designed_palette_matches_the_mock() {
     assert_eq!(palette[..3], [Unit::Spacer, Unit::Divider, Unit::Item(Item::Speed)]);
     assert!(!palette.contains(&Unit::Item(Item::PlayPause)));
     assert!(palette.contains(&Unit::Item(Item::Playlists)));
+    // Spacer, Divider and the 29 items of `player_customize_01.png`.
+    assert_eq!(palette.len(), 31);
+    assert_eq!(palette[30], Unit::Item(Item::Playlists));
 }
 
 #[test]

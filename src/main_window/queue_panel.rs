@@ -98,6 +98,8 @@ struct LengthWatch {
 /// The panel's state: the open tab, its focus, the selection, the lengths and the drag.
 pub(super) struct QueuePanel {
     open: Option<ListTab>,
+    /// The tab it last showed, which Customize Player's Right Sidebar opens it on (S8.7.6).
+    last: ListTab,
     focus: FocusHandle,
     scroll: UniformListScrollHandle,
     selection: Selection,
@@ -123,6 +125,7 @@ impl QueuePanel {
     pub(super) fn new(cx: &mut Context<MainWindow>) -> Self {
         Self {
             open: None,
+            last: ListTab::Queue,
             focus: cx.focus_handle(),
             scroll: UniformListScrollHandle::new(),
             selection: Selection::default(),
@@ -162,6 +165,16 @@ impl MainWindow {
         }
     }
 
+    /// Opens the panel on the tab it last showed, or closes it (Customize Player's Right
+    /// Sidebar, S8.7.6).
+    pub(super) fn toggle_right_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.queue_panel.is_open() {
+            self.close_queue_panel(window, cx);
+        } else {
+            self.open_queue_panel(self.queue_panel.last, window, cx);
+        }
+    }
+
     /// Opens the panel on `tab`, or closes it if it shows that tab (Customize Player's Chapters
     /// and Bookmarks buttons, S8.7).
     pub(super) fn toggle_list_tab(
@@ -183,6 +196,7 @@ impl MainWindow {
         self.control_bar.close_overflow();
         self.close_popovers(window, cx);
         self.queue_panel.open = Some(tab);
+        self.queue_panel.last = tab;
         self.watch_lengths(cx);
         // After the click that opened it, which focuses the clicked button once its handlers ran.
         let handle = self.queue_panel.focus.clone();

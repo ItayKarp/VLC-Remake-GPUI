@@ -35,6 +35,14 @@ pub(super) enum Press {
     Library(LibraryPlace),
     /// Plays the media again from its start.
     Replay,
+    /// Marks the playing file a favorite, or stops it being one.
+    Favorite,
+    /// Switches the playing video's HDR between Auto and Off.
+    Hdr,
+    /// Steps the playing video's zoom.
+    Zoom,
+    /// Shows or hides the queue panel on its last tab.
+    RightSidebar,
 }
 
 /// A library place a button opens.
@@ -69,7 +77,7 @@ const SKIP_15: Duration = Duration::from_secs(15);
 impl MainWindow {
     /// The icon button `item` is, if it is one.
     pub(super) fn button_item(&self, item: Item, cx: &App) -> Option<ButtonItem> {
-        if let Some(button) = self.media_button(item, cx) {
+        if let Some(button) = self.media_button(item, cx).or_else(|| self.extra_button(item, cx)) {
             return Some(button);
         }
         let (icon, action, enabled): (_, &'static dyn Action, _) = match item {

@@ -144,6 +144,11 @@ icons! {
     BOOKMARKS => "bookmarks.svg",
     /// Customize Player's Bookmark: bookmarks where playback is (S8.7).
     BOOKMARK => "bookmark.svg",
+    /// Customize Player's HDR, Zoom, Right Sidebar and Thumbnail (S8.7.6).
+    HDR => "hdr.svg",
+    ZOOM => "zoom.svg",
+    SIDEBAR_RIGHT => "sidebar-right.svg",
+    THUMBNAIL => "thumbnail.svg",
     CHAPTERS => "chapters.svg",
     SORT => "sort.svg",
     REMOVE => "remove.svg",

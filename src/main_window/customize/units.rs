@@ -47,10 +47,18 @@ pub(in crate::main_window) fn label(unit: Unit) -> &'static str {
         Item::Bookmark => "Bookmark",
         Item::Bookmarks => "Bookmarks",
         Item::Playlists => "Playlists",
+        Item::Favorite => "Favorite",
+        Item::Hdr => "HDR",
+        Item::Zoom => "Zoom",
+        Item::RightSidebar => "Right Sidebar",
+        Item::Thumbnail => "Thumbnail",
+        Item::ArtistName => "Artist Name",
+        Item::PlaylistName => "Playlist Name",
     }
 }
 
 /// `unit`'s icon in the palette; none for Spacer and Divider, which are drawn.
+#[allow(clippy::too_many_lines, reason = "a flat table, a line per item")]
 pub(super) fn icon(unit: Unit) -> Option<&'static str> {
     let Unit::Item(item) = unit else { return None };
     Some(match item {
@@ -79,7 +87,17 @@ pub(super) fn icon(unit: Unit) -> Option<&'static str> {
         Item::PictureInPicture => icons::PIP,
         Item::Quit => icons::QUIT,
         Item::GoHome => icons::HOME,
-        Item::Title | Item::FileName | Item::FolderName | Item::Properties => icons::INFO,
+        Item::Title
+        | Item::FileName
+        | Item::FolderName
+        | Item::ArtistName
+        | Item::PlaylistName
+        | Item::Properties => icons::INFO,
+        Item::Favorite => icons::FAVORITE,
+        Item::Hdr => icons::HDR,
+        Item::Zoom => icons::ZOOM,
+        Item::RightSidebar => icons::SIDEBAR_RIGHT,
+        Item::Thumbnail => icons::THUMBNAIL,
         Item::Replay => icons::REPLAY,
         Item::Chapters => icons::CHAPTERS,
         Item::Bookmark => icons::BOOKMARK,

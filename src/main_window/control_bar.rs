@@ -12,6 +12,7 @@
 
 mod buttons;
 pub(super) mod clock;
+mod extra_buttons;
 mod fit;
 mod items;
 mod layout;

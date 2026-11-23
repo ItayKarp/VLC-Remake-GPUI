@@ -73,6 +73,11 @@ pub struct Queue {
     next_id: u64,
     /// Changes whenever the entries do, so views can tell when to look again.
     revision: u64,
+    /// The saved playlist the queue was filled from, while it holds it (S8.7.6).
+    title: Option<String>,
+    /// A playlist's title and items about to replace the queue: the title the queue takes if
+    /// they do.
+    expected_title: Option<(String, Vec<Media>)>,
 }
 
 impl Queue {
@@ -115,8 +120,21 @@ impl Queue {
         self.settle();
     }
 
+    /// The saved playlist the queue was filled from, until something else replaces the queue.
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+
+    /// Says that saved playlist `title`, holding `media`, is about to replace the queue: the
+    /// queue takes its title if they do. `None` expects no title.
+    pub fn expect_title(&mut self, title: Option<String>, media: &[Media]) {
+        self.expected_title = title.map(|title| (title, media.to_vec()));
+    }
+
     /// Replaces everything with `media`; nothing is current until [`Self::set_current`].
     pub fn replace(&mut self, media: Vec<Media>) {
+        let expected = self.expected_title.take();
+        self.title = expected.filter(|(_, items)| *items == media).map(|(title, _)| title);
         self.entries.clear();
         self.current = None;
         if let Some(order) = &mut self.shuffle {

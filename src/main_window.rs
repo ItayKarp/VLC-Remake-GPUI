@@ -48,6 +48,7 @@ mod picture;
 mod pip;
 mod play_order;
 mod player_keys;
+mod playing_id;
 mod properties;
 mod queue_panel;
 mod queue_play;
@@ -177,6 +178,8 @@ pub struct MainWindow {
     windowing: video_window::Windowing,
     /// Customize Player, while it's open (S8.7).
     customizing: Option<customize::Customizing>,
+    /// The playing file's row in the library, for the bar's Favorite and Thumbnail (S8.7.6).
+    playing_id: playing_id::PlayingId,
 }
 
 impl MainWindow {
@@ -223,6 +226,7 @@ impl MainWindow {
             modals: cx.new(|_| ModalLayer::new()),
             windowing: video_window::Windowing::default(),
             customizing: None,
+            playing_id: playing_id::PlayingId::default(),
         };
         this.start(request, window, cx);
         this
