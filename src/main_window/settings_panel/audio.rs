@@ -7,14 +7,15 @@
 //! Save as Default keeps it there. Test plays a tone on the left, then the right, through the mode
 //! in use at a fixed level, pausing the media meanwhile (`engine/player/test_tone.rs`), and says
 //! which side sounds over the video. The delay belongs to the audio track playing (S7.6.3), as
-//! the J and K keys' does; with no audio playing the row is disabled. The designed Filters
-//! (equalizer, two-pass) come with S7.7.
+//! the J and K keys' does; with no audio playing the row is disabled. The Equalizer section
+//! follows (`equalizer_section.rs`, S7.7).
 
 use gpui::{
     App, AppContext as _, Context, Div, Entity, SharedString, Subscription, Window, div,
     prelude::*, px,
 };
 
+use super::equalizer_section::EqualizerControls;
 use super::number_row::{Changed, NumberRow};
 use super::subtitles::{MS_PER_SECOND, track_delay_spec};
 use super::track_defaults::{DefaultsRows, TrackDefaults};
@@ -35,12 +36,15 @@ const STEREO_MODE: &str = "audio.stereo_mode";
 const ROW_HEIGHT: f32 = 60.;
 const ROW_TEXT: f32 = 14.;
 const NOTE_GAP: f32 = 8.;
+/// The space around the effect sections.
+const EFFECTS_PADDING: f32 = 8.;
 
 /// The tab's controls.
 pub(in crate::main_window) struct AudioControls {
     pub(super) defaults: DefaultsRows,
     stereo: Entity<Dropdown>,
     delay: Entity<NumberRow>,
+    pub(super) equalizer: EqualizerControls,
     _events: [Subscription; 2],
 }
 
@@ -63,12 +67,13 @@ impl AudioControls {
             cx.notify();
         });
         let defaults = DefaultsRows::new(TrackDefaults::Audio, window, cx);
-        Self { defaults, stereo, delay, _events: [picked, moved] }
+        let equalizer = EqualizerControls::new(window, cx);
+        Self { defaults, stereo, delay, equalizer, _events: [picked, moved] }
     }
 }
 
 impl MainWindow {
-    /// The Audio tab: Defaults, then Synchronization.
+    /// The Audio tab: Defaults, Synchronization, then the Equalizer.
     pub(super) fn render_audio_tab(
         &mut self,
         p: &Palette,
@@ -90,7 +95,15 @@ impl MainWindow {
         let note =
             target.unwrap_or_else(|| "Pick an audio track to sync it with the video.".into());
         let sync = section("Synchronization", note, p).child(controls.delay.clone());
-        div().flex().flex_col().child(defaults).child(div().h(px(1.)).bg(p.divider)).child(sync)
+        let equalizer = controls.equalizer.render(p, cx);
+        div()
+            .flex()
+            .flex_col()
+            .child(defaults)
+            .child(div().h(px(1.)).bg(p.divider))
+            .child(sync)
+            .child(div().h(px(1.)).bg(p.divider))
+            .child(div().py(px(EFFECTS_PADDING)).child(equalizer))
     }
 
     /// "For “English 5.1” in this video."; `None` while no audio plays.
@@ -103,6 +116,7 @@ impl MainWindow {
     /// Shows the settings, the stereo mode in effect and the playing track's delay.
     fn sync_audio_controls(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.settings_panel.audio.defaults.sync(window, cx);
+        self.settings_panel.audio.equalizer.sync(window, cx);
         let index = stereo_index(cx);
         let controls = &self.settings_panel.audio;
         controls.stereo.update(cx, |dropdown, cx| dropdown.set_selected(index, cx));

@@ -8,6 +8,7 @@ use std::rc::Rc;
 use gpui::{Context, Entity, SharedString, Subscription, Window, prelude::*};
 
 use super::SettingsPage;
+use crate::assets::TwoTone;
 use crate::settings::{
     self, Settings,
     registry::{MachineChoice, OptionsSource, SettingDef, Value},
@@ -33,7 +34,12 @@ impl OptionsDropdown {
         let options = source(cx, &saved_id(def, settings::get(cx)));
         let selected = index_of(&options, &saved_id(def, settings::get(cx)));
         let labels = labels(&options);
-        let dropdown = cx.new(|cx| Dropdown::new(def.label, labels, selected, window, cx));
+        let glyphs = glyphs(&options);
+        let dropdown = cx.new(|cx| {
+            let mut dropdown = Dropdown::new(def.label, labels, selected, window, cx);
+            dropdown.set_glyphs(glyphs, cx);
+            dropdown
+        });
         let listed = Rc::new(RefCell::new(options));
         let picks = listed.clone();
         let subscription =
@@ -62,6 +68,7 @@ impl OptionsDropdown {
         self.dropdown.update(cx, |dropdown, cx| {
             if changed {
                 dropdown.set_options(labels(&options), cx);
+                dropdown.set_glyphs(glyphs(&options), cx);
             }
             dropdown.set_selected(selected, cx);
             dropdown.set_disabled(disabled, cx);
@@ -82,6 +89,10 @@ fn saved_id(def: &SettingDef, settings: &Settings) -> String {
 
 fn labels(options: &[MachineChoice]) -> Vec<SharedString> {
     options.iter().map(|choice| SharedString::from(choice.label.clone())).collect()
+}
+
+fn glyphs(options: &[MachineChoice]) -> Vec<Option<TwoTone>> {
+    options.iter().map(|choice| choice.glyph).collect()
 }
 
 fn index_of(options: &[MachineChoice], id: &str) -> usize {

@@ -50,8 +50,14 @@ impl Session {
 }
 
 /// Writes each value into `settings` through its setting's binding; unknown keys are skipped.
+///
+/// Switches go last: a choice may imply one (an equalizer preset turns the equalizer on,
+/// S7.7.3), and a switch the panel holds off must stay off. Otherwise values go in order, so a
+/// section lists a control another one overrides first (the equalizer's gains, then its preset).
 pub fn write(settings: &mut Settings, values: impl IntoIterator<Item = (&'static str, Value)>) {
-    for (key, value) in values {
+    let (switches, others): (Vec<_>, Vec<_>) =
+        values.into_iter().partition(|(_, value)| matches!(value, Value::Bool(_)));
+    for (key, value) in others.into_iter().chain(switches) {
         if let Some(def) = registry::find(key) {
             (def.binding.set)(settings, value);
         } else {
@@ -90,6 +96,19 @@ mod tests {
         assert_eq!(taken, [(BRIGHTNESS, Value::Number(1.5))]);
         assert!(session.is_changed(ENABLED));
         assert!(!session.is_changed(BRIGHTNESS));
+    }
+
+    #[test]
+    fn a_switch_held_off_wins_over_a_choice_that_turns_it_on() {
+        let mut session = Session::default();
+        session.set("audio.equalizer", Value::Bool(false));
+        session.set("audio.equalizer_preset", Value::Text("rock".into()));
+        let effective = session.overlay(&Settings::default());
+        assert!(!effective.prefs.audio.equalizer);
+        assert_eq!(
+            effective.prefs.audio.equalizer_preset,
+            crate::engine::audio::equalizer::Preset::Rock
+        );
     }
 
     #[test]

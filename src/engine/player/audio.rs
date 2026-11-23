@@ -5,7 +5,7 @@
 use gpui::{Context, Task};
 
 use super::{Intent, Player, PlayerEvent};
-use crate::engine::audio::equalizer::Equalizer;
+use crate::engine::audio::equalizer::Equalization;
 use crate::engine::audio::{
     AudioDevice, AudioPolicy, OutputDevice, SpeakerSetup, StereoMode, hotplug,
 };
@@ -23,7 +23,7 @@ pub(super) struct AudioState {
     speaker_setup: SpeakerSetup,
     stereo_mode: StereoMode,
     /// The equalizer sound goes through; `None` while it is off.
-    equalizer: Option<Equalizer>,
+    equalizer: Option<Equalization>,
     policy: AudioPolicy,
     /// The devices plugged in; `None` until the backend reports them.
     devices: Option<Vec<AudioDevice>>,
@@ -175,7 +175,7 @@ impl Player {
     }
 
     /// Plays through `equalizer` from now on, or without one; heard at once.
-    pub fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
+    pub fn set_equalizer(&mut self, equalizer: Option<Equalization>) {
         if self.audio.equalizer != equalizer {
             self.audio.equalizer = equalizer;
             self.with_backend(|backend| backend.set_equalizer(equalizer));

@@ -19,6 +19,8 @@ pub enum Value {
     Text(String),
     /// Several entries, most important first (preferred languages).
     List(Vec<String>),
+    /// Several numbers, in the unit the control shows (the equalizer's gains).
+    Numbers(Vec<f64>),
 }
 
 /// One option of a dropdown, segmented control or swatch row.

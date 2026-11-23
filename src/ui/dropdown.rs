@@ -23,6 +23,7 @@ pub use type_ahead::{TypeAhead, find_match};
 
 use super::metrics;
 use super::popover::{self, BoundsTracker};
+use crate::assets::TwoTone;
 use crate::theme;
 
 /// Rows shown before the list scrolls.
@@ -35,6 +36,8 @@ pub struct Changed(pub usize);
 /// Emits [`Changed`] when the user picks, and [`DismissEvent`] when the list closes.
 pub struct Dropdown {
     options: Vec<SharedString>,
+    /// A glyph before each option's label, by position; options past its end have none.
+    glyphs: Vec<Option<TwoTone>>,
     selected: usize,
     label: SharedString,
     open: bool,
@@ -76,6 +79,7 @@ impl Dropdown {
         Self {
             selected: selected.min(options.len().saturating_sub(1)),
             options,
+            glyphs: Vec::new(),
             label: label.into(),
             open: false,
             highlighted: None,
@@ -94,6 +98,19 @@ impl Dropdown {
     pub fn with_height(mut self, height: f32) -> Self {
         self.height = height;
         self
+    }
+
+    /// Shows a glyph before each option, by position (the equalizer presets' curves).
+    pub fn set_glyphs(&mut self, glyphs: Vec<Option<TwoTone>>, cx: &mut Context<Self>) {
+        if self.glyphs != glyphs {
+            self.glyphs = glyphs;
+            cx.notify();
+        }
+    }
+
+    /// The glyph before option `index`, if it has one.
+    fn glyph(&self, index: usize) -> Option<TwoTone> {
+        self.glyphs.get(index).copied().flatten()
     }
 
     /// The index of the chosen option.

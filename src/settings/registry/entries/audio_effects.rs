@@ -1,15 +1,20 @@
 //! Audio's Loudness and Effects sections (S5.8.2, `audio_01.png`, `audio_02.png`).
 //!
-//! libVLC 3 sets up its audio filters, replay gain and the equalizer's two passes when its output
-//! starts, from options the player's instance is made with, so those rows apply at the next
-//! launch. The equalizer, its preset and its bands change what plays at once. The preset and
-//! bands stay usable while the equalizer is off, as designed, so they can be set up first.
+//! libVLC 3 sets up its audio filters and replay gain when its output starts, from options the
+//! player's instance is made with, so those rows apply at the next launch. The equalizer, its
+//! preset, its bands and its 2 Pass change what plays at once (S7.7). The preset reads None while
+//! the equalizer is off ([`EqualizerPick`]); the bands stay usable then, as designed, and moving
+//! one turns the equalizer on, as moving a panel control turns its section on (D23).
 
-use super::super::def::{ApplyMode, Condition, Control, SettingDef};
+use gpui::App;
+
+use super::super::def::{ApplyMode, Condition, Control, MachineChoice, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, Value, choice, number, toggle};
+use crate::assets::equalizer_glyph;
 use crate::engine::audio::effects::{ReplayGain, SpatialMode};
-use crate::engine::audio::equalizer::Preset;
+use crate::engine::audio::equalizer::Equalizer;
 use crate::settings::registry::Category;
+use crate::settings::{self, EqualizerPick};
 
 const LOUDNESS: (Category, &str) = (Category::Audio, "Loudness");
 const EFFECTS: (Category, &str) = (Category::Audio, "Effects");
@@ -30,63 +35,46 @@ impl SettingChoice for SpatialMode {
     ];
 }
 
-impl SettingChoice for Preset {
-    const VALUES: &'static [Self] = &[
-        Self::None,
-        Self::Flat,
-        Self::Classical,
-        Self::Club,
-        Self::Dance,
-        Self::FullBass,
-        Self::FullBassAndTreble,
-        Self::FullTreble,
-        Self::Headphones,
-        Self::LargeHall,
-        Self::Live,
-        Self::Party,
-        Self::Pop,
-        Self::Reggae,
-        Self::Rock,
-        Self::Ska,
-        Self::Soft,
-        Self::SoftRock,
-        Self::Techno,
-    ];
-    const CHOICES: &'static [Choice] = &[
-        Choice::new("none", "None"),
-        Choice::new("flat", "Flat"),
-        Choice::new("classical", "Classical"),
-        Choice::new("club", "Club"),
-        Choice::new("dance", "Dance"),
-        Choice::new("full_bass", "Full bass"),
-        Choice::new("full_bass_and_treble", "Full bass and treble"),
-        Choice::new("full_treble", "Full treble"),
-        Choice::new("headphones", "Headphones"),
-        Choice::new("large_hall", "Large hall"),
-        Choice::new("live", "Live"),
-        Choice::new("party", "Party"),
-        Choice::new("pop", "Pop"),
-        Choice::new("reggae", "Reggae"),
-        Choice::new("rock", "Rock"),
-        Choice::new("ska", "Ska"),
-        Choice::new("soft", "Soft"),
-        Choice::new("soft_rock", "Soft rock"),
-        Choice::new("techno", "Techno"),
-    ];
-}
-
-/// "Equalizer preset": picking one sets the bands to it; None leaves them as they are.
+/// "Equalizer preset": None (the equalizer off), Custom, VLC's presets and the saved ones, by
+/// [`EqualizerPick`] id. Picking one turns the equalizer on with its gains; None turns it off.
 const EQUALIZER_PRESET: Binding = Binding {
-    get: |s| Value::Choice(s.prefs.audio.equalizer_preset.choice_id()),
+    get: |s| Value::Text(s.prefs.equalizer_pick().id()),
     set: |s, value| {
-        let Value::Choice(id) = value else { return };
-        let Some(preset) = Preset::from_choice_id(id) else { return };
-        match preset.equalizer() {
-            Some(gains) => s.prefs.audio.set_equalizer_gains(gains, preset),
-            None => s.prefs.audio.equalizer_preset = Preset::None,
+        let Value::Text(id) = value else { return };
+        if let Some(pick) = EqualizerPick::from_id(&id) {
+            s.prefs.pick_equalizer(&pick);
         }
     },
 };
+
+/// The equalizer's gains: the preamp, then the bands. Setting them leaves the preset to the
+/// caller, which says Custom when a band moved.
+const EQUALIZER_GAINS: Binding = Binding {
+    get: |s| Value::Numbers(s.prefs.audio.equalizer_gains().gains().map(f64::from).collect()),
+    set: |s, value| {
+        let Value::Numbers(gains) = value else { return };
+        let gains: Vec<f32> = gains.into_iter().map(|gain| gain as f32).collect();
+        if let Some(gains) = Equalizer::from_gains(&gains) {
+            let audio = &mut s.prefs.audio;
+            audio.equalizer_preamp = gains.preamp;
+            audio.equalizer_bands = gains.bands;
+        }
+    },
+};
+
+/// The presets dropdown's entries, with each preset's curve glyph.
+fn equalizer_presets(cx: &App, _saved: &str) -> Vec<MachineChoice> {
+    settings::get(cx).prefs.equalizer_picks().iter().map(preset_choice).collect()
+}
+
+/// `pick` as a dropdown entry.
+fn preset_choice(pick: &EqualizerPick) -> MachineChoice {
+    let glyph = match pick {
+        EqualizerPick::Preset(preset) => equalizer_glyph(*preset),
+        EqualizerPick::None | EqualizerPick::Saved(_) => None,
+    };
+    MachineChoice { id: pick.id(), label: pick.label(), glyph }
+}
 
 /// The Audio page's Loudness and Effects rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
@@ -158,31 +146,33 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         "audio.equalizer_preset",
         EFFECTS,
         "Equalizer preset",
-        Control::Dropdown(Preset::CHOICES),
+        Control::Options(equalizer_presets),
         EQUALIZER_PRESET,
     )
-    .info("Sets the bands for a kind of music. Moving a band afterwards sets this back to None.")
-    .keywords(&["eq", "rock", "pop", "classical"]),
+    .info(
+        "Sets the bands for a kind of music; None turns the equalizer off. Moving a band \
+         afterwards says Custom.",
+    )
+    .keywords(&["eq", "rock", "pop", "classical", "custom"]),
     SettingDef::new(
         "audio.equalizer_bands",
         EFFECTS,
         "Equalizer bands",
         Control::Equalizer,
-        Binding::ACTION,
+        EQUALIZER_GAINS,
     )
     .info("The preamp and ten bands, each from -20 to 20 decibels.")
     .keywords(&["eq", "preamp", "bass", "treble", "hz"]),
     SettingDef::new(
         "audio.equalizer_two_pass",
         EFFECTS,
-        "Two-pass",
+        "2 Pass",
         Control::Toggle,
         toggle!(prefs.audio.equalizer_two_pass),
     )
     .info("Runs the equalizer twice, for a stronger effect.")
     .depends_on("audio.equalizer", Condition::IsOn)
-    .applies(ApplyMode::Restart)
-    .keywords(&["eq", "stronger"]),
+    .keywords(&["eq", "stronger", "two-pass", "twice"]),
     SettingDef::new(
         "audio.spatial_audio",
         EFFECTS,

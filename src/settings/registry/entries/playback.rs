@@ -46,16 +46,17 @@ fn speed(value: f64) -> String {
 /// "Set by the disc", then every language by name; a saved code that isn't listed comes last,
 /// so the row still shows what is saved.
 fn menu_languages(_: &gpui::App, saved: &str) -> Vec<MachineChoice> {
-    let disc = MachineChoice { id: DISC_LANGUAGE.into(), label: "Set by the disc".into() };
+    let disc =
+        MachineChoice { id: DISC_LANGUAGE.into(), label: "Set by the disc".into(), glyph: None };
     let mut choices = vec![disc];
-    choices.extend(
-        language::known()
-            .iter()
-            .map(|known| MachineChoice { id: known.code().into(), label: known.name() }),
-    );
+    choices.extend(language::known().iter().map(|known| MachineChoice {
+        id: known.code().into(),
+        label: known.name(),
+        glyph: None,
+    }));
     if !choices.iter().any(|choice| choice.id == saved) {
         let label = Language::parse(saved).map_or_else(|| saved.to_owned(), |l| l.name());
-        choices.push(MachineChoice { id: saved.into(), label });
+        choices.push(MachineChoice { id: saved.into(), label, glyph: None });
     }
     choices
 }

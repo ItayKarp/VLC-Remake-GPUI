@@ -104,7 +104,7 @@ impl Worker {
 }
 
 /// The tone's file, written unless it is already there.
-fn tone_file() -> Option<PathBuf> {
+pub(super) fn tone_file() -> Option<PathBuf> {
     let path = std::env::temp_dir().join(FILE_NAME);
     let wav = test_tone::wav();
     let written = std::fs::metadata(&path).is_ok_and(|file| file.len() == wav.len() as u64);

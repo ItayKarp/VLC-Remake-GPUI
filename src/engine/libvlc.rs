@@ -74,7 +74,7 @@ use self::events::Shared;
 use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
 use self::worker::{Handles, Message, Worker};
-use super::audio::equalizer::Equalizer;
+use super::audio::equalizer::Equalization;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, Command, EventSender};
 use super::colors::Colors;
@@ -262,7 +262,7 @@ impl Backend for LibVlcBackend {
         self.send(Command::SetMediaOptions(options.clone()));
     }
 
-    fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
+    fn set_equalizer(&mut self, equalizer: Option<Equalization>) {
         self.send(Command::SetEqualizer(equalizer));
     }
 

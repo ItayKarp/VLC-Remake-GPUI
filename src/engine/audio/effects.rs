@@ -1,7 +1,6 @@
 //! Settings → Audio's Loudness and Effects (S5.8.2) as the backend starts with them: libVLC 3
-//! reads its audio filters, replay gain and the equalizer's two-pass switch when its output is
-//! made, so they apply from the next launch. The equalizer itself changes live
-//! ([`super::equalizer`]).
+//! reads its audio filters and replay gain when its output is made, so they apply from the next
+//! launch. The equalizer and its 2 Pass change live ([`super::equalizer`]).
 
 use serde::{Deserialize, Serialize};
 
@@ -20,8 +19,6 @@ pub struct AudioEffects {
     pub replay_gain: ReplayGain,
     /// "Replay gain preamp", in dB, added to the tagged gain.
     pub replay_gain_preamp: f32,
-    /// "Two-pass": runs the equalizer twice, for a stronger effect.
-    pub equalizer_two_pass: bool,
     /// "Spatial audio" in this mode; `None` is off.
     pub spatial: Option<SpatialMode>,
     /// "Stereo widening": makes stereo sound wider.

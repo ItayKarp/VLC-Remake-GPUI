@@ -14,7 +14,8 @@
 //!
 //! **Sections (D23).** The panel groups its controls in [`EffectSection`]s, each with a title
 //! and an enable toggle; moving a control of a section that is off turns it on, so a change is
-//! never invisible. The panel applies changes live, about 30 times a second while dragging
+//! never invisible; a section's switch held off stays off whatever its controls imply
+//! ([`session::write`]). The panel applies changes live, about 30 times a second while dragging
 //! (`main_window/picture.rs`).
 
 mod section;
@@ -23,7 +24,8 @@ mod session;
 use gpui::{App, BorrowAppContext as _, Global};
 
 pub use section::{
-    AUDIO_DEFAULTS, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS, VIDEO_ESSENTIAL,
+    AUDIO_DEFAULTS, AUDIO_EQUALIZER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_DEFAULTS,
+    VIDEO_ESSENTIAL,
 };
 pub use session::Session;
 

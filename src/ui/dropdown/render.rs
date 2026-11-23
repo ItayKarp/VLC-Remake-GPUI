@@ -1,15 +1,15 @@
 //! Drawing a [`Dropdown`]: the trigger face and, while open, the option list.
 
 use gpui::{
-    AnyElement, Bounds, Context, Div, MouseDownEvent, Pixels, Stateful, Window, accesskit, div,
-    prelude::*, px,
+    AnyElement, Bounds, Context, Div, MouseDownEvent, Pixels, SharedString, Stateful, Window,
+    accesskit, div, prelude::*, px,
 };
 
 use super::{Dropdown, VISIBLE_ROWS};
 use crate::assets::icons;
 use crate::theme::{self, Palette};
 use crate::ui::focus;
-use crate::ui::icon::icon;
+use crate::ui::icon::{icon, two_tone};
 use crate::ui::metrics;
 use crate::ui::option_row::OptionRow;
 use crate::ui::popover::{self, Side};
@@ -64,7 +64,7 @@ impl Dropdown {
             .aria_value(value.clone())
             .on_key_down(cx.listener(Self::on_key_down))
             .child(self.trigger.element())
-            .child(div().min_w_0().truncate().child(value))
+            .child(self.value_element(value, p))
             .child(icon(chevron, 20., p.icon))
             .when(!self.disabled, |t| {
                 t.cursor_pointer()
@@ -72,6 +72,20 @@ impl Dropdown {
                     .on_click(cx.listener(|this, _, window, cx| this.toggle(window, cx)))
             })
             .when(self.disabled, |t| t.opacity(DISABLED_OPACITY))
+    }
+
+    /// The chosen option on the closed face: its glyph, if it has one, and its label.
+    fn value_element(&self, value: SharedString, p: &Palette) -> Div {
+        div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap(px(12.))
+            .when_some(self.glyph(self.selected), |face, glyph| {
+                face.child(two_tone(glyph, metrics::ICON, p.icon, p.accent_fg))
+            })
+            .child(div().min_w_0().truncate().child(value))
     }
 
     /// The open list, attached below (or above) the trigger at `bounds`.
@@ -106,6 +120,7 @@ impl Dropdown {
             .map(|(i, option)| {
                 let row = OptionRow::new(i, option.clone())
                     .height(ROW_HEIGHT)
+                    .glyph(self.glyph(i))
                     .checked(i == self.selected)
                     .highlighted(self.highlighted == Some(i));
                 div()

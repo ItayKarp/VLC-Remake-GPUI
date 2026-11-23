@@ -1,6 +1,7 @@
 //! [`AudioEffects`] as libVLC instance arguments: one `--audio-filter` chain (`normvol`,
-//! `compressor`, `headphone`, `stereo_widen`), the normalizer's level, replay gain, the
-//! equalizer's two passes and binaural rendering. Effects left off add nothing.
+//! `compressor`, `headphone`, `stereo_widen`), the normalizer's level, replay gain and binaural
+//! rendering. Effects left off add nothing. The equalizer's 2 Pass is the player's
+//! (`equalizer.rs`).
 
 use crate::engine::audio::effects::{AudioEffects, ReplayGain, SpatialMode};
 
@@ -17,9 +18,6 @@ pub fn arguments(effects: &AudioEffects) -> Vec<String> {
     if effects.replay_gain != ReplayGain::Off {
         arguments.push(format!("--audio-replay-gain-mode={}", effects.replay_gain.libvlc_name()));
         arguments.push(format!("--audio-replay-gain-preamp={}", effects.replay_gain_preamp));
-    }
-    if effects.equalizer_two_pass {
-        arguments.push("--equalizer-2pass".to_owned());
     }
     if effects.spatial == Some(SpatialMode::Binaural) {
         arguments.push("--spatialaudio-headphones".to_owned());
@@ -63,11 +61,10 @@ mod tests {
     }
 
     #[test]
-    fn replay_gain_two_pass_and_binaural_are_their_own_options() {
+    fn replay_gain_and_binaural_are_their_own_options() {
         let effects = AudioEffects {
             replay_gain: ReplayGain::Album,
             replay_gain_preamp: -3.,
-            equalizer_two_pass: true,
             spatial: Some(SpatialMode::Binaural),
             ..AudioEffects::default()
         };
@@ -76,7 +73,6 @@ mod tests {
             [
                 "--audio-replay-gain-mode=album",
                 "--audio-replay-gain-preamp=-3",
-                "--equalizer-2pass",
                 "--spatialaudio-headphones",
             ]
         );
@@ -99,7 +95,6 @@ mod libvlc_tests {
             night_mode: true,
             replay_gain: ReplayGain::Track,
             replay_gain_preamp: 1.5,
-            equalizer_two_pass: true,
             spatial: Some(SpatialMode::Binaural),
             stereo_widening: true,
         };

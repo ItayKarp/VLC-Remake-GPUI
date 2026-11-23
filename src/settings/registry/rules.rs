@@ -78,6 +78,9 @@ impl SettingDef {
             },
             Value::Text(text) => text.clone(),
             Value::List(items) => items.join(", "),
+            Value::Numbers(numbers) => {
+                numbers.iter().map(|number| trim(*number)).collect::<Vec<_>>().join(", ")
+            }
             Value::Bool(on) => on.to_string(),
             Value::Choice(id) => (*id).to_owned(),
         }

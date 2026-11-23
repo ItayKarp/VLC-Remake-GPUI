@@ -155,6 +155,59 @@ impl LibVlc {
         }
     }
 
+    /// Sets the variable `name` of each of the player's children of type `kind`, making it
+    /// where a child hasn't: a child that made it already keeps it rather than inheriting the
+    /// player's again (an audio output's `equalizer-2pass`).
+    ///
+    /// # Safety
+    ///
+    /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
+    pub(super) unsafe fn set_child_var(
+        &self,
+        player: *mut MediaPlayer,
+        kind: &CStr,
+        name: &CStr,
+        to: Var,
+    ) {
+        let (var_kind, value) = to.raw();
+        // SAFETY: the caller's promise; each child is live during the call, and a second
+        // `var_Create` of a variable only counts another reference to it.
+        unsafe {
+            self.for_each_child(player, kind, |child| {
+                (self.core.create)(child, name.as_ptr(), var_kind);
+                (self.core.set)(child, name.as_ptr(), var_kind, value);
+            });
+        }
+    }
+
+    /// The boolean variable `name` of the player's first child of type `kind`; `None` without
+    /// such a child or variable. For the smoke tests.
+    ///
+    /// # Safety
+    ///
+    /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
+    #[cfg(test)]
+    pub(super) unsafe fn child_bool(
+        &self,
+        player: *mut MediaPlayer,
+        kind: &CStr,
+        name: &CStr,
+    ) -> Option<bool> {
+        let mut found = None;
+        // SAFETY: the caller's promise; each child is live during the call.
+        unsafe {
+            self.for_each_child(player, kind, |child| {
+                let mut value = VlcValue { integer: 0 };
+                if found.is_none()
+                    && (self.core.get)(child, name.as_ptr(), VAR_BOOL, &raw mut value) == SUCCESS
+                {
+                    found = Some(value.boolean);
+                }
+            });
+        }
+        found
+    }
+
     /// Calls `f` with each of the player's child objects of type `kind`, held meanwhile.
     ///
     /// # Safety

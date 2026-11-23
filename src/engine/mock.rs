@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
-use super::audio::equalizer::Equalizer;
+use super::audio::equalizer::Equalization;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, Command, EventSender};
 use super::colors::Colors;
@@ -250,7 +250,7 @@ impl Backend for MockBackend {
         self.record(Command::SetMediaOptions(options.clone()));
     }
 
-    fn set_equalizer(&mut self, equalizer: Option<Equalizer>) {
+    fn set_equalizer(&mut self, equalizer: Option<Equalization>) {
         self.record(Command::SetEqualizer(equalizer));
     }
 

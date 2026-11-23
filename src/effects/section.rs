@@ -77,6 +77,15 @@ pub const VIDEO_CROP: EffectSection = EffectSection {
     ],
 };
 
+/// The Audio tab's Equalizer (`panels/audio/equalizer`, S7.7): the presets, the preamp and ten
+/// bands, and 2 Pass. The gains come before the preset, which overrides them when both are held.
+pub const AUDIO_EQUALIZER: EffectSection = EffectSection {
+    id: "audio.equalizer",
+    title: "Equalizer",
+    toggle: "audio.equalizer",
+    controls: &["audio.equalizer_bands", "audio.equalizer_preset", "audio.equalizer_two_pass"],
+};
+
 /// The Video tab's Defaults rows (S7.2, `controls-video_settings.png`), each a setting the panel
 /// holds for the session like a section's controls, but with no toggle of their own.
 pub const VIDEO_DEFAULTS: &[&str] = &[
@@ -116,7 +125,8 @@ mod tests {
             let def = registry::find(key).expect("each edge is a setting");
             assert!(matches!(def.control, Control::Number { .. }), "{key}");
         }
-        for key in VIDEO_DEFAULTS.iter().chain(AUDIO_DEFAULTS).chain(VIDEO_COLORS.controls) {
+        let keys = VIDEO_DEFAULTS.iter().chain(AUDIO_DEFAULTS).chain(VIDEO_COLORS.controls);
+        for key in keys.chain(AUDIO_EQUALIZER.controls) {
             assert!(registry::find(key).is_some(), "{key}");
         }
     }

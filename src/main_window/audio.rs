@@ -1,6 +1,7 @@
 //! The main window's side of audio (S1.5): it sets a new player up from the audio settings
 //! (effects at its creation, S5.8.2), follows changes to them and to the settings panel's
-//! session values over them (the equalizer and stereo mode at once, S7.6.2), remembers the
+//! session values over them (the equalizer, its 2 Pass and the stereo mode at once, S7.6.2,
+//! S7.7), remembers the
 //! volume, and tells the user when the device that played disappears or there is no device at
 //! all.
 
@@ -10,7 +11,7 @@ use super::MainWindow;
 use crate::app::audio_devices;
 use crate::effects::{self, EffectSession};
 use crate::engine::audio::effects::AudioEffects;
-use crate::engine::audio::equalizer::{Equalizer, GAIN_RANGE};
+use crate::engine::audio::equalizer::Equalization;
 use crate::engine::audio::{AudioConfig, AudioPolicy, OutputDevice};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::values::{MAX_VOLUME, MIN_MAX_VOLUME, Volume};
@@ -93,7 +94,7 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
     player.set_audio_device(OutputDevice::from_id(&settings.local.audio.output_device), cx);
     player.set_speaker_setup(audio.speaker_setup, cx);
     player.set_stereo_mode(audio.stereo_mode, cx);
-    player.set_equalizer(audio.equalizer.then(|| equalizer(audio)));
+    player.set_equalizer(audio.equalizer.then(|| equalization(audio)));
     player.set_audio_policy(AudioPolicy {
         pause_on_device_loss: audio.pause_on_device_disconnect,
         pause_when_corked: settings.prefs.player.pause_when_another_app_uses_audio,
@@ -107,20 +108,14 @@ fn effects(audio: &AudioSettings) -> AudioEffects {
         night_mode: audio.night_mode,
         replay_gain: audio.replay_gain,
         replay_gain_preamp: audio.replay_gain_preamp,
-        equalizer_two_pass: audio.equalizer_two_pass,
         spatial: audio.spatial_audio.then_some(audio.spatial_mode),
         stereo_widening: audio.stereo_widening,
     }
 }
 
-/// The equalizer's gains, each kept within libVLC's range.
-fn equalizer(audio: &AudioSettings) -> Equalizer {
-    let (low, high) = GAIN_RANGE;
-    let gains = audio.equalizer_gains();
-    Equalizer {
-        preamp: gains.preamp.clamp(low, high),
-        bands: gains.bands.map(|band| band.clamp(low, high)),
-    }
+/// The equalizer as set, each gain kept within libVLC's range.
+fn equalization(audio: &AudioSettings) -> Equalization {
+    Equalization { gains: audio.equalizer_gains().clamped(), two_pass: audio.equalizer_two_pass }
 }
 
 /// "Maximum volume", kept within 100% to 300%.

@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use super::audio::equalizer::Equalizer;
+use super::audio::equalizer::Equalization;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, EventSender};
 use super::colors::Colors;
@@ -70,7 +70,7 @@ impl Backend for UnavailableBackend {
 
     fn set_media_options(&mut self, _: &MediaOptions) {}
 
-    fn set_equalizer(&mut self, _: Option<Equalizer>) {}
+    fn set_equalizer(&mut self, _: Option<Equalization>) {}
 
     fn set_picture(&mut self, _: Option<Picture>) {}
 

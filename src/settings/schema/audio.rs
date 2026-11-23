@@ -78,16 +78,21 @@ pub struct AudioSettings {
     /// "Equalizer": sound goes through the bands below.
     #[serde(deserialize_with = "lenient")]
     pub equalizer: bool,
-    /// "Equalizer preset": the preset the bands were last set from; none once a band moves.
+    /// "Equalizer preset": the preset the bands were last set from; Custom once a band moves
+    /// (S7.7.4).
     #[serde(deserialize_with = "lenient")]
     pub equalizer_preset: Preset,
+    /// The saved preset the bands come from, with a Custom preset; empty for none.
+    #[serde(deserialize_with = "lenient")]
+    pub equalizer_saved_name: String,
+
     /// The equalizer's preamp, in dB.
     #[serde(deserialize_with = "lenient")]
     pub equalizer_preamp: f32,
     /// The equalizer's bands, in dB, lowest frequency first.
     #[serde(deserialize_with = "lenient")]
     pub equalizer_bands: [f32; BANDS],
-    /// "Two-pass": the equalizer runs twice, for a stronger effect. Next launch.
+    /// "2 Pass": the equalizer runs twice, for a stronger effect (S7.7.5).
     #[serde(deserialize_with = "lenient")]
     pub equalizer_two_pass: bool,
     /// "Spatial audio", in [`Self::spatial_mode`]. Next launch.
@@ -99,20 +104,6 @@ pub struct AudioSettings {
     /// "Stereo widening". Next launch.
     #[serde(deserialize_with = "lenient")]
     pub stereo_widening: bool,
-}
-
-impl AudioSettings {
-    /// The equalizer's gains as set.
-    pub fn equalizer_gains(&self) -> Equalizer {
-        Equalizer { preamp: self.equalizer_preamp, bands: self.equalizer_bands }
-    }
-
-    /// Sets the equalizer's gains; `preset` is the preset they came from, if any.
-    pub fn set_equalizer_gains(&mut self, gains: Equalizer, preset: Preset) {
-        self.equalizer_preamp = gains.preamp;
-        self.equalizer_bands = gains.bands;
-        self.equalizer_preset = preset;
-    }
 }
 
 impl Default for AudioSettings {
@@ -134,7 +125,8 @@ impl Default for AudioSettings {
             replay_gain: ReplayGain::default(),
             replay_gain_preamp: 0.,
             equalizer: false,
-            equalizer_preset: Preset::None,
+            equalizer_preset: Preset::Flat,
+            equalizer_saved_name: String::new(),
             equalizer_preamp: Equalizer::FLAT.preamp,
             equalizer_bands: Equalizer::FLAT.bands,
             equalizer_two_pass: false,

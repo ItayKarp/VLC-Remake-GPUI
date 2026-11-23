@@ -5,6 +5,7 @@ use gpui::Hsla;
 
 use super::category::Category;
 use super::value::{Binding, Choice, Value};
+use crate::assets::TwoTone;
 use crate::privacy::keychain::Secret;
 use crate::settings::Settings;
 
@@ -71,6 +72,8 @@ pub struct MachineChoice {
     pub id: String,
     /// What the dropdown shows.
     pub label: String,
+    /// A two-tone glyph before the label (an equalizer preset's curve, S7.7.3).
+    pub glyph: Option<TwoTone>,
 }
 
 /// What a path row's Browse button asks for.

@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use futures::channel::mpsc;
 
-use super::audio::equalizer::Equalizer;
+use super::audio::equalizer::Equalization;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
@@ -146,7 +146,7 @@ pub enum Command {
     /// Open later media with these options.
     SetMediaOptions(MediaOptions),
     /// Play through this equalizer, or none.
-    SetEqualizer(Option<Equalizer>),
+    SetEqualizer(Option<Equalization>),
     /// Adjust the picture this way, or show it as the media has it.
     SetPicture(Option<Picture>),
     /// Pass video through these filters.
@@ -221,7 +221,7 @@ pub trait Backend: Send {
     /// Opens media with `options` from the next [`Self::open`] on; the open media keeps its own.
     fn set_media_options(&mut self, options: &MediaOptions);
     /// Plays through `equalizer` from now on, for this and later media; `None` turns it off.
-    fn set_equalizer(&mut self, equalizer: Option<Equalizer>);
+    fn set_equalizer(&mut self, equalizer: Option<Equalization>);
     /// Adjusts the picture's hue, brightness, contrast, saturation and gamma, and sharpens,
     /// debands or grains it, from now on, for this and later media; `None` shows it as the
     /// media has it. Seen at once.

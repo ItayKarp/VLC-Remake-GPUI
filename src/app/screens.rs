@@ -13,13 +13,22 @@ pub const CURRENT_SCREEN: &str = "";
 /// "Current screen", then each connected display, the main one first. A saved display that is
 /// no longer connected is listed last, so the row still shows what is saved.
 pub fn choices(cx: &App, saved: &str) -> Vec<MachineChoice> {
-    let current = MachineChoice { id: CURRENT_SCREEN.into(), label: "Current screen".into() };
+    let current =
+        MachineChoice { id: CURRENT_SCREEN.into(), label: "Current screen".into(), glyph: None };
     let mut choices = vec![current];
     choices.extend(ordered(cx).iter().enumerate().filter_map(|(index, display)| {
-        Some(MachineChoice { id: id_of(display.as_ref())?, label: label(index, display.as_ref()) })
+        Some(MachineChoice {
+            id: id_of(display.as_ref())?,
+            label: label(index, display.as_ref()),
+            glyph: None,
+        })
     }));
     if !choices.iter().any(|choice| choice.id == saved) {
-        choices.push(MachineChoice { id: saved.into(), label: "Disconnected screen".into() });
+        choices.push(MachineChoice {
+            id: saved.into(),
+            label: "Disconnected screen".into(),
+            glyph: None,
+        });
     }
     choices
 }

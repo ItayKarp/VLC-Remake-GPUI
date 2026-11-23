@@ -9,9 +9,9 @@ use gpui::{
     App, Div, ElementId, Hsla, SharedString, Stateful, Window, accesskit, div, prelude::*, px,
 };
 
-use super::icon::icon;
+use super::icon::{icon, two_tone};
 use super::metrics;
-use crate::assets::icons;
+use crate::assets::{TwoTone, icons};
 use crate::theme::{self, Palette};
 
 /// Labels longer than this many characters get a tooltip with the full text.
@@ -43,6 +43,8 @@ pub struct OptionRow {
     id: ElementId,
     label: SharedString,
     icon: Option<&'static str>,
+    /// A two-tone glyph before the label instead of an icon (an equalizer preset's curve).
+    glyph: Option<TwoTone>,
     /// Shows the ✓ (dropdown value, checked menu item, chosen radio item).
     checked: bool,
     interaction: Interaction,
@@ -59,6 +61,7 @@ impl OptionRow {
             id: id.into(),
             label: label.into(),
             icon: None,
+            glyph: None,
             checked: false,
             interaction: Interaction::default(),
             shortcut: None,
@@ -71,6 +74,12 @@ impl OptionRow {
     /// Shows `icon` before the label.
     pub fn icon(mut self, icon: Option<&'static str>) -> Self {
         self.icon = icon;
+        self
+    }
+
+    /// Shows the two-tone `glyph` before the label.
+    pub fn glyph(mut self, glyph: Option<TwoTone>) -> Self {
+        self.glyph = glyph;
         self
     }
 
@@ -150,6 +159,9 @@ impl RenderOnce for OptionRow {
             .when(!disabled, |r| r.cursor_pointer().hover(move |s| s.bg(hover)))
             .when(disabled, |r| r.opacity(0.4))
             .when_some(self.icon, |r, path| r.child(icon(path, metrics::ICON, p.accent_fg)))
+            .when_some(self.glyph, |r, glyph| {
+                r.child(two_tone(glyph, metrics::ICON, p.icon, p.accent_fg))
+            })
             .when(self.icon.is_none() && self.reserved.icon, |r| {
                 r.child(div().size(px(metrics::ICON)).flex_none())
             })

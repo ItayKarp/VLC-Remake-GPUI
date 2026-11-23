@@ -33,6 +33,7 @@ mod colors_section;
 mod crop_section;
 mod custom_ratio;
 mod effect_section;
+mod equalizer_section;
 mod footer;
 mod number_row;
 mod playback;
@@ -61,7 +62,7 @@ use super::bar_panel;
 use super::track_popover::tab_icon;
 use crate::assets::icons;
 use crate::effects::{
-    self, AUDIO_DEFAULTS, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL,
+    self, AUDIO_DEFAULTS, AUDIO_EQUALIZER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL,
 };
 use crate::engine::tracks::TrackKind;
 use crate::settings::registry::Category;
@@ -104,7 +105,8 @@ impl PanelTab {
     fn sections(self) -> &'static [EffectSection] {
         match self {
             Self::Video => &[VIDEO_CROP, VIDEO_ESSENTIAL, VIDEO_COLORS],
-            Self::Playback | Self::Audio | Self::Subtitles => &[],
+            Self::Audio => &[AUDIO_EQUALIZER],
+            Self::Playback | Self::Subtitles => &[],
         }
     }
 
@@ -186,7 +188,7 @@ impl SettingsPanel {
             effects: PanelTab::ALL
                 .iter()
                 .flat_map(|tab| tab.sections())
-                .filter(|section| ![VIDEO_CROP, VIDEO_COLORS].contains(section))
+                .filter(|section| ![VIDEO_CROP, VIDEO_COLORS, AUDIO_EQUALIZER].contains(section))
                 .map(|section| EffectControls::new(*section, window, cx))
                 .collect(),
             video_defaults: DefaultsControls::new(window, cx),

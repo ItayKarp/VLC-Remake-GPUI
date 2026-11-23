@@ -11,6 +11,7 @@
 
 mod audio;
 mod controls;
+mod equalizer;
 mod general;
 mod interface;
 mod keymap;
@@ -42,6 +43,7 @@ pub use controls::{
     ClickAction, ControlsSettings, DoubleClickAction, HorizontalWheelAction, SkipLength,
     WheelAction,
 };
+pub use equalizer::{EqualizerPick, MAX_SAVED_NAME, SavedEqualizer};
 pub use general::{DiagnosticsSettings, InterfaceLanguage, StartupSettings};
 pub use interface::{
     AutoHide, DurationReadout, FitVideo, InterfaceSettings, NowPlayingNotification,
@@ -102,6 +104,10 @@ pub struct Preferences {
     /// Audio preferences.
     #[serde(deserialize_with = "lenient")]
     pub audio: AudioSettings,
+    /// The equalizer presets the user saved (S7.7.4): outside `audio`, so switching settings
+    /// presets (S5.11) keeps them.
+    #[serde(deserialize_with = "lenient")]
+    pub equalizer_presets: Vec<SavedEqualizer>,
     /// Video preferences.
     #[serde(deserialize_with = "lenient")]
     pub video: VideoSettings,

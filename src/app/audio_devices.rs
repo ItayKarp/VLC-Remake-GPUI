@@ -31,15 +31,16 @@ pub fn choices(cx: &App, saved: &str) -> Vec<MachineChoice> {
 }
 
 fn options(known: Option<&[AudioDevice]>, saved: &str) -> Vec<MachineChoice> {
-    let default = MachineChoice { id: String::new(), label: "System default".into() };
-    let devices = known
-        .unwrap_or_default()
-        .iter()
-        .map(|device| MachineChoice { id: device.id.clone(), label: device.name.clone() });
+    let default = MachineChoice { id: String::new(), label: "System default".into(), glyph: None };
+    let devices = known.unwrap_or_default().iter().map(|device| MachineChoice {
+        id: device.id.clone(),
+        label: device.name.clone(),
+        glyph: None,
+    });
     let mut choices: Vec<_> = std::iter::once(default).chain(devices).collect();
     if !choices.iter().any(|choice| choice.id == saved) {
         let label = if known.is_some() { "Unplugged device" } else { "Saved device" };
-        choices.push(MachineChoice { id: saved.into(), label: label.into() });
+        choices.push(MachineChoice { id: saved.into(), label: label.into(), glyph: None });
     }
     choices
 }

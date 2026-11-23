@@ -24,6 +24,8 @@ use std::borrow::Cow;
 use anyhow::Result;
 use gpui::{AssetSource, SharedString};
 
+use crate::engine::audio::equalizer::Preset;
+
 /// Declares the embedded icons: each `CONST => "file.svg"` becomes an
 /// `icons::CONST` path and an entry in the asset table.
 macro_rules! icons {
@@ -184,6 +186,27 @@ icons! {
     RECORD => "record.svg",
     /// Extensions: a puzzle piece (`plugins` in the icon set).
     PLUGINS => "plugins.svg",
+    // The equalizer presets' curves (S7.7.3, `docs/icons/eq`): one line under each, and each
+    // preset's shape over it, drawn in the accent. Flat is the line alone.
+    EQ_LINE => "eq-line.svg",
+    EQ_FLAT => "eq-flat.accent.svg",
+    EQ_CLASSICAL => "eq-classical.accent.svg",
+    EQ_CLUB => "eq-club.accent.svg",
+    EQ_DANCE => "eq-dance.accent.svg",
+    EQ_FULL_BASS => "eq-full-bass.accent.svg",
+    EQ_FULL_BASS_AND_TREBLE => "eq-full-bass-and-treble.accent.svg",
+    EQ_FULL_TREBLE => "eq-full-treble.accent.svg",
+    EQ_HEADPHONES => "eq-headphones.accent.svg",
+    EQ_LARGE_HALL => "eq-large-hall.accent.svg",
+    EQ_LIVE => "eq-live.accent.svg",
+    EQ_PARTY => "eq-party.accent.svg",
+    EQ_POP => "eq-pop.accent.svg",
+    EQ_REGGAE => "eq-reggae.accent.svg",
+    EQ_ROCK => "eq-rock.accent.svg",
+    EQ_SKA => "eq-ska.accent.svg",
+    EQ_SOFT => "eq-soft.accent.svg",
+    EQ_SOFT_ROCK => "eq-soft-rock.accent.svg",
+    EQ_TECHNO => "eq-techno.accent.svg",
 }
 
 /// A two-tone icon: a base layer in the icon color and an accent layer on top.
@@ -208,6 +231,32 @@ pub mod two_tone {
 
     #[cfg(test)]
     pub const ALL: &[TwoTone] = &[INFO, CHECK_BOX];
+}
+
+/// The curve before an equalizer preset's name in the presets dropdown; Custom has none.
+pub fn equalizer_glyph(preset: Preset) -> Option<TwoTone> {
+    let accent = match preset {
+        Preset::Custom => return None,
+        Preset::Flat => icons::EQ_FLAT,
+        Preset::Classical => icons::EQ_CLASSICAL,
+        Preset::Club => icons::EQ_CLUB,
+        Preset::Dance => icons::EQ_DANCE,
+        Preset::FullBass => icons::EQ_FULL_BASS,
+        Preset::FullBassAndTreble => icons::EQ_FULL_BASS_AND_TREBLE,
+        Preset::FullTreble => icons::EQ_FULL_TREBLE,
+        Preset::Headphones => icons::EQ_HEADPHONES,
+        Preset::LargeHall => icons::EQ_LARGE_HALL,
+        Preset::Live => icons::EQ_LIVE,
+        Preset::Party => icons::EQ_PARTY,
+        Preset::Pop => icons::EQ_POP,
+        Preset::Reggae => icons::EQ_REGGAE,
+        Preset::Rock => icons::EQ_ROCK,
+        Preset::Ska => icons::EQ_SKA,
+        Preset::Soft => icons::EQ_SOFT,
+        Preset::SoftRock => icons::EQ_SOFT_ROCK,
+        Preset::Techno => icons::EQ_TECHNO,
+    };
+    Some(TwoTone { base: icons::EQ_LINE, accent })
 }
 
 /// Serves the embedded assets to GPUI by path.
