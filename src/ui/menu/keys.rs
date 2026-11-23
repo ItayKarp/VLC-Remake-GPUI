@@ -3,7 +3,7 @@
 
 use std::time::Instant;
 
-use gpui::{Context, DismissEvent, KeyDownEvent, Window};
+use gpui::{Context, KeyDownEvent, Window};
 
 use super::ContextMenu;
 use crate::ui::dropdown::find_match;
@@ -34,7 +34,7 @@ impl ContextMenu {
         cx: &mut Context<Self>,
     ) -> bool {
         match event.keystroke.key.as_str() {
-            "escape" => cx.emit(DismissEvent),
+            "escape" => self.dismiss(window, cx),
             "enter" | "space" => {
                 if let Some(index) = self.highlighted {
                     self.activate(index, window, cx);

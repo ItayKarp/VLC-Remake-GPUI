@@ -1,8 +1,8 @@
 //! Drawing a [`ContextMenu`]: its rows, the menu surface and the open submenu.
 
 use gpui::{
-    AnyElement, Context, DismissEvent, Div, MouseButton, MouseDownEvent, SharedString, Stateful,
-    Window, accesskit, div, prelude::*, px,
+    AnyElement, Context, Div, MouseButton, MouseDownEvent, SharedString, Stateful, Window,
+    accesskit, div, prelude::*, px,
 };
 
 use super::{ContextMenu, MenuItem};
@@ -123,11 +123,11 @@ impl ContextMenu {
     fn on_mouse_down_outside(
         &mut self,
         event: &MouseDownEvent,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if !self.contains(event.position, cx) {
-            cx.emit(DismissEvent);
+            self.dismiss(window, cx);
         }
     }
 }
