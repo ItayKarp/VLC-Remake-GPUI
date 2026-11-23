@@ -10,6 +10,7 @@ use crate::settings::registry::Category;
 
 const HISTORY: (Category, &str) = (Category::Privacy, "History");
 const NETWORK: (Category, &str) = (Category::Privacy, "Network");
+const OPENSUBTITLES: (Category, &str) = (Category::Privacy, "OpenSubtitles");
 
 /// The Privacy page's rows.
 pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
@@ -155,6 +156,44 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .validate(web_address)
     .depends_on("privacy.lastfm.submit", Condition::IsOn)
     .keywords(&["scrobble", "server", "api", "libre.fm", "lastfm"]),
+    SettingDef::new(
+        "privacy.opensubtitles.search",
+        OPENSUBTITLES,
+        "Search OpenSubtitles",
+        Control::Toggle,
+        toggle!(prefs.privacy.opensubtitles.search),
+    )
+    .info(
+        "Lets Add Subtitles search OpenSubtitles.com. A search sends the video's file hash and \
+         the words searched for, and a download the account below, if any.",
+    )
+    .keywords(&["subtitles", "download", "online", "opensubtitles.com", "consent"]),
+    SettingDef::new(
+        "privacy.opensubtitles.username",
+        OPENSUBTITLES,
+        "OpenSubtitles username",
+        Control::Text,
+        text!(prefs.privacy.opensubtitles.username),
+    )
+    .info(
+        "An OpenSubtitles.com account gives more downloads a day. Without one, downloads count \
+         against this computer's address.",
+    )
+    .depends_on("privacy.opensubtitles.search", Condition::IsOn)
+    .keywords(&["subtitles", "account", "login", "user name", "quota"]),
+    SettingDef::new(
+        "opensubtitles_password",
+        OPENSUBTITLES,
+        "OpenSubtitles password",
+        Control::Secret(Secret::OpenSubtitlesPassword),
+        Binding::ACTION,
+    )
+    .info(
+        "Kept in your system's keychain, never in VLC's settings file. Press Enter to save it; \
+         Forget removes it from the keychain.",
+    )
+    .depends_on("privacy.opensubtitles.search", Condition::IsOn)
+    .keywords(&["subtitles", "account", "login", "keychain", "quota"]),
 ];
 
 /// Checks that every pattern of "Never remember items matching" parses.

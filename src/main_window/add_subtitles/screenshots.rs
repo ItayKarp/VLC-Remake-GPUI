@@ -1,17 +1,19 @@
 //! Screenshot tests of the dialog on real folders against `dialogs/add_subtitles/*`: a folder's
 //! fifteen episodes paired with theirs (`…_01.png`), and one episode's subtitles in six
-//! languages, two checked (`…_02.png`).
+//! languages, two checked (`…_02.png`), and OpenSubtitles' results, one checked (`…_03.png`).
 
 use std::path::Path;
 
 use gpui::{AppContext as _, Context, Entity, IntoElement, Render, Window, div, prelude::*, px};
 
-use super::model::Target;
+use super::model::{Origin, Target};
+use super::search::Search;
 use super::{AddSubtitlesDialog, Body, body};
 use crate::engine::sidecar;
 use crate::opening::scratch::scratch_dir;
 use crate::screenshot_test::{self, Shot};
 use crate::subtitle_links;
+use crate::subtitle_links::opensubtitles::Found;
 
 /// The design PNGs' size, in logical pixels, and where the dialog sits in them.
 const DESIGN_SIZE: (f32, f32) = (1078., 830.);
@@ -115,5 +117,28 @@ fn a_files_languages_list_as_designed() {
         for checked in &files.candidates.clone()[..2] {
             files.choice.toggle(checked);
         }
+    });
+}
+
+#[test]
+fn opensubtitles_results_list_as_designed() {
+    let video = scratch_dir().join("The_Wand_S01E01.mp4");
+    std::fs::write(&video, b"v").unwrap();
+    check("add-subtitles-opensubtitles", 3, Target::File(video), |dialog| {
+        let found = |id: &str, name: &str, downloads| Found {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            release: String::new(),
+            language: "en".to_owned(),
+            rating: None,
+            downloads,
+            matches_file: false,
+        };
+        let results = vec![
+            found("1", "The_Wand_S01E01_English.srt", 1_204),
+            found("2", "The_Wand_S01E01_EN.srt", 310),
+        ];
+        dialog.origin = Origin::OpenSubtitles;
+        dialog.body = Body::Search(Search::Found { results, checked: ["1".to_owned()].into() });
     });
 }

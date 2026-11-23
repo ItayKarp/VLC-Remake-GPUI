@@ -10,6 +10,7 @@ dependencies = [
  "chardetng",
  "dirs",
  "encoding_rs",
+ "flate2",
  "futures",
  "gpui",
  "gpui_apple",

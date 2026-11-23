@@ -1,5 +1,6 @@
 //! Window tests of the Add Subtitles dialog on real folders: a folder's videos pair with their
-//! episodes' subtitles, and Save copies a checked file next to the video when asked.
+//! episodes' subtitles, Save copies a checked file next to the video when asked, and
+//! OpenSubtitles asks before a search leaves the machine.
 
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -7,7 +8,8 @@ use std::rc::Rc;
 
 use gpui::{Entity, TestAppContext, VisualTestContext};
 
-use super::model::Target;
+use super::model::{Origin, Target};
+use super::search::Search;
 use super::{AddSubtitlesDialog, Body, Saved};
 use crate::opening::scratch::scratch_dir;
 
@@ -89,4 +91,20 @@ fn save_copies_a_checked_file_next_to_the_video(cx: &mut TestAppContext) {
     assert_eq!(std::fs::read_to_string(&copy).unwrap(), SRT);
     let saves = saves.borrow();
     assert_eq!(saves[0].outcomes[0].linked, Ok(copy));
+}
+
+#[gpui::test]
+fn opensubtitles_asks_before_sending_anything(cx: &mut TestAppContext) {
+    let video = scratch_dir().join("The_Wand_S01E01.mkv");
+    write(&video, "video");
+    let (dialog, _, cx) = open(cx, Target::File(video));
+    dialog.update_in(cx, |dialog, window, cx| {
+        dialog.origin = Origin::OpenSubtitles;
+        dialog.reload(window, cx);
+    });
+    draw(cx);
+    dialog.read_with(cx, |dialog, _| {
+        assert!(matches!(dialog.body, Body::Search(Search::Consent)));
+        assert!(dialog.loading.is_none(), "nothing is searched before the user allows it");
+    });
 }

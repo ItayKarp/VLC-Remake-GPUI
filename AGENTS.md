@@ -29,6 +29,9 @@ Codex, JetBrains AI, …).
   `vendor/libvlc/macos-arm64`). `RVLC_LIBVLC_DIR` points at another unpacked VLC instead.
 - To keep the user's real settings, library database and caches out of a test run, point them
   at a scratch folder: `RVLC_CONFIG_DIR=/tmp/rvlc-test cargo run --features runtime_shaders`.
+- OpenSubtitles (S6.5) needs an API key from opensubtitles.com: set `RVLC_OPENSUBTITLES_API_KEY`
+  when building (it is compiled in) or when running (it replaces the built-in one). Never
+  commit a key.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.

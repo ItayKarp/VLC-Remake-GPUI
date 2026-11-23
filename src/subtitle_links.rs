@@ -8,7 +8,7 @@
 //!
 //! - [`episode`] and [`pairing`]: pairing a folder's videos with subtitle files.
 //! - [`copy`]: copying a subtitle beside its video.
-//! - [`download`]: From Link.
+//! - [`download`] and [`unpack`]: From Link, and keeping downloads.
 //! - [`query`] and [`opensubtitles`]: From OpenSubtitles.
 
 pub mod copy;
@@ -17,6 +17,7 @@ pub mod episode;
 pub mod opensubtitles;
 pub mod pairing;
 pub mod query;
+mod unpack;
 
 use std::fs;
 use std::path::{Path, PathBuf};

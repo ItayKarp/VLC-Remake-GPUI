@@ -45,6 +45,9 @@ pub struct PrivacySettings {
     /// "Submit played tracks to last.fm" and its account (S5.5.2).
     #[serde(deserialize_with = "lenient")]
     pub lastfm: LastFmSettings,
+    /// "Search OpenSubtitles" and its account (S6.5).
+    #[serde(deserialize_with = "lenient")]
+    pub opensubtitles: OpenSubtitlesSettings,
 }
 
 impl Default for PrivacySettings {
@@ -57,6 +60,7 @@ impl Default for PrivacySettings {
             never_remember: Vec::new(),
             fetch_online_metadata: false,
             lastfm: LastFmSettings::default(),
+            opensubtitles: OpenSubtitlesSettings::default(),
         }
     }
 }
@@ -85,4 +89,18 @@ impl Default for LastFmSettings {
             submission_url: DEFAULT_SUBMISSION_URL.to_owned(),
         }
     }
+}
+
+/// OpenSubtitles.com (S6.5): whether the Add Subtitles dialog may search it, and the account
+/// downloads count against. The password and the account's token live in the OS keychain.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OpenSubtitlesSettings {
+    /// "Search OpenSubtitles" (S6.5.4): the consent to send a video's file hash and name there.
+    /// Off until the user allows it, the first time they search or here.
+    #[serde(deserialize_with = "lenient")]
+    pub search: bool,
+    /// "OpenSubtitles username": empty downloads without an account.
+    #[serde(deserialize_with = "lenient")]
+    pub username: String,
 }

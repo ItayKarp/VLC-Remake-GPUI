@@ -18,6 +18,10 @@ pub enum Secret {
     LastFmPassword,
     /// The HTTP proxy's password (S5.10.1).
     ProxyPassword,
+    /// The OpenSubtitles account's password (S6.5.1), for more downloads a day.
+    OpenSubtitlesPassword,
+    /// The token OpenSubtitles gave for that account, after the user name it is for (S6.5.1).
+    OpenSubtitlesToken,
 }
 
 impl Secret {
@@ -26,6 +30,8 @@ impl Secret {
         match self {
             Self::LastFmPassword => "lastfm",
             Self::ProxyPassword => "http-proxy",
+            Self::OpenSubtitlesPassword => "opensubtitles",
+            Self::OpenSubtitlesToken => "opensubtitles-token",
         }
     }
 }
@@ -81,7 +87,8 @@ pub fn forget(secret: Secret) -> Result<(), KeychainError> {
     }
 }
 
-/// The saved `secret`, if any, for the feature that sends it (the proxy, scrobbling).
+/// The saved `secret`, if any, for the feature that sends it (the proxy, scrobbling,
+/// OpenSubtitles).
 pub fn load(secret: Secret) -> Result<Option<String>, KeychainError> {
     read(&entry(secret)?)
 }

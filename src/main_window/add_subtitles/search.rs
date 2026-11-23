@@ -1,7 +1,10 @@
 //! To This File, From OpenSubtitles (S6.4.4, `add_subtitles_to_playlist_folder_03.png`): a
 //! search starting from the video's title ("The Wand S01E01"), a language, and the results to
-//! check, downloaded on Save. The search itself comes with S6.5
-//! ([`crate::subtitle_links::opensubtitles`]); until then the list says it isn't available.
+//! check, downloaded on Save ([`crate::subtitle_links::opensubtitles`], S6.5). Each result
+//! names its release, language, rating and downloads, the ones made for this file first.
+//!
+//! Searching sends the file's hash and name to OpenSubtitles, so until the user allows it
+//! (S6.5.4, also Settings → Privacy → Search OpenSubtitles) the list asks first.
 
 use std::collections::HashSet;
 
@@ -18,9 +21,10 @@ use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
 use crate::engine::language::{self, Language};
 use crate::settings;
-use crate::subtitle_links::opensubtitles::{self, Found, Unavailable};
+use crate::subtitle_links::opensubtitles::{self, Failure, Found, Query};
 use crate::subtitle_links::query;
 use crate::theme::Palette;
+use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::Dropdown;
 use crate::ui::icon::icon;
 use crate::ui::text_input::{Look, TextInput};
@@ -30,6 +34,11 @@ use crate::ui::{focus, metrics};
 const ANY_LANGUAGE: &str = "All Languages";
 /// The language picked when no preferred language is set.
 const DEFAULT_LANGUAGE: &str = "en";
+/// What the consent note says (S6.5.4).
+const CONSENT: &str = "Searching OpenSubtitles.com sends it this video's file hash and the \
+                       words you search for. You can turn this off in Settings → Privacy.";
+/// The consent button's width.
+const CONSENT_BUTTON_WIDTH: f32 = 160.;
 
 /// What the search found.
 #[derive(Clone, Debug, Default)]
@@ -37,10 +46,12 @@ pub(super) enum Search {
     /// Waiting for an answer.
     #[default]
     Searching,
+    /// Waiting for the user to allow sending the search to OpenSubtitles.
+    Consent,
     /// The results, and the ids of the checked ones.
     Found { results: Vec<Found>, checked: HashSet<String> },
     /// OpenSubtitles couldn't answer; why, in words.
-    Failed(&'static str),
+    Failed(String),
 }
 
 impl Search {
@@ -93,15 +104,17 @@ pub(super) fn controls(
 }
 
 impl AddSubtitlesDialog {
-    /// Searches OpenSubtitles for what the field says, in the picked language.
+    /// Searches OpenSubtitles for what the field says, in the picked language, once the user
+    /// has allowed it.
     pub(super) fn search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let text = self.controls.search_field.read(cx).text().trim().to_owned();
-        let picked = self.controls.language_menu.read(cx).selected();
-        let language =
-            picked.checked_sub(1).and_then(|index| language::known().into_iter().nth(index));
+        if !settings::get(cx).prefs.privacy.opensubtitles.search {
+            self.body = Body::Search(Search::Consent);
+            cx.notify();
+            return;
+        }
+        let query = self.query(cx);
         self.body = Body::Search(Search::Searching);
-        let search =
-            cx.background_spawn(async move { opensubtitles::search(&text, language.as_ref()) });
+        let search = cx.background_spawn(async move { opensubtitles::search(&query) });
         self.loading = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = search.await;
             this.update(cx, |this, cx| this.searched(answer, cx)).ok();
@@ -109,12 +122,35 @@ impl AddSubtitlesDialog {
         cx.notify();
     }
 
+    /// What the header asks for, with the video to hash.
+    fn query(&self, cx: &Context<Self>) -> Query {
+        let picked = self.controls.language_menu.read(cx).selected();
+        let video = match self.target() {
+            Target::File(path) => Some(path.clone()),
+            _ => None,
+        };
+        Query {
+            text: self.controls.search_field.read(cx).text().trim().to_owned(),
+            language: picked
+                .checked_sub(1)
+                .and_then(|index| language::known().into_iter().nth(index)),
+            video,
+            proxy: settings::proxy_url(&settings::get(cx).prefs.network.http_proxy),
+        }
+    }
+
+    /// The consent note's button: allows OpenSubtitles from now on, and searches.
+    fn allow_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        settings::update(cx, |settings| settings.prefs.privacy.opensubtitles.search = true);
+        self.search(window, cx);
+    }
+
     /// Shows what a search answered, unless the origin changed meanwhile.
-    fn searched(&mut self, answer: Result<Vec<Found>, Unavailable>, cx: &mut Context<Self>) {
+    fn searched(&mut self, answer: Result<Vec<Found>, Failure>, cx: &mut Context<Self>) {
         if matches!(self.body, Body::Search(_)) {
             self.body = Body::Search(match answer {
                 Ok(results) => Search::Found { results, checked: HashSet::new() },
-                Err(Unavailable) => Search::Failed(Unavailable::MESSAGE),
+                Err(failure) => Search::Failed(failure.message()),
             });
         }
         cx.notify();
@@ -128,7 +164,8 @@ impl AddSubtitlesDialog {
     ) -> AnyElement {
         let (results, checked) = match search {
             Search::Searching => return note("Searching OpenSubtitles…", p).into_any_element(),
-            Search::Failed(why) => return note(*why, p).into_any_element(),
+            Search::Consent => return consent(p, cx).into_any_element(),
+            Search::Failed(why) => return note(why.clone(), p).into_any_element(),
             Search::Found { results, .. } if results.is_empty() => {
                 return note("Nothing found. Try other words or another language.", p)
                     .into_any_element();
@@ -184,6 +221,36 @@ fn result_row(
         .when(checked, |row| row.bg(p.sunken))
         .hover(|style| style.bg(p.hover))
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| this.toggle_result(&id, cx)))
-        .child(icon_and_name(icons::SUBTITLE_FILE, found.name.clone().into(), p))
-        .children(checked.then(|| icon(icons::CHECK, 24., p.accent_fg)))
+        .gap(px(16.))
+        .child(icon_and_name(icons::SUBTITLE_FILE, found.title().to_owned().into(), p))
+        .child(
+            div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(px(16.))
+                .text_size(px(metrics::TEXT - 1.))
+                .text_color(p.text_muted)
+                .child(found.details())
+                .child(
+                    div()
+                        .w(px(24.))
+                        .children(checked.then(|| icon(icons::CHECK, 24., p.accent_fg))),
+                ),
+        )
+}
+
+/// The consent note (S6.5.4): what a search sends, and a button allowing it.
+fn consent(p: &Palette, cx: &mut Context<AddSubtitlesDialog>) -> Div {
+    let allow = Button::new("add-subtitles-allow-opensubtitles", "Allow and Search")
+        .style(ButtonStyle::Primary)
+        .width(CONSENT_BUTTON_WIDTH)
+        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.allow_search(window, cx)));
+    div()
+        .flex()
+        .flex_col()
+        .items_start()
+        .gap(px(12.))
+        .child(note(CONSENT, p))
+        .child(div().px(px(PADDING + 6.)).child(allow))
 }

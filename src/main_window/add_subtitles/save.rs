@@ -13,12 +13,13 @@ use gpui::{AppContext as _, Context, DismissEvent, Window};
 use super::model::Target;
 use super::{AddSubtitlesDialog, Body, Saved};
 use crate::settings::{self, Locations};
-use crate::subtitle_links::opensubtitles::{self, Unavailable};
+use crate::subtitle_links::opensubtitles;
 use crate::subtitle_links::{self, Addition, Change, Outcome, download};
 
 /// What a From OpenSubtitles or From Link Save downloads first.
 enum Downloads {
-    OpenSubtitles(Vec<opensubtitles::Found>),
+    /// The checked results, and the OpenSubtitles username to download as.
+    OpenSubtitles(Vec<opensubtitles::Found>, String),
     Link(url::Url),
 }
 
@@ -34,7 +35,10 @@ impl AddSubtitlesDialog {
                 self.run_save(changes, window, cx);
                 return;
             }
-            Body::Search(search) => Downloads::OpenSubtitles(search.checked()),
+            Body::Search(search) => {
+                let username = settings::get(cx).prefs.privacy.opensubtitles.username.clone();
+                Downloads::OpenSubtitles(search.checked(), username)
+            }
             Body::Link => match download::parse_link(self.controls.link_field.read(cx).text()) {
                 Ok(url) => Downloads::Link(url),
                 Err(failure) => return self.report(failure.message(), true, cx),
@@ -185,19 +189,22 @@ impl AddSubtitlesDialog {
 /// Downloads `downloads` into the app's `subtitles/` folder, through `proxy` when one is set,
 /// answering each file's path or why it didn't come. Blocks on the network.
 fn fetch(downloads: Downloads, proxy: Option<&url::Url>) -> Vec<Result<PathBuf, String>> {
+    let Some(folder) = Locations::resolve().map(|locations| locations.subtitles()) else {
+        return vec![Err("There's no folder to save it in.".to_owned())];
+    };
     match downloads {
         Downloads::Link(url) => {
-            let Some(folder) = Locations::resolve().map(|locations| locations.subtitles()) else {
-                return vec![Err("There's no folder to save it in.".to_owned())];
-            };
             vec![download::download(&url, &folder, proxy).map_err(|failure| failure.message())]
         }
-        Downloads::OpenSubtitles(found) => found
-            .iter()
-            .map(|found| {
-                opensubtitles::download(found)
-                    .map_err(|Unavailable| Unavailable::MESSAGE.to_owned())
-            })
-            .collect(),
+        Downloads::OpenSubtitles(found, username) => {
+            let into = opensubtitles::Downloads { folder, username, proxy: proxy.cloned() };
+            found
+                .iter()
+                .map(|found| {
+                    opensubtitles::download(found, &into)
+                        .map_err(|failure| format!("{}: {}", found.title(), failure.message()))
+                })
+                .collect()
+        }
     }
 }
