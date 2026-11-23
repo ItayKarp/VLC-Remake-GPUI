@@ -1,9 +1,9 @@
 //! A folder row's menu (S4.8.2; `library/menus/folder_context_menu.png`): Add File and Add
-//! Folder, which copy what is picked into the folder ([`copy_in`]), Resync (S4.2.5) and Info.
+//! Folder, which copy what is picked into the folder ([`copy_in`]), Edit Subtitle Tracks (the
+//! Add Subtitles dialog To This Folder, S6.4), Resync (S4.2.5) and Info.
 //!
-//! The design's Edit Subtitle Tracks waits for the Add Subtitles dialog (S6.4), and Edit Audio
-//! Tracks for a design of which audio file goes with which video (Add Audio Tracks on a file
-//! adds one); the menu leaves them out until then.
+//! The design's Edit Audio Tracks waits for a design of which audio file goes with which video
+//! (Add Audio Tracks on a file adds one); the menu leaves it out until then.
 
 use std::path::{Path, PathBuf};
 
@@ -14,6 +14,7 @@ use super::item_menu::{on_all, on_one};
 use crate::app::media::Media;
 use crate::assets::icons;
 use crate::library::{self, copy_in, folder_view, properties};
+use crate::main_window::add_subtitles::Target;
 use crate::settings;
 use crate::ui::menu::MenuItem;
 use crate::ui::toast::{Level, Toast};
@@ -34,6 +35,15 @@ pub(super) fn items(main: &WeakEntity<MainWindow>, folders: &[PathBuf]) -> Vec<M
         on_one(main, folders, "Add Folder", icons::NEW_FOLDER, |_, folder, window, cx| {
             MainWindow::copy_into_folder(folder.clone(), Pick::Folder, window, cx);
         }),
+        on_one(
+            main,
+            folders,
+            "Edit Subtitle Tracks",
+            icons::SUBTITLES,
+            |main, folder, window, cx| {
+                main.show_add_subtitles(Target::Folder(folder.clone()), window, cx);
+            },
+        ),
         on_all(main, folders, "Resync", icons::REFRESH, |main, folders, _, cx| {
             for folder in folders {
                 library::resync(folder, cx);

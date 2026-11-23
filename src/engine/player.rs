@@ -15,6 +15,8 @@ use std::time::Duration;
 use futures::StreamExt as _;
 use gpui::{AsyncApp, Context, EventEmitter, Subscription, Task, WeakEntity};
 
+pub use self::subtitle_files::Linked;
+
 use self::audio::AudioState;
 use self::tracks::TrackChoices;
 use super::audio::AudioDevice;

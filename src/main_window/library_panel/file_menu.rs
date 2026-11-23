@@ -1,9 +1,9 @@
 //! A media card's file menu (S4.8.1; `library/menus/file_context_menu.png`): Play, Mark as
 //! Watched (or Unwatched), Favorite, Add to Queue, Add to Playlist ▸, Show in Finder (File
-//! Explorer, Files), Go to Source, Add Audio Tracks and Properties & Metadata.
+//! Explorer, Files), Go to Source, Add Subtitle Tracks (the Add Subtitles dialog, S6.4), Add
+//! Audio Tracks and Properties & Metadata.
 //!
-//! The design's Stream (S8.12), Convert (S8.10) and Add Subtitle Tracks (S6.4) join when their
-//! stories ship; like the main menu, the menu leaves out what doesn't work yet. A file the
+//! The design's Stream (S8.12) and Convert (S8.10) join when their stories ship; like the main menu, the menu leaves out what doesn't work yet. A file the
 //! library hasn't identified yet can't be a favorite. A file that vanished while the menu was
 //! open says "File not found" when shown or inspected.
 
@@ -21,6 +21,7 @@ use crate::db::activity::Favorite;
 use crate::db::metadata::MediaKind;
 use crate::history::History;
 use crate::library::favorites;
+use crate::main_window::add_subtitles::Target;
 use crate::navigation::route::{MusicRoute, Route};
 use crate::playlists;
 use crate::settings;
@@ -54,6 +55,9 @@ pub(super) fn items(
         }),
         on_one(main, files, "Go to Source", icons::ARROW_RIGHT, |main, file, _, cx| {
             main.go_to_source(file, cx);
+        }),
+        on_one(main, files, "Add Subtitle Tracks", icons::SUBTITLES, |main, file, window, cx| {
+            main.show_add_subtitles(Target::File(file.path.clone()), window, cx);
         }),
         on_one(main, files, "Add Audio Tracks", icons::AUDIO, |_, file, window, cx| {
             MainWindow::prompt_for_audio_tracks(Media::File(file.path.clone()), window, cx);

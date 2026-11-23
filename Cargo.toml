@@ -62,6 +62,9 @@ notify = { version = "8", default-features = false, features = ["macos_fsevent"]
 # that is neither marked nor UTF-8, and `encoding_rs` (already built for other crates) reads it.
 chardetng = "0.1"
 encoding_rs = "0.8"
+# Downloading subtitle files From Link in the Add Subtitles dialog (S6.4), and the OpenSubtitles
+# API later (S6.5): a small blocking client, run off the UI thread, with rustls for HTTPS.
+ureq = "3"
 # The OS window behind a GPUI window, for what GPUI has no call for: keeping a window above the
 # others and moving it to another display (S5.4.1). The version must match GPUI's.
 raw-window-handle = "0.6"

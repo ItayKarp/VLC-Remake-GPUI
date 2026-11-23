@@ -3,8 +3,8 @@
 //! their files ([`roots`], [`folders`], [`files`]), what is known about each media
 //! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
 //! and favorites ([`activity`]) with the media Home lists ([`played`]), and the search index
-//! ([`search`]). Network streams are in [`network`], and each subtitle track's remembered
-//! sync in [`subtitle_sync`].
+//! ([`search`]). Network streams are in [`network`], each subtitle track's remembered sync in
+//! [`subtitle_sync`], and the subtitle files linked to each media in [`subtitle_links`].
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -28,6 +28,7 @@ pub mod playlists;
 pub mod roots;
 pub mod search;
 pub mod songs;
+pub mod subtitle_links;
 pub mod subtitle_sync;
 #[cfg(test)]
 mod tests;

@@ -45,7 +45,7 @@ fn right_clicking_a_card_selects_it_and_opens_the_file_menu(cx: &mut TestAppCont
     let labels = labels(cx);
     let expected = ["Play", "Mark as Watched", "Favorite", "Add to Queue", "Add to Playlist"];
     assert_eq!(labels[..expected.len()], expected);
-    let tail = ["Go to Source", "Add Audio Tracks", "Properties & Metadata"];
+    let tail = ["Go to Source", "Add Subtitle Tracks", "Add Audio Tracks", "Properties & Metadata"];
     assert_eq!(labels[labels.len() - tail.len()..], tail);
     assert!(enabled(cx, "Go to Source"));
 }
@@ -58,7 +58,9 @@ fn several_cards_disable_what_works_on_one(cx: &mut TestAppContext) {
     assert_eq!(selected(cx).len(), 3, "the selection stays");
     assert!(enabled(cx, "Play"));
     assert!(enabled(cx, "Add to Queue"));
-    for one_only in ["Go to Source", "Add Audio Tracks", "Properties & Metadata"] {
+    for one_only in
+        ["Go to Source", "Add Subtitle Tracks", "Add Audio Tracks", "Properties & Metadata"]
+    {
         assert!(!enabled(cx, one_only), "{one_only} is enabled");
     }
 }
@@ -105,5 +107,6 @@ fn a_folder_row_has_the_folder_menu(cx: &mut TestAppContext) {
     right_click(cx, "library-row-0");
     assert!(main.read_with(cx, |main, _| main.library_panel.item_menu.is_none()));
     right_click(cx, "library-row-1");
-    assert_eq!(labels(cx), ["Add File", "Add Folder", "Resync", "Info"]);
+    let expected = ["Add File", "Add Folder", "Edit Subtitle Tracks", "Resync", "Info"];
+    assert_eq!(labels(cx), expected);
 }

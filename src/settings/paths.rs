@@ -15,6 +15,8 @@ pub const LOGS_DIR_NAME: &str = "logs";
 pub const DATABASE_FILE_NAME: &str = "library.db";
 /// The last session's queue (S3.4), next to the local state.
 pub const SESSION_FILE_NAME: &str = "session.toml";
+/// Subtitle files downloaded to link to media (S6.4), next to the local settings.
+pub const SUBTITLES_DIR_NAME: &str = "subtitles";
 /// The cache folder's name inside an overriding settings directory.
 pub const CACHE_DIR_NAME: &str = "cache";
 /// Overrides both settings directories (tests, portable mode, debugging).
@@ -51,6 +53,13 @@ impl Locations {
     pub fn session(&self) -> PathBuf {
         let dir = self.local.parent().unwrap_or_else(|| Path::new(""));
         dir.join(SESSION_FILE_NAME)
+    }
+
+    /// Subtitle files downloaded From Link (S6.4): `subtitles/` next to [`Self::local`]. Not a
+    /// cache: media keep them linked.
+    pub fn subtitles(&self) -> PathBuf {
+        let dir = self.local.parent().unwrap_or_else(|| Path::new(""));
+        dir.join(SUBTITLES_DIR_NAME)
     }
 
     /// Resolves from `RVLC_CONFIG_DIR` or the platform's known folders. `None` if

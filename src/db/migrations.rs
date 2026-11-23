@@ -18,6 +18,7 @@ pub(super) const MIGRATIONS: &[&str] = &[
     super::search::MIGRATION,
     HOME,
     super::subtitle_sync::MIGRATION,
+    super::subtitle_links::MIGRATION,
 ];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).

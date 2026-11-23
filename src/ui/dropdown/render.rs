@@ -41,7 +41,7 @@ impl Dropdown {
         div()
             .id("dropdown")
             .relative()
-            .h(px(metrics::FIELD_HEIGHT))
+            .h(px(self.height))
             .w_full()
             .flex()
             .flex_row()

@@ -3,6 +3,7 @@
 
 mod audio;
 mod drawn;
+mod linked;
 mod sync;
 mod tracks;
 

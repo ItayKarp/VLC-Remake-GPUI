@@ -48,6 +48,32 @@ pub fn is_text(path: &Path) -> bool {
     format_of(path).is_some_and(Format::is_text)
 }
 
+/// What the name of the subtitle file at `path` says about it as a subtitle of the video at
+/// `media`: its language and forced flag (a file linked to the video, S6.4).
+pub fn describe(path: &Path, media: &Path) -> Sidecar {
+    let title = media.file_stem().map_or_default(|title| title.to_string_lossy().into_owned());
+    let naming = naming::read(&stem(path), &title);
+    Sidecar { path: path.to_path_buf(), language: naming.language, forced: naming.forced }
+}
+
+/// The subtitle files in `folder`, not its subfolders, that are what their extensions say, in
+/// name order (the Add Subtitles dialog's candidates, S6.4). Reads the start of each file, so
+/// it belongs off the UI thread.
+pub fn in_folder(folder: &Path) -> Vec<PathBuf> {
+    subtitle_files(folder).into_iter().filter(|path| checks_out(path)).collect()
+}
+
+/// Whether `path`'s extension is a subtitle format's.
+pub fn has_subtitle_extension(path: &Path) -> bool {
+    format_of(path).is_some()
+}
+
+/// Whether the file at `path` is a subtitle file that is what its extension says. Reads its
+/// start, so it belongs off the UI thread.
+pub fn is_subtitle_file(path: &Path) -> bool {
+    format_of(path).is_some() && checks_out(path)
+}
+
 /// How a folder's files are matched to the video.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scope {

@@ -11,6 +11,7 @@
 //! Onboarding hands off to it (S0.2).
 
 mod about;
+mod add_subtitles;
 mod audio;
 mod audio_tracks;
 mod auto_hide;
@@ -25,6 +26,7 @@ mod hide_ui;
 mod history;
 mod library_panel;
 mod library_status;
+mod linked_subtitles;
 mod main_menu;
 mod miniplayer;
 mod network_stream;

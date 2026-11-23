@@ -1,10 +1,9 @@
 //! A saved playlist row's menu (S4.8.3; `library/menus/playlist_context_menu.png`): Play,
-//! Favorite, Shuffle (plays it shuffled), Export Playlist (S3.6), Add to Queue and Properties &
-//! Metadata.
+//! Favorite, Shuffle (plays it shuffled), Export Playlist (S3.6), Add to Queue, Add Subtitle
+//! Tracks (the Add Subtitles dialog To This Playlist, S6.4) and Properties & Metadata.
 //!
-//! Several playlists play one after another. The design's Add Subtitle Tracks waits for the Add
-//! Subtitles dialog (S6.4), and Add Audio Tracks for a design of which audio goes with which
-//! item; the menu leaves them out until then.
+//! Several playlists play one after another. The design's Add Audio Tracks waits for a design
+//! of which audio goes with which item; the menu leaves it out until then.
 
 use std::time::Duration;
 
@@ -18,6 +17,7 @@ use crate::assets::icons;
 use crate::db::activity::Favorite;
 use crate::db::playlists::Summary;
 use crate::library::favorites;
+use crate::main_window::add_subtitles::Target;
 use crate::main_window::control_bar::clock;
 use crate::playlists;
 use crate::queue;
@@ -54,6 +54,19 @@ pub(super) fn items(
             main.show_export_playlist(summary, window, cx);
         }),
         play("Add to Queue", icons::QUEUE, Playing::Placed(Placement::Enqueue)),
+        on_one(
+            main,
+            playlists,
+            "Add Subtitle Tracks",
+            icons::SUBTITLES,
+            |main, summary, window, cx| {
+                let target =
+                    Target::Playlist { id: summary.id, title: summary.title.clone().into() };
+                main.show_add_subtitles(target, window, cx);
+            },
+        )
+        .disabled(empty)
+        .why_disabled("Nothing to add subtitles to"),
         on_one(main, playlists, "Properties & Metadata", icons::INFO, |_, summary, window, cx| {
             MainWindow::show_playlist_properties(summary, window, cx);
         }),

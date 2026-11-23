@@ -21,6 +21,7 @@ use gpui::{
 
 pub use type_ahead::{TypeAhead, find_match};
 
+use super::metrics;
 use super::popover::{self, BoundsTracker};
 use crate::theme;
 
@@ -44,6 +45,8 @@ pub struct Dropdown {
     scroll: ScrollHandle,
     type_ahead: TypeAhead,
     disabled: bool,
+    /// The closed face's height.
+    height: f32,
 }
 
 impl EventEmitter<Changed> for Dropdown {}
@@ -82,7 +85,15 @@ impl Dropdown {
             scroll: ScrollHandle::new(),
             type_ahead: TypeAhead::default(),
             disabled: false,
+            height: metrics::FIELD_HEIGHT,
         }
+    }
+
+    /// Draws the closed face `height` tall instead of the kit's field height (a dialog's
+    /// header row).
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
     }
 
     /// The index of the chosen option.

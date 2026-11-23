@@ -1,7 +1,7 @@
 //! The [`Player`]'s subtitle files (S6.1): the ones found beside a local video as it opens
 //! (loaded as tracks without showing one, so auto-selection picks among them by the languages
 //! their names give), the ones the user adds (shown), and reading one again in another encoding
-//! (S6.1.6).
+//! (S6.1.6); and the ones linked to it in the Add Subtitles dialog (S6.4).
 //!
 //! Finding files and reading their encodings happens off the UI thread, but files reach the
 //! backend in the order they were asked for, after the backend listed the media's own tracks: a
@@ -22,6 +22,15 @@ use crate::engine::subtitle_style::SubtitleLoading;
 use crate::engine::subtitle_text::{self, EncodingChoice};
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
 use crate::engine::values::Generation;
+
+/// When subtitle files linked to the media load.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Linked {
+    /// As the media opens: none shows unless auto-selection picks it.
+    OnOpen,
+    /// The user just linked them: the first shows.
+    Now,
+}
 
 /// A subtitle file ready to load, waiting for its turn.
 #[derive(Clone, Debug)]
@@ -66,6 +75,70 @@ impl Player {
             };
             sidecar::find(&path, level).into_iter().map(prepare).collect()
         });
+    }
+
+    /// Loads the subtitle files at `paths` linked to `media` (S6.4), unless another media opened
+    /// since: as the ones found beside it on opening, or showing the first when the user just
+    /// linked them. A file the media already lists isn't loaded twice.
+    pub fn load_linked_subtitles(
+        &mut self,
+        media: &Media,
+        paths: Vec<PathBuf>,
+        linked: Linked,
+        cx: &mut Context<Self>,
+    ) {
+        if self.media.as_ref() != Some(media) || paths.is_empty() {
+            return;
+        }
+        let Some(video) = media.as_path().map(Path::to_path_buf) else { return };
+        let mut show_first = linked == Linked::Now;
+        // A file the media already lists (found beside it) shows by its own track.
+        if show_first && let Some(track) = self.listed_track(&paths[0]) {
+            self.select_track(TrackKind::Subtitle, Some(track), cx);
+            show_first = false;
+        } else if show_first {
+            self.track_choices.user_picked(TrackKind::Subtitle);
+        }
+        let loading = self.media_options.subtitles.clone();
+        self.queue_files(cx, move || {
+            let choice = loading.encoding_choice();
+            let shows = |index: usize| show_first && index == 0;
+            let prepare = |(index, path): (usize, PathBuf)| {
+                let file = SubtitleFile::found(sidecar::describe(&path, &video));
+                Pending::prepare(file, choice, &loading, shows(index))
+            };
+            paths.into_iter().enumerate().map(prepare).collect()
+        });
+    }
+
+    /// Takes the subtitle file at `path` off the open media (its link was removed, S6.4.7).
+    /// libVLC can't take a track away, so the player leaves it out from then on, and turns it
+    /// off if it shows.
+    pub fn remove_subtitle_file(&mut self, path: &Path, cx: &mut Context<Self>) {
+        self.info.waiting_files.retain(|pending| pending.file.path != path);
+        let (removed, kept) = std::mem::take(&mut self.info.subtitle_files)
+            .into_iter()
+            .partition(|file| file.path == path);
+        self.info.subtitle_files = kept;
+        for track in removed.into_iter().filter_map(|file: SubtitleFile| file.track) {
+            self.retire(track);
+        }
+        cx.emit(PlayerEvent::TracksChanged);
+        cx.notify();
+    }
+
+    /// The track of the listed subtitle file at `path`, once the backend lists it.
+    fn listed_track(&self, path: &Path) -> Option<TrackId> {
+        self.info.subtitle_files.iter().find(|file| file.path == path).and_then(|file| file.track)
+    }
+
+    /// Leaves `track` out from now on, turning it off if it shows.
+    fn retire(&mut self, track: TrackId) {
+        self.info.retired_tracks.push(track);
+        if self.info.tracks.subtitle == Some(track) {
+            self.apply_subtitle(None);
+        }
+        self.info.tracks.all.retain(|listed| listed.id != track);
     }
 
     /// Adds the subtitle file at `path` to the open media and shows it (a dropped `.srt`).
@@ -148,6 +221,14 @@ impl Player {
         cx: &mut Context<Self>,
     ) {
         if self.generation == generation && self.state.is_active() {
+            let listed = |path: &Path| {
+                let files = self.info.subtitle_files.iter().map(|file| &file.path);
+                let waiting = self.info.waiting_files.iter().map(|pending| &pending.file.path);
+                files.chain(waiting).any(|listed| listed == path)
+            };
+            // A linked file found beside the video too loads once; one asked to show always does.
+            let pending: Vec<Pending> =
+                pending.into_iter().filter(|p| p.show || !listed(&p.file.path)).collect();
             self.info.waiting_files.extend(pending);
             self.load_waiting_files(cx);
         }

@@ -1,8 +1,9 @@
 //! The Subtitles tab's **External Tracks** (S2.6.4, S6.1.5, `subtitle_one-*.png` and
 //! `subtitle_multiple-*.png`): the subtitle files found beside the video or added to it, each a
 //! file icon and its name, with an orange ✓ at the end of the one showing and, on hovering
-//! another, the swap icon: clicking it switches to that file. The pencil waits for the Add
-//! Subtitles dialog (S6.4); "+" asks for files to add (S6.1.4).
+//! another, the swap icon: clicking it switches to that file. The pencil opens the Add Subtitles
+//! dialog on the file playing (S6.4.7), where linked files can be removed; "+" asks for files to
+//! add (S6.1.4).
 
 use std::path::PathBuf;
 
@@ -37,10 +38,11 @@ impl MainWindow {
         p: &Palette,
         cx: &mut Context<Self>,
     ) -> Div {
-        // Editing opens the Add Subtitles dialog, which comes with S6.4.
         let edit = IconButton::new("edit-subtitles", icons::EDIT, "Edit subtitle files")
             .size(HEADER_BUTTON, HEADER_ICON)
-            .disabled(true);
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.edit_playing_subtitles(window, cx);
+            }));
         let add = IconButton::new("add-subtitles", icons::ADD, "Add a subtitle file")
             .size(HEADER_BUTTON, HEADER_ICON)
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
