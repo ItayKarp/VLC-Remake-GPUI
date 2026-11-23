@@ -2,8 +2,8 @@
 //!
 //! **Playback:** Speed ▸ (common speeds, then Faster, Slower and Normal Speed), Chapter ▸ when
 //! the media has chapters (S8.2), Jump Forward and Jump Backward by the short skip, and Jump to Time,
-//! which opens the current time for typing (S2.4). A-B loop isn't in the engine yet, so it
-//! isn't listed.
+//! which opens the current time for typing (S2.4), and Add Bookmark (S8.3.2). A-B loop isn't in
+//! the engine yet, so it isn't listed.
 //!
 //! **More Settings:** the in-player settings panel's tabs (S2.7). The Settings window (S5.2)
 //! joins it with its story.
@@ -58,6 +58,9 @@ impl MainWindow {
             })
             .disabled(!seekable || self.auto_hide.hide_ui)
             .why_disabled(if seekable { NO_CONTROLS } else { cant_seek }),
+            run(main, &act::AddBookmark, "Add Bookmark", cx)
+                .disabled(!seekable)
+                .why_disabled(cant_seek),
         ]);
         MenuItem::submenu("Playback", items).icon(icons::PLAYBACK)
     }

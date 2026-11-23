@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 use futures::channel::oneshot;
 
 use super::History;
-use super::resolve::{ResolveError, resolve};
+use super::resolve::{ResolveError, identity_of, resolve};
 use super::worker::{Job, Worker};
 use crate::app::media::Media;
 use crate::db::Database;
@@ -174,4 +174,24 @@ fn media_that_cant_be_identified_has_no_history() {
     session.save();
     drain(&mut worker, &jobs);
     assert_eq!(reply(saved), None);
+}
+
+#[test]
+fn a_renamed_file_keeps_its_identity_without_a_row_being_written() {
+    let dir = scratch_dir();
+    let mut database = Database::in_memory();
+    let (before, after) = (dir.join("a.mkv"), dir.join("renamed.mkv"));
+    write(&before, b"bookmarked");
+    let identity = |database: &mut Database, path: &Path| {
+        let media = Media::File(path.to_path_buf());
+        identity_of(database.connection(), &media).expect("the file is readable")
+    };
+    let first = identity(&mut database, &before);
+    fs::rename(&before, &after).expect("rename");
+    assert_eq!(identity(&mut database, &after), first);
+    let located = media::find_at(database.connection(), &after.to_string_lossy());
+    assert_eq!(located.expect("query"), None, "nothing was written");
+    let id = id_of(&mut database, &after);
+    assert_eq!(identity(&mut database, &after), first, "a row gives the same identity");
+    assert!(id.0 > 0);
 }

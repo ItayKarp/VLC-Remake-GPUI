@@ -177,6 +177,7 @@ fn playback_menu() -> Menu {
             plain(&act::NextItem, "Next Item"),
             plain(&act::PreviousChapter, "Previous Chapter"),
             plain(&act::NextChapter, "Next Chapter"),
+            item(&act::AddBookmark, "Add Bookmark"),
             plain(&act::Record, "Record"),
             SEPARATOR,
             plain(&act::Faster, "Faster"),

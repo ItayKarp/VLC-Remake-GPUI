@@ -101,6 +101,8 @@ actions!(
         PreviousChapter,
         /// Go to the next chapter (S8.2.3).
         NextChapter,
+        /// Bookmark where playback is (S8.3.2).
+        AddBookmark,
         /// Move Repeat to its next mode: Off, All, One.
         CycleRepeat,
         /// Switch Shuffle on or off.

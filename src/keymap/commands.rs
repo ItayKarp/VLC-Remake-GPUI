@@ -138,6 +138,8 @@ pub const COMMANDS: &[Command] = &[
     // VLC's keys: Shift with the queue's P and N.
     cmd("Previous chapter", Player, keys(&["shift-p"]), &act::PreviousChapter),
     cmd("Next chapter", Player, keys(&["shift-n"]), &act::NextChapter),
+    // VLC has no key for it; B is the audio track, so the platform's modifier goes with it.
+    cmd("Add bookmark", Player, keys(&["secondary-b"]), &act::AddBookmark),
     // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
     cmd("Repeat (Off, All, One)", Player, NONE, &act::CycleRepeat),
     cmd("Shuffle", Player, NONE, &act::ToggleShuffle),

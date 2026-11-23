@@ -4,7 +4,8 @@
 //! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
 //! and favorites ([`activity`]) with the media Home lists ([`played`]), and the search index
 //! ([`search`]). Network streams are in [`network`], each subtitle track's remembered sync in
-//! [`subtitle_sync`], and the subtitle files linked to each media in [`subtitle_links`].
+//! [`subtitle_sync`], the subtitle files linked to each media in [`subtitle_links`], and each media's bookmarks in
+//! [`bookmarks`].
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -18,6 +19,7 @@
 pub mod activity;
 pub mod artwork;
 pub mod audio_delay;
+pub mod bookmarks;
 pub mod files;
 pub mod folders;
 pub mod media;

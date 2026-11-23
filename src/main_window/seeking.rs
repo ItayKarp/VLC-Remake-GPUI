@@ -72,7 +72,7 @@ impl MainWindow {
     }
 
     /// The loaded player, unless its media is known not to seek (a live stream).
-    fn seekable_player(&self, cx: &App) -> Option<Entity<Player>> {
+    pub(super) fn seekable_player(&self, cx: &App) -> Option<Entity<Player>> {
         self.loaded_player(cx).filter(|player| player.read(cx).is_seekable() != Some(false))
     }
 

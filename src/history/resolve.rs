@@ -8,6 +8,8 @@
 //!   and the old row is orphaned; it is purged after [`ORPHAN_LIFETIME`] unless the file comes
 //!   back. A file only touched (same key, new modification time) stays the same media.
 //! - A URL is its own identity.
+//!
+//! [`identity_of`] only reads: it names a media's identity without making or moving a row.
 
 use std::io;
 use std::path::Path;
@@ -63,6 +65,21 @@ pub fn resolve(
             transaction.commit()?;
             Ok(id)
         }
+    }
+}
+
+/// The identity of `media`: the one its row holds when the file is unchanged since it was last
+/// matched, else its content key, read from the file. Writes nothing.
+pub fn identity_of(connection: &Connection, media: &Media) -> Result<String, ResolveError> {
+    let path = match media {
+        Media::File(path) => path,
+        Media::Url(url) => return Ok(identity::url_key(url)),
+    };
+    let stamp = identity::stamp(&std::fs::metadata(path)?);
+    let here = media::find_at(connection, &stored_path::encode(path))?;
+    match here.filter(|row| row.stamp == Some(stamp)) {
+        Some(row) => Ok(row.identity),
+        None => Ok(identity::file_key(path, stamp.size)?),
     }
 }
 

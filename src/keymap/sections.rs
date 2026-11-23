@@ -38,6 +38,7 @@ pub const SECTIONS: &[Section] = &[
             &act::PreviousItem,
             &act::NextChapter,
             &act::PreviousChapter,
+            &act::AddBookmark,
             &act::CycleRepeat,
             &act::ToggleShuffle,
             &act::NextProgram,

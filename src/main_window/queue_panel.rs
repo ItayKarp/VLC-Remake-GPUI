@@ -4,14 +4,15 @@
 //! The Queue tab lists the queue ([`header`], [`rows`]): rows can be selected, reordered by
 //! dragging, played with a double-click or Enter and removed with Delete or "−", and files
 //! dropped on it, from the OS or the library (S4.6.7), are inserted where they land
-//! ([`editing`]). The Chapters tab lists the media's chapters ([`chapters`], S8.2.1); Bookmarks
-//! comes with its story (S8.3) and says so until then. The header has Repeat and Shuffle (S3.3). The miniplayer docks the same Queue tab above
-//! its card ([`docked`], S4.10.4). Restored items that are missing or offline are greyed (S3.4).
+//! ([`editing`]). The header has Repeat and Shuffle (S3.3). The Bookmarks tab lists the playing
+//! media's bookmarks ([`bookmarks`], S8.3.1) and the Chapters tab its chapters ([`chapters`],
+//! S8.2.1). The miniplayer docks the same Queue tab above its card ([`docked`], S4.10.4). Restored items that are missing or offline are greyed (S3.4).
 //!
 //! Unlike the track popover and the settings panel, it stays open while the video is used
 //! (clicking it, dragging files over it); the List button, Q and Escape close it. It shares their
 //! place, so opening one of them closes it, and it keeps the bar up while open.
 
+mod bookmarks;
 mod chapters;
 mod docked;
 mod editing;
@@ -31,6 +32,7 @@ use gpui::{
     UniformListScrollHandle, WeakEntity, Window, div, prelude::*, px,
 };
 
+use self::bookmarks::{BookmarkList, Bookmarks};
 use self::chapters::ChapterList;
 use self::selection::Selection;
 use super::MainWindow;
@@ -106,6 +108,10 @@ pub(super) struct QueuePanel {
     pub(super) missing: HashSet<Media>,
     /// The Chapters tab's cursor and scrolling.
     chapters: ChapterList,
+    /// The Bookmarks tab's cursor, scrolling and rename.
+    bookmarks: BookmarkList,
+    /// The playing media's bookmarks (S8.3), which the tab lists.
+    pub(super) saved_bookmarks: Bookmarks,
 }
 
 impl QueuePanel {
@@ -123,6 +129,8 @@ impl QueuePanel {
             sort_button: BoundsTracker::new(),
             missing: HashSet::new(),
             chapters: ChapterList::default(),
+            bookmarks: BookmarkList::default(),
+            saved_bookmarks: Bookmarks::default(),
         }
     }
 
@@ -223,7 +231,7 @@ impl MainWindow {
         self.sync_queue_panel(cx);
         let body = match tab {
             ListTab::Queue => self.render_queue_tab(p, cx),
-            ListTab::Bookmarks => note("Bookmarks come with a later version.", p),
+            ListTab::Bookmarks => self.render_bookmarks_tab(p, cx),
             ListTab::Chapters => self.render_chapters_tab(p, window, cx),
         };
         Some(
@@ -255,15 +263,16 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if event.keystroke.key == "escape" {
+        if event.keystroke.key == "escape" && !self.queue_panel.is_renaming_bookmark() {
             cx.stop_propagation();
             self.close_queue_panel(window, cx);
             return;
         }
         let used = match self.queue_panel.open {
             Some(ListTab::Queue) => self.queue_key(event, window, cx),
+            Some(ListTab::Bookmarks) => self.bookmarks_key(event, window, cx),
             Some(ListTab::Chapters) => self.chapters_key(event, cx),
-            _ => false,
+            None => false,
         };
         if used {
             cx.stop_propagation();

@@ -42,9 +42,12 @@ impl MainWindow {
     }
 
     /// Adds the player's action handlers and the key-up and blur hooks that end a
-    /// held key.
+    /// held key. Letting go of a modifier ends one too: macOS sends no key-up for a key pressed
+    /// with Cmd, so without it Cmd+B would bookmark once until another key is released.
     pub(super) fn player_keys(root: Div, cx: &mut Context<Self>) -> Div {
-        let root = root.on_key_up(cx.listener(|this, _, _, _| this.release_keys()));
+        let root = root
+            .on_key_up(cx.listener(|this, _, _, _| this.release_keys()))
+            .on_modifiers_changed(cx.listener(|this, _, _, _| this.release_keys()));
         let root = Self::fullscreen_actions(root, cx);
         let root = Self::playback_actions(root, cx);
         player_actions!(
@@ -94,6 +97,7 @@ impl MainWindow {
                 NextItem,
                 PreviousChapter,
                 NextChapter,
+                AddBookmark,
                 CycleRepeat,
                 ToggleShuffle,
                 PreviousFrame,
@@ -172,6 +176,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::NextItem, MainWindow::next),
     (&act::PreviousChapter, |this, _, cx| this.jump_chapter(Jump::Previous, cx)),
     (&act::NextChapter, |this, _, cx| this.jump_chapter(Jump::Next, cx)),
+    (&act::AddBookmark, |this, _, cx| this.add_bookmark(cx)),
     (&act::CycleRepeat, MainWindow::cycle_repeat),
     (&act::ToggleShuffle, MainWindow::toggle_shuffle),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),

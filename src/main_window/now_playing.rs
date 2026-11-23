@@ -104,6 +104,15 @@ impl MainWindow {
         });
     }
 
+    /// Brings back what is remembered about the media the player opens.
+    fn opening(&mut self, cx: &mut Context<Self>) {
+        self.windowing.start_fullscreen = true;
+        self.restore_subtitle_syncs(cx);
+        self.restore_audio_delays(cx);
+        self.load_bookmarks(cx);
+        self.load_linked_subtitles(cx);
+    }
+
     fn on_player_event(
         &mut self,
         player: &Entity<Player>,
@@ -120,10 +129,7 @@ impl MainWindow {
                     self.skips.played();
                 }
                 if *state == PlaybackState::Opening {
-                    self.windowing.start_fullscreen = true;
-                    self.restore_subtitle_syncs(cx);
-                    self.restore_audio_delays(cx);
-                    self.load_linked_subtitles(cx);
+                    self.opening(cx);
                 }
                 self.found_playing(*state, cx);
                 self.notify_now_playing(*state, cx);
