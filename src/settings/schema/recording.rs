@@ -17,7 +17,7 @@ pub struct RecordingSettings {
     /// "Record without re-encoding when possible": copies the streams as they are.
     #[serde(deserialize_with = "lenient")]
     pub keep_original_encoding: bool,
-    /// "Discover cast devices": looks for Chromecasts on the local network.
+    /// "Discover cast devices": looks for Chromecasts on the local network (S8.11).
     #[serde(deserialize_with = "lenient")]
     pub discover_cast_devices: bool,
     /// "Cast quality".
@@ -59,11 +59,12 @@ impl Default for RecordingSettings {
     }
 }
 
-/// "Cast quality": how media the cast device can't play is converted.
+/// "Cast quality": how media the cast device can't play is converted (S8.11); libVLC 3 can't
+/// follow the network, so Automatic is Medium.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CastQuality {
-    /// Follows the network and the device.
+    /// libVLC's own choice: Medium.
     #[default]
     Automatic,
     /// Smallest, for a slow network.

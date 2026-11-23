@@ -61,7 +61,8 @@ const ONBOARDING_MIN_SIZE: (f32, f32) = (900., 640.);
 pub fn init(cx: &mut App) {
     system_options::init(cx);
     hardware_fallback::init(cx);
-    cx.on_action(|_: &Quit, cx| cx.quit());
+    // Running conversions are asked about first (S8.10).
+    cx.on_action(|_: &Quit, cx| crate::main_window::ask_before_quitting(cx));
     cx.on_action(|_: &CloseWindow, cx| {
         if let Some(window) = cx.active_window() {
             cx.defer(move |cx| {
@@ -75,6 +76,12 @@ pub fn init(cx: &mut App) {
     cx.on_system_notification_response(|response, cx| {
         if response.tag == crate::main_window::NOW_PLAYING_TAG {
             cx.activate(true);
+        }
+        // Clicking a conversion's notification shows the file it made (S8.10.2).
+        if response.tag == crate::convert::CONVERSIONS_TAG
+            && let Some(conversions) = crate::convert::Conversions::global(cx)
+        {
+            conversions.read(cx).reveal_last(cx);
         }
     });
     cx.on_action(|_: &RunSetupAgain, cx| {

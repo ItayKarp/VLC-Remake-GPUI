@@ -27,11 +27,7 @@ impl Player {
             BackendEvent::Position(time) => self.position_reported(time, cx),
             BackendEvent::Duration(duration) => self.duration_reported(duration, cx),
             BackendEvent::Seekable(seekable) => self.seekable_reported(seekable, cx),
-            BackendEvent::Pausable(pausable) => {
-                if self.info.pausable.replace(pausable) != Some(pausable) {
-                    cx.emit(PlayerEvent::PausableChanged(pausable));
-                }
-            }
+            BackendEvent::Pausable(pausable) => self.pausable_reported(pausable, cx),
             BackendEvent::Tracks(tracks) => self.tracks_reported(tracks, cx),
             BackendEvent::VideoSize(size) => {
                 if std::mem::replace(&mut self.info.video_size, size) != size {
@@ -51,8 +47,16 @@ impl Player {
             BackendEvent::Recording(recording) => self.recording_reported(recording, cx),
             BackendEvent::Programs(programs) => self.programs_reported(programs, cx),
             BackendEvent::Titles(titles) => self.titles_reported(titles, cx),
+            BackendEvent::CastDevices(devices) => self.cast_devices_reported(devices, cx),
+            BackendEvent::CastLost(device) => self.cast_lost(device, cx),
         }
         cx.notify();
+    }
+
+    fn pausable_reported(&mut self, pausable: bool, cx: &mut Context<Self>) {
+        if self.info.pausable.replace(pausable) != Some(pausable) {
+            cx.emit(PlayerEvent::PausableChanged(pausable));
+        }
     }
 
     /// Keeps the chapters the backend reported, and says so.

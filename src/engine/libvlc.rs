@@ -6,6 +6,7 @@
 //!   [`query`]) that owns every libVLC handle, so the UI never waits on a libVLC call.
 //! - [`events`] is the libVLC event callback: it translates and forwards, and never calls libVLC.
 //! - [`failure`] names the cause of an error libVLC reports without one.
+//! - [`casting`] finds cast devices and plays to one (S8.11).
 //!
 //! - [`audio`] lists output devices and picks one (S1.5).
 //! - [`vmem`] hands decoded pictures to a [`VideoSink`] (S1.4.1), and [`prepare`] reads a file's
@@ -15,6 +16,9 @@
 mod api;
 mod audio;
 mod audio_effects;
+mod casting;
+#[cfg(test)]
+mod casting_tests;
 mod certificates;
 mod color_filters;
 #[cfg(test)]
@@ -64,6 +68,9 @@ mod test_tone;
 mod tests;
 pub mod thumbnail;
 mod track_list;
+pub mod transcode;
+#[cfg(test)]
+mod transcode_tests;
 mod video_filters;
 #[cfg(test)]
 mod video_tests;
@@ -90,6 +97,7 @@ use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, Command, EventSender};
+use super::cast::{CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
@@ -304,6 +312,14 @@ impl Backend for LibVlcBackend {
 
     fn navigate(&mut self, to: Navigation) {
         self.send(Command::Navigate(to));
+    }
+
+    fn set_cast_setup(&mut self, setup: CastSetup) {
+        self.send(Command::SetCastSetup(setup));
+    }
+
+    fn cast(&mut self, device: Option<CastDeviceId>) {
+        self.send(Command::Cast(device));
     }
 
     fn shut_down(mut self: Box<Self>) {

@@ -35,6 +35,8 @@ const PLACEHOLDER_COLOR: Hsla = hsla(0., 0., 1., 0.35);
 /// Under the placeholder while Settings → Video turned video off, so a black screen has a reason.
 const VIDEO_OFF: &str = "Video is off in Settings → Video";
 const VIDEO_OFF_SIZE: f32 = 14.;
+/// The size of what the view says while media plays on a cast device (S8.11).
+const CASTING_SIZE: f32 = 20.;
 
 /// The video area of the player.
 pub struct VideoView {
@@ -73,6 +75,7 @@ impl VideoView {
                     | PlayerEvent::PositionChanged(_)
                     | PlayerEvent::TracksChanged
                     | PlayerEvent::SubtitleSyncChanged
+                    | PlayerEvent::CastChanged
             );
             if redraw {
                 cx.notify();
@@ -186,10 +189,16 @@ impl Render for VideoView {
         self.advance(window);
         let video = &effects::effective(cx).prefs.video;
         let (framing, video_on) = (Framing::of(video), video.enabled);
-        let source = self.shown.as_ref().map(|frame| self.source(frame, cx));
+        // Nothing shows here while a cast device plays the media, so the last picture goes.
+        let casting = self.player.read(cx).cast_target().map(|device| device.name.clone());
+        let shown = self.shown.as_ref().filter(|_| casting.is_none());
+        let source = shown.map(|frame| self.source(frame, cx));
         let picture =
-            self.shown.clone().zip(source).map(|(frame, source)| picture(frame, source, framing));
-        let placeholder = self.is_audio_only(cx).then(|| placeholder(video_on));
+            shown.cloned().zip(source).map(|(frame, source)| picture(frame, source, framing));
+        let placeholder = match casting {
+            Some(name) => Some(cast_placeholder(&name).into_any_element()),
+            None => self.is_audio_only(cx).then(|| placeholder(video_on).into_any_element()),
+        };
         let video_height = source.map_or(0, |source| source.aspect.1);
         let subtitles = self.overlay(cx).map(|overlay| {
             let scene = Scene { source, framing, video_height, covered: self.covered };
@@ -270,6 +279,14 @@ fn placeholder(video_on: bool) -> impl IntoElement {
         .text_color(PLACEHOLDER_COLOR)
         .child(div().text_size(px(PLACEHOLDER_SIZE)).child(AUDIO_ONLY))
         .children(note)
+}
+
+/// What shows while a cast device plays the media: where it plays.
+fn cast_placeholder(device: &str) -> impl IntoElement {
+    div()
+        .text_size(px(CASTING_SIZE))
+        .text_color(PLACEHOLDER_COLOR)
+        .child(format!("Playing on {device}"))
 }
 
 /// Redraws the view whenever the engine delivers, until the view is gone.

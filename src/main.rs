@@ -4,6 +4,7 @@
 mod app;
 mod assets;
 mod capture;
+mod convert;
 mod cursor;
 mod db;
 mod diagnostics;
@@ -68,6 +69,7 @@ fn main() {
         history::init(cx);
         library::init(cx);
         playlists::init(cx);
+        convert::init(cx);
         network::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);

@@ -1,5 +1,5 @@
 //! The settings panel's Video tab (`controls-video_settings.png`): **Defaults** (flip, rotate,
-//! zoom, resolution, aspect ratio and crop, S7.2) with the **Crop** section's edges under them,
+//! zoom, resolution, aspect ratio and crop, S7.2; render, S8.11) with the **Crop** section's edges under them,
 //! then **Filters**, the effect sections (S7.1): the Essential picture adjustments and
 //! enhancements (S7.3), then the Colors (S7.4). All of them change what plays for the rest of the
 //! session.
@@ -23,6 +23,8 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Div {
         self.settings_panel.video_defaults.sync(window, cx);
+        let player = self.player.as_ref().map(|(player, _)| player.clone());
+        self.settings_panel.video_defaults.render.sync(player.as_ref(), cx);
         self.settings_panel.crop.sync(window, cx);
         self.settings_panel.colors.sync(window, cx);
         let shown = PanelTab::Video.sections();

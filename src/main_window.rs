@@ -21,7 +21,9 @@ mod audio_delay;
 mod audio_tracks;
 mod auto_hide;
 mod bar_panel;
+mod casting;
 mod control_bar;
+mod convert_dialog;
 mod customize;
 mod device_dialog;
 mod device_failure;
@@ -105,6 +107,7 @@ use crate::ui::toast::{Toast, Toasts};
 use crate::ui::{drop_target, menu::ContextMenu};
 use crate::video::VideoView;
 
+pub use self::convert_dialog::ask_before_quitting;
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
 pub use self::pip::{PipCommand, PipView};
 pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
@@ -263,7 +266,16 @@ impl MainWindow {
         Self::release_keys_on_blur(window, cx);
         Self::close_popovers_on_deactivate(window, cx);
         Self::follow_library_switch(window, cx);
+        Self::ask_before_closing(window, cx);
         crate::diagnostics::system::remember_gpu(window);
+    }
+
+    /// Closing the window while conversions run asks whether to cancel them first (S8.10).
+    fn ask_before_closing(window: &mut Window, cx: &mut Context<Self>) {
+        let main = cx.entity().downgrade();
+        window.on_window_should_close(cx, move |window, cx| {
+            convert_dialog::may_close(&main, window, cx)
+        });
     }
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when

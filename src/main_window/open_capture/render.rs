@@ -20,7 +20,13 @@ impl Render for CaptureDialog {
         let mut sections = vec![self.kind_section(&p, cx), self.device_section(&p)];
         sections.push(self.format_section(&p));
         let can_play = self.source(cx).is_some();
-        let frame = Frame { id: "open-capture", title: "Open Capture Device", sections, can_play };
+        let frame = Frame {
+            id: "open-capture",
+            title: "Open Capture Device",
+            sections,
+            can_play,
+            buttons: ("Cancel", "Play"),
+        };
         div().track_focus(&self.focus).child(frame.render(&p, window, cx, Self::play))
     }
 }

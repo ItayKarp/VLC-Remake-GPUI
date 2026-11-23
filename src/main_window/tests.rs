@@ -69,7 +69,7 @@ fn a_held_escape_leaves_fullscreen_once(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-fn the_main_menu_leaves_out_commands_that_havent_shipped(cx: &mut TestAppContext) {
+fn the_main_menu_lists_the_shipped_commands(cx: &mut TestAppContext) {
     let cx = open(cx);
     let main = main_view(cx);
     let labels: Vec<String> = main.update_in(cx, |_, window, cx| {
@@ -85,11 +85,9 @@ fn the_main_menu_leaves_out_commands_that_havent_shipped(cx: &mut TestAppContext
             .collect()
     });
     let shown = ["Open File(s)", "Open Folder", "Open Recent", "Settings", "About VLC"];
-    for shown in shown.into_iter().chain(["Customize Player", "Open Disc", "Open Capture Device"]) {
+    let shipped = ["Customize Player", "Open Disc", "Open Capture Device", "Convert"];
+    for shown in shown.into_iter().chain(shipped) {
         assert!(labels.iter().any(|label| label == shown), "{shown} missing: {labels:?}");
-    }
-    for hidden in ["Convert"] {
-        assert!(!labels.iter().any(|label| label == hidden), "{hidden} shown: {labels:?}");
     }
 }
 

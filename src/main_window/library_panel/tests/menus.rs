@@ -43,7 +43,8 @@ fn right_clicking_a_card_selects_it_and_opens_the_file_menu(cx: &mut TestAppCont
     right_click(cx, "library-card-1");
     assert_eq!(selected(cx), ["Show S01E02"]);
     let labels = labels(cx);
-    let expected = ["Play", "Mark as Watched", "Favorite", "Add to Queue", "Add to Playlist"];
+    let expected =
+        ["Play", "Mark as Watched", "Favorite", "Convert", "Add to Queue", "Add to Playlist"];
     assert_eq!(labels[..expected.len()], expected);
     let tail = ["Go to Source", "Add Subtitle Tracks", "Add Audio Tracks", "Properties & Metadata"];
     assert_eq!(labels[labels.len() - tail.len()..], tail);
@@ -57,6 +58,7 @@ fn several_cards_disable_what_works_on_one(cx: &mut TestAppContext) {
     right_click(cx, "library-card-0");
     assert_eq!(selected(cx).len(), 3, "the selection stays");
     assert!(enabled(cx, "Play"));
+    assert!(enabled(cx, "Convert"), "every card picked converts");
     assert!(enabled(cx, "Add to Queue"));
     for one_only in
         ["Go to Source", "Add Subtitle Tracks", "Add Audio Tracks", "Properties & Metadata"]
