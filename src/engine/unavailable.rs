@@ -15,6 +15,7 @@ use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::navigation::Navigation;
 use super::recording::Recording;
 use super::state::{ErrorKind, PlaybackState};
+use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
@@ -99,6 +100,8 @@ impl Backend for UnavailableBackend {
     fn set_cast_setup(&mut self, _: CastSetup) {}
 
     fn cast(&mut self, _: Option<CastDeviceId>) {}
+
+    fn stream(&mut self, _: Option<StreamTarget>) {}
 
     fn shut_down(self: Box<Self>) {}
 }

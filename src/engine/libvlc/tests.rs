@@ -295,7 +295,7 @@ fn media_can_open_paused_at_a_position() {
     let backend = Box::new(new_backend(events));
     let generation = Generation::default().next();
     let mut session = Session { backend, receiver, generation, seen: Vec::new() };
-    let start = Start { at: Duration::from_secs(30), paused: true };
+    let start = Start { at: Duration::from_secs(30), paused: true, ..Start::default() };
     session.backend.open(&Media::File(media("1080p60-h264.mp4")), start, generation);
     session.wait_for_state(PlaybackState::Paused);
     let held = session.collect_for(Duration::from_secs(1));

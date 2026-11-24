@@ -83,7 +83,7 @@ impl MainWindow {
         match (restored.load, session.current) {
             (Load::Paused(at), Some(index)) => {
                 self.skip_resume_offer(self.queue.entries()[index].media.clone());
-                self.play_from(index, Start { at, paused: true }, window, cx);
+                self.play_from(index, Start { at, paused: true, ..Start::default() }, window, cx);
             }
             (Load::Crashed(media), _) => self.tell_about_crash(&media, cx),
             _ => {}

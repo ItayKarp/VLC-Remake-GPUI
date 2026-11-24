@@ -49,6 +49,7 @@ impl Player {
             BackendEvent::Titles(titles) => self.titles_reported(titles, cx),
             BackendEvent::CastDevices(devices) => self.cast_devices_reported(devices, cx),
             BackendEvent::CastLost(device) => self.cast_lost(device, cx),
+            BackendEvent::StreamFailed => self.stream_failed(cx),
         }
         cx.notify();
     }

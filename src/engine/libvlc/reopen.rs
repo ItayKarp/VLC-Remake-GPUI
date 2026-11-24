@@ -12,7 +12,7 @@
 use std::ffi::CString;
 use std::path::Path;
 use std::sync::atomic::Ordering;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use super::api::Media;
 use super::decoding::{Decoding, SOFTWARE_DECODING};
@@ -44,6 +44,11 @@ impl Worker {
     /// Reopens the media where it is, as [`Self::decoding`] says, with its video `output`, to
     /// select `tracks` again once it plays.
     pub(super) fn reopen(&mut self, tracks: Restore, output: Output) {
+        self.reopen_from(tracks, output, self.playing_time());
+    }
+
+    /// [`Self::reopen`], starting at `from` rather than where the media is.
+    pub(super) fn reopen_from(&mut self, tracks: Restore, output: Output, from: Duration) {
         let Some(source) = self.source.clone() else { return };
         let media = self.new_media(&source);
         if media.is_null() {
@@ -54,10 +59,11 @@ impl Worker {
         if self.decoding == Decoding::Software {
             self.add_option(media, &SOFTWARE_DECODING);
         }
-        self.add_option(media, &[&self.resume_option()]);
+        self.add_option(media, &[&format!(":start-time={:.3}", from.as_secs_f64())]);
         // A new output draws nothing while paused, so it plays until its first picture shows.
         let paused = self.shared.paused.load(Ordering::Relaxed);
-        let hold = paused && output == Output::Rebuilt && self.video.is_some();
+        let hold =
+            paused && output == Output::Rebuilt && self.video.is_some() && !self.streams_only();
         if paused && !hold {
             self.add_option(media, &[":start-paused"]);
         }
@@ -101,16 +107,9 @@ impl Worker {
         }
     }
 
-    /// Starts the reopened media where the old one was.
-    fn resume_option(&self) -> String {
-        // SAFETY: the player is live.
-        let millis = unsafe { (self.vlc.api.libvlc_media_player_get_time)(self.handles.player) };
-        format!(":start-time={:.3}", millis.max(0) as f64 / 1000.0)
-    }
-
     /// Opens the subtitle and audio files added to the old one with the reopened media. They get the
     /// same track ids as before, since they are added in the same order after the same tracks.
-    fn add_slaves(&self, media: *mut Media) {
+    pub(super) fn add_slaves(&self, media: *mut Media) {
         for slave in &self.slaves {
             let Some(uri) = file_uri(&slave.path) else { continue };
             // SAFETY: the media is live and `uri` is NUL-terminated.

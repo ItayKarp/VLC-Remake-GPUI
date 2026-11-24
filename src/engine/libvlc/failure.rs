@@ -41,6 +41,9 @@ impl Worker {
     pub(super) fn failed(&mut self) {
         super::hardware::decoding(None);
         self.recording_ends();
+        if self.stream_failed() {
+            return;
+        }
         let started = self.shared.started.load(Ordering::Relaxed);
         let kind = classify(self.source.as_ref(), started);
         tracing::warn!("libvlc: playback failed ({kind:?}): {}", self.vlc.last_error());

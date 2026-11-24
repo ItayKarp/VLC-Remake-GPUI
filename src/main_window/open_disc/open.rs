@@ -10,9 +10,11 @@ use crate::keymap::actions::OpenDisc;
 use crate::main_window::MainWindow;
 
 impl MainWindow {
-    /// Adds the handlers for Open Network Stream, Open Disc, Open Capture Device and Convert.
+    /// Adds the handlers for Open Network Stream, Open Disc, Open Capture Device, Convert and
+    /// Stream.
     pub(in crate::main_window) fn open_dialog_actions(root: Div, cx: &mut Context<Self>) -> Div {
         let root = Self::disc_actions(Self::capture_actions(root, cx), cx);
+        let root = Self::stream_actions(root, cx);
         Self::convert_actions(Self::network_actions(root, cx), cx)
     }
 

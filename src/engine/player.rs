@@ -10,6 +10,7 @@ mod navigation;
 mod picture;
 mod receive;
 mod recording;
+mod streaming;
 mod subtitle_files;
 mod sync;
 mod test_tone;
@@ -42,6 +43,7 @@ use super::position::PositionTracker;
 use super::recording::Recording;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
+use super::stream_out::StreamTarget;
 use super::subtitle_sync::{SubtitleKey, SubtitleSync};
 use super::tracks::{SubtitleFile, TrackId, Tracks};
 use super::values::{Generation, Offset, Rate, Volume};
@@ -103,6 +105,10 @@ pub enum PlayerEvent {
     CastChanged,
     /// The cast device media played on went away; it plays here again.
     CastLost(CastDevice),
+    /// The media started or stopped streaming; see [`Player::stream_target`].
+    StreamChanged,
+    /// The stream couldn't start; the media plays on without it. Sent after `StreamChanged`.
+    StreamFailed,
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -192,6 +198,8 @@ pub struct Player {
     recording: Option<RecordClock>,
     /// The cast devices found and the one media plays on (S8.11).
     cast: CastState,
+    /// The stream the media open now goes to (S8.12).
+    stream: Option<StreamTarget>,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -229,6 +237,7 @@ impl Player {
             backend_subtitle_delay: Offset::default(),
             recording: None,
             cast: CastState::default(),
+            stream: None,
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

@@ -43,6 +43,9 @@ impl Player {
         if self.cast.target == device || !known {
             return;
         }
+        if device.is_some() {
+            self.stop_streaming_for_cast(cx);
+        }
         self.cast.target = device;
         self.with_backend(|backend| backend.cast(device));
         cx.emit(PlayerEvent::CastChanged);

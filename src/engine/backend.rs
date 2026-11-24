@@ -23,6 +23,7 @@ use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::navigation::{Navigation, Programs, Titles};
 use super::recording::Recording;
 use super::state::PlaybackState;
+use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
@@ -73,6 +74,8 @@ pub enum BackendEvent {
     CastDevices(Vec<CastDevice>),
     /// The device media was cast to went away, and media plays here again.
     CastLost(CastDevice),
+    /// The stream couldn't start (S8.12): the media plays here without it.
+    StreamFailed,
 }
 
 impl BackendEvent {
@@ -190,6 +193,8 @@ pub enum Command {
     SetCastSetup(CastSetup),
     /// Play on this cast device, or here with `None`.
     Cast(Option<CastDeviceId>),
+    /// Stream the media open now this way, or stop streaming it.
+    Stream(Option<StreamTarget>),
 }
 
 /// A playback backend.
@@ -293,6 +298,11 @@ pub trait Backend: Send {
     /// is. A device the backend doesn't know is ignored. If the device goes away meanwhile, media
     /// plays here again and [`BackendEvent::CastLost`] says so.
     fn cast(&mut self, device: Option<CastDeviceId>);
+    /// Streams the media open now to the network as `target` says, from where it is, or stops
+    /// streaming it with `None` (S8.12). Stopped or ended media streams once it plays again.
+    /// Media opened later streams only as its [`Start`] says. A stream that can't start is
+    /// dropped, the media playing on without it, and [`BackendEvent::StreamFailed`] says so.
+    fn stream(&mut self, target: Option<StreamTarget>);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

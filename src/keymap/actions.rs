@@ -37,6 +37,8 @@ actions!(
         OpenCaptureDevice,
         /// Convert or save media to another format.
         Convert,
+        /// Stream the media playing to the network.
+        Stream,
         /// Open the Settings window.
         OpenSettings,
         /// Show the Keyboard Shortcuts dialog.

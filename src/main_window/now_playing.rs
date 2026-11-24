@@ -163,12 +163,13 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// What the history, recording and disc menus follow of `event`.
+    /// What the history, recording, disc menus, casting and streaming follow of `event`.
     fn on_side_events(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
         self.on_history_event(event, cx);
         self.on_recording_event(event, cx);
         self.on_disc_event(event, cx);
         self.on_cast_event(event, cx);
+        self.on_stream_event(event, cx);
     }
 
     /// Playback failed: says why for a disc or device, and moves on in the queue.

@@ -23,6 +23,7 @@ use super::still::Still;
 use super::subtitles::{self, Covered, Overlay, Placing};
 use crate::effects::{self, EffectSession};
 use crate::engine::player::{Player, PlayerEvent};
+use crate::engine::stream_out::Local;
 use crate::keymap::actions::ToggleFullscreen;
 use crate::settings::{self, SettingsStore};
 
@@ -178,6 +179,17 @@ impl VideoView {
         Some(Still::new(frame, source, framing))
     }
 
+    /// Where the media plays when not here: "Playing on" a cast device (S8.11), or "Streaming
+    /// to" a link while it streams without playing here (S8.12).
+    fn elsewhere(&self, cx: &App) -> Option<String> {
+        let player = self.player.read(cx);
+        if let Some(device) = player.cast_target() {
+            return Some(format!("Playing on {}", device.name));
+        }
+        let stream = player.stream_target().filter(|stream| stream.local == Local::StreamOnly)?;
+        Some(format!("Streaming to {}", stream.url()))
+    }
+
     fn is_audio_only(&self, cx: &App) -> bool {
         let player = self.player.read(cx);
         player.state().is_active() && player.video_size().is_none() && self.shown.is_none()
@@ -189,14 +201,15 @@ impl Render for VideoView {
         self.advance(window);
         let video = &effects::effective(cx).prefs.video;
         let (framing, video_on) = (Framing::of(video), video.enabled);
-        // Nothing shows here while a cast device plays the media, so the last picture goes.
-        let casting = self.player.read(cx).cast_target().map(|device| device.name.clone());
-        let shown = self.shown.as_ref().filter(|_| casting.is_none());
+        // Nothing shows here while a cast device or only a stream gets the media, so the last
+        // picture goes.
+        let away = self.elsewhere(cx);
+        let shown = self.shown.as_ref().filter(|_| away.is_none());
         let source = shown.map(|frame| self.source(frame, cx));
         let picture =
             shown.cloned().zip(source).map(|(frame, source)| picture(frame, source, framing));
-        let placeholder = match casting {
-            Some(name) => Some(cast_placeholder(&name).into_any_element()),
+        let placeholder = match away {
+            Some(where_to) => Some(away_placeholder(where_to).into_any_element()),
             None => self.is_audio_only(cx).then(|| placeholder(video_on).into_any_element()),
         };
         let video_height = source.map_or(0, |source| source.aspect.1);
@@ -281,12 +294,9 @@ fn placeholder(video_on: bool) -> impl IntoElement {
         .children(note)
 }
 
-/// What shows while a cast device plays the media: where it plays.
-fn cast_placeholder(device: &str) -> impl IntoElement {
-    div()
-        .text_size(px(CASTING_SIZE))
-        .text_color(PLACEHOLDER_COLOR)
-        .child(format!("Playing on {device}"))
+/// What shows while the media plays elsewhere: where it plays.
+fn away_placeholder(where_to: String) -> impl IntoElement {
+    div().text_size(px(CASTING_SIZE)).text_color(PLACEHOLDER_COLOR).child(where_to)
 }
 
 /// Redraws the view whenever the engine delivers, until the view is gone.
