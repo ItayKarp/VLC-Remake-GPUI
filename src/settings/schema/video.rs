@@ -34,6 +34,10 @@ pub struct VideoSettings {
     /// (S1.4.3).
     #[serde(deserialize_with = "lenient")]
     pub keep_display_awake: bool,
+    /// "Play video as desktop wallpaper" (S8.16.3, Windows only): the video's window goes behind
+    /// the desktop icons, covering the main display.
+    #[serde(deserialize_with = "lenient")]
+    pub desktop_wallpaper: bool,
     /// "Picture": hue, brightness, contrast, saturation and gamma, sharpening, banding removal and
     /// film grain.
     #[serde(deserialize_with = "lenient")]
@@ -94,6 +98,7 @@ impl Default for VideoSettings {
             enabled: true,
             start_fullscreen: false,
             keep_display_awake: true,
+            desktop_wallpaper: false,
             picture: PictureSettings::default(),
             colors: ColorSettings::default(),
             deinterlace: Deinterlace::default(),

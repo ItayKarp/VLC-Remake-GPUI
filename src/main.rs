@@ -39,6 +39,7 @@ mod settings_window;
 mod snapshot;
 mod subtitle_links;
 mod theme;
+mod tray;
 mod ui;
 mod video;
 mod video_window;

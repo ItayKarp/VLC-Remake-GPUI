@@ -82,11 +82,13 @@ mod title_bar;
 mod track_popover;
 mod tracks;
 mod transport;
+mod tray;
 mod video_menu;
 mod video_mouse;
 mod video_window;
 mod viewport;
 mod volume_slider;
+mod wallpaper;
 mod web_remote;
 mod wheel;
 
@@ -287,11 +289,13 @@ impl MainWindow {
         crate::diagnostics::system::remember_gpu(window);
     }
 
-    /// Closing the window while conversions run asks whether to cancel them first (S8.10).
+    /// Closing the window hides it into the tray when Settings says to (S8.16.1); otherwise,
+    /// while conversions run, it asks whether to cancel them first (S8.10).
     fn ask_before_closing(window: &mut Window, cx: &mut Context<Self>) {
         let main = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
-            convert_dialog::may_close(&main, window, cx)
+            let hidden = main.update(cx, |main, cx| main.hide_to_tray(window, cx));
+            !hidden.unwrap_or(false) && convert_dialog::may_close(&main, window, cx)
         });
     }
 

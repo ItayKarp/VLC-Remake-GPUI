@@ -5,17 +5,19 @@
 //! The video's window opens once the media turns out to have video, and closes a moment after
 //! playback stops or the setting is turned back on; the moment lets the queue go from one video
 //! to the next without the window closing in between. Closing it stops playback. Fullscreen and
-//! "Resize window to fit video" then act on it rather than on this window.
+//! "Resize window to fit video" then act on it rather than on this window. With "Play video as
+//! desktop wallpaper" (Windows) the window goes behind the desktop icons (`wallpaper.rs`).
 
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::{Context, Subscription, Window, WindowHandle};
+use gpui::{Context, Subscription, Task, Window, WindowHandle};
 
 use super::MainWindow;
 use super::auto_hide::rules::Layout;
 use super::now_playing_notice::NowPlayingNotice;
+use super::wallpaper;
 use crate::app::{self, VideoWindowRequest};
 use crate::engine::player::Player;
 use crate::settings;
@@ -43,6 +45,11 @@ pub struct Windowing {
     /// Whether the first media played pops out into Picture in Picture ("Start in compact
     /// mode").
     pub(super) launch: super::pip::Launch,
+    /// Keeps the video's window behind the desktop icons, while it plays as the wallpaper
+    /// (S8.16.3).
+    pub(super) wallpaper: Option<Task<()>>,
+    /// Whether closing the window hid it into the system tray (S8.16.1).
+    pub(super) tray: super::tray::InTray,
 }
 
 /// The video's own window.
@@ -67,6 +74,15 @@ impl SeparateVideo {
 impl MainWindow {
     /// Opens or closes the video's window to match the setting and what plays.
     pub(super) fn sync_video_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let is_wallpaper = self.windowing.wallpaper.is_some();
+        if matches!(self.windowing.separate, SeparateVideo::Open { .. })
+            && wallpaper::wanted(cx) != is_wallpaper
+        {
+            // Reopened the other way, once the old window has let the video go.
+            self.close_video_window(window, cx);
+            cx.defer_in(window, Self::sync_video_window);
+            return;
+        }
         match (self.wants_video_window(cx), &self.windowing.separate) {
             (true, SeparateVideo::Closed) => self.open_video_window(window, cx),
             (false, SeparateVideo::Open { .. }) => self.close_video_window_later(window, cx),
@@ -74,12 +90,12 @@ impl MainWindow {
         }
     }
 
-    /// Whether video should play in a window of its own: the setting is off, and media with
-    /// video plays (or keeps playing in the window that is open).
+    /// Whether video should play in a window of its own: the setting is off (or video plays as
+    /// the wallpaper), and media with video plays (or keeps playing in the window that is open).
     fn wants_video_window(&self, cx: &Context<Self>) -> bool {
-        if settings::get(cx).prefs.interface.play_video_in_main_window
-            || self.windowing.pip.is_shown()
-        {
+        let in_main =
+            settings::get(cx).prefs.interface.play_video_in_main_window && !wallpaper::wanted(cx);
+        if in_main || self.windowing.pip.is_shown() {
             return false;
         }
         let Some((player, _)) = &self.player else { return false };
@@ -130,6 +146,9 @@ impl MainWindow {
             this.video_window_closed(window, cx);
         });
         self.windowing.separate = SeparateVideo::Open { handle, fullscreen, _closed: closed };
+        if wallpaper::wanted(cx) {
+            self.windowing.wallpaper = Some(Self::keep_as_wallpaper(handle, window, cx));
+        }
         // The setting may have changed, or playback stopped, while it opened.
         self.sync_video_window(window, cx);
         self.start_fullscreen(window, cx);
@@ -141,6 +160,7 @@ impl MainWindow {
     pub(super) fn start_fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.windowing.start_fullscreen
             || matches!(self.windowing.separate, SeparateVideo::Opening)
+            || self.windowing.wallpaper.is_some()
         {
             return;
         }
@@ -151,12 +171,17 @@ impl MainWindow {
     }
 
     /// The video's window went away. Unless this window closed it, the user did: playback
-    /// stops.
+    /// stops. A wallpaper can't be closed by hand, so Explorer restarting took it: another
+    /// opens.
     fn video_window_closed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !matches!(self.windowing.separate, SeparateVideo::Open { .. }) {
             return;
         }
         self.video_back_home(window, cx);
+        if self.windowing.wallpaper.take().is_some() {
+            self.sync_video_window(window, cx);
+            return;
+        }
         if let Some((player, _)) = &self.player {
             player.update(cx, Player::stop);
         }
@@ -191,6 +216,7 @@ impl MainWindow {
         else {
             return;
         };
+        self.windowing.wallpaper = None;
         cx.defer(move |cx| {
             handle
                 .update(cx, |video_window, window, cx| {
@@ -213,6 +239,9 @@ impl MainWindow {
 
     /// Fullscreen for the window showing video: the video's own window when it has one.
     pub(super) fn toggle_fullscreen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.windowing.wallpaper.is_some() {
+            return;
+        }
         if let SeparateVideo::Open { handle, .. } = &self.windowing.separate {
             let handle = *handle;
             // A key sent from the video's window arrives while that window is busy.

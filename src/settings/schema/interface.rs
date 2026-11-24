@@ -1,7 +1,7 @@
 //! Interface preferences (Settings → Interface, S5.4): the windows (where video plays, their size,
 //! level and frame), what the player's title bar shows (S2.1.2), what the control bar's duration
 //! readout shows (S2.4.3), whether the seek bar shows the subtitle timeline (S6.6), when the
-//! controls hide (S2.8), and the now-playing notification.
+//! controls hide (S2.8), the now-playing notification and the system tray (S8.16).
 
 use std::time::Duration;
 
@@ -72,6 +72,14 @@ pub struct InterfaceSettings {
     /// When the OS is told that the next item started playing (S5.4.3).
     #[serde(deserialize_with = "lenient")]
     pub now_playing_notification: NowPlayingNotification,
+    /// "Show VLC in the system tray" (the menu bar on macOS, S8.16): an icon with a menu of
+    /// Play/Pause, Previous, Next, Show VLC and Quit.
+    #[serde(deserialize_with = "lenient")]
+    pub system_tray: bool,
+    /// "Keep playing in the tray when the window closes": with the tray icon shown, closing the
+    /// main window hides it and playback goes on; the tray's Show VLC brings it back.
+    #[serde(deserialize_with = "lenient")]
+    pub keep_playing_in_tray: bool,
     /// "Use a custom skin" (S5.4.4): read by nothing until skins exist (S8.14); its rows only
     /// show in builds with the `skins` feature.
     #[serde(deserialize_with = "lenient")]
@@ -163,6 +171,8 @@ impl Default for InterfaceSettings {
             keep_above_other_windows: false,
             show_window_decorations: true,
             now_playing_notification: NowPlayingNotification::default(),
+            system_tray: false,
+            keep_playing_in_tray: false,
             use_custom_skin: false,
         }
     }
