@@ -13,7 +13,27 @@ fn a_signature_hashes_the_sorted_parameters_and_the_secret() {
         ("api_key", "KEY"),
         ("format", "json"),
     ]);
-    assert_eq!(signature(&parameters, "SECRET"), "f9ce02fee977698eb100ccde38dbaa52");
+    // The names in order, each with its value, `format` left out, then the secret.
+    let signed = concat!(
+        "api_key",
+        "KEY",
+        "method",
+        "auth.getMobileSession",
+        "password",
+        "pw",
+        "username",
+        "ana",
+        "SECRET",
+    );
+    assert_eq!(signature(&parameters, "SECRET"), hex(&Md5::digest(signed)));
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().fold(String::new(), |mut hex, byte| {
+        // Writing to a `String` can't fail.
+        let _ = write!(hex, "{byte:02x}");
+        hex
+    })
 }
 
 #[test]
