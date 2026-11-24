@@ -1,16 +1,24 @@
 //! Controls ("Mouse, Keyboard & Remote Controls"): the Keyboard Shortcuts dialog and resetting
-//! it, skip amounts, and the mouse over the video. Remotes come with S8.15.
+//! it, skip amounts, the mouse over the video, and the web remote (S8.15).
 
-use super::super::def::{Control, SettingDef};
+use super::super::def::{Condition, Control, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, choice, number, toggle};
 use crate::keymap::reset::ask_to_reset_all;
-use crate::main_window::edit_keyboard_shortcuts;
+use crate::main_window::{edit_keyboard_shortcuts, web_remote_hint};
+use crate::privacy::keychain::Secret;
 use crate::settings::registry::Category;
 use crate::settings::{ClickAction, DoubleClickAction, HorizontalWheelAction, WheelAction};
 
 const SHORTCUTS: (Category, &str) = (Category::Controls, "Keyboard Shortcuts");
 const SKIPS: (Category, &str) = (Category::Controls, "Skip Amounts");
 const MOUSE: (Category, &str) = (Category::Controls, "Mouse");
+const REMOTES: (Category, &str) = (Category::Controls, "Remotes");
+/// The key of "Web remote control", which its port and password depend on.
+const WEB_REMOTE_KEY: &str = "controls.web_remote.enabled";
+/// The lowest port the web remote takes: those below need administrator rights on Linux.
+const MIN_PORT: f64 = 1024.;
+/// The highest port there is.
+const MAX_PORT: f64 = 65535.;
 /// A skip field's unit.
 const SECONDS: Control = Control::Number { unit: "s" };
 /// The longest skip: an hour.
@@ -151,4 +159,42 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          The volume slider keeps its direction.",
     )
     .keywords(&["mouse", "wheel", "trackpad", "natural", "invert"]),
+    SettingDef::new(
+        WEB_REMOTE_KEY,
+        REMOTES,
+        "Web remote control",
+        Control::Toggle,
+        toggle!(prefs.controls.web_remote.enabled),
+    )
+    .info(
+        "Lets a phone on this network play, pause, change the volume and pick from the queue in \
+         its browser, at the address shown here. It signs in with the password below; nothing \
+         outside your local network is answered.",
+    )
+    .hint(web_remote_hint)
+    .keywords(&["remote", "phone", "web interface", "http", "browser", "lan"]),
+    SettingDef::new(
+        "controls.web_remote.port",
+        REMOTES,
+        "Port",
+        Control::Number { unit: "" },
+        number!(u16: prefs.controls.web_remote.port),
+    )
+    .info("The port the web remote listens on. Pick another if a program already uses it.")
+    .range(MIN_PORT, MAX_PORT, 1.)
+    .depends_on(WEB_REMOTE_KEY, Condition::IsOn)
+    .keywords(&["remote", "web interface", "http", "network"]),
+    SettingDef::new(
+        "web_remote_password",
+        REMOTES,
+        "Password",
+        Control::Secret(Secret::WebRemotePassword),
+        Binding::ACTION,
+    )
+    .info(
+        "Phones need it to sign in; without one, nobody can. Kept in your system's keychain, \
+         never in VLC's settings file. Press Enter to save it.",
+    )
+    .depends_on(WEB_REMOTE_KEY, Condition::IsOn)
+    .keywords(&["remote", "web interface", "login", "keychain", "pairing"]),
 ];

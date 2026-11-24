@@ -22,6 +22,8 @@ pub enum Secret {
     OpenSubtitlesPassword,
     /// The token OpenSubtitles gave for that account, after the user name it is for (S6.5.1).
     OpenSubtitlesToken,
+    /// The password phones sign in to the web remote with (S8.15).
+    WebRemotePassword,
 }
 
 impl Secret {
@@ -32,6 +34,7 @@ impl Secret {
             Self::ProxyPassword => "http-proxy",
             Self::OpenSubtitlesPassword => "opensubtitles",
             Self::OpenSubtitlesToken => "opensubtitles-token",
+            Self::WebRemotePassword => "web-remote",
         }
     }
 }

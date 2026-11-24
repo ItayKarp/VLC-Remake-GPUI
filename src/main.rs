@@ -29,6 +29,7 @@ mod power;
 mod privacy;
 mod queue;
 mod recording;
+mod remote;
 #[cfg(test)]
 mod screenshot_test;
 mod session;

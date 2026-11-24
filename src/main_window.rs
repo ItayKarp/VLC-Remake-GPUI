@@ -87,6 +87,7 @@ mod video_mouse;
 mod video_window;
 mod viewport;
 mod volume_slider;
+mod web_remote;
 mod wheel;
 
 use gpui::{
@@ -116,6 +117,7 @@ pub use self::convert_dialog::ask_before_quitting;
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
 pub use self::pip::{PipCommand, PipView};
 pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
+pub use self::web_remote::web_remote_hint;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -200,6 +202,8 @@ pub struct MainWindow {
     playing_id: playing_id::PlayingId,
     /// The profile media switched to by itself, and the one to go back to (S8.8.3).
     auto_profile: profiles::AutoProfile,
+    /// The web remote phones control playback from (S8.15).
+    web_remote: web_remote::WebRemote,
 }
 
 impl MainWindow {
@@ -250,13 +254,14 @@ impl MainWindow {
             customizing: None,
             playing_id: playing_id::PlayingId::default(),
             auto_profile: profiles::AutoProfile::default(),
+            web_remote: web_remote::WebRemote::default(),
         };
         this.start(request, window, cx);
         this
     }
 
     /// Gives the Open button the keyboard, starts recording history and the session, brings the
-    /// last session back, and opens `request`.
+    /// last session back, opens `request`, and starts the web remote if it's on.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
         self.control_bar.sync_layout(cx);
@@ -266,6 +271,7 @@ impl MainWindow {
         self.restore_session(&request, window, cx);
         self.open(request, window, cx);
         self.show_pending_crash(cx);
+        self.sync_web_remote(window, cx);
     }
 
     /// Follows the window: the theme, redraws, its geometry, focus, the GPU it renders with, and
@@ -291,10 +297,11 @@ impl MainWindow {
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when
     /// the window is maximized, restored or goes fullscreen (the Maximize/Restore icon, the
-    /// layout).
+    /// layout). Settings changes also start or stop the web remote.
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_global_in::<settings::SettingsStore>(window, |this, window, cx| {
             this.sync_video_window(window, cx);
+            this.sync_web_remote(window, cx);
             this.control_bar.sync_layout(cx);
             cx.notify();
         })

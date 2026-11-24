@@ -1,6 +1,6 @@
 //! Controls preferences (Settings → Controls; its rows come with S5.6): how far the seek keys
-//! jump (S2.3.4, S5.6.1), and what clicks and the scroll wheel do over the video (S2.5.5,
-//! S2.10.1, S5.6.2).
+//! jump (S2.3.4, S5.6.1), what clicks and the scroll wheel do over the video (S2.5.5,
+//! S2.10.1, S5.6.2), and the web remote (S8.15).
 
 use std::time::Duration;
 
@@ -44,6 +44,28 @@ pub struct ControlsSettings {
     /// louder, left is forward).
     #[serde(deserialize_with = "lenient")]
     pub reverse_scroll: bool,
+    /// The web remote (S8.15).
+    #[serde(deserialize_with = "lenient")]
+    pub web_remote: WebRemoteSettings,
+}
+
+/// "Remotes": the web remote a phone controls playback from (S8.15). Its password is in the
+/// OS keychain, never here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WebRemoteSettings {
+    /// "Web remote control": whether it listens.
+    #[serde(deserialize_with = "lenient")]
+    pub enabled: bool,
+    /// "Port": where it listens.
+    #[serde(deserialize_with = "lenient")]
+    pub port: u16,
+}
+
+impl Default for WebRemoteSettings {
+    fn default() -> Self {
+        Self { enabled: false, port: crate::remote::DEFAULT_PORT }
+    }
 }
 
 /// What a single click on the video does ("Mouse → Single click").

@@ -69,7 +69,7 @@ fn percent_text(volume: Volume) -> String {
 
 impl MainWindow {
     /// The loaded player, if its volume can change: it has an output device.
-    fn audible(&self, cx: &App) -> Option<Entity<Player>> {
+    pub(super) fn audible(&self, cx: &App) -> Option<Entity<Player>> {
         self.loaded_player(cx).filter(|player| !player.read(cx).has_no_audio_device())
     }
 
