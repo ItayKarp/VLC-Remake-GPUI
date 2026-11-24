@@ -30,6 +30,7 @@
 //! - [`discs`]: an audio CD's tracks, read without playing it (S8.9.1).
 //! - [`convert`]: converting media to another format, on threads of their own (S8.10).
 //! - [`cast`]: the cast devices found on the network, and casting to one (S8.11).
+//! - [`stream_out`]: streaming the media playing to the network (S8.12).
 
 pub mod audio;
 pub mod backend;
@@ -55,6 +56,7 @@ pub mod recording;
 pub mod shutdown;
 pub mod sidecar;
 pub mod state;
+pub mod stream_out;
 pub mod subtitle_style;
 pub mod subtitle_sync;
 pub mod subtitle_text;

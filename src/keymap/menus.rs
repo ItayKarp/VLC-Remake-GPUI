@@ -46,6 +46,7 @@ pub const MAIN_MENU: &[MainMenuEntry] = &[
     command(&act::OpenDisc, icons::DISC),
     command(&act::OpenCaptureDevice, icons::CAPTURE_DEVICE),
     command(&act::Convert, icons::CONVERT),
+    command(&act::Stream, icons::STREAMING),
     MainMenuEntry::Recent { icon: icons::RECENT },
     MainMenuEntry::Profile { icon: icons::PROFILE },
     command(&act::ShowKeyboardShortcuts, icons::HOTKEYS),
@@ -162,6 +163,7 @@ fn file_menu() -> Menu {
             item(&act::ImportPlaylist, "Import Playlist…"),
             SEPARATOR,
             item(&act::Convert, "Convert…"),
+            item(&act::Stream, "Stream…"),
         ],
     )
 }

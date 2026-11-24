@@ -92,6 +92,7 @@ pub const SECTIONS: &[Section] = &[
             &act::OpenDisc,
             &act::OpenCaptureDevice,
             &act::Convert,
+            &act::Stream,
         ],
     },
     Section {

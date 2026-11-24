@@ -118,7 +118,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     include_row(
         "recording.play_locally_while_streaming",
         "Play locally while streaming",
-        "Keeps playing here while VLC streams to the network.",
+        "Keeps showing the picture here while VLC streams to the network; the sound goes to the \
+         stream only. Off, only viewers get it.",
         toggle!(prefs.recording.play_locally_while_streaming),
     )
     .keywords(&["stream", "display", "monitor"]),
@@ -139,7 +140,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     include_row(
         "recording.stream_subtitles",
         "Include subtitles",
-        "Sends the subtitles in streams.",
+        "Burns the subtitle showing into the streamed picture.",
         toggle!(prefs.recording.stream_subtitles),
     )
     .keywords(&["stream", "captions"]),
@@ -151,8 +152,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         choice!(prefs.recording.encoding_preset),
     )
     .info(
-        "How hard the encoder works when it converts: faster presets use less CPU and make \
-         bigger files.",
+        "How hard the encoder works on a stream's picture: faster presets use less CPU and need \
+         more of the network.",
     )
     .keywords(&["x264", "preset", "transcode", "speed"]),
     SettingDef::new(

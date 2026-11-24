@@ -7,6 +7,7 @@ mod casting;
 mod drawn;
 mod linked;
 mod recording;
+mod streaming;
 mod sync;
 mod tracks;
 
@@ -247,7 +248,7 @@ fn positions_are_clamped_and_shut_down_ignores_later_commands(cx: &mut TestAppCo
 #[gpui::test]
 fn open_at_holds_the_media_paused_where_asked_until_play(cx: &mut TestAppContext) {
     let rig = Rig::new(cx, MockMedia::default());
-    let start = Start { at: Duration::from_secs(42), paused: true };
+    let start = Start { at: Duration::from_secs(42), paused: true, ..Start::default() };
     rig.run(cx, |player, cx| player.open_at(Media::Url("mock://clip".into()), start, cx));
     let opened = rig.mock.take_commands();
     assert!(matches!(opened.as_slice(), [Command::Open { start: s, .. }] if *s == start));

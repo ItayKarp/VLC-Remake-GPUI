@@ -91,7 +91,7 @@ fn video_opened_paused_shows_its_picture_and_stays_paused() {
     );
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/spike-media");
     let media = Media::File(path.join("1080p60-h264.mp4"));
-    let start = Start { at: Duration::from_secs(5), paused: true };
+    let start = Start { at: Duration::from_secs(5), paused: true, ..Start::default() };
     backend.open(&media, start, Generation::default().next());
     wait_until("the picture", || level(&sink) > 40.);
     thread::sleep(Duration::from_secs(1));

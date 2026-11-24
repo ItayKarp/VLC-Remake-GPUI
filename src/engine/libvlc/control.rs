@@ -108,6 +108,7 @@ impl Worker {
             Command::Navigate(to) => self.navigate(to),
             Command::SetCastSetup(setup) => self.set_cast_setup(setup),
             Command::Cast(device) => self.cast(device),
+            Command::Stream(target) => self.stream(target),
         }
     }
 

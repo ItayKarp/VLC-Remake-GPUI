@@ -113,8 +113,9 @@ gpui = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f7
 # Screenshot tests (`screenshot_test`): the platform's text system and headless renderer.
 gpui_platform = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3", features = ["test-support"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
-# Only used by `cargo run --example gen_icons` to regenerate the app icons.
-resvg = "0.45"
+# Only used by `cargo run --example gen_icons` to regenerate the app icons. The version GPUI
+# uses, so test builds compile one resvg, usvg and tiny-skia instead of two.
+resvg = "0.46"
 ico = "0.4"
 icns = "0.3"
 # The S1.1 playback spike (`examples/video_spike`) uses libc for its pixel buffers.
@@ -139,7 +140,9 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui_wgpu = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3" }
 
-# macOS .app bundle (`cargo install cargo-bundle && cargo bundle --release`)
+# macOS .app bundle (`cargo install cargo-bundle && cargo bundle --release`). Bundle a release on
+# a Mac with Xcode's Metal toolchain and without `runtime_shaders`, so the shaders are compiled
+# into the app instead of on every launch.
 [package.metadata.bundle]
 name = "VLC"
 identifier = "org.redesignedvlc.app"
@@ -148,6 +151,70 @@ category = "public.app-category.video"
 short_description = "Redesigned VLC media player"
 # File types and URL schemes for Finder's "Open With" (S0.6.3); see src/app/file_types.rs.
 osx_info_plist_exts = ["packaging/macos/Info.plist.ext"]
+
+# Build profiles. Debug builds keep file and line numbers for panics and backtraces, not the
+# full debug info a debugger reads: less to write and link on every rebuild, and a GPUI binary
+# with full debug info outgrows CI's Raspberry Pi's memory while linking. Attach a debugger with
+# `CARGO_PROFILE_DEV_DEBUG=full`.
+[profile.dev]
+debug = "line-tables-only"
+
+# Crates on the playback and library paths are optimized even in debug builds: unoptimized, the
+# player converts frames and decodes covers many times slower. They rarely change, so they
+# build once. SQLite's C code takes its optimization level from `libsqlite3-sys`'s.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.zune-core]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.crc32fast]
+opt-level = 3
+[profile.dev.package.yuvutils-rs]
+opt-level = 3
+[profile.dev.package.resvg]
+opt-level = 3
+[profile.dev.package.tiny-skia]
+opt-level = 3
+[profile.dev.package.taffy]
+opt-level = 3
+[profile.dev.package.xxhash-rust]
+opt-level = 3
+[profile.dev.package.chardetng]
+opt-level = 3
+[profile.dev.package.encoding_rs]
+opt-level = 3
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3
+
+# What ships: one codegen unit and thin LTO let LLVM optimize across crates, which makes the app
+# a fifth smaller. Playback runs no faster for it, since libVLC decodes and the GPU draws, so fat
+# LTO and profile-guided optimization aren't worth their much longer builds; `release-fast` is
+# as fast to use. Line tables go into a separate debug file (a .dSYM on macOS), so crash reports
+# can be symbolicated while the binary carries none. Panics still unwind: GPUI and the tests rely
+# on it.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+split-debuginfo = "packed"
+strip = "debuginfo"
+
+# Optimized, but quick to build: for CI's release build, which only has to show the release
+# build compiles, and for trying performance locally (`cargo run --profile release-fast`).
+[profile.release-fast]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
 
 # Clean-code rules (mirrors learnrust's CLEAN_CODE.md; thresholds live in clippy.toml).
 [lints.rust]

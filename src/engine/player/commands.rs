@@ -34,6 +34,9 @@ impl Player {
         self.steps.reset();
         let preflight = media.as_path().map(preflight::check);
         self.media = Some(media);
+        // Media that can't open doesn't stream.
+        let stream = start.stream.filter(|_| !matches!(preflight, Some(Err(_))));
+        self.stream_opened(stream, cx);
         // Not `transition`: that ignores repeats, and reopening while opening must still tell
         // the UI to forget the previous media.
         self.state = PlaybackState::Opening;

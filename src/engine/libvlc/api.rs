@@ -235,6 +235,7 @@ libvlc_api! {
     libvlc_media_player_set_time: fn(Player, i64);
     libvlc_media_player_set_position: fn(Player, c_float);
     libvlc_media_player_get_time: fn(Player) -> i64;
+    libvlc_media_player_get_state: fn(Player) -> c_int;
     libvlc_media_player_get_length: fn(Player) -> i64;
     libvlc_media_player_get_position: fn(Player) -> c_float;
     libvlc_media_player_next_frame: fn(Player);

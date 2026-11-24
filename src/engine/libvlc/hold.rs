@@ -50,6 +50,7 @@ impl Worker {
     pub(super) fn expects_picture(&self) -> bool {
         self.media_options.video
             && !self.is_casting()
+            && !self.streams_only()
             && self.video.as_ref().is_some_and(|video| video.knows_display())
     }
 

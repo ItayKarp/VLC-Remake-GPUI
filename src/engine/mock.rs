@@ -23,6 +23,7 @@ use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::navigation::Navigation;
 use super::recording::Recording;
 use super::state::PlaybackState;
+use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
@@ -299,6 +300,10 @@ impl Backend for MockBackend {
 
     fn cast(&mut self, device: Option<CastDeviceId>) {
         self.note(Command::Cast(device));
+    }
+
+    fn stream(&mut self, target: Option<StreamTarget>) {
+        self.note(Command::Stream(target));
     }
 
     fn shut_down(self: Box<Self>) {

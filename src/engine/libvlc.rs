@@ -7,6 +7,7 @@
 //! - [`events`] is the libVLC event callback: it translates and forwards, and never calls libVLC.
 //! - [`failure`] names the cause of an error libVLC reports without one.
 //! - [`casting`] finds cast devices and plays to one (S8.11).
+//! - [`streaming`] streams the media playing to the network (S8.12).
 //!
 //! - [`audio`] lists output devices and picks one (S1.5).
 //! - [`vmem`] hands decoded pictures to a [`VideoSink`] (S1.4.1), and [`prepare`] reads a file's
@@ -60,6 +61,9 @@ mod reopen_tests;
 pub mod runtime;
 mod size_watch;
 mod stream_colour;
+mod streaming;
+#[cfg(test)]
+mod streaming_tests;
 mod subtitle_style;
 pub mod system_options;
 pub mod tags;
@@ -102,6 +106,7 @@ use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::navigation::Navigation;
+use super::stream_out::StreamTarget;
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -320,6 +325,10 @@ impl Backend for LibVlcBackend {
 
     fn cast(&mut self, device: Option<CastDeviceId>) {
         self.send(Command::Cast(device));
+    }
+
+    fn stream(&mut self, target: Option<StreamTarget>) {
+        self.send(Command::Stream(target));
     }
 
     fn shut_down(mut self: Box<Self>) {

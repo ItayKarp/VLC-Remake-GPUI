@@ -1,11 +1,10 @@
 //! A media card's file menu (S4.8.1; `library/menus/file_context_menu.png`): Play, Mark as
-//! Watched (or Unwatched), Favorite, Convert (the Convert dialog holding the files, S8.10), Add
-//! to Queue, Add to Playlist ▸, Show in Finder (File Explorer, Files), Go to Source, Add
-//! Subtitle Tracks (the Add Subtitles dialog, S6.4), Add Audio Tracks and Properties & Metadata.
+//! Watched (or Unwatched), Favorite, Stream (the Stream dialog for one file, S8.12), Convert (the
+//! Convert dialog holding the files, S8.10), Add to Queue, Add to Playlist ▸, Show in Finder
+//! (File Explorer, Files), Go to Source, Add Subtitle Tracks (the Add Subtitles dialog, S6.4),
+//! Add Audio Tracks and Properties & Metadata.
 //!
-//! The design's Stream (S8.12) joins when its story ships; like the main menu, the menu leaves
-//! out what doesn't work yet. A file the
-//! library hasn't identified yet can't be a favorite. A file that vanished while the menu was
+//! A file the library hasn't identified yet can't be a favorite. A file that vanished while the menu was
 //! open says "File not found" when shown or inspected.
 
 use std::path::{Path, PathBuf};
@@ -46,6 +45,9 @@ pub(super) fn items(
         }),
         mark_watched(main, files),
         favorite(files, cx),
+        on_one(main, files, "Stream", icons::STREAMING, |main, file, window, cx| {
+            main.show_stream(Media::File(file.path.clone()), window, cx);
+        }),
         on_all(main, files, "Convert", icons::CONVERT, |main, files, window, cx| {
             main.show_convert(files_media(files), window, cx);
         }),

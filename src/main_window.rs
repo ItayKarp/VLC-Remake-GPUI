@@ -69,6 +69,7 @@ mod settings_panel;
 mod shortcuts_dialog;
 mod snapshot;
 mod speed;
+mod stream_dialog;
 pub(crate) mod subtitle_style;
 mod subtitle_sync;
 #[cfg(test)]

@@ -108,6 +108,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("Open Disc", AppArea, keys(&["secondary-d"]), &act::OpenDisc),
     cmd("Open Capture Device", AppArea, keys(&["secondary-shift-c"]), &act::OpenCaptureDevice),
     cmd("Convert", AppArea, keys(&["secondary-r"]), &act::Convert),
+    cmd("Stream", AppArea, keys(&["secondary-s"]), &act::Stream),
     cmd("Search", Library, keys(&["secondary-f"]), &act::Search),
     // Alt+Left and Alt+Right seek in the player; the library's are deeper in the key context, so
     // they win while it has focus.

@@ -27,7 +27,10 @@
 //
 // The agent needs rustup, Git, pkg-config, cargo-llvm-cov and the GPUI build libraries
 // (Debian: libfontconfig-dev libvulkan1 libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev
-// libzstd-dev), plus a Vulkan driver (mesa-vulkan-drivers) for the screenshot tests.
+// libzstd-dev), plus a Vulkan driver (mesa-vulkan-drivers) for the screenshot tests. It should
+// have mold too (Debian: mold): every cargo call links with it when it's there, and linking a
+// GPUI binary takes a Pi far less time with mold than with GNU ld. Without it builds still work,
+// saying the default linker is in use.
 //
 // Caching: builds reuse cargo's compiled crates instead of starting over, and check exactly as
 // much. Set CARGO_TARGET_DIR in the agent's environment to a folder outside the workspace so
@@ -51,13 +54,10 @@ pipeline {
     environment {
         CARGO_TERM_COLOR = 'always'
         RUST_BACKTRACE = '1'
-        // Debug and test builds keep file and line numbers (for panics and backtraces) but not
-        // the full debug info a debugger reads. A GPUI binary with full debug info outgrows the
-        // Pi's memory while linking; this checks and tests exactly the same code.
-        CARGO_PROFILE_DEV_DEBUG = 'line-tables-only'
-        // Every cargo and rustup call uses this toolchain. Pin a version (for example
-        // '1.100.0') to keep new clippy lints from failing builds unannounced.
-        RUSTUP_TOOLCHAIN = 'stable'
+        // Every cargo and rustup call uses this toolchain. It overrides `rust-toolchain.toml`, so
+        // keep the two the same. Pinned, new clippy lints can't fail builds unannounced and a
+        // Rust release doesn't throw the build cache away.
+        RUSTUP_TOOLCHAIN = '1.100.0'
         // The build cache's size limit, and the free disk space below which it is cleared too.
         CARGO_CACHE_LIMIT_GB = '60'
         CARGO_CACHE_MIN_FREE_GB = '15'
@@ -159,7 +159,7 @@ pipeline {
 
                     stage('Clippy') {
                         steps {
-                            sh "cargo clippy --all-targets ${env.FEATURES} -- -D warnings"
+                            runCargo "clippy --all-targets ${env.FEATURES} -- -D warnings"
                         }
                     }
 
@@ -169,10 +169,11 @@ pipeline {
                                 if (env.BACKENDS == 'all') {
                                     // The same tests as `cargo test`, failing the same way, but
                                     // instrumented: this run is SonarQube's coverage report.
-                                    sh "mkdir -p target/sonar && cargo llvm-cov --lcov --output-path target/sonar/lcov.info ${env.FEATURES}"
+                                    sh 'mkdir -p target/sonar'
+                                    runCargo "llvm-cov --lcov --output-path target/sonar/lcov.info ${env.FEATURES}"
                                     stash name: 'coverage', includes: 'target/sonar/lcov.info'
                                 } else {
-                                    sh "cargo test ${env.FEATURES}"
+                                    runCargo "test ${env.FEATURES}"
                                 }
                             }
                         }
@@ -188,7 +189,10 @@ pipeline {
                             expression { ciLevel() == 'release' }
                         }
                         steps {
-                            sh "cargo build --release ${env.FEATURES}"
+                            // The shipping profile, thin LTO and one codegen unit, since this
+                            // build is what gets released: far slower to build and link on a Pi
+                            // than the others, but it only runs on the way to `main`.
+                            runCargo "build --release ${env.FEATURES}"
                             script {
                                 if (env.BACKENDS == 'all') {
                                     packageLinux()
@@ -214,7 +218,7 @@ pipeline {
                 // Clippy findings as JSON for SonarQube. The Linux stage already failed the
                 // build on any warning; this run only reports them. The `all` cell's features,
                 // so cargo replays that cell's cached results instead of checking again.
-                sh "cargo clippy --all-targets ${cargoFeatures('all')} --message-format=json > target/sonar/clippy.json"
+                runCargo "clippy --all-targets ${cargoFeatures('all')} --message-format=json > target/sonar/clippy.json"
                 script {
                     def scanner = tool env.SONAR_SCANNER_TOOL
                     withSonarQubeEnv(env.SONARQUBE_SERVER) {
@@ -252,6 +256,22 @@ pipeline {
             }
         }
     }
+}
+
+/**
+ * Runs `cargo <args>`, linking with mold when the agent has it. `mold -run` puts mold in place of
+ * the linker for everything cargo starts, cargo-llvm-cov's builds included, without changing any
+ * flag, so builds with and without it share the cache.
+ */
+void runCargo(String args) {
+    sh """
+        if command -v mold >/dev/null; then
+            mold -run cargo ${args}
+        else
+            echo 'mold is not installed: linking with the default linker, which is much slower'
+            cargo ${args}
+        fi
+    """
 }
 
 /**

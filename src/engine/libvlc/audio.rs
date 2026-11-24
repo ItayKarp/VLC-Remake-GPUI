@@ -130,6 +130,10 @@ impl Worker {
             return;
         }
         self.devices.next_poll = Instant::now() + DEVICE_POLL;
+        // The stream output holds no audio output of the player's, which would read as none.
+        if self.is_streaming() {
+            return;
+        }
         let devices = self.read_devices();
         if self.devices.known.as_ref() != Some(&devices) {
             self.devices.known = Some(devices.clone());
