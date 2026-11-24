@@ -13,8 +13,12 @@ x11 = ["gpui/x11", "gpui_platform/x11"]
 # macOS: compile the Metal shaders when the app starts instead of at build time, for Macs
 # without Xcode's Metal toolchain (`xcodebuild -downloadComponent MetalToolchain` installs it).
 runtime_shaders = ["gpui_platform/runtime_shaders"]
-# Settings → Interface's Skin rows (S5.4.4, D19). Off until a skinning system exists (S8.14).
+# Settings → Interface's Skin rows (S5.4.4, D19). Off until a skinning system exists (S8.14,
+# docs/adr/0003-extensions-and-skins.md).
 skins = []
+# Settings → Extensions, the Add-ons & Scripts page (S5.10.4, D19). Off until an extension
+# system exists (S8.14, docs/adr/0003-extensions-and-skins.md).
+extensions = []
 
 [dependencies]
 # GPUI from our Zed fork (github.com/ItayKarp/zed), pinned to one commit (S0.8.2). The fork is

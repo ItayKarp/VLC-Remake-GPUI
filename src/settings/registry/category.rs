@@ -1,5 +1,7 @@
 //! The Settings window's 13 categories and the three sidebar groups they sit in
-//! (`docs/ui/settings/screens/*`). The sidebar label and the page title differ.
+//! (`docs/ui/settings/screens/*`). The sidebar label and the page title differ. Extensions is
+//! only listed in builds with the `extensions` feature, until an extension system exists
+//! (S8.14, D19, `docs/adr/0003-extensions-and-skins.md`).
 
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +12,7 @@ pub enum Group {
     App,
     /// Playback, Video, Audio, Subtitles, Library.
     Media,
-    /// Network, Performance, Recording, Extensions.
+    /// Network, Performance, Recording, and Extensions with the `extensions` feature.
     System,
 }
 
@@ -64,12 +66,13 @@ pub enum Category {
     Performance,
     /// "Recording, Casting & Streaming Out".
     Recording,
-    /// "Add-ons & Scripts".
+    /// "Add-ons & Scripts". Kept without the `extensions` feature so a saved page still reads.
     Extensions,
 }
 
 impl Category {
-    /// Every category, in sidebar order.
+    /// Every category the Settings window lists, in sidebar order.
+    #[cfg(feature = "extensions")]
     pub const ALL: [Self; 13] = [
         Self::General,
         Self::Interface,
@@ -85,6 +88,29 @@ impl Category {
         Self::Recording,
         Self::Extensions,
     ];
+
+    /// Every category the Settings window lists, in sidebar order: Extensions waits for an
+    /// extension system (D19).
+    #[cfg(not(feature = "extensions"))]
+    pub const ALL: [Self; 12] = [
+        Self::General,
+        Self::Interface,
+        Self::Privacy,
+        Self::Controls,
+        Self::Playback,
+        Self::Video,
+        Self::Audio,
+        Self::Subtitles,
+        Self::Library,
+        Self::Network,
+        Self::Performance,
+        Self::Recording,
+    ];
+
+    /// Whether the Settings window lists the page.
+    pub fn is_listed(self) -> bool {
+        Self::ALL.contains(&self)
+    }
 
     /// The sidebar group the category is listed under.
     pub fn group(self) -> Group {

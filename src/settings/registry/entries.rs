@@ -1,6 +1,7 @@
 //! The registry's rows, one file per category, and the checks they share.
 //!
-//! Extensions has no file: its add-ons list waits for the extension system (S8.14, D19).
+//! Extensions has no file: its add-ons list waits for the extension system, and the page is
+//! only listed with the `extensions` feature (S8.14, D19).
 
 mod audio;
 mod audio_effects;
