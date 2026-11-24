@@ -18,6 +18,7 @@ use crate::assets::icons;
 use crate::db::metadata::MediaKind;
 use crate::navigation::route::{HomeSection, Route};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 
 /// A heading's height, the air above every heading but the first, and its text.
@@ -162,7 +163,7 @@ fn heading(
         .flex()
         .items_center()
         .gap(px(8.))
-        .text_size(px(text))
+        .text_size(text_px(text))
         .text_color(p.text_strong)
         .child(if lined { name } else { name.flex_1() })
         .child(more)
@@ -170,5 +171,5 @@ fn heading(
 
 /// A muted line under a section or above the page.
 fn note(text: SharedString, p: &Palette) -> Div {
-    div().py(px(8.)).text_size(px(NOTE_TEXT)).text_color(p.text_muted).child(text)
+    div().py(px(8.)).text_size(text_px(NOTE_TEXT)).text_color(p.text_muted).child(text)
 }

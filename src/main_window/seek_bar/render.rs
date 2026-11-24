@@ -22,6 +22,7 @@ use crate::engine::state::PlaybackState;
 use crate::main_window::MainWindow;
 use crate::main_window::control_bar::{SEEK_MIN, clock};
 use crate::settings::{self, SkipLength};
+use crate::theme::text_px;
 use crate::theme::{Palette, blend};
 use crate::ui::focus;
 
@@ -225,7 +226,7 @@ fn live_chip(p: &Palette) -> Div {
         .px(px(6.))
         .rounded(px(3.))
         .bg(p.danger)
-        .text_size(px(LIVE_TEXT))
+        .text_size(text_px(LIVE_TEXT))
         .font_weight(gpui::FontWeight::BOLD)
         .text_color(gpui::white())
         .child("LIVE")

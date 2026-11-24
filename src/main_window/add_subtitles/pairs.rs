@@ -9,8 +9,9 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use gpui::{
-    AnyElement, Context, DismissEvent, Div, MouseButton, MouseDownEvent, PathPromptOptions, Pixels,
-    Point, SharedString, Stateful, Window, accesskit, div, prelude::*, px, uniform_list,
+    AnyElement, ClickEvent, Context, DismissEvent, Div, MouseButton, MouseDownEvent,
+    PathPromptOptions, Pixels, Point, SharedString, Stateful, Window, accesskit, div, prelude::*,
+    px, uniform_list,
 };
 
 use super::files::spaced;
@@ -19,7 +20,9 @@ use super::render::{PADDING, ROW_HEIGHT, file_name, icon_and_name, note};
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
 use crate::subtitle_links::pairing;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
+use crate::ui::focus;
 use crate::ui::menu::{ContextMenu, MenuItem};
 use crate::ui::metrics;
 
@@ -119,8 +122,10 @@ impl AddSubtitlesDialog {
             let added = !choice.linked.contains(subtitle);
             self.pair_status(&pair, added, p, cx)
         });
-        div()
+        let cell = div()
             .id(("add-subtitles-pick", index))
+            .tab_index(0)
+            .key_context(focus::CONTROL)
             .flex_1()
             .min_w_0()
             .h_full()
@@ -140,8 +145,14 @@ impl AddSubtitlesDialog {
                     this.open_picker(index, event.position, window, cx);
                 }),
             )
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                if let Some(at) = focus::keyboard_anchor(event) {
+                    this.open_picker(index, at, window, cx);
+                }
+            }))
             .child(chosen_label(choice, p))
-            .children(status)
+            .children(status);
+        focus::outline_ring(cell, p)
     }
 
     /// Opens video `index`'s picker at `position`.
@@ -274,7 +285,7 @@ fn chosen_label(choice: &Choice, p: &Palette) -> Div {
     let more = (more > 0).then(|| {
         div()
             .flex_none()
-            .text_size(px(metrics::TEXT_SMALL))
+            .text_size(text_px(metrics::TEXT_SMALL))
             .text_color(p.text_muted)
             .child(format!("+{more}"))
     });

@@ -9,6 +9,7 @@ use super::Onboarding;
 use super::layout::{bottom_bar, radio_group, radio_step};
 use super::preview;
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{Accent, Palette, ThemeMode, blend};
 
 const PREVIEW_INSET: f32 = 17.;
@@ -80,8 +81,8 @@ impl Onboarding {
             .pt(px(136.))
             .child(
                 div()
-                    .text_size(px(26.))
-                    .line_height(px(34.))
+                    .text_size(text_px(26.))
+                    .line_height(text_px(34.))
                     .font_weight(FontWeight::LIGHT)
                     .text_color(p.text)
                     .child("Select your preferred theme and color."),
@@ -128,7 +129,7 @@ impl Onboarding {
             )
             .child(
                 div()
-                    .text_size(px(16.))
+                    .text_size(text_px(16.))
                     .text_color(if selected { p.text_strong } else { p.text })
                     .child(mode.label()),
             )

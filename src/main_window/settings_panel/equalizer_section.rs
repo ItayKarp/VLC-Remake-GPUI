@@ -29,6 +29,7 @@ use crate::main_window::MainWindow;
 use crate::settings::registry::Value;
 use crate::settings::{self, EqualizerPick, MAX_SAVED_NAME};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::slider::SliderModel;
@@ -217,7 +218,7 @@ fn labelled(label: &'static str, p: &Palette) -> Div {
         .justify_between()
         .gap(px(GAP))
         .pl(px(4.))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(label)
 }
@@ -229,7 +230,7 @@ fn clip_warning(p: &Palette, cx: &App) -> Option<Div> {
         div()
             .pl(px(4.))
             .pb(px(GAP))
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .text_color(p.danger)
             .child("Loud passages may distort: lower the Preamp.")
     })

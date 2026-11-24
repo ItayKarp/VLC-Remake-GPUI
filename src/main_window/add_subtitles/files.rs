@@ -14,6 +14,7 @@ use super::model::Choice;
 use super::render::{PADDING, ROW_GAP, ROW_HEIGHT, file_name, icon_and_name, note};
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::IconButton;
 use crate::ui::icon::icon;
@@ -106,7 +107,7 @@ impl AddSubtitlesDialog {
                 linked.then(|| Self::remove_button(index, &path, cx)),
                 p,
             ));
-        spaced(focus::ring(row, p)).into_any_element()
+        spaced(focus::outline_ring(row, p)).into_any_element()
     }
 
     /// A linked subtitle's remove button: leaves it out, which unlinks it on Save.
@@ -142,9 +143,9 @@ fn trailing(
     remove: Option<IconButton>,
     p: &Palette,
 ) -> Div {
-    let tag = remove
-        .is_some()
-        .then(|| div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child("Linked"));
+    let tag = remove.is_some().then(|| {
+        div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child("Linked")
+    });
     let check = div()
         .size(px(CHECK))
         .flex_none()

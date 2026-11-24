@@ -21,6 +21,7 @@ use crate::assets::icons;
 use crate::main_window::control_bar::clock::tabular_digits;
 use crate::main_window::library_panel::DraggedMedia;
 use crate::queue::{EntryId, Length, row_duration};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::icon::icon;
 use crate::ui::metrics;
@@ -66,7 +67,7 @@ impl Render for DragPreview {
             .rounded(px(metrics::RADIUS))
             .bg(p.popover)
             .text_color(p.text)
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .shadow_md()
             .child(self.label.clone())
     }
@@ -177,7 +178,7 @@ impl MainWindow {
             .items_center()
             .gap(px(GAP))
             .px(px(PADDING))
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .role(accesskit::Role::ListItem)
             .aria_label(SharedString::from(name.clone()))
             .when(selected, |row| row.bg(p.selected))
@@ -270,7 +271,7 @@ fn empty_note(p: &Palette) -> gpui::Div {
         .left_0()
         .right_0()
         .p(px(NOTE_PADDING))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child("Nothing is queued. Drop files here or press + to add some.")
 }

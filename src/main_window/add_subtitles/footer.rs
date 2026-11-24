@@ -7,6 +7,7 @@ use gpui::{ClickEvent, Context, Div, div, prelude::*, px};
 use super::render::PADDING;
 use super::{AddSubtitlesDialog, Status};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::metrics;
 use crate::ui::toggle::Checkbox;
@@ -66,7 +67,7 @@ fn status_line(status: &Status, p: &Palette) -> Div {
     div()
         .min_w_0()
         .truncate()
-        .text_size(px(metrics::TEXT_SMALL))
+        .text_size(text_px(metrics::TEXT_SMALL))
         .text_color(if status.failed { p.danger } else { p.text_muted })
         .child(status.text.clone())
 }

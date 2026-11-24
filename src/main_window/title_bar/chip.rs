@@ -14,6 +14,7 @@ use crate::assets::icons;
 use crate::db::metadata::MediaKind;
 use crate::main_window::MainWindow;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::{focus, metrics, tooltip};
 
 /// The chip's padding, the gap after its icon, and the widest its name gets.
@@ -59,7 +60,7 @@ pub(super) fn folder_chip(
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
-                .text_size(px(TEXT_SIZE))
+                .text_size(text_px(TEXT_SIZE))
                 .text_color(p.text)
                 .child(name),
         );

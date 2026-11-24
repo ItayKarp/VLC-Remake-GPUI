@@ -18,6 +18,7 @@ use super::control_bar::clock;
 use super::osd;
 use crate::engine::tracks::TrackKind;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use rows::Sources;
 
 /// How often the counts are read.
@@ -85,7 +86,7 @@ impl MainWindow {
             .rounded(px(8.))
             .bg(p.panel)
             .shadow_lg()
-            .text_size(px(TEXT_SIZE))
+            .text_size(text_px(TEXT_SIZE))
             .text_color(p.text_strong)
             .font_features(clock::tabular_digits())
             .child(table);

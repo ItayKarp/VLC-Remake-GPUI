@@ -16,6 +16,7 @@ use super::preview::Picture;
 use crate::main_window::MainWindow;
 use crate::main_window::control_bar::clock;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::video::layout;
 
 /// The card's width with a picture, and its padding.
@@ -76,7 +77,7 @@ impl MainWindow {
                     .h(px(TIME_ROW))
                     .flex()
                     .items_center()
-                    .text_size(px(TIME_TEXT))
+                    .text_size(text_px(TIME_TEXT))
                     .text_color(p.text_muted)
                     .child(clock::format(time)),
             );
@@ -112,7 +113,7 @@ fn chapter_name(title: String, below_picture: bool, p: &Palette) -> Div {
     div()
         .w_full()
         .pt(px(if below_picture { CHAPTER_TOP } else { 0. }))
-        .text_size(px(CHAPTER_TEXT))
+        .text_size(text_px(CHAPTER_TEXT))
         .text_color(p.text)
         .text_center()
         .truncate()

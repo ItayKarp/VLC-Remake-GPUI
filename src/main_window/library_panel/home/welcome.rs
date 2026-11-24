@@ -9,6 +9,7 @@ use super::super::{INSET, MainWindow};
 use crate::assets::icons;
 use crate::main_window::library_status;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
 
@@ -44,8 +45,8 @@ pub(super) fn render(history: bool, p: &Palette, cx: &mut Context<MainWindow>) -
         .gap(px(GAP))
         .text_center()
         .child(icon(glyph, ICON, p.text_muted))
-        .child(div().text_size(px(TITLE_TEXT)).text_color(p.text).child(title))
-        .child(div().text_size(px(HINT_TEXT)).text_color(p.text_muted).child(hint));
+        .child(div().text_size(text_px(TITLE_TEXT)).text_color(p.text).child(title))
+        .child(div().text_size(text_px(HINT_TEXT)).text_color(p.text_muted).child(hint));
     if !history {
         return block;
     }

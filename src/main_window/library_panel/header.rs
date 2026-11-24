@@ -21,6 +21,7 @@ use crate::navigation::history::Step;
 use crate::navigation::item_count;
 use crate::navigation::route::Route;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 
 /// The header's buttons: 28 px, 8 px apart, 18 px in from the panel's sides (`player_02`).
@@ -102,7 +103,7 @@ impl MainWindow {
         div()
             .min_w_0()
             .truncate()
-            .text_size(px(COUNT_TEXT))
+            .text_size(text_px(COUNT_TEXT))
             .text_color(p.text_muted)
             .child(SharedString::from(count))
     }

@@ -145,6 +145,7 @@ impl Palette {
         let accent_fg = contrast::ensure_contrast(accent_color, background, UI_MIN);
         let shared = Shared { accent: accent_color, on_accent, accent_fg, background };
         let mut palette = if dark { Self::dark(shared) } else { Self::light(shared) };
+        palette.meet_contrast();
         palette.derive_accent_tints();
         palette
     }

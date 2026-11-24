@@ -9,6 +9,7 @@ use gpui::{
 
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::IconButton;
 use crate::ui::icon::icon;
@@ -83,7 +84,7 @@ impl AddSubtitlesDialog {
             .justify_between()
             .pl(px(PADDING + 2.))
             .pr(px(PADDING - 6.))
-            .text_size(px(metrics::TEXT - 1.))
+            .text_size(text_px(metrics::TEXT - 1.))
             .text_color(p.text_muted)
             .child("Add Subtitles")
             .child(close);
@@ -114,7 +115,7 @@ pub(super) fn note(text: impl Into<SharedString>, p: &Palette) -> Div {
     div()
         .px(px(PADDING + 6.))
         .py(px(8.))
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text_muted)
         .child(text.into())
 }
@@ -127,7 +128,7 @@ pub(super) fn icon_and_name(path: &'static str, name: SharedString, p: &Palette)
         .items_center()
         .gap(px(ROW_ICON_GAP))
         .child(div().flex_none().child(icon(path, ROW_ICON, p.icon)))
-        .child(div().min_w_0().truncate().text_size(px(metrics::TEXT + 1.)).child(name))
+        .child(div().min_w_0().truncate().text_size(text_px(metrics::TEXT + 1.)).child(name))
 }
 
 /// A path's file name, for a row.

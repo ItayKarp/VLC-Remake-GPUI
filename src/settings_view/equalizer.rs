@@ -17,6 +17,7 @@ use gpui::{
 use crate::assets::icons;
 use crate::engine::audio::equalizer::{FREQUENCIES, GAIN_RANGE, Preset, format_gain, parse_gain};
 use crate::settings::{self, AudioSettings};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::icon::icon;
 use crate::ui::slider::{self, Slider, SliderModel};
@@ -150,7 +151,7 @@ impl EqualizerPanel {
                     .bg(p.well)
                     .border_1()
                     .border_color(if invalid { p.danger } else { p.well })
-                    .text_size(px(metrics::TEXT_SMALL))
+                    .text_size(text_px(metrics::TEXT_SMALL))
                     .text_color(p.text)
                     .child(gain.field.clone()),
             )
@@ -174,7 +175,7 @@ impl Render for EqualizerPanel {
             .p(px(PADDING))
             .rounded(px(metrics::RADIUS))
             .bg(p.panel)
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .child(self.header(&p, cx))
             .children(columns)
     }

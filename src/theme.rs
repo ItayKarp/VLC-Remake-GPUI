@@ -8,19 +8,23 @@
 //! [`Palette::new`] is the single source of colors.
 
 pub mod contrast;
+mod legibility;
 mod palette;
 mod system;
 #[cfg(test)]
 mod tests;
+mod text_scale;
 
 use gpui::{
-    App, AppContext, BorrowAppContext, Context, Global, Hsla, Rgba, Window, WindowAppearance, rgb,
+    App, AppContext, BorrowAppContext, Context, Global, Hsla, Rgba, Window, WindowAppearance, px,
+    rgb,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::settings::{self, SettingsStore};
 pub use palette::Palette;
 pub use system::SystemPrefs;
+pub use text_scale::text_px;
 
 /// Theme mode the user picks during onboarding.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -178,6 +182,7 @@ pub fn init(cx: &mut App) {
     let (mode, accent) = (prefs.theme, prefs.accent);
     let system = if system::READ_IS_CHEAP { system::read() } else { SystemPrefs::default() };
     cx.set_reduce_motion(system.reduce_motion);
+    text_scale::set(system.text_scale);
     cx.set_global(Theme { mode, accent, system });
     cx.observe_global::<SettingsStore>(sync_from_settings).detach();
     if !system::READ_IS_CHEAP {
@@ -220,7 +225,10 @@ fn set_system_prefs(prefs: SystemPrefs, cx: &mut App) {
     }
     tracing::info!("theme: OS preferences changed: {prefs:?}");
     cx.set_reduce_motion(prefs.reduce_motion);
+    text_scale::set(prefs.text_scale);
     cx.update_global::<Theme, _>(|theme, _| theme.system = prefs);
+    // Text sizes are read while views render, so every view draws again at the new size.
+    cx.refresh_windows();
 }
 
 /// The current palette for `window`.
@@ -229,9 +237,15 @@ pub fn palette(window: &Window, cx: &App) -> Palette {
 }
 
 /// Repaints a view when the theme, the accent, the OS appearance or the OS
-/// accessibility preferences change. Call once from the view's constructor.
+/// accessibility preferences change, and keeps the window's rem at the OS text size. Call
+/// once from the view's constructor.
 pub fn observe<V: 'static>(window: &mut Window, cx: &mut Context<V>) {
-    cx.observe_global::<Theme>(|_, cx| cx.notify()).detach();
+    follow_text_scale(window);
+    cx.observe_global_in::<Theme>(window, |_, window, cx| {
+        follow_text_scale(window);
+        cx.notify();
+    })
+    .detach();
     cx.observe_window_appearance(window, |_, _, cx| {
         refresh_system_prefs(cx);
         cx.notify();
@@ -243,6 +257,11 @@ pub fn observe<V: 'static>(window: &mut Window, cx: &mut Context<V>) {
         }
     })
     .detach();
+}
+
+/// Sets the rem, which text drawn at the default size follows, to the OS text size.
+fn follow_text_scale(window: &mut Window) {
+    window.set_rem_size(px(text_scale::BASE_REM * text_scale::scale()));
 }
 
 /// Blend `color` over `base` at the given opacity — used for the muted

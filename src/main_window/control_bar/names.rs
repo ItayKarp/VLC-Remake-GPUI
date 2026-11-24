@@ -21,6 +21,7 @@ use crate::library::thumbnails::{self, Status};
 use crate::main_window::{MainWindow, customize};
 use crate::player_layout::{Item, Unit};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::thumbnail::{Placeholder, ThumbnailTile};
 use crate::ui::tooltip;
 
@@ -120,7 +121,7 @@ fn render_name(name: SharedString, p: &Palette) -> AnyElement {
         .overflow_hidden()
         .text_ellipsis()
         .whitespace_nowrap()
-        .text_size(px(NAME_TEXT))
+        .text_size(text_px(NAME_TEXT))
         .text_color(p.text)
         .child(name)
         .into_any_element()

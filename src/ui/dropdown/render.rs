@@ -7,6 +7,7 @@ use gpui::{
 
 use super::{Dropdown, VISIBLE_ROWS};
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::focus;
 use crate::ui::icon::{icon, two_tone};
@@ -54,7 +55,7 @@ impl Dropdown {
             .bg(p.control)
             .border_2()
             .border_color(if self.open { p.focus_ring } else { p.well })
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(p.text_muted)
             .track_focus(&self.focus_handle)
             .key_context(focus::context(&["Dropdown", focus::CONTROL, focus::TYPING]))

@@ -10,6 +10,7 @@ use crate::keymap::actions as act;
 use crate::main_window::play_order::repeat_button_look;
 use crate::queue::SortKey;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::menu::{ContextMenu, MenuItem};
 use crate::ui::popover::{self, Side};
@@ -58,7 +59,7 @@ impl MainWindow {
             .justify_between()
             .pl(px(PADDING_LEFT))
             .pr(px(PADDING_RIGHT))
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .text_color(p.text_muted)
             .child(div().min_w_0().truncate().child(total))
             .child(buttons.child(add))

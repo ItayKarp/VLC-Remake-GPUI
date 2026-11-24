@@ -20,6 +20,7 @@ use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
 use crate::main_window::MainWindow;
 use crate::opening::kind::{self, Kind};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::focus;
 use crate::ui::icon::icon;
@@ -156,7 +157,7 @@ fn file_row(index: usize, name: SharedString, state: FileState, p: &Palette) -> 
         .rounded(px(6.))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .tab_index(0)
         .when(state != FileState::Waiting, |row| row.cursor_pointer().hover(move |s| s.bg(hover)))
         .role(accesskit::Role::RadioButton)

@@ -10,6 +10,7 @@ use gpui::{
 
 use super::focus::{self, Axis, Layout};
 use super::icon::icon;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Called with the index of the tab the user picked.
@@ -118,7 +119,7 @@ fn render_tab(
         .px(px(10.))
         .border_b_2()
         .border_color(if is_selected { p.accent_fg } else { gpui::transparent_black() })
-        .text_size(px(13.))
+        .text_size(text_px(13.))
         .text_color(if is_selected { p.text_strong } else { p.text_muted })
         .role(accesskit::Role::Tab)
         .aria_selected(is_selected)

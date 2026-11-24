@@ -12,6 +12,7 @@ use crate::keymap::actions as act;
 use crate::keymap::key_caps;
 use crate::keymap::label::{Arrow, KeyCap};
 use crate::theme::Palette;
+use crate::theme::text_px;
 
 /// A row: a label and the commands whose shortcuts it shows, separated by "/".
 struct Shortcut {
@@ -53,8 +54,8 @@ impl Onboarding {
                     .mt(px(64.))
                     .w_full()
                     .text_center()
-                    .text_size(px(26.))
-                    .line_height(px(34.))
+                    .text_size(text_px(26.))
+                    .line_height(text_px(34.))
                     .text_color(p.text)
                     .child("Learn the basic keyboard shortcuts."),
             )
@@ -82,7 +83,7 @@ impl Onboarding {
             .justify_between()
             .child(
                 div()
-                    .text_size(px(16.))
+                    .text_size(text_px(16.))
                     .text_color(p.text_muted)
                     .child("Find the full list in the menu."),
             )
@@ -104,7 +105,7 @@ fn shortcut_row(shortcut: &Shortcut, p: &Palette, cx: &App) -> impl IntoElement 
     let mut keys = div().flex().flex_row().items_center().gap(px(10.));
     for (i, action) in shortcut.commands.iter().enumerate() {
         if i > 0 {
-            keys = keys.child(div().text_size(px(16.)).text_color(p.text_muted).child("/"));
+            keys = keys.child(div().text_size(text_px(16.)).text_color(p.text_muted).child("/"));
         }
         let caps = key_caps(*action, cx);
         keys = keys.child(
@@ -121,7 +122,13 @@ fn shortcut_row(shortcut: &Shortcut, p: &Palette, cx: &App) -> impl IntoElement 
         .flex()
         .flex_row()
         .items_center()
-        .child(div().w(px(240.)).text_size(px(16.)).text_color(p.text_muted).child(shortcut.label))
+        .child(
+            div()
+                .w(px(240.))
+                .text_size(text_px(16.))
+                .text_color(p.text_muted)
+                .child(shortcut.label),
+        )
         .child(keys)
 }
 
@@ -137,7 +144,7 @@ fn keycap(cap: KeyCap, p: &Palette) -> impl IntoElement {
         .bg(p.key_face)
         .border_2()
         .border_color(p.key_border)
-        .text_size(px(16.))
+        .text_size(text_px(16.))
         .text_color(p.text_strong);
 
     let face = match cap {

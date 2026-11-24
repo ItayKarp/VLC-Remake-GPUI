@@ -21,6 +21,7 @@ use crate::db::podcasts::EpisodeId;
 use crate::navigation::route::{MusicRoute, NetworkCategory, Route};
 use crate::network::{self, links};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::{icon, metrics};
 
 /// A row's height, its icon box and the gap before its text (`player_02`).
@@ -193,7 +194,7 @@ pub(super) fn row_frame(id: impl Into<gpui::ElementId>, p: &Palette) -> Stateful
         .items_center()
         .gap(px(ROW_GAP))
         .rounded(px(metrics::RADIUS))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text)
 }
 

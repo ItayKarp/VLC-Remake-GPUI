@@ -32,6 +32,7 @@ use crate::engine::values::Offset;
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Choice, Control, Value};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::{self, Dropdown};
 
@@ -196,7 +197,7 @@ fn stereo_row(p: &Palette, cx: &mut Context<MainWindow>) -> Div {
         .items_center()
         .justify_between()
         .pl(px(4.))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child("Stereo Mode")
         .child(test)
@@ -207,7 +208,7 @@ fn effects_note(text: &'static str, p: &Palette) -> Div {
     div()
         .pb(px(NOTE_GAP))
         .pl(px(4.))
-        .text_size(px(SECTION_NOTE_TEXT))
+        .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(text)
 }
@@ -217,7 +218,7 @@ fn stereo_note(p: &Palette) -> Div {
     div()
         .pt(px(NOTE_GAP))
         .pl(px(4.))
-        .text_size(px(SECTION_NOTE_TEXT))
+        .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .mb(px(SECTION_NOTE_GAP))
         .child("For what plays until VLC quits; Save as Default keeps it.")

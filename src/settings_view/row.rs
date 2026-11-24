@@ -1,5 +1,5 @@
 //! How a page lays out (`docs/ui/settings/screens/*`): section headings, then label/control
-//! rows. A label has an `(i)` icon whose tooltip is the setting's info text; the control sits in
+//! rows. A label has an `(i)` icon ([`InfoTip`]) whose tooltip is the setting's info text; the control sits in
 //! a fixed column on the right. A disabled row is dimmed. The Advanced Options bar closes a page.
 
 use std::ops::Range;
@@ -11,8 +11,10 @@ use gpui::{
 
 use crate::assets::icons;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::icon::icon;
-use crate::ui::{focus, metrics, tooltip};
+use crate::ui::info_tip::InfoTip;
+use crate::ui::{focus, metrics};
 
 /// The page's side padding and the space under its last row.
 pub const PAGE_PADDING: f32 = 30.;
@@ -58,7 +60,7 @@ pub(super) fn section_title(title: &'static str, p: &Palette) -> Div {
     div()
         .pt(px(SECTION_TOP))
         .pb(px(SECTION_BOTTOM))
-        .text_size(px(SECTION_TEXT))
+        .text_size(text_px(SECTION_TEXT))
         .text_color(p.text_strong)
         .child(title)
 }
@@ -70,19 +72,18 @@ pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
         .items_center()
         .gap(px(INFO_GAP))
         .child(label_text(label, p))
-        .when(!label.info.is_empty(), |text| text.child(info_icon(label, p)));
+        .when(!label.info.is_empty(), |text| text.child(info_icon(label)));
     let note_color = if label.note_is_danger { p.danger } else { p.text_muted };
-    let note = label
-        .note
-        .clone()
-        .map(|note| div().text_size(px(metrics::TEXT_SMALL)).text_color(note_color).child(note));
+    let note = label.note.clone().map(|note| {
+        div().text_size(text_px(metrics::TEXT_SMALL)).text_color(note_color).child(note)
+    });
     div()
         .min_h(px(ROW_HEIGHT))
         .py(px(4.))
         .flex()
         .items_center()
         .gap(px(ROW_GAP))
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text)
         .when(!label.enabled, |row| row.opacity(DISABLED_OPACITY))
         .child(div().flex_1().min_w_0().flex().flex_col().child(text).children(note))
@@ -101,13 +102,14 @@ fn label_text(label: &RowLabel, p: &Palette) -> StyledText {
     StyledText::new(label.label).with_highlights(highlights)
 }
 
-/// The `(i)` icon, showing the info text on hover.
-fn info_icon(label: &RowLabel, p: &Palette) -> Stateful<Div> {
-    div()
-        .id(SharedString::from(format!("info-{}", label.key)))
-        .flex_none()
-        .tooltip(tooltip::text(label.info, None::<SharedString>))
-        .child(icon(icons::INFO, INFO_ICON, p.icon))
+/// The `(i)` icon, showing the info text on hover and keyboard focus.
+fn info_icon(label: &RowLabel) -> InfoTip {
+    InfoTip::new(
+        SharedString::from(format!("info-{}", label.key)),
+        label.label,
+        label.info,
+        INFO_ICON,
+    )
 }
 
 /// The bar that opens and closes the page's Advanced Options; Enter or Space toggles it.
@@ -130,7 +132,7 @@ pub(super) fn advanced_bar(open: bool, p: &Palette) -> Stateful<Div> {
         .tab_index(0)
         .aria_expanded(open)
         .aria_label("Advanced Options")
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text)
         .child("Advanced Options")
         .child(icon(if open { icons::CHEVRON_DOWN } else { icons::CHEVRON_RIGHT }, 20., p.icon));
@@ -139,5 +141,5 @@ pub(super) fn advanced_bar(open: bool, p: &Palette) -> Stateful<Div> {
 
 /// A muted line for a page without rows to show.
 pub(super) fn empty_note(text: &'static str, p: &Palette) -> Div {
-    div().pt(px(SECTION_TOP)).text_size(px(metrics::TEXT)).text_color(p.text_muted).child(text)
+    div().pt(px(SECTION_TOP)).text_size(text_px(metrics::TEXT)).text_color(p.text_muted).child(text)
 }

@@ -23,6 +23,7 @@ use crate::engine::transform::Rotation;
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Choice, Control, SettingChoice as _, Value};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::segmented::Segmented;
@@ -200,11 +201,11 @@ fn heading(p: &Palette, cx: &App) -> Div {
         .flex()
         .items_center()
         .justify_between()
-        .child(div().text_size(px(super::HEADING_TEXT)).text_color(p.text).child("Defaults"))
+        .child(div().text_size(text_px(super::HEADING_TEXT)).text_color(p.text).child("Defaults"))
         .child(reset);
     let note = div()
         .pt(px(super::SECTION_NOTE_GAP))
-        .text_size(px(super::SECTION_NOTE_TEXT))
+        .text_size(text_px(super::SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(NOTE);
     div().flex().flex_col().pb(px(super::SECTION_NOTE_GAP)).child(title).child(note)
@@ -214,7 +215,7 @@ fn heading(p: &Palette, cx: &App) -> Div {
 pub(super) fn note(text: String, p: &Palette) -> Div {
     div()
         .pb(px(LABEL_GAP))
-        .text_size(px(super::SECTION_NOTE_TEXT))
+        .text_size(text_px(super::SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(text)
 }
@@ -231,7 +232,7 @@ fn flip_row(p: &Palette, cx: &App) -> Div {
         .flex_col()
         .gap(px(LABEL_GAP))
         .pt(px(LABEL_GAP))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child("Flip")
         .child(control)
@@ -244,7 +245,7 @@ pub(super) fn labelled(label: &'static str, control: impl IntoElement, p: &Palet
         .flex()
         .items_center()
         .justify_between()
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child(label)
         .child(div().flex_none().child(control))

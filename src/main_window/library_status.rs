@@ -17,6 +17,7 @@ use crate::library::{self};
 use crate::logging;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
 
@@ -38,8 +39,8 @@ fn render_root(index: usize, root: &RootState, p: &Palette, cx: &mut Context<Mai
         .min_w_0()
         .flex()
         .flex_col()
-        .child(div().text_size(px(13.)).text_color(p.text_strong).truncate().child(name))
-        .child(div().text_size(px(12.)).text_color(p.text_muted).child(status_text(root)));
+        .child(div().text_size(text_px(13.)).text_color(p.text_strong).truncate().child(name))
+        .child(div().text_size(text_px(12.)).text_color(p.text_muted).child(status_text(root)));
     let mut row = div().flex().items_center().gap(px(8.)).child(text);
     let path = root.path.clone();
     if root.status == RootStatus::Missing && root.kind == RootKind::Video {

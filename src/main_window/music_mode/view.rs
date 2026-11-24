@@ -10,6 +10,7 @@ use super::cover::{Cover, Lookup};
 use crate::app::media::Media;
 use crate::db::thumbnails::SizeClass;
 use crate::effects;
+use crate::theme::text_px;
 use crate::ui::thumbnail::{Placeholder, ThumbnailTile};
 
 /// The cover's side as a share of the area's height (738 of 985 px in the design).
@@ -46,11 +47,11 @@ impl MainWindow {
             .mt(px(gap))
             .max_w(px((width - 2. * SIDE_MARGIN).max(0.)))
             .truncate()
-            .text_size(px(CAPTION_SIZE))
+            .text_size(text_px(CAPTION_SIZE))
             .text_color(CAPTION_COLOR)
             .child(self.caption(cx));
         let note = video_off
-            .then(|| div().text_size(px(NOTE_SIZE)).text_color(NOTE_COLOR).child(VIDEO_OFF));
+            .then(|| div().text_size(text_px(NOTE_SIZE)).text_color(NOTE_COLOR).child(VIDEO_OFF));
         let column = div()
             .absolute()
             .inset_0()

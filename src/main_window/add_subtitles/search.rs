@@ -24,6 +24,7 @@ use crate::settings;
 use crate::subtitle_links::opensubtitles::{self, Failure, Found, Query};
 use crate::subtitle_links::query;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::Dropdown;
 use crate::ui::icon::icon;
@@ -173,7 +174,10 @@ impl AddSubtitlesDialog {
             Search::Found { results, checked } => (results, checked),
         };
         let rows = results.iter().enumerate().map(|(index, found)| {
-            spaced(focus::ring(result_row(index, found, checked.contains(&found.id), p, cx), p))
+            spaced(focus::outline_ring(
+                result_row(index, found, checked.contains(&found.id), p, cx),
+                p,
+            ))
         });
         div()
             .id("add-subtitles-results")
@@ -229,7 +233,7 @@ fn result_row(
                 .flex()
                 .items_center()
                 .gap(px(16.))
-                .text_size(px(metrics::TEXT - 1.))
+                .text_size(text_px(metrics::TEXT - 1.))
                 .text_color(p.text_muted)
                 .child(found.details())
                 .child(

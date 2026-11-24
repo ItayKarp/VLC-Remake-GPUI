@@ -10,6 +10,7 @@ use super::{Reach, StreamDialog};
 use crate::engine::stream_out::{Contents, Local, Protocol, StreamTarget};
 use crate::main_window::device_dialog::{Frame, controls, section};
 use crate::settings::{self, RecordingSettings};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::metrics;
@@ -142,14 +143,14 @@ fn contents_section(recording: &RecordingSettings, p: &Palette) -> Div {
     };
     let summary: SharedString = format!("{sent} {here}").into();
     section("Sent", "Set in Settings → Recording → Streaming, with how it's encoded.", p)
-        .child(controls(div().text_size(px(metrics::TEXT_SMALL + 1.)).child(summary)))
+        .child(controls(div().text_size(text_px(metrics::TEXT_SMALL + 1.)).child(summary)))
 }
 
 /// The warning about letting the network watch.
 fn warning(p: &Palette) -> Div {
     div()
         .pt(px(10.))
-        .text_size(px(metrics::TEXT_SMALL))
+        .text_size(text_px(metrics::TEXT_SMALL))
         .text_color(p.warning)
         .child(NETWORK_WARNING)
 }
@@ -160,7 +161,7 @@ fn labelled(label: &'static str, field: &Entity<TextInput>, width: f32) -> Div {
         .flex()
         .items_center()
         .gap(px(10.))
-        .text_size(px(metrics::TEXT_SMALL + 1.))
+        .text_size(text_px(metrics::TEXT_SMALL + 1.))
         .child(label)
         .child(div().w(px(width)).child(field.clone()))
 }

@@ -8,6 +8,7 @@ use super::editor::{Note, ShortcutsEditor};
 use super::filter::{Group, Row};
 use crate::assets::icons;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
 
@@ -122,7 +123,7 @@ fn well(p: &Palette) -> Div {
 /// The line under a row: why a key was refused, or which command has it already.
 fn note_line(index: usize, note: Note, editor: &Entity<ShortcutsEditor>, p: &Palette) -> Div {
     let line = div().flex().items_center().justify_end().gap(px(8.)).pb(px(8.));
-    let message = |text: SharedString| div().text_size(px(metrics::TEXT_SMALL)).child(text);
+    let message = |text: SharedString| div().text_size(text_px(metrics::TEXT_SMALL)).child(text);
     match note {
         Note::Refused(text) => line.text_color(p.text_muted).child(message(text.into())),
         Note::Taken(_, conflict) => {
@@ -141,7 +142,7 @@ fn note_line(index: usize, note: Note, editor: &Entity<ShortcutsEditor>, p: &Pal
             let text = div()
                 .flex()
                 .gap(px(4.))
-                .text_size(px(metrics::TEXT_SMALL))
+                .text_size(text_px(metrics::TEXT_SMALL))
                 .child("Already used by")
                 .child(div().italic().child(conflict.label()));
             line.text_color(p.text).child(text).child(replace).child(cancel)

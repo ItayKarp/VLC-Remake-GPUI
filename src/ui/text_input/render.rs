@@ -8,6 +8,7 @@ use gpui::{
 use super::element::TextElement;
 use super::keys::{CONTEXT, MULTI_LINE_CONTEXT};
 use super::{Look, TextInput, Validation};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::{focus, metrics};
 
@@ -92,8 +93,8 @@ impl TextInput {
             .bg(palette.well)
             .border_2()
             .border_color(if invalid { palette.danger } else { palette.well })
-            .text_size(px(TEXT_SIZE))
-            .line_height(px(LINE_HEIGHT))
+            .text_size(text_px(TEXT_SIZE))
+            .line_height(text_px(LINE_HEIGHT))
             .text_color(palette.text)
             .when(enabled, |field| self.interactive(field, cx))
             .when(!enabled, |field| field.opacity(DISABLED_OPACITY))
@@ -138,5 +139,9 @@ impl TextInput {
 
 /// The validation message under the field.
 fn error_message(message: SharedString, palette: &Palette) -> impl IntoElement {
-    div().text_size(px(12.)).line_height(px(16.)).text_color(palette.danger).child(message)
+    div()
+        .text_size(text_px(12.))
+        .line_height(text_px(16.))
+        .text_color(palette.danger)
+        .child(message)
 }

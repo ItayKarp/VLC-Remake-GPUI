@@ -8,6 +8,7 @@ use gpui::{
 
 use super::NetworkStreamDialog;
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
@@ -71,7 +72,7 @@ impl NetworkStreamDialog {
     /// Network URL: the links field and the notes on what it leaves out.
     fn links_section(&self, p: &Palette, cx: &Context<Self>) -> Div {
         let notes = self.notes(cx).into_iter().map(|note| {
-            div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note)
+            div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note)
         });
         section(heading("Network URL", None, p), "You can enter multiple links to load.", p)
             .child(div().pt(px(FIELD_GAP)).child(self.urls.clone()))
@@ -124,7 +125,7 @@ fn header(p: &Palette, cx: &mut Context<NetworkStreamDialog>) -> Div {
         .pl(px(PADDING))
         .pr(px(PADDING - 6.))
         .bg(p.sunken)
-        .text_size(px(DESCRIPTION_TEXT + 1.))
+        .text_size(text_px(DESCRIPTION_TEXT + 1.))
         .text_color(p.text)
         .child("Open Network Stream")
         .child(close)
@@ -135,7 +136,7 @@ fn heading(text: &'static str, aside: Option<&'static str>, p: &Palette) -> Div 
     div()
         .flex()
         .gap(px(5.))
-        .text_size(px(HEADING_TEXT))
+        .text_size(text_px(HEADING_TEXT))
         .font_weight(FontWeight::NORMAL)
         .text_color(p.text_strong)
         .child(text)
@@ -147,7 +148,7 @@ fn section(heading: Div, description: &'static str, p: &Palette) -> Div {
     div().flex().flex_col().child(heading).child(
         div()
             .pt(px(8.))
-            .text_size(px(DESCRIPTION_TEXT))
+            .text_size(text_px(DESCRIPTION_TEXT))
             .text_color(p.text_muted)
             .child(SharedString::from(description)),
     )

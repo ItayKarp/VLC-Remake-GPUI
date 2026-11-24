@@ -21,6 +21,7 @@ use crate::db::media::MediaId;
 use crate::db::thumbnails::SizeClass;
 use crate::library::folder_view::Card;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::icon::icon;
 use crate::ui::list::row_items;
 use crate::ui::metrics;
@@ -202,7 +203,7 @@ fn cell(id: impl Into<gpui::ElementId>, width: f32, selected: bool, p: &Palette)
         .flex_col()
         .gap(px(NAME_GAP))
         .rounded(px(metrics::RADIUS))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text)
         .when(selected, |cell| cell.bg(p.selected))
 }

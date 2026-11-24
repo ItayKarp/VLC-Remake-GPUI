@@ -13,6 +13,7 @@ use gpui::{
 };
 
 use crate::theme;
+use crate::theme::text_px;
 use crate::ui::slider::{self, Slider, SliderModel};
 use crate::ui::text_input::{self, TextInput, Validation};
 
@@ -204,7 +205,7 @@ impl Render for NumberRow {
             .items_center()
             .justify_between()
             .pl(px(4.))
-            .text_size(px(ROW_TEXT))
+            .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
             .child(self.label)
             .child(field);

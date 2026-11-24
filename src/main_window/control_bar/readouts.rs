@@ -26,6 +26,8 @@ use crate::engine::player::Player;
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
+use crate::ui::focus;
 use crate::ui::text_input::{self, Look, TextInput, Validation};
 use crate::ui::tooltip;
 
@@ -193,7 +195,7 @@ fn frame(id: &'static str) -> Stateful<Div> {
         .flex()
         .items_center()
         .rounded(px(PILL_RADIUS))
-        .text_size(px(TEXT_SIZE))
+        .text_size(text_px(TEXT_SIZE))
         .font_features(clock::tabular_digits())
         .whitespace_nowrap()
 }
@@ -215,5 +217,8 @@ fn window_end(id: &'static str, p: &Palette, time: &str, note: String) -> Statef
 /// Gives a readout its hover pill and a pointer.
 fn clickable(pill: Stateful<Div>, p: &Palette) -> Stateful<Div> {
     let hover = p.sunken;
-    pill.cursor(CursorStyle::PointingHand).hover(move |style| style.bg(hover))
+    let pill = pill.tab_index(0).key_context(focus::CONTROL);
+    focus::outline_ring(pill, p)
+        .cursor(CursorStyle::PointingHand)
+        .hover(move |style| style.bg(hover))
 }

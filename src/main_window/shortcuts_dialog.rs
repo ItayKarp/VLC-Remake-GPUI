@@ -25,6 +25,7 @@ use crate::assets::icons;
 use crate::keymap::{self, actions::ShowKeyboardShortcuts};
 use crate::settings;
 use crate::theme;
+use crate::theme::text_px;
 use crate::ui::dropdown::Dropdown;
 use crate::ui::metrics;
 use crate::ui::modal::{Dialog, DialogButton};
@@ -185,6 +186,6 @@ fn toolbar(search: &Search, window: &mut Window, cx: &mut App) -> AnyElement {
     let headings = columns(heading("Action"), centered("Hotkey"), centered("Global Hotkey"))
         .pt(px(16.))
         .pb(px(4.))
-        .text_size(px(metrics::TEXT_SMALL));
+        .text_size(text_px(metrics::TEXT_SMALL));
     div().flex().flex_col().pb(px(4.)).child(search_row).child(headings).into_any_element()
 }

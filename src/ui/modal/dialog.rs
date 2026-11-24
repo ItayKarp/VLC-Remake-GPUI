@@ -10,6 +10,7 @@ use gpui::{
 };
 
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
@@ -267,7 +268,7 @@ impl Dialog {
             .px(px(PADDING))
             .pt(px(20.))
             .pb(px(12.))
-            .text_size(px(18.))
+            .text_size(text_px(18.))
             .text_color(p.text_strong)
             .child(self.title.clone())
             .children(close)
@@ -282,7 +283,7 @@ fn scrolling_body(body: AnyElement) -> Stateful<Div> {
         .min_h_0()
         .overflow_y_scroll()
         .px(px(PADDING))
-        .text_size(px(metrics::TEXT - 1.))
-        .line_height(px(22.))
+        .text_size(text_px(metrics::TEXT - 1.))
+        .line_height(text_px(22.))
         .child(body)
 }

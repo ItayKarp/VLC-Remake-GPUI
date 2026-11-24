@@ -6,6 +6,7 @@
 use gpui::{AnyView, App, Context, SharedString, Window, div, prelude::*, px};
 
 use crate::theme;
+use crate::theme::text_px;
 
 /// The tooltip view GPUI shows on hover.
 pub struct Tooltip {
@@ -47,8 +48,8 @@ impl Render for Tooltip {
                 .border_1()
                 .border_color(p.divider)
                 .shadow_md()
-                .text_size(px(12.))
-                .line_height(px(16.))
+                .text_size(text_px(12.))
+                .line_height(text_px(16.))
                 .text_color(p.tooltip_text)
                 .flex()
                 .flex_row()

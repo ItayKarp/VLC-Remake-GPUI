@@ -47,6 +47,26 @@ pub struct TransportState {
     pub can_go_back: bool,
     /// Next would do something.
     pub can_go_next: bool,
+    /// When the controls show.
+    pub reveal: Reveal,
+}
+
+/// When an overlay's controls show.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Reveal {
+    /// While the pointer is over the picture.
+    #[default]
+    OnHover,
+    /// Now: one of them has the keyboard focus, which needs seeing as much as hovering does
+    /// (S9.1.1).
+    Always,
+}
+
+impl Reveal {
+    /// Always while a control has the keyboard focus, else on hover.
+    pub fn keyboard_inside(focused: bool) -> Self {
+        if focused { Reveal::Always } else { Reveal::OnHover }
+    }
 }
 
 /// The top-right button: what it is called and shows.
@@ -99,7 +119,7 @@ pub fn overlay(
         .bg(gpui::black().opacity(SCRIM))
         .child(corners)
         .child(transport(state, handlers, in_title_bar));
-    if state.middle == Middle::Replay {
+    if state.middle == Middle::Replay || state.reveal == Reveal::Always {
         overlay
     } else {
         overlay.opacity(0.).group_hover(group, |s| s.opacity(1.))

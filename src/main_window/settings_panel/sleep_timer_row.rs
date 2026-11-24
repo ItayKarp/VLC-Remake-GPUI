@@ -9,6 +9,7 @@ use gpui::{
 use crate::main_window::MainWindow;
 use crate::main_window::sleep_timer::rules::{self, Choice, MAX_MINUTES};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::text_input::{self, TextInput, Validation};
 
@@ -58,7 +59,7 @@ impl MainWindow {
             div()
                 .pl(px(4.))
                 .pb(px(8.))
-                .text_size(px(HINT_TEXT))
+                .text_size(text_px(HINT_TEXT))
                 .text_color(p.text_muted)
                 .child(hint)
         });
@@ -112,7 +113,7 @@ fn row(label: &'static str, height: f32, p: &Palette) -> Div {
         .justify_between()
         .gap(px(8.))
         .pl(px(4.))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child(label)
 }

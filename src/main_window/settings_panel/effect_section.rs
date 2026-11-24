@@ -20,6 +20,7 @@ use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Control, Marks, Value};
 use crate::settings::{self};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::icon::icon;
 use crate::ui::slider::{self, Slider, SliderModel};
@@ -118,7 +119,7 @@ pub(super) fn slider_row(
         .flex_col()
         .gap(px(ROW_GAP))
         .pt(px(ROW_GAP))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(div().when(!live, |label| label.opacity(DISABLED_OPACITY)).child(label))
         .child(slider.clone())
@@ -170,7 +171,7 @@ fn title_row(section: &EffectSection, p: &Palette, cx: &App) -> Div {
         .flex()
         .items_center()
         .justify_between()
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(section.title)
         .child(div().flex().items_center().gap(px(TITLE_GAP)).child(reset).child(toggle))
@@ -195,7 +196,7 @@ fn header(section: &EffectSection, expanded: bool, p: &Palette) -> Stateful<Div>
         .rounded(px(metrics::RADIUS_LARGE))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text_muted)
         .tab_index(0)
         .cursor_pointer()

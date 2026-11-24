@@ -8,6 +8,7 @@ use crate::app::media::Media;
 use crate::assets::icons;
 use crate::convert::Destination;
 use crate::main_window::device_dialog::{FIELD_GAP, Frame, controls, note, section};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
@@ -131,7 +132,7 @@ fn source_row(index: usize, media: &Media, p: &Palette, cx: &mut Context<Convert
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .text_size(px(metrics::TEXT_SMALL))
+                .text_size(text_px(metrics::TEXT_SMALL))
                 .text_color(p.text_muted)
                 .children(folder),
         )

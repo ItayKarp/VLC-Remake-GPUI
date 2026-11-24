@@ -14,6 +14,7 @@ use super::{MainWindow, note};
 use crate::main_window::control_bar::clock::{self, tabular_digits};
 use crate::main_window::seeking::chapters::{self, Listed};
 use crate::theme::Palette;
+use crate::theme::text_px;
 
 /// A row's height, text size, number column width and side padding, as designed.
 const ROW_HEIGHT: f32 = 44.;
@@ -124,7 +125,7 @@ fn chapter_row(
         .flex()
         .items_center()
         .px(px(PADDING))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .cursor_pointer()
         .role(accesskit::Role::ListItem)
         .aria_label(SharedString::from(spoken))

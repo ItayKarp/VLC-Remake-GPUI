@@ -76,6 +76,7 @@ use crate::engine::tracks::TrackKind;
 use crate::settings::registry::Category;
 use crate::settings_view::PresetPicker;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::focus;
 use crate::ui::popover::{self, BoundsTracker};
 use crate::ui::tabs::{Tab, Tabs};
@@ -366,10 +367,10 @@ impl MainWindow {
 
 /// A section: its heading, the line saying what its rows change, then the rows added to it.
 fn section(heading: &'static str, note: impl Into<SharedString>, p: &Palette) -> Div {
-    let title = div().text_size(px(HEADING_TEXT)).text_color(p.text).child(heading);
+    let title = div().text_size(text_px(HEADING_TEXT)).text_color(p.text).child(heading);
     let note = div()
         .pt(px(SECTION_NOTE_GAP))
-        .text_size(px(SECTION_NOTE_TEXT))
+        .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(note.into());
     div().flex().flex_col().p(px(SECTION_PADDING)).child(title).child(note)

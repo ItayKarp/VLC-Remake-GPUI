@@ -4,6 +4,7 @@
 use gpui::{Div, IntoElement, Styled, Svg, div, prelude::*, px, relative, svg};
 
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{Palette, blend};
 
 /// How far the mock seek bar has played.
@@ -59,7 +60,7 @@ fn icon(path: &'static str, p: &Palette) -> Svg {
 }
 
 fn time(label: &'static str, p: &Palette) -> Div {
-    div().text_size(px(8.)).text_color(p.text_muted).child(label)
+    div().text_size(text_px(8.)).text_color(p.text_muted).child(label)
 }
 
 fn play_button(p: &Palette) -> Div {

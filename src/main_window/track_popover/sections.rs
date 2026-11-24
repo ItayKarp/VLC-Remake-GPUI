@@ -17,6 +17,7 @@ use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::focus;
 use crate::ui::icon::icon;
@@ -177,7 +178,7 @@ pub(super) fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette)
         .gap(px(16.))
         .pl(px(INSET))
         .pr(px(26.))
-        .text_size(px(HEADER_TEXT))
+        .text_size(text_px(HEADER_TEXT))
         .text_color(p.text_muted)
         .child(div().flex_1().child(title))
         .children(buttons)
@@ -185,7 +186,12 @@ pub(super) fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette)
 
 /// A muted line of explanation under a header.
 pub(super) fn note(text: &'static str, p: &Palette) -> Div {
-    div().px(px(INSET)).pb(px(8.)).text_size(px(HEADER_TEXT)).text_color(p.text_muted).child(text)
+    div()
+        .px(px(INSET))
+        .pb(px(8.))
+        .text_size(text_px(HEADER_TEXT))
+        .text_color(p.text_muted)
+        .child(text)
 }
 
 /// One choice: a ✓ when it is the selected one, then its name.
@@ -213,7 +219,7 @@ fn choice_row(
         .rounded(px(6.))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .tab_index(0)
         .cursor_pointer()
         .hover(move |s| s.bg(hover))

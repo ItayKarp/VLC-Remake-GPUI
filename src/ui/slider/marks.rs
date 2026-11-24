@@ -5,6 +5,7 @@ use gpui::{Div, div, prelude::*, px, relative};
 
 use super::{Marks, Slider};
 use crate::theme::Palette;
+use crate::theme::text_px;
 
 /// A tick's width, and how far it stays from the track's top and bottom edges.
 const TICK_WIDTH: f32 = 1.;
@@ -60,7 +61,7 @@ impl Slider {
             .relative()
             .h(px(LABEL_HEIGHT))
             .mx(px(inset))
-            .text_size(px(LABEL_TEXT))
+            .text_size(text_px(LABEL_TEXT))
             .text_color(p.text_muted)
             .children(labels);
         Some(row)

@@ -18,6 +18,7 @@
 mod ab_loop;
 mod about;
 mod add_subtitles;
+mod announcements;
 mod audio;
 mod audio_delay;
 mod audio_tracks;
@@ -110,6 +111,7 @@ use crate::power::DisplaySleep;
 use crate::queue::{Queue, Skips};
 use crate::settings;
 use crate::theme;
+use crate::ui::announcer::Announcer;
 use crate::ui::focus;
 use crate::ui::modal::ModalLayer;
 use crate::ui::popover::BoundsTracker;
@@ -210,6 +212,8 @@ pub struct MainWindow {
     web_remote: web_remote::WebRemote,
     /// The track being listened to, for last.fm (S8.17.1).
     scrobbling: scrobbling::Scrobbling,
+    /// What a screen reader was last told about playback (S9.1.2).
+    announcer: Announcer,
 }
 
 impl MainWindow {
@@ -262,6 +266,7 @@ impl MainWindow {
             auto_profile: profiles::AutoProfile::default(),
             web_remote: web_remote::WebRemote::default(),
             scrobbling: scrobbling::Scrobbling::default(),
+            announcer: Announcer::default(),
         };
         this.start(request, window, cx);
         this
@@ -415,10 +420,10 @@ impl Render for MainWindow {
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
             .children((!full).then(|| self.render_queue_panel(&p, window, cx)).flatten())
-            .children(self.render_miniplayer(&p, cx))
+            .children(self.render_miniplayer(&p, window, cx))
             .children(chrome.controls.then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(Self::pointer_watcher(cx))
-            .child(self.toasts.clone())
+            .children(self.render_messages())
             .children(self.render_menus())
             .child(self.modals.clone())
             .child(drop_target::highlight(&p))

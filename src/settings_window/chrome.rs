@@ -11,6 +11,7 @@ use super::SettingsWindow;
 use super::keys::SEARCH_CONTEXT;
 use crate::assets::icons;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
 use crate::ui::text_input::TextInput;
@@ -58,7 +59,7 @@ pub(super) fn top_row(
         .min_w_0()
         .pl(px(TITLE_INSET))
         .truncate()
-        .text_size(px(TITLE_TEXT))
+        .text_size(text_px(TITLE_TEXT))
         .text_color(p.text_strong)
         .child(title);
     let row = div()
@@ -86,7 +87,7 @@ pub(super) fn search_field(query: &Entity<TextInput>, p: &Palette) -> Div {
         .px(px(12.))
         .rounded(px(metrics::RADIUS))
         .bg(p.control)
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .child(icon(icons::SEARCH, metrics::ICON, p.icon))
         .child(div().flex_1().min_w_0().child(query.clone()))
 }
@@ -131,14 +132,14 @@ pub(super) fn no_matches(query: &str, p: &Palette, cx: &mut Context<SettingsWind
         .child(
             div()
                 .max_w(px(EMPTY_WIDTH))
-                .text_size(px(EMPTY_HEADING))
+                .text_size(text_px(EMPTY_HEADING))
                 .text_color(p.text_strong)
                 .child(format!("No settings match \u{201c}{query}\u{201d}")),
         )
         .child(
             div()
                 .max_w(px(EMPTY_WIDTH))
-                .text_size(px(metrics::TEXT))
+                .text_size(text_px(metrics::TEXT))
                 .text_color(p.text_muted)
                 .child("Check the spelling, or try fewer or different words."),
         )

@@ -19,6 +19,7 @@ use crate::effects::{self, VIDEO_CROP};
 use crate::main_window::MainWindow;
 use crate::settings::registry::Value;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::text_input::{self, Look, TextInput, Validation};
 use crate::ui::{metrics, tooltip};
@@ -131,7 +132,7 @@ impl MainWindow {
             let error = Edge::ALL
                 .iter()
                 .find_map(|edge| invalid_reason(controls.field(*edge), cx))
-                .map(|why| div().text_size(px(TEXT)).text_color(p.danger).child(why));
+                .map(|why| div().text_size(text_px(TEXT)).text_color(p.danger).child(why));
             div()
                 .flex()
                 .flex_col()
@@ -180,7 +181,7 @@ impl MainWindow {
             .px(px(GAP + GAP))
             .rounded(px(metrics::RADIUS))
             .bg(p.well)
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .tooltip(tooltip::text(PIXELS_TIP, None::<&str>))
             .child(div().flex_none().text_color(p.text_muted).child(edge.label()))
             .child(

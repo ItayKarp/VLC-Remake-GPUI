@@ -8,6 +8,7 @@ use gpui::{
 
 use super::instance::FORWARD_TIMEOUT;
 use crate::theme;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 
 const WIDTH: f32 = 440.;
@@ -61,9 +62,12 @@ impl Render for NotResponding {
             .bg(p.background)
             .text_color(p.text)
             .child(
-                div().text_size(px(18.)).text_color(p.text_strong).child("VLC is not responding"),
+                div()
+                    .text_size(text_px(18.))
+                    .text_color(p.text_strong)
+                    .child("VLC is not responding"),
             )
-            .child(div().text_size(px(14.)).text_color(p.text_muted).child(detail))
+            .child(div().text_size(text_px(14.)).text_color(p.text_muted).child(detail))
             .child(
                 div().flex().justify_end().child(
                     Button::new("close", "Close")

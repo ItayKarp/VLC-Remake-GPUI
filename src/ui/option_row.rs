@@ -12,6 +12,7 @@ use gpui::{
 use super::icon::{icon, two_tone};
 use super::metrics;
 use crate::assets::{TwoTone, icons};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Labels longer than this many characters get a tooltip with the full text.
@@ -150,7 +151,7 @@ impl RenderOnce for OptionRow {
             .gap(px(12.))
             .px(px(14.))
             .rounded(px(metrics::RADIUS + 2.))
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(fg)
             .role(accesskit::Role::MenuItem)
             .aria_label(self.label.clone())
@@ -190,5 +191,5 @@ fn label(text: SharedString) -> Stateful<Div> {
 
 /// The muted keyboard shortcut after the label.
 fn shortcut_hint(hint: SharedString, p: &Palette) -> Div {
-    div().flex_none().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(hint)
+    div().flex_none().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(hint)
 }

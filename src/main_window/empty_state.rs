@@ -11,6 +11,7 @@ use super::MainWindow;
 use crate::assets::icons;
 use crate::keymap::{self, actions::OpenFile};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Banner, Level, banner};
 
@@ -48,13 +49,13 @@ impl MainWindow {
             let playing = current == Some(i);
             let marker = if playing { "▶ " } else { "" };
             div()
-                .text_size(px(13.))
+                .text_size(text_px(13.))
                 .text_color(if playing { p.text_strong } else { p.text_muted })
                 .child(SharedString::from(format!("{marker}{}", entry.media.display_name())))
         });
         let more = entries.len().saturating_sub(LIST_ROWS);
         let more = (more > 0).then(|| {
-            div().text_size(px(13.)).text_color(p.text_muted).child(format!("and {more} more"))
+            div().text_size(text_px(13.)).text_color(p.text_muted).child(format!("and {more} more"))
         });
         Some(div().flex().flex_col().items_center().gap(px(4.)).children(rows).children(more))
     }
@@ -82,9 +83,12 @@ impl MainWindow {
             })
             .child(svg().path(icons::FILE).size(px(48.)).text_color(p.icon))
             .child(
-                div().text_size(px(20.)).text_color(p.text_strong).child("Drop files here to play"),
+                div()
+                    .text_size(text_px(20.))
+                    .text_color(p.text_strong)
+                    .child("Drop files here to play"),
             )
-            .child(div().text_size(px(14.)).text_color(p.text_muted).child("or"))
+            .child(div().text_size(text_px(14.)).text_color(p.text_muted).child("or"))
             .child(
                 Button::new("open-file", "Open file…")
                     .primary()
@@ -95,7 +99,7 @@ impl MainWindow {
             )
             .children(
                 keymap::shortcut(&OpenFile, cx)
-                    .map(|hint| div().text_size(px(12.)).text_color(p.text_muted).child(hint)),
+                    .map(|hint| div().text_size(text_px(12.)).text_color(p.text_muted).child(hint)),
             )
     }
 

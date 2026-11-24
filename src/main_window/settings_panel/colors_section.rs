@@ -23,6 +23,7 @@ use crate::effects::{self, VIDEO_COLORS};
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Choice, Value, format_hex_color, hex_color};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::metrics;
 use crate::ui::text_input::{self, Look, TextInput, Validation};
@@ -185,10 +186,9 @@ impl ColorsControls {
             .gap(px(GAP))
             .child(color)
             .child(switch(filter, true, cx));
-        let error = field
-            .read(cx)
-            .is_invalid()
-            .then(|| div().pb(px(GAP)).text_size(px(TEXT)).text_color(p.danger).child(COLOR_HELP));
+        let error = field.read(cx).is_invalid().then(|| {
+            div().pb(px(GAP)).text_size(text_px(TEXT)).text_color(p.danger).child(COLOR_HELP)
+        });
         div().flex().flex_col().child(labelled(filter, true, p).child(controls)).children(error)
     }
 }
@@ -207,7 +207,7 @@ fn labelled(key: &str, live: bool, p: &Palette) -> Div {
         .flex()
         .items_center()
         .gap(px(GAP))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(label.child(self::label(key)))
 }

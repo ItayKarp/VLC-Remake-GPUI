@@ -10,6 +10,7 @@ use gpui::{AnyElement, App, Div, ElementId, SharedString, Stateful, Window, div,
 use super::icon::icon;
 use super::{focus, metrics};
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Called with the section's new expanded state.
@@ -91,7 +92,7 @@ fn header(
         .rounded(px(metrics::RADIUS))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text_muted)
         .tab_index(0)
         .cursor_pointer()

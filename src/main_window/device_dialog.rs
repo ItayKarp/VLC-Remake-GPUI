@@ -10,6 +10,7 @@ use gpui::{
 
 use crate::assets::icons;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
 
@@ -100,7 +101,7 @@ pub(super) fn section(
         .flex_col()
         .child(
             div()
-                .text_size(px(HEADING_TEXT))
+                .text_size(text_px(HEADING_TEXT))
                 .font_weight(FontWeight::NORMAL)
                 .text_color(p.text_strong)
                 .child(heading),
@@ -108,7 +109,7 @@ pub(super) fn section(
         .child(
             div()
                 .pt(px(6.))
-                .text_size(px(DESCRIPTION_TEXT))
+                .text_size(text_px(DESCRIPTION_TEXT))
                 .text_color(p.text_muted)
                 .child(description.into()),
         )
@@ -123,7 +124,7 @@ pub(super) fn controls(child: impl IntoElement) -> Div {
 pub(super) fn note(text: impl Into<SharedString>, p: &Palette) -> AnyElement {
     div()
         .pt(px(8.))
-        .text_size(px(metrics::TEXT_SMALL))
+        .text_size(text_px(metrics::TEXT_SMALL))
         .text_color(p.text_muted)
         .child(text.into())
         .into_any_element()
@@ -147,7 +148,7 @@ fn header<V: EventEmitter<DismissEvent>>(
         .pl(px(PADDING))
         .pr(px(PADDING - 6.))
         .bg(p.sunken)
-        .text_size(px(DESCRIPTION_TEXT + 1.))
+        .text_size(text_px(DESCRIPTION_TEXT + 1.))
         .child(title)
         .child(close)
 }

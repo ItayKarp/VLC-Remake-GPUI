@@ -12,6 +12,7 @@ use gpui::{App, Div, ElementId, SharedString, Window, accesskit, div, prelude::*
 use super::icon::icon;
 use super::{focus, metrics};
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Called with the control's new state.
@@ -61,7 +62,7 @@ fn half() -> Div {
         .items_center()
         .justify_center()
         .rounded(px(3.))
-        .text_size(px(12.))
+        .text_size(text_px(12.))
 }
 
 impl RenderOnce for Toggle {
@@ -180,7 +181,7 @@ impl RenderOnce for Checkbox {
                 div()
                     .min_w_0()
                     .truncate()
-                    .text_size(px(metrics::TEXT))
+                    .text_size(text_px(metrics::TEXT))
                     .text_color(p.text)
                     .child(self.label),
             )

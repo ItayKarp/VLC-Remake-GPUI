@@ -6,6 +6,7 @@ use gpui::{
 };
 
 use super::{ContextMenu, MenuItem};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::focus;
 use crate::ui::metrics;
@@ -56,7 +57,7 @@ impl ContextMenu {
             .p(px(6.))
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .child(self.tracker.element())
             .children(self.row_elements(p, cx))
     }

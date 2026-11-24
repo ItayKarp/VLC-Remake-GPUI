@@ -10,6 +10,7 @@ use crate::engine::audio::visualizer::Visualizer;
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 
 /// The row's label, height and text size, and the dropdown's width.
@@ -54,7 +55,7 @@ impl VisualizerControl {
             .justify_between()
             .gap(px(8.))
             .pl(px(4.))
-            .text_size(px(ROW_TEXT))
+            .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
             .child(LABEL)
             .child(div().w(px(DROPDOWN_WIDTH)).flex_none().child(self.dropdown.clone()))

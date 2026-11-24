@@ -20,6 +20,7 @@ use crate::engine::language::{self, Language};
 use crate::main_window::MainWindow;
 use crate::settings::{self, Settings};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::text_input::{self, TextInput, Validation};
 
@@ -249,7 +250,7 @@ pub(super) fn labelled(label: &'static str, control: impl IntoElement, p: &Palet
         .items_center()
         .justify_between()
         .pl(px(4.))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child(label)
         .child(div().w(px(CONTROL_WIDTH)).flex_none().child(control))

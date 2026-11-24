@@ -18,6 +18,7 @@ use crate::engine::values::Volume;
 use crate::main_window::MainWindow;
 use crate::main_window::control_bar::{BUTTON, ICON, LEVEL_GAP};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::{focus, tooltip};
 
@@ -197,7 +198,7 @@ fn bubble(p: &Palette, shown: Shown) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(BUBBLE_TEXT))
+        .text_size(text_px(BUBBLE_TEXT))
         .text_color(p.text)
         .child(text)
 }

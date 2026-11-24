@@ -29,6 +29,7 @@ use crate::library::{self, folder_view::kind_by_extension};
 use crate::player_layout::{Item, Layout, Piece, Zone};
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::popover::{self, Side};
 use crate::window_chrome::{self, TRAFFIC_LIGHTS_WIDTH};
@@ -298,7 +299,7 @@ fn centered_title(p: &Palette, title: SharedString, max_width: f32) -> Div {
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
-                .text_size(px(TEXT_SIZE))
+                .text_size(text_px(TEXT_SIZE))
                 .text_color(p.text_strong)
                 .child(title),
         )

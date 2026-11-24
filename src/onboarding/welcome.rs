@@ -12,6 +12,7 @@ use super::layout::bottom_bar;
 use crate::assets::icons;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 
 /// Width of the text column under the title.
@@ -74,22 +75,27 @@ impl Onboarding {
 fn welcome_title(p: &Palette) -> impl IntoElement {
     div()
         .mt(px(18.))
-        .text_size(px(36.))
-        .line_height(px(44.))
+        .text_size(text_px(36.))
+        .line_height(text_px(44.))
         .font_weight(FontWeight::LIGHT)
         .text_color(p.text_strong)
         .child("Welcome to VLC!")
 }
 
 fn intro(p: &Palette) -> impl IntoElement {
-    div().mt(px(34.)).text_size(px(16.)).line_height(px(28.)).text_color(p.text_muted).child(INTRO)
+    div()
+        .mt(px(34.))
+        .text_size(text_px(16.))
+        .line_height(text_px(28.))
+        .text_color(p.text_muted)
+        .child(INTRO)
 }
 
 fn folder_prompt(p: &Palette) -> impl IntoElement {
     div()
         .mt(px(50.))
-        .text_size(px(15.))
-        .line_height(px(20.))
+        .text_size(text_px(15.))
+        .line_height(text_px(20.))
         .text_color(p.text_muted)
         .child("Choose a Media Folder to get started with")
 }
@@ -132,7 +138,7 @@ fn folder_field(
         .bg(p.sunken)
         .border_2()
         .border_color(p.border)
-        .text_size(px(16.))
+        .text_size(text_px(16.))
         .text_color(p.text_strong)
         .overflow_hidden()
         .cursor_pointer()

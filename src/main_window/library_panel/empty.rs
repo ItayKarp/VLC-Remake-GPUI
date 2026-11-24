@@ -13,6 +13,7 @@ use super::{INSET, MainWindow};
 use crate::assets::icons;
 use crate::navigation::route::{HomeSection, MusicRoute, NetworkCategory, Route, Search, Section};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
 
@@ -139,11 +140,12 @@ impl MainWindow {
     pub(super) fn render_empty(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let state = EmptyState::of(self.library_panel.history.current());
         let title = div()
-            .text_size(px(TITLE_TEXT))
+            .text_size(text_px(TITLE_TEXT))
             .text_color(p.text)
             .child(SharedString::from(state.title));
-        let hint = (!state.hint.is_empty())
-            .then(|| div().text_size(px(HINT_TEXT)).text_color(p.text_muted).child(state.hint));
+        let hint = (!state.hint.is_empty()).then(|| {
+            div().text_size(text_px(HINT_TEXT)).text_color(p.text_muted).child(state.hint)
+        });
         let everywhere = state.everywhere.then(|| {
             Button::new("library-empty-everywhere", "Search Everywhere").on_click(cx.listener(
                 |this, _: &ClickEvent, _, cx| {

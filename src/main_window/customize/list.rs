@@ -15,6 +15,7 @@ use crate::assets::icons;
 use crate::main_window::MainWindow;
 use crate::player_layout::{Item, Layout, Spot, Step, Target, Unit, Zone};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 
 /// A list row's height and its buttons' size.
@@ -160,7 +161,7 @@ fn heading(name: String, p: &Palette) -> AnyElement {
         .flex_none()
         .pt(px(12.))
         .pb(px(4.))
-        .text_size(px(12.))
+        .text_size(text_px(12.))
         .text_color(p.text_muted)
         .child(name)
         .into_any_element()
@@ -177,7 +178,7 @@ fn row(unit: Unit, buttons: Vec<AnyElement>, p: &Palette) -> AnyElement {
         .items_center()
         .gap(px(8.))
         .child(div().w(px(BUTTON_ICON)).flex_none().children(icon))
-        .child(div().flex_1().text_size(px(13.)).text_color(p.text).child(units::label(unit)))
+        .child(div().flex_1().text_size(text_px(13.)).text_color(p.text).child(units::label(unit)))
         .children(buttons)
         .into_any_element()
 }
@@ -213,7 +214,7 @@ fn unit_row(listed: &Listed, p: &Palette, cx: &mut Context<MainWindow>) -> AnyEl
 
 /// A window control that stays put: no buttons, but a word on why.
 fn fixed_row(item: Item, p: &Palette) -> AnyElement {
-    let note = div().text_size(px(12.)).text_color(p.text_muted).child("Stays in place");
+    let note = div().text_size(text_px(12.)).text_color(p.text_muted).child("Stays in place");
     row(Unit::Item(item), vec![note.into_any_element()], p)
 }
 

@@ -15,6 +15,7 @@ use crate::assets::icons;
 use crate::main_window::{MainWindow, TITLE_BAR_HEIGHT};
 use crate::player_layout::Unit;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::icon::icon;
 use crate::ui::metrics;
@@ -160,7 +161,7 @@ fn palette_footer(changed: bool, cx: &mut Context<MainWindow>) -> Div {
 /// The help line under the title.
 fn help(as_list: bool, p: &Palette) -> Div {
     let help = if as_list { LIST_HELP } else { HELP };
-    div().px(px(PADDING)).py(px(12.)).bg(p.sunken).text_size(px(13.)).child(help)
+    div().px(px(PADDING)).py(px(12.)).bg(p.sunken).text_size(text_px(13.)).child(help)
 }
 
 /// The title, the list button and the ✕ that cancels.
@@ -180,7 +181,7 @@ fn header(as_list: bool, p: &Palette, cx: &mut Context<MainWindow>) -> Div {
         .flex_row()
         .items_center()
         .justify_between()
-        .child(div().text_size(px(14.)).text_color(p.text_strong).child("Customize Player"))
+        .child(div().text_size(text_px(14.)).text_color(p.text_strong).child("Customize Player"))
         .child(div().flex().flex_row().gap(px(4.)).child(list).child(close))
 }
 
@@ -203,7 +204,13 @@ fn cell(index: usize, unit: Unit, p: &Palette) -> AnyElement {
         .hover(move |style| style.bg(hover))
         .on_drag(DraggedUnit { unit, from: None }, |dragged, _, _, cx| dragged.preview(cx))
         .child(icon_box(unit, p))
-        .child(div().text_size(px(13.)).text_center().text_color(p.text).child(units::label(unit)))
+        .child(
+            div()
+                .text_size(text_px(13.))
+                .text_center()
+                .text_color(p.text)
+                .child(units::label(unit)),
+        )
         .into_any_element()
 }
 

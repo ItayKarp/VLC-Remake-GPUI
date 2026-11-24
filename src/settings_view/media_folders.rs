@@ -22,6 +22,7 @@ use crate::db::roots::RootKind;
 use crate::library::indexer::Wanted;
 use crate::library::{self, Library, folders, root_text, sources};
 use crate::settings;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
@@ -78,7 +79,12 @@ impl MediaFoldersPanel {
                     .truncate()
                     .child(settings::display_path(&folder.path)),
             )
-            .child(div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(status));
+            .child(
+                div()
+                    .text_size(text_px(metrics::TEXT_SMALL))
+                    .text_color(p.text_muted)
+                    .child(status),
+            );
         div()
             .flex()
             .items_center()
@@ -150,7 +156,7 @@ impl Render for MediaFoldersPanel {
             div().text_color(p.text_muted).child("No media folders: the library is empty.")
         });
         let refused = self.refused.clone().map(|reason| {
-            div().text_size(px(metrics::TEXT_SMALL)).text_color(p.danger).child(reason)
+            div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.danger).child(reason)
         });
         div()
             .w_full()
@@ -160,7 +166,7 @@ impl Render for MediaFoldersPanel {
             .p(px(PADDING))
             .rounded(px(metrics::RADIUS))
             .bg(p.panel)
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .children(empty)
             .children(rows)
             .child(self.add_buttons(cx))

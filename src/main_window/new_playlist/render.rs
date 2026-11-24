@@ -8,6 +8,7 @@ use gpui::{
 
 use super::{NewPlaylistDialog, Thumbnail};
 use crate::assets::icons;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::{focus, metrics};
@@ -89,7 +90,7 @@ impl NewPlaylistDialog {
             .pl(px(PADDING))
             .pr(px(PADDING - 6.))
             .bg(p.sunken)
-            .text_size(px(DESCRIPTION_TEXT + 1.))
+            .text_size(text_px(DESCRIPTION_TEXT + 1.))
             .text_color(p.text)
             .child("New Playlist")
             .child(close)
@@ -116,7 +117,7 @@ impl NewPlaylistDialog {
             .flex_col()
             .items_end()
             .gap(px(4.))
-            .text_size(px(metrics::TEXT_SMALL))
+            .text_size(text_px(metrics::TEXT_SMALL))
             .child(self.thumbnail_well(p, cx))
             .children(refused);
         div().flex().items_start().gap(px(20.)).child(text).child(thumbnail)
@@ -155,7 +156,11 @@ impl NewPlaylistDialog {
     /// Select Files: the drop zone and what the last addition left out.
     fn select_files(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let note = self.note.clone().map(|note| {
-            div().pt(px(8.)).text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note)
+            div()
+                .pt(px(8.))
+                .text_size(text_px(metrics::TEXT_SMALL))
+                .text_color(p.text_muted)
+                .child(note)
         });
         section("Select Files", "These files will be added to the playlist.", p)
             .child(div().pt(px(20.)).child(self.drop_zone(p, cx)))
@@ -193,7 +198,7 @@ impl NewPlaylistDialog {
             .border_dashed()
             .border_color(p.border)
             .cursor_pointer()
-            .text_size(px(DESCRIPTION_TEXT + 1.))
+            .text_size(text_px(DESCRIPTION_TEXT + 1.))
             .text_color(p.text_muted)
             .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_color(accent))
             .on_drop(cx.listener(Self::drop_files))
@@ -249,7 +254,7 @@ fn section(heading: &'static str, description: &'static str, p: &Palette) -> Div
         .flex_col()
         .child(
             div()
-                .text_size(px(HEADING_TEXT))
+                .text_size(text_px(HEADING_TEXT))
                 .font_weight(FontWeight::NORMAL)
                 .text_color(p.text_strong)
                 .child(heading),
@@ -257,7 +262,7 @@ fn section(heading: &'static str, description: &'static str, p: &Palette) -> Div
         .child(
             div()
                 .pt(px(8.))
-                .text_size(px(DESCRIPTION_TEXT))
+                .text_size(text_px(DESCRIPTION_TEXT))
                 .text_color(p.text_muted)
                 .child(description),
         )

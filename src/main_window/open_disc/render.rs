@@ -8,6 +8,7 @@ use crate::discs::DiscKind;
 use crate::engine::discs::CdTrack;
 use crate::main_window::device_dialog::{Frame, controls, note, section};
 use crate::queue::row_duration;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::metrics;
@@ -99,7 +100,7 @@ impl OpenDiscDialog {
         if self.kind == DiscKind::Dvd {
             numbers = numbers.child("Chapter").child(number(&self.chapter));
         }
-        start = start.child(controls(numbers.text_size(px(metrics::TEXT_SMALL + 1.))));
+        start = start.child(controls(numbers.text_size(text_px(metrics::TEXT_SMALL + 1.))));
         if self.kind == DiscKind::BluRay {
             start = start.child(note(BLU_RAY_NOTE, p));
         }
@@ -149,7 +150,7 @@ fn track_row(number: u32, track: &CdTrack, p: &Palette) -> AnyElement {
     div()
         .flex()
         .gap(px(10.))
-        .text_size(px(metrics::TEXT_SMALL + 1.))
+        .text_size(text_px(metrics::TEXT_SMALL + 1.))
         .child(div().w(px(22.)).text_color(p.text_muted).child(number.to_string()))
         .child(div().flex_1().min_w_0().truncate().child(format!("{title}{artist}")))
         .child(div().text_color(p.text_muted).child(length))

@@ -9,6 +9,7 @@ use crate::assets::icons;
 use crate::convert::{Conversions, Job, Status};
 use crate::main_window::device_dialog::{FIELD_GAP, controls, section};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
 
@@ -70,7 +71,7 @@ fn job_row(job: &Job, p: &Palette, cx: &mut Context<ConvertDialog>) -> Div {
         .child(
             div()
                 .truncate()
-                .text_size(px(metrics::TEXT_SMALL))
+                .text_size(text_px(metrics::TEXT_SMALL))
                 .text_color(p.text_muted)
                 .child(source),
         );
@@ -85,7 +86,7 @@ fn job_row(job: &Job, p: &Palette, cx: &mut Context<ConvertDialog>) -> Div {
 
 /// How a conversion is going: a bar and percentage while it runs, else a word.
 fn status(status: &Status, p: &Palette) -> Div {
-    let column = || div().flex_none().w(px(STATUS_WIDTH)).text_size(px(metrics::TEXT_SMALL));
+    let column = || div().flex_none().w(px(STATUS_WIDTH)).text_size(text_px(metrics::TEXT_SMALL));
     let word = |text: SharedString, color| column().text_color(color).truncate().child(text);
     match status {
         Status::Waiting => word("Waiting".into(), p.text_muted),

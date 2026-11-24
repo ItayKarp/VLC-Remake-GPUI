@@ -6,6 +6,7 @@ use gpui::{ClickEvent, Context, FontWeight, Hsla, SharedString, div, prelude::*,
 use super::Onboarding;
 use super::layout::{EDGE_BOTTOM, EDGE_LEFT, EDGE_RIGHT, NAV_BUTTON_WIDTH, back_button};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 
 /// Color of the error headline.
@@ -40,15 +41,15 @@ fn message(error: SharedString, p: &Palette) -> impl IntoElement {
         .gap(px(2.))
         .child(
             div()
-                .text_size(px(16.))
+                .text_size(text_px(16.))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(danger)
                 .child("Your choices couldn't be saved."),
         )
         .child(
             div()
-                .text_size(px(13.))
-                .line_height(px(18.))
+                .text_size(text_px(13.))
+                .line_height(text_px(18.))
                 .text_color(p.text_muted)
                 .line_clamp(2)
                 .child(error),

@@ -17,6 +17,7 @@ use gpui::{
 
 use super::icon::icon;
 use super::{focus, metrics, tooltip};
+use crate::theme::text_px;
 use crate::theme::{self, Palette, blend};
 
 /// Called when the button is clicked or activated from the keyboard.
@@ -210,7 +211,7 @@ fn face(id: ElementId, width: Option<f32>, colors: &Colors, weight: FontWeight) 
         .bg(colors.bg)
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .font_weight(weight)
         .text_color(colors.fg)
         .overflow_hidden()

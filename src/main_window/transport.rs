@@ -16,7 +16,7 @@ use super::MainWindow;
 use crate::engine::player::Player;
 use crate::engine::state::PlaybackState;
 use crate::engine::values::SeekTarget;
-use crate::ui::player_overlay::{Middle, TransportState};
+use crate::ui::player_overlay::{Middle, Reveal, TransportState};
 
 impl MainWindow {
     /// Plays or pauses what's loaded. With nothing loaded it plays the queue's current item (a
@@ -94,6 +94,7 @@ impl MainWindow {
             middle,
             can_go_back: self.can_go_back(cx),
             can_go_next: self.can_go_next(),
+            reveal: Reveal::OnHover,
         }
     }
 

@@ -9,6 +9,7 @@ use gpui::{
 use super::{PresetPicker, Row};
 use crate::assets::icons;
 use crate::settings::presets::{self, names};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::focus::{self, Layout, Move};
 use crate::ui::icon::icon;
@@ -31,11 +32,11 @@ impl Render for PresetPicker {
         let active = presets::active(cx).map(SharedString::from);
         let note = active.clone().map(|name| {
             let text = format!("Changes on these pages are saved to “{name}”.");
-            div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(text)
+            div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(text)
         });
         let status = self.status.clone().map(|status| {
             let color = if status.failed { p.danger } else { p.text_muted };
-            div().text_size(px(metrics::TEXT_SMALL)).text_color(color).child(status.text)
+            div().text_size(text_px(metrics::TEXT_SMALL)).text_color(color).child(status.text)
         });
         let list = self
             .open
@@ -84,7 +85,7 @@ impl PresetPicker {
             .bg(p.control)
             .border_2()
             .border_color(if self.open { p.focus_ring } else { p.well })
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(p.text_muted)
             .cursor_pointer()
             .hover(move |s| s.bg(hover))
@@ -144,7 +145,7 @@ impl PresetPicker {
             .gap(px(10.))
             .px(px(10.))
             .rounded(px(metrics::RADIUS + 2.))
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(if checked { p.text_strong } else { p.text })
             .role(accesskit::Role::ListBoxOption)
             .aria_selected(checked)

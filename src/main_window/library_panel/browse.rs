@@ -32,6 +32,7 @@ use crate::navigation::history::Step;
 use crate::navigation::route::{Route, Section};
 use crate::opening::Resolved;
 use crate::settings;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::Button;
 use crate::ui::focus::{self, Axis, Move};
@@ -42,8 +43,7 @@ const LIST_TOP: f32 = 15.;
 impl MainWindow {
     /// The rows under the header, or why there are none.
     pub(super) fn render_listing(&self, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
-        let body = div()
-            .id("library-listing")
+        let body = focus::outline_ring(div().id("library-listing"), p)
             .flex_1()
             .min_h_0()
             .track_focus(&self.library_panel.list_focus)
@@ -298,5 +298,5 @@ fn movement(event: &KeyDownEvent, shape: &Shape) -> Option<(Move, bool)> {
 
 /// A muted line of text in the panel.
 fn note(text: &'static str, p: &Palette) -> Div {
-    div().p(px(super::INSET)).text_size(px(ROW_TEXT)).text_color(p.text_muted).child(text)
+    div().p(px(super::INSET)).text_size(text_px(ROW_TEXT)).text_color(p.text_muted).child(text)
 }

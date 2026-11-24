@@ -22,6 +22,7 @@ use crate::engine::recording::Recording;
 use crate::recording::{self, Destination, STOP_SPACE, Unready};
 use crate::settings::{self, display_path};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::toast::{Level, Toast};
 
 /// How often the badge's time and the free space are brought up to date.
@@ -235,7 +236,7 @@ fn badge(p: &Palette) -> Div {
         .rounded(px(8.))
         .bg(p.panel)
         .shadow_lg()
-        .text_size(px(TEXT_SIZE))
+        .text_size(text_px(TEXT_SIZE))
         .text_color(p.text_strong)
         .font_features(clock::tabular_digits())
         .child(dot)

@@ -18,6 +18,7 @@ use crate::main_window::MainWindow;
 use crate::main_window::speed::rules::{self, STEP};
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::slider::{self, Slider, SliderModel};
 use crate::ui::text_input::{self, TextInput, Validation};
 use crate::ui::toggle::Toggle;
@@ -92,7 +93,7 @@ impl MainWindow {
             .items_center()
             .justify_between()
             .pl(px(4.))
-            .text_size(px(ROW_TEXT))
+            .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
             .child("Speed")
             .child(field);
@@ -122,7 +123,7 @@ impl MainWindow {
             div()
                 .pl(px(4.))
                 .pb(px(8.))
-                .text_size(px(HINT_TEXT))
+                .text_size(text_px(HINT_TEXT))
                 .text_color(p.text_muted)
                 .child(why.hint())
         });
@@ -228,7 +229,7 @@ fn toggle_row(label: &'static str, toggle: Toggle, p: &Palette) -> Div {
         .justify_between()
         .gap(px(8.))
         .pl(px(4.))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child(label)
         .child(toggle)

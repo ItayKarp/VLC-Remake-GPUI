@@ -14,6 +14,7 @@ use super::render::HEADER_INSET;
 use crate::assets::icons;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::icon::icon;
 use crate::ui::{focus, metrics};
 
@@ -70,7 +71,7 @@ impl AddSubtitlesDialog {
             .hover(|style| style.bg(p.button_hover))
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| Self::pick_source(window, cx)))
             .child(div().min_w_0().truncate().child(shown));
-        focus::ring(field, p)
+        focus::outline_ring(field, p)
     }
 }
 
@@ -86,7 +87,7 @@ fn framed(icon_path: &'static str, p: &Palette) -> Div {
         .px(px(12.))
         .rounded(px(metrics::RADIUS + 2.))
         .bg(p.control)
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text_muted)
         .child(icon(icon_path, metrics::ICON + 2., p.icon))
 }

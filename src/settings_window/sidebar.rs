@@ -11,6 +11,7 @@ use super::search::Search;
 use crate::assets::icons;
 use crate::settings::registry::{Category, Group};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::icon::icon;
 use crate::ui::{metrics, tooltip};
 
@@ -70,7 +71,7 @@ impl Sidebar<'_> {
         }
         heading
             .px(px(ROW_PADDING + 4.))
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(p.text_muted)
             .child(group.label())
     }
@@ -92,7 +93,7 @@ impl Sidebar<'_> {
             .rounded(px(metrics::RADIUS))
             .aria_label(category.label())
             .aria_selected(selected)
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(text_color)
             .when(selected, |row| row.bg(p.selected))
             .when(!offered, |row| row.opacity(DIMMED_OPACITY))
@@ -118,7 +119,7 @@ impl Sidebar<'_> {
         let count = self.search.count(category);
         (count > 0).then(|| {
             div()
-                .text_size(px(metrics::TEXT_SMALL))
+                .text_size(text_px(metrics::TEXT_SMALL))
                 .text_color(p.text_muted)
                 .child(count.to_string())
         })

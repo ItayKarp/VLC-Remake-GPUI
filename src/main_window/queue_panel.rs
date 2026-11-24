@@ -43,6 +43,7 @@ use crate::assets::icons;
 use crate::engine::lengths::{self, LengthAnswer, LengthProbe, LengthReceiver};
 use crate::queue::Lengths;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::focus;
 use crate::ui::menu::ContextMenu;
 use crate::ui::popover::BoundsTracker;
@@ -334,5 +335,5 @@ async fn receive_lengths(
 
 /// A muted line of explanation at the top of a tab.
 fn note(text: &'static str, p: &Palette) -> Div {
-    div().p(px(INSET)).text_size(px(NOTE_TEXT)).text_color(p.text_muted).child(text)
+    div().p(px(INSET)).text_size(text_px(NOTE_TEXT)).text_color(p.text_muted).child(text)
 }

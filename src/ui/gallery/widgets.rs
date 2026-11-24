@@ -3,6 +3,7 @@
 use gpui::{AnyElement, App, Context, Entity, Hsla, SharedString, Window, div, prelude::*, px};
 
 use super::Gallery;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::dropdown::Dropdown;
 use crate::ui::list::{self, Columns, Shape, VirtualList};
@@ -167,7 +168,7 @@ fn media_card(
         .child(div().flex_1().rounded(px(4.)).bg(p.well))
         .child(
             div()
-                .text_size(px(12.))
+                .text_size(text_px(12.))
                 .text_color(p.text)
                 .truncate()
                 .child(SharedString::from(format!("Video {:05}.mkv", index + 1))),

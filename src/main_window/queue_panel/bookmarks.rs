@@ -28,6 +28,7 @@ use crate::assets::icons;
 use crate::db::bookmarks::Bookmark;
 use crate::keymap::{self, actions as act};
 use crate::main_window::control_bar::clock::tabular_digits;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::IconButton;
 
@@ -123,7 +124,7 @@ impl MainWindow {
             .justify_between()
             .pl(px(HEADER_LEFT))
             .pr(px(HEADER_RIGHT))
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .text_color(p.text_muted)
             .child(div().min_w_0().truncate().child(count))
             .child(div().flex().flex_none().gap(px(BUTTON_GAP)).child(remove).child(add))
@@ -201,7 +202,7 @@ impl MainWindow {
             .items_center()
             .gap(px(GAP))
             .px(px(PADDING))
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .cursor_pointer()
             .role(accesskit::Role::ListItem)
             .aria_label(SharedString::from(spoken))

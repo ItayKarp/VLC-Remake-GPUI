@@ -16,6 +16,7 @@ use gpui::{
 
 use super::focus::{self, Axis, Layout};
 use super::metrics;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Called with the index of the option the user picked.
@@ -62,7 +63,7 @@ fn radio_option(
     div()
         .id(index)
         .rounded(px(metrics::RADIUS))
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .bg(if is_selected { p.accent_tint } else { p.control })
         .text_color(if is_selected { p.accent_on_tint } else { p.text_muted })
         .role(accesskit::Role::RadioButton)

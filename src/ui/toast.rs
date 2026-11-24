@@ -13,13 +13,15 @@ use std::time::Duration;
 
 use gpui::{
     App, Context, Div, ElementId, Hsla, ImageSource, RenderImage, SharedString, Stateful, Window,
-    accesskit, div, img, prelude::*, px,
+    div, img, prelude::*, px,
 };
 
+use super::announcer::{Politeness, live_region};
 use super::button::{Button, ButtonStyle, IconButton};
 use super::icon::two_tone;
 use super::metrics;
 use crate::assets::{icons, two_tone as icons2};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// The most toasts shown at once; older ones drop off.
@@ -60,6 +62,11 @@ impl Level {
     /// Errors and warnings need reading and maybe acting on, so they stay.
     pub fn auto_dismiss(self) -> bool {
         matches!(self, Level::Info | Level::Success)
+    }
+
+    /// Errors and warnings interrupt a screen reader; news waits its turn (S9.1.2).
+    fn politeness(self) -> Politeness {
+        if self.auto_dismiss() { Politeness::Polite } else { Politeness::Assertive }
     }
 }
 
@@ -208,7 +215,7 @@ impl Toasts {
         });
         // Long paths wrap anywhere rather than overflow.
         let message = message(toast.message.clone(), p.text_strong).pt(px(4.)).overflow_hidden();
-        let card = toast_card(id, p);
+        let card = live_region(toast_card(id, p), toast.message.clone(), toast.level.politeness());
         let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
             .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx)));
         let lead = match toast.thumbnail.clone() {
@@ -253,7 +260,6 @@ fn toast_card(id: u64, p: &Palette) -> Stateful<Div> {
         .border_1()
         .border_color(p.divider)
         .shadow_lg()
-        .role(accesskit::Role::Alert)
 }
 
 /// A toast's thumbnail, fitted into [`THUMBNAIL_SIZE`] on black.
@@ -337,8 +343,8 @@ impl RenderOnce for Banner {
                 .on_click(move |_, window, cx| f(window, cx))
         });
 
-        div()
-            .id(self.id)
+        let region = div().id(self.id);
+        live_region(region, self.message.clone(), self.level.politeness())
             .w_full()
             .max_w(px(640.))
             .flex()
@@ -353,10 +359,6 @@ impl RenderOnce for Banner {
             .bg(p.well)
             .border_1()
             .border_color(color)
-            .role(match self.level {
-                Level::Error | Level::Warning => accesskit::Role::Alert,
-                _ => accesskit::Role::Status,
-            })
             .child(two_tone(icons2::INFO, ICON_SIZE, p.icon, color))
             // Long paths wrap anywhere rather than overflow.
             .child(message(self.message, p.text).overflow_hidden())
@@ -367,7 +369,13 @@ impl RenderOnce for Banner {
 
 /// The message text of a toast or banner, taking the space the buttons leave.
 fn message(text: SharedString, color: Hsla) -> Div {
-    div().flex_1().min_w_0().text_size(px(14.)).line_height(px(20.)).text_color(color).child(text)
+    div()
+        .flex_1()
+        .min_w_0()
+        .text_size(text_px(14.))
+        .line_height(text_px(20.))
+        .text_color(color)
+        .child(text)
 }
 
 #[cfg(test)]
@@ -392,6 +400,13 @@ mod tests {
         // With only errors left, the oldest goes.
         trim(&mut toasts, 1);
         assert_eq!(toasts[0].id, 4);
+    }
+
+    #[test]
+    fn errors_and_warnings_interrupt_screen_readers() {
+        assert_eq!(Level::Error.politeness(), Politeness::Assertive);
+        assert_eq!(Level::Warning.politeness(), Politeness::Assertive);
+        assert_eq!(Level::Info.politeness(), Politeness::Polite);
     }
 
     #[test]

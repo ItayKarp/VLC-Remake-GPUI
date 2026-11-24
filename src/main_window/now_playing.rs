@@ -24,6 +24,7 @@ use crate::library;
 use crate::power::Playback;
 use crate::settings::{self, SettingsStore};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
 use crate::video::{Output, VideoView};
@@ -134,6 +135,7 @@ impl MainWindow {
                 }
                 self.found_playing(*state, cx);
                 self.notify_now_playing(*state, cx);
+                self.announce_state(*state, cx);
                 self.attach_pending_audio(cx);
                 let busy = matches!(
                     state,
@@ -198,7 +200,7 @@ impl MainWindow {
             .flex()
             .items_center()
             .gap(px(12.))
-            .text_size(px(14.))
+            .text_size(text_px(14.))
             .text_color(p.text)
             .child(text);
         let line = if cancellable {
@@ -213,7 +215,7 @@ impl MainWindow {
     }
 
     /// What to say, and whether Cancel applies.
-    fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
+    pub(super) fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
         if let Some(job) = self.jobs.running.last() {
             return Some((format!("Opening {}…", job.label).into(), true));
         }
