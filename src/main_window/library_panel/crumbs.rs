@@ -9,6 +9,7 @@ use gpui::{
 
 use super::header::GAP;
 use super::{MainWindow, OpenMenu};
+use crate::i18n::DirectionalStyle;
 use crate::navigation::breadcrumb::{Crumb, Places, Trail};
 use crate::playlists;
 use crate::podcasts;
@@ -59,7 +60,7 @@ impl MainWindow {
         div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .overflow_hidden()

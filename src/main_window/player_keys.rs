@@ -148,7 +148,7 @@ impl MainWindow {
     fn not_yet(&mut self, command: &Command, cx: &mut Context<Self>) {
         tracing::debug!("{}: not implemented yet", command.label);
         if cfg!(debug_assertions) {
-            self.show_osd(coming_soon(command.label), cx);
+            self.show_osd(coming_soon(command.title()), cx);
         }
     }
 
@@ -231,7 +231,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
 
 /// What a key whose command has no effect yet says in debug builds.
 fn coming_soon(label: &str) -> String {
-    format!("Coming soon: {label}")
+    tr!("Coming soon: {label}", label)
 }
 
 #[cfg(test)]

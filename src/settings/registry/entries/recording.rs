@@ -8,9 +8,9 @@ use super::super::value::{Choice, SettingChoice, Value, choice, text, toggle};
 use crate::settings::registry::Category;
 use crate::settings::{CastQuality, EncodingPreset, Tuning, expand_home};
 
-const RECORDING: (Category, &str) = (Category::Recording, "Recording");
-const CASTING: (Category, &str) = (Category::Recording, "Casting");
-const STREAMING: (Category, &str) = (Category::Recording, "Streaming");
+const RECORDING: (Category, &str) = (Category::Recording, tr_noop!("Recording"));
+const CASTING: (Category, &str) = (Category::Recording, tr_noop!("Casting"));
+const STREAMING: (Category, &str) = (Category::Recording, tr_noop!("Streaming"));
 
 /// What the empty "Save recordings to" field shows: the folder used then.
 const DEFAULT_FOLDER: &str = if cfg!(target_os = "macos") { "~/Movies" } else { "~/Videos" };
@@ -18,10 +18,10 @@ const DEFAULT_FOLDER: &str = if cfg!(target_os = "macos") { "~/Movies" } else { 
 impl SettingChoice for CastQuality {
     const VALUES: &'static [Self] = &[Self::Automatic, Self::Low, Self::Medium, Self::High];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("automatic", "Automatic"),
-        Choice::new("low", "Low"),
-        Choice::new("medium", "Medium"),
-        Choice::new("high", "High"),
+        Choice::new("automatic", tr_noop!("Automatic")),
+        Choice::new("low", tr_noop!("Low")),
+        Choice::new("medium", tr_noop!("Medium")),
+        Choice::new("high", tr_noop!("High")),
     ];
 }
 
@@ -29,11 +29,11 @@ impl SettingChoice for EncodingPreset {
     const VALUES: &'static [Self] =
         &[Self::Ultrafast, Self::Fast, Self::Medium, Self::Slow, Self::Veryslow];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("ultrafast", "Fastest"),
-        Choice::new("fast", "Fast"),
-        Choice::new("medium", "Medium"),
-        Choice::new("slow", "Slow"),
-        Choice::new("veryslow", "Smallest"),
+        Choice::new("ultrafast", tr_noop!("Fastest")),
+        Choice::new("fast", tr_noop!("Fast")),
+        Choice::new("medium", tr_noop!("Medium")),
+        Choice::new("slow", tr_noop!("Slow")),
+        Choice::new("veryslow", tr_noop!("Smallest")),
     ];
 }
 
@@ -47,12 +47,12 @@ impl SettingChoice for Tuning {
         Self::ZeroLatency,
     ];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("none", "None"),
-        Choice::new("film", "Film"),
-        Choice::new("animation", "Animation"),
-        Choice::new("grain", "Film grain"),
-        Choice::new("still_image", "Still images"),
-        Choice::new("zero_latency", "Low latency"),
+        Choice::new("none", tr_noop!("None")),
+        Choice::new("film", tr_noop!("Film")),
+        Choice::new("animation", tr_noop!("Animation")),
+        Choice::new("grain", tr_noop!("Film grain")),
+        Choice::new("still_image", tr_noop!("Still images")),
+        Choice::new("zero_latency", tr_noop!("Low latency")),
     ];
 }
 
@@ -71,99 +71,103 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "recordings_folder",
         RECORDING,
-        "Save recordings to",
+        tr_noop!("Save recordings to"),
         Control::Path(PathPick::Folder),
         text!(local.recordings_folder),
     )
-    .info("The folder recordings are saved in. Leave it empty for your Videos folder.")
+    .info(tr_noop!("The folder recordings are saved in. Leave it empty for your Videos folder."))
     .placeholder(DEFAULT_FOLDER)
     .validate(existing_folder)
     .keywords(&["record", "folder", "location", "path", "output"]),
     SettingDef::new(
         "recording.keep_original_encoding",
         RECORDING,
-        "Record without re-encoding when possible",
+        tr_noop!("Record without re-encoding when possible"),
         Control::Toggle,
         toggle!(prefs.recording.keep_original_encoding),
     )
-    .info(
+    .info(tr_noop!(
         "Saves the stream as it arrives, which is fast and keeps its quality. Recordings are \
-         always saved this way for now: converting them while recording isn't available yet.",
-    )
+             always saved this way for now: converting them while recording isn't available yet."
+    ))
     .keywords(&["record", "stream copy", "remux", "transcode"]),
     SettingDef::new(
         "recording.discover_cast_devices",
         CASTING,
-        "Discover cast devices",
+        tr_noop!("Discover cast devices"),
         Control::Toggle,
         toggle!(prefs.recording.discover_cast_devices),
     )
-    .info(
+    .info(tr_noop!(
         "Looks for Chromecasts on your network, to play on one with the player's Render \
-         setting. Off, media playing on one comes back here.",
-    )
+             setting. Off, media playing on one comes back here."
+    ))
     .keywords(&["chromecast", "cast", "renderer", "tv"]),
     SettingDef::new(
         "recording.cast_quality",
         CASTING,
-        "Cast quality",
+        tr_noop!("Cast quality"),
         Control::Dropdown(CastQuality::CHOICES),
         choice!(prefs.recording.cast_quality),
     )
-    .info(
+    .info(tr_noop!(
         "How media the cast device can't play is converted, from the next cast on. Lower uses \
-         less of your network; Automatic is Medium.",
-    )
+             less of your network; Automatic is Medium."
+    ))
     .keywords(&["chromecast", "cast", "bitrate", "transcode"]),
     include_row(
         "recording.play_locally_while_streaming",
-        "Play locally while streaming",
-        "Keeps showing the picture here while VLC streams to the network; the sound goes to the \
-         stream only. Off, only viewers get it.",
+        tr_noop!("Play locally while streaming"),
+        tr_noop!(
+            "Keeps showing the picture here while VLC streams to the network; the sound goes to \
+             the stream only. Off, only viewers get it."
+        ),
         toggle!(prefs.recording.play_locally_while_streaming),
     )
     .keywords(&["stream", "display", "monitor"]),
     include_row(
         "recording.stream_audio",
-        "Include audio",
-        "Sends the sound in streams.",
+        tr_noop!("Include audio"),
+        tr_noop!("Sends the sound in streams."),
         toggle!(prefs.recording.stream_audio),
     )
     .keywords(&["stream", "sound"]),
     include_row(
         "recording.stream_video",
-        "Include video",
-        "Sends the picture in streams.",
+        tr_noop!("Include video"),
+        tr_noop!("Sends the picture in streams."),
         toggle!(prefs.recording.stream_video),
     )
     .keywords(&["stream", "picture"]),
     include_row(
         "recording.stream_subtitles",
-        "Include subtitles",
-        "Burns the subtitle showing into the streamed picture.",
+        tr_noop!("Include subtitles"),
+        tr_noop!("Burns the subtitle showing into the streamed picture."),
         toggle!(prefs.recording.stream_subtitles),
     )
     .keywords(&["stream", "captions"]),
     SettingDef::new(
         "recording.encoding_preset",
         STREAMING,
-        "Encoding preset",
+        tr_noop!("Encoding preset"),
         Control::Dropdown(EncodingPreset::CHOICES),
         choice!(prefs.recording.encoding_preset),
     )
-    .info(
-        "How hard the encoder works on a stream's picture: faster presets use less CPU and need \
-         more of the network.",
-    )
+    .info(tr_noop!(
+        "How hard the encoder works on a stream's picture: faster presets use less CPU and \
+             need more of the network."
+    ))
     .keywords(&["x264", "preset", "transcode", "speed"]),
     SettingDef::new(
         "recording.tuning",
         STREAMING,
-        "Tuning",
+        tr_noop!("Tuning"),
         Control::Dropdown(Tuning::CHOICES),
         choice!(prefs.recording.tuning),
     )
-    .info("Tunes the encoder for the kind of picture, or for the least delay in live streams.")
+    .info(tr_noop!(
+        "Tunes the encoder for the kind of picture, or for the least delay in live streams."
+    ))
     .keywords(&["x264", "tune", "animation", "film", "latency"]),
 ];
 
@@ -174,7 +178,7 @@ fn existing_folder(value: &Value) -> Result<(), String> {
     if text.is_empty() || expand_home(text).is_dir() {
         Ok(())
     } else {
-        Err("There's no folder there".to_owned())
+        Err(tr!("There's no folder there").to_owned())
     }
 }
 

@@ -31,7 +31,7 @@ pub fn cameras() -> Vec<Camera> {
 
 /// The X screen, which libVLC captures whole.
 pub fn screens() -> Vec<Screen> {
-    vec![Screen { name: "Screen".into(), id: None }]
+    vec![Screen { name: tr!("Screen").into(), id: None }]
 }
 
 /// Linux has no camera permission.

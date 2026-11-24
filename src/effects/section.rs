@@ -26,7 +26,7 @@ impl EffectSection {
 /// sharpening, banding removal and film grain (S7.3).
 pub const VIDEO_ESSENTIAL: EffectSection = EffectSection {
     id: "video.essential",
-    title: "Essential",
+    title: tr_noop!("Essential"),
     toggle: "video.picture.enabled",
     controls: &[
         "video.picture.hue",
@@ -44,7 +44,7 @@ pub const VIDEO_ESSENTIAL: EffectSection = EffectSection {
 /// switch under the section's, Sepia's off at 0.
 pub const VIDEO_COLORS: EffectSection = EffectSection {
     id: "video.colors",
-    title: "Colors",
+    title: tr_noop!("Colors"),
     toggle: "video.colors.enabled",
     controls: &[
         "video.colors.extract",
@@ -67,7 +67,7 @@ pub const VIDEO_COLORS: EffectSection = EffectSection {
 /// The Video tab's Crop (`panels/video/crop`): pixels trimmed off each edge (S7.2.5).
 pub const VIDEO_CROP: EffectSection = EffectSection {
     id: "video.crop",
-    title: "Crop",
+    title: tr_noop!("Crop"),
     toggle: "video.crop_edges.enabled",
     controls: &[
         "video.crop_edges.top",
@@ -81,7 +81,7 @@ pub const VIDEO_CROP: EffectSection = EffectSection {
 /// bands, and 2 Pass. The gains come before the preset, which overrides them when both are held.
 pub const AUDIO_EQUALIZER: EffectSection = EffectSection {
     id: "audio.equalizer",
-    title: "Equalizer",
+    title: tr_noop!("Equalizer"),
     toggle: "audio.equalizer",
     controls: &["audio.equalizer_bands", "audio.equalizer_preset", "audio.equalizer_two_pass"],
 };
@@ -89,7 +89,7 @@ pub const AUDIO_EQUALIZER: EffectSection = EffectSection {
 /// The Audio tab's Compressor (`panels/audio/compressor`, S7.9.1).
 pub const AUDIO_COMPRESSOR: EffectSection = EffectSection {
     id: "audio.compressor",
-    title: "Compressor",
+    title: tr_noop!("Compressor"),
     toggle: "audio.compressor.enabled",
     controls: &[
         "audio.compressor.rms_peak",
@@ -105,7 +105,7 @@ pub const AUDIO_COMPRESSOR: EffectSection = EffectSection {
 /// The Audio tab's Spatializer (`panels/audio/spatializer`, S7.9.2): a room's reverberation.
 pub const AUDIO_SPATIALIZER: EffectSection = EffectSection {
     id: "audio.spatializer",
-    title: "Spatializer",
+    title: tr_noop!("Spatializer"),
     toggle: "audio.spatializer.enabled",
     controls: &[
         "audio.spatializer.size",
@@ -119,7 +119,7 @@ pub const AUDIO_SPATIALIZER: EffectSection = EffectSection {
 /// The Audio tab's Stereo Widener (`panels/audio/stereo_widener`, S7.9.3).
 pub const AUDIO_STEREO_WIDENER: EffectSection = EffectSection {
     id: "audio.stereo_widener",
-    title: "Stereo Widener",
+    title: tr_noop!("Stereo Widener"),
     toggle: "audio.stereo_widener.enabled",
     controls: &[
         "audio.stereo_widener.delay",

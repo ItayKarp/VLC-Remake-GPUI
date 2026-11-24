@@ -43,7 +43,7 @@ pub fn open_video_window(
     let placement = Placement::restore(&saved, size, VIDEO_WINDOW_MIN_SIZE, display, cx);
     let mut options = window_options(TITLE_BAR_HEIGHT);
     if let Some(titlebar) = options.titlebar.as_mut() {
-        titlebar.title = Some(SharedString::from("VLC Video"));
+        titlebar.title = Some(SharedString::from(tr!("VLC Video")));
     }
     let handle = cx.open_window(
         WindowOptions { is_resizable: true, ..placement.options(options) },

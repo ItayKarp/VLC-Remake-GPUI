@@ -46,10 +46,10 @@ impl DiscKind {
     /// Its name.
     pub fn name(self) -> &'static str {
         match self {
-            Self::Dvd => "DVD",
-            Self::BluRay => "Blu-ray",
-            Self::AudioCd => "Audio CD",
-            Self::Vcd => "Video CD",
+            Self::Dvd => tr!("DVD"),
+            Self::BluRay => tr!("Blu-ray"),
+            Self::AudioCd => tr!("Audio CD"),
+            Self::Vcd => tr!("Video CD"),
         }
     }
 
@@ -167,7 +167,7 @@ fn audio_cd(base: &str, tracks: &[CdTrack]) -> Vec<Media> {
                 Some(artist) => device.with_option(format!(":meta-artist={artist}")),
                 None => device,
             };
-            let title = track.title.clone().unwrap_or_else(|| format!("Track {number}"));
+            let title = track.title.clone().unwrap_or_else(|| tr!("Track {number}", number));
             Some(Media::Device(device.titled(&title)))
         })
         .collect()

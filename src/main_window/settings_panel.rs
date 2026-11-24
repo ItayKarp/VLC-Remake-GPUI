@@ -73,6 +73,7 @@ use crate::effects::{
     AUDIO_STEREO_WIDENER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL,
 };
 use crate::engine::tracks::TrackKind;
+use crate::i18n::DirectionalStyle;
 use crate::settings::registry::Category;
 use crate::settings_view::PresetPicker;
 use crate::theme::Palette;
@@ -149,10 +150,10 @@ impl PanelTab {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Playback => "Playback",
-            Self::Video => "Video",
-            Self::Audio => "Audio",
-            Self::Subtitles => "Subtitles",
+            Self::Playback => tr!("Playback"),
+            Self::Video => tr!("Video"),
+            Self::Audio => tr!("Audio"),
+            Self::Subtitles => tr!("Subtitles"),
         }
     }
 
@@ -373,5 +374,5 @@ fn section(heading: &'static str, note: impl Into<SharedString>, p: &Palette) ->
         .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(note.into());
-    div().flex().flex_col().p(px(SECTION_PADDING)).child(title).child(note)
+    div().flex_row_start().flex_col().p(px(SECTION_PADDING)).child(title).child(note)
 }

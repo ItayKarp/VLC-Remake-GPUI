@@ -10,6 +10,7 @@ use gpui::{
 
 use super::focus::{self, Axis, Layout};
 use super::icon::icon;
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
@@ -75,8 +76,7 @@ impl RenderOnce for Tabs {
         let bar = div()
             .id(self.id)
             .h(px(TAB_HEIGHT))
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_end()
             .gap(px(4.))
             .px(px(8.))
@@ -112,8 +112,7 @@ fn render_tab(
     div()
         .id(index)
         .h_full()
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .gap(px(6.))
         .px(px(10.))

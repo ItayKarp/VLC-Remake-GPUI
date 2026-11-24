@@ -12,6 +12,7 @@ use super::layout::{NAV_MARGIN, NAV_WIDTH};
 use super::rail::section_icons;
 use super::{INSET, MainWindow};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::navigation::breadcrumb::Trail;
 use crate::navigation::history::Step;
 use crate::navigation::rail::{self, RailItem, RailState};
@@ -48,7 +49,7 @@ impl MainWindow {
             .flex_1()
             .min_w_0()
             .h_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(self.render_full_header(p, cx))
             .child(div().mx(px(INSET)).mt(px(DIVIDER_TOP)).h(px(1.)).bg(p.divider))
@@ -64,7 +65,7 @@ impl MainWindow {
             .h(px(HEADER_HEIGHT))
             .mt(px(HEADER_TOP))
             .px(px(INSET))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .child(self.step_button(Step::Back, cx))
@@ -74,7 +75,7 @@ impl MainWindow {
             .child(self.library_sort_button(p, cx))
             .child(self.view_button(cx))
             .child(self.render_search_box(p, cx))
-            .child(later("library-more", icons::MORE, "More"))
+            .child(later("library-more", icons::MORE, tr!("More")))
     }
 
     /// The navigation down the left: each section, then "Add item".
@@ -92,7 +93,7 @@ impl MainWindow {
             .w(px(NAV_WIDTH))
             .m(px(NAV_MARGIN))
             .pt(px(NAV_TOP))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(NAV_SPACING - NAV_ITEM))
             .rounded(px(metrics::RADIUS_LARGE))
@@ -103,14 +104,14 @@ impl MainWindow {
     /// "Add item", which opens the rail's "+" menu beside it (S4.5.7).
     fn add_item(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let open = self.library_panel.add_menu.is_some();
-        let item = item_frame("nav-add", "Add item", p)
+        let item = item_frame("nav-add", tr!("Add item"), p)
             .aria_expanded(open)
             .when(open, |item| item.bg(p.hover))
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                 this.toggle_add_menu(window, cx);
             }))
             .child(icon(icons::ADD, NAV_ICON, p.icon))
-            .child("Add item");
+            .child(tr!("Add item"));
         div().relative().child(self.library_panel.add_button.element()).child(item)
     }
 }
@@ -148,7 +149,7 @@ fn item_frame(id: impl Into<gpui::ElementId>, label: &'static str, p: &Palette) 
         .h(px(NAV_ITEM))
         .mx(px(NAV_MARGIN))
         .px(px(NAV_PAD - NAV_MARGIN))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(NAV_ICON_GAP))
         .rounded(px(metrics::RADIUS))

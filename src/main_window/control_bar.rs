@@ -175,7 +175,7 @@ impl MainWindow {
     }
 
     fn render_overflow_button(&self, overflow: Vec<Item>, cx: &mut Context<Self>) -> Div {
-        let button = IconButton::new("more-controls", icons::MORE, "More controls")
+        let button = IconButton::new("more-controls", icons::MORE, tr!("More controls"))
             .size(BUTTON, OVERFLOW_ICON)
             .selected(self.control_bar.overflow.is_some())
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {

@@ -11,6 +11,7 @@ use gpui::{
 };
 
 use super::{MainWindow, note};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::control_bar::clock::{self, tabular_digits};
 use crate::main_window::seeking::chapters::{self, Listed};
 use crate::theme::Palette;
@@ -43,7 +44,7 @@ impl MainWindow {
     ) -> Div {
         let listed = self.chapters(cx);
         if listed.is_empty() {
-            return note("This media has no chapters.", p);
+            return note(tr!("This media has no chapters."), p);
         }
         let position = self.loaded_player(cx).map(|player| player.read(cx).position());
         let current = position.and_then(|position| chapters::current(&listed, position));
@@ -60,7 +61,7 @@ impl MainWindow {
             .overflow_y_scroll()
             .track_scroll(&self.queue_panel.chapters.scroll)
             .role(accesskit::Role::List)
-            .aria_label("Chapters")
+            .aria_label(tr!("Chapters"))
             .children(rows);
         div().flex_1().min_h_0().child(list)
     }
@@ -122,7 +123,7 @@ fn chapter_row(
         .relative()
         .w_full()
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .px(px(PADDING))
         .text_size(text_px(TEXT))
@@ -132,7 +133,15 @@ fn chapter_row(
         .when(look.cursor, |row| row.bg(p.selected))
         .when(!look.cursor, |row| row.hover(|style| style.bg(p.hover)))
         .when(look.current, |row| {
-            row.child(div().absolute().left_0().top_0().bottom_0().w(px(BAR_WIDTH)).bg(p.accent))
+            row.child(
+                div()
+                    .absolute()
+                    .inset_start(px(0.))
+                    .top_0()
+                    .bottom_0()
+                    .w(px(BAR_WIDTH))
+                    .bg(p.accent),
+            )
         })
         .children(cells(&chapter, title_color, p));
     row.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {

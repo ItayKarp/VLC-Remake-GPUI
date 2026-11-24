@@ -12,6 +12,7 @@ use super::AddSubtitlesDialog;
 use super::model::Origin;
 use super::render::HEADER_INSET;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::settings;
 use crate::theme::Palette;
 use crate::theme::text_px;
@@ -47,7 +48,7 @@ impl AddSubtitlesDialog {
         };
         div()
             .px(px(HEADER_INSET))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .child(dropdown(&self.controls.target_menu))
@@ -58,7 +59,7 @@ impl AddSubtitlesDialog {
     /// From Computer's source folder; a click picks another.
     fn source_field(&self, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
         let shown = self.source.as_deref().map_or_else(
-            || "Choose a folder with subtitles".to_owned(),
+            || tr!("Choose a folder with subtitles").to_owned(),
             |folder| source_text(folder, cx),
         );
         let field = framed(icons::FOLDER, p)
@@ -66,7 +67,7 @@ impl AddSubtitlesDialog {
             .tab_index(0)
             .key_context(focus::CONTROL)
             .role(accesskit::Role::Button)
-            .aria_label("Source folder")
+            .aria_label(tr!("Source folder"))
             .cursor_pointer()
             .hover(|style| style.bg(p.button_hover))
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| Self::pick_source(window, cx)))
@@ -81,7 +82,7 @@ fn framed(icon_path: &'static str, p: &Palette) -> Div {
         .flex_1()
         .min_w_0()
         .h(px(CONTROL_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(14.))
         .px(px(12.))
@@ -108,7 +109,7 @@ fn source_text(folder: &Path, cx: &App) -> String {
         return parts.join(SEPARATOR);
     };
     let first =
-        root.file_name().map_or_else(|| "Videos".to_owned(), |n| n.to_string_lossy().into());
+        root.file_name().map_or_else(|| tr!("Videos").to_owned(), |n| n.to_string_lossy().into());
     let parts = rest.components().map(|part| part.as_os_str().to_string_lossy().into_owned());
     std::iter::once(first).chain(parts).collect::<Vec<_>>().join(SEPARATOR)
 }

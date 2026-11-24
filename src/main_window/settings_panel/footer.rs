@@ -7,6 +7,7 @@ use gpui::{App, Div, Entity, Window, div, prelude::*, px};
 use super::PanelTab;
 use crate::assets::icons;
 use crate::effects;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::bar_panel;
 use crate::settings_view::PresetPicker;
 use crate::theme::Palette;
@@ -28,14 +29,14 @@ pub(super) fn footer(
 ) -> Div {
     let inner = bar_panel::width(window) - 2. * FOOTER_PADDING;
     let save = tab.session_keys().next().is_some().then(|| save_as_default(tab, inner, cx));
-    let advanced = Button::new("open-advanced-settings", "Open Advanced Settings")
+    let advanced = Button::new("open-advanced-settings", tr!("Open Advanced Settings"))
         .icon(icons::SETTINGS)
         .style(ButtonStyle::Ghost)
         .width(inner)
         .on_click(move |_, _, cx| crate::app::open_settings(Some(tab.category()), cx));
     div()
         .flex_none()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(FOOTER_GAP))
         .p(px(FOOTER_PADDING))
@@ -50,10 +51,10 @@ pub(super) fn footer(
 fn save_as_default(tab: PanelTab, width: f32, cx: &App) -> Button {
     let changed = tab.session_keys().any(|key| effects::is_changed(cx, key));
     let page = tab.label();
-    Button::new("save-as-default", "Save as Default")
+    Button::new("save-as-default", tr!("Save as Default"))
         .style(ButtonStyle::Ghost)
         .width(width)
         .disabled(!changed)
-        .tooltip(format!("Keep these as Settings → {page}, for later sessions"), None::<&str>)
+        .tooltip(tr!("Keep these as Settings → {page}, for later sessions", page), None::<&str>)
         .on_click(move |_, _, cx| effects::save_as_default(cx, tab.session_keys()))
 }

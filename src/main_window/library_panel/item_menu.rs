@@ -35,7 +35,7 @@ use crate::ui::popover;
 pub(super) type ItemMenu = Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>;
 
 /// What hovering an action that works on one item at a time says while several are selected.
-const ONE_AT_A_TIME: &str = "Works on one item at a time";
+const ONE_AT_A_TIME: &str = tr_noop!("Works on one item at a time");
 /// How far in from the item's left edge a menu opened from the keyboard sits.
 const KEYBOARD_INSET: f32 = 24.;
 
@@ -282,7 +282,7 @@ pub(super) fn on_one<T: Clone + 'static>(
         }
     })
     .disabled(several)
-    .why_disabled(ONE_AT_A_TIME)
+    .why_disabled(crate::i18n::text(ONE_AT_A_TIME))
 }
 
 /// The item menu at its place, while open.

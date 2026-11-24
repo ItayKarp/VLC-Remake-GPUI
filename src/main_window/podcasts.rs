@@ -18,27 +18,27 @@ impl MainWindow {
     pub(super) fn ask_podcast_feed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let input: Entity<TextInput> = cx.new(|cx| {
             TextInput::new(window, cx)
-                .with_placeholder("e.g., https://www.example.com/podcast.rss")
-                .with_label("Feed address")
+                .with_placeholder(tr!("e.g., https://www.example.com/podcast.rss"))
+                .with_label(tr!("Feed address"))
         });
         let main = cx.entity().downgrade();
         let subscribe = {
             let input = input.clone();
-            DialogButton::new("Subscribe").primary().on_click(move |_, cx| {
+            DialogButton::new(tr!("Subscribe")).primary().on_click(move |_, cx| {
                 let typed = input.read(cx).text().to_owned();
                 main.update(cx, |main, cx| main.subscribe_podcast(&typed, cx)).ok();
             })
         };
         let body = move |_: &mut Window, _: &mut App| input.clone().into_any_element();
-        let buttons = vec![DialogButton::new("Cancel"), subscribe];
-        let dialog = cx.new(|cx| Dialog::new("Subscribe to Podcast", body, buttons, cx));
+        let buttons = vec![DialogButton::new(tr!("Cancel")), subscribe];
+        let dialog = cx.new(|cx| Dialog::new(tr!("Subscribe to Podcast"), body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
 
     /// Subscribes to the feed `typed` names and shows its episodes once it is read.
     fn subscribe_podcast(&mut self, typed: &str, cx: &mut Context<Self>) {
         let subscribing = podcasts::subscribe(typed, cx);
-        let reading = Toast::new(Level::Info, "Reading the podcast's feed…");
+        let reading = Toast::new(Level::Info, tr!("Reading the podcast's feed…"));
         let reading = self.toasts.update(cx, |toasts, cx| toasts.push(reading, cx));
         cx.spawn(async move |main, cx| {
             let subscribed = subscribing.await;

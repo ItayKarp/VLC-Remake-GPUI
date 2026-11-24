@@ -104,6 +104,7 @@ use self::auto_hide::rules::Chrome;
 use crate::app;
 use crate::app::request::OpenRequest;
 use crate::engine::player::Player;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::CopyDebugInfo;
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
@@ -393,7 +394,8 @@ impl Render for MainWindow {
         self.place_miniplayer(chrome.title_bar, window, cx);
         let full = self.library_panel.is_full();
 
-        let root = Self::player_keys(focus::tab_navigation(div()), cx);
+        // Text aligns to the start side, mirrored for right-to-left languages (S9.2.2).
+        let root = Self::player_keys(focus::tab_navigation(div().text_start()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
         let root = Self::menu_actions(Self::playlist_actions(root, cx), cx);
         Self::open_actions(Self::open_dialog_actions(root, cx), cx)

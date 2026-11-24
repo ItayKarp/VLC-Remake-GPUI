@@ -55,7 +55,7 @@ impl ConvertDialog {
         let selected = Preset::ALL.iter().position(|&each| each == preset).unwrap_or_default();
         let presets = cx.new(|cx| {
             let names = Preset::ALL.iter().map(|preset| SharedString::from(preset.name()));
-            Dropdown::new("Format", names.collect(), selected, window, cx)
+            Dropdown::new(tr!("Format"), names.collect(), selected, window, cx)
         });
         let subscriptions = [cx.observe(&conversions, |_, _, cx| cx.notify())];
         Self {
@@ -79,7 +79,7 @@ impl ConvertDialog {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Add".into()),
+            prompt: Some(tr!("Add").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = picked.await else { return };
@@ -122,7 +122,7 @@ impl ConvertDialog {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Choose".into()),
+            prompt: Some(tr!("Choose").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(mut paths))) = picked.await else { return };

@@ -35,7 +35,7 @@ impl SettingDef {
     pub fn accept(&self, value: Value) -> Result<Value, Invalid> {
         let value = match (value, self.range) {
             (Value::Number(number), _) if !number.is_finite() => {
-                return Err(Invalid("Not a number".into()));
+                return Err(Invalid(tr!("Not a number").into()));
             }
             (Value::Number(number), Some(range)) => {
                 if number < range.min || number > range.max {
@@ -48,7 +48,9 @@ impl SettingDef {
         let value = match (self.control, value) {
             (Control::HexColor, Value::Text(text)) => match color::hex_color(&text) {
                 Some(rgb) => Value::Text(color::format(rgb)),
-                None => return Err(Invalid("A color such as #FFFFFF, #FFF or white".into())),
+                None => {
+                    return Err(Invalid(tr!("A color such as #FFFFFF, #FFF or white").into()));
+                }
             },
             (_, value) => value,
         };
@@ -97,9 +99,16 @@ impl SettingDef {
     }
 
     /// Whether every word of a query (from [`search_words`]) is in the label, info text or
-    /// keywords.
+    /// keywords, in English or in the interface language.
     pub fn matches(&self, words: &[String]) -> bool {
-        let haystack = fold(&format!("{} {} {}", self.label, self.info, self.keywords.join(" ")));
+        let haystack = fold(&format!(
+            "{} {} {} {} {}",
+            self.label,
+            self.info,
+            crate::i18n::text(self.label),
+            crate::i18n::text(self.info),
+            self.keywords.join(" "),
+        ));
         words.iter().all(|word| haystack.contains(word.as_str()))
     }
 }
@@ -135,12 +144,14 @@ pub fn sanitize(settings: &mut Settings) -> bool {
     changed
 }
 
-/// Reads a typed number, with or without `unit` after it; a comma is a decimal point.
-fn parse_number(text: &str, unit: &str) -> Result<f64, Invalid> {
+/// Reads a typed number, with or without `unit` (in English or the interface language) after
+/// it; a comma is a decimal point.
+fn parse_number(text: &str, unit: &'static str) -> Result<f64, Invalid> {
     let text = text.trim();
-    let text = text.strip_suffix(unit).unwrap_or(text).trim().replace(',', ".");
+    let bare = text.strip_suffix(crate::i18n::text(unit)).or_else(|| text.strip_suffix(unit));
+    let text = bare.unwrap_or(text).trim().replace(',', ".");
     let parsed = if text.ends_with('.') { None } else { text.parse::<f64>().ok() };
-    parsed.filter(|number| number.is_finite()).ok_or_else(|| Invalid("Not a number".into()))
+    parsed.filter(|number| number.is_finite()).ok_or_else(|| Invalid(tr!("Not a number").into()))
 }
 
 /// Splits a comma-separated list, dropping blanks.
@@ -163,15 +174,19 @@ fn out_of_range(range: NumberRange, control: Control) -> String {
         Control::Number { unit } => unit,
         _ => "",
     };
-    format!("Between {} and {}", with_unit(range.min, unit), with_unit(range.max, unit))
+    tr!(
+        "Between {min} and {max}",
+        min = with_unit(range.min, unit),
+        max = with_unit(range.max, unit)
+    )
 }
 
-/// `number` followed by `unit`: "10 s", but "50%".
-fn with_unit(number: f64, unit: &str) -> String {
+/// `number` followed by `unit` in the interface language: "10 s", but "50%".
+fn with_unit(number: f64, unit: &'static str) -> String {
     match unit {
         "" => trim(number),
         "%" => format!("{}%", trim(number)),
-        _ => format!("{} {unit}", trim(number)),
+        _ => format!("{} {}", trim(number), crate::i18n::text(unit)),
     }
 }
 

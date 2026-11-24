@@ -12,7 +12,7 @@ use crate::engine::player::PlayerEvent;
 use crate::keymap::actions as act;
 
 /// What the video says when a menu comes up.
-const MENU_HINT: &str = "Disc menu: arrow keys to move, Enter to choose";
+const MENU_HINT: &str = tr_noop!("Disc menu: arrow keys to move, Enter to choose");
 
 impl MainWindow {
     /// X: plays the next program, naming it over the video.
@@ -20,8 +20,8 @@ impl MainWindow {
         let Some(player) = self.loaded_player(cx) else { return };
         let next = player.update(cx, |player, _| player.next_program());
         let text = next.map_or_else(
-            || "No other program".to_owned(),
-            |program| format!("Program: {}", program.label()),
+            || tr!("No other program").to_owned(),
+            |program| tr!("Program: {label}", label = program.label()),
         );
         self.show_osd(text, cx);
     }
@@ -32,7 +32,7 @@ impl MainWindow {
         player.update(cx, |player, _| player.select_program(id));
         let label = player.read(cx).programs().all.iter().find(|p| p.id == id).map(Program::label);
         if let Some(label) = label {
-            self.show_osd(format!("Program: {label}"), cx);
+            self.show_osd(tr!("Program: {label}", label), cx);
         }
     }
 
@@ -48,7 +48,7 @@ impl MainWindow {
     pub(super) fn go_to_disc_menu(&mut self, cx: &mut Context<Self>) {
         let Some(player) = self.loaded_player(cx) else { return };
         if !player.update(cx, |player, _| player.disc_menu()) {
-            self.show_osd("This media has no menu", cx);
+            self.show_osd(tr!("This media has no menu"), cx);
         }
     }
 
@@ -84,7 +84,7 @@ impl MainWindow {
             return;
         }
         if self.loaded_player(cx).is_some_and(|p| p.read(cx).titles().in_menu()) {
-            self.show_osd(MENU_HINT, cx);
+            self.show_osd(crate::i18n::text(MENU_HINT), cx);
         }
     }
 }

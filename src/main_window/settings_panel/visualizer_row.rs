@@ -7,6 +7,7 @@ use gpui::{Context, Div, Entity, SharedString, Subscription, Window, div, prelud
 
 use crate::assets::visualizer_glyph;
 use crate::engine::audio::visualizer::Visualizer;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
@@ -14,7 +15,7 @@ use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 
 /// The row's label, height and text size, and the dropdown's width.
-const LABEL: &str = "Audio Visualizer";
+const LABEL: &str = tr_noop!("Audio Visualizer");
 const ROW_HEIGHT: f32 = 68.;
 const ROW_TEXT: f32 = 14.;
 const DROPDOWN_WIDTH: f32 = 220.;
@@ -31,8 +32,9 @@ impl VisualizerControl {
         let labels = Visualizer::ALL.iter().map(|choice| SharedString::from(choice.label()));
         let glyphs = Visualizer::ALL.into_iter().map(visualizer_glyph).collect();
         let selected = index(cx);
+        let label = crate::i18n::text(LABEL);
         let dropdown = cx.new(|cx| {
-            let mut dropdown = Dropdown::new(LABEL, labels.collect(), selected, window, cx);
+            let mut dropdown = Dropdown::new(label, labels.collect(), selected, window, cx);
             dropdown.set_glyphs(glyphs, cx);
             dropdown
         });
@@ -50,14 +52,14 @@ impl VisualizerControl {
         self.dropdown.update(cx, |dropdown, cx| dropdown.set_selected(selected, cx));
         div()
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .gap(px(8.))
-            .pl(px(4.))
+            .ps(px(4.))
             .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
-            .child(LABEL)
+            .child(crate::i18n::text(LABEL))
             .child(div().w(px(DROPDOWN_WIDTH)).flex_none().child(self.dropdown.clone()))
     }
 }

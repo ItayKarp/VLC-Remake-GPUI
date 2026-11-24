@@ -18,6 +18,8 @@ use super::equalizer::EqualizerPanel;
 use super::media_folders::MediaFoldersPanel;
 use super::options::OptionsDropdown;
 use super::secret::SecretField;
+use crate::i18n;
+use crate::privacy::keychain::Secret;
 use crate::settings::{
     self, Settings,
     registry::{Control, Marks, SettingDef, Value},
@@ -85,9 +87,8 @@ impl Widgets {
                     None
                 }
                 Control::Secret(secret) => {
-                    let field = cx.new(|cx| SecretField::new(secret, def.label, window, cx));
                     // The field saves to the keychain itself; the page only keeps it enabled.
-                    widgets.by_key.insert(def.key, Widget::Secret(field));
+                    widgets.by_key.insert(def.key, secret_field(def, secret, window, cx));
                     None
                 }
                 _ => None,
@@ -187,9 +188,11 @@ fn make_dropdown(
     window: &mut Window,
     cx: &mut Context<SettingsPage>,
 ) -> Made {
-    let labels = def.choices().iter().map(|choice| SharedString::from(choice.label)).collect();
+    let choices = def.choices().iter();
+    let labels = choices.map(|choice| SharedString::from(i18n::text(choice.label))).collect();
     let selected = choice_index(def, &def.value(settings::get(cx)));
-    let dropdown = cx.new(|cx| Dropdown::new(def.label, labels, selected, window, cx));
+    let label = i18n::text(def.label);
+    let dropdown = cx.new(|cx| Dropdown::new(label, labels, selected, window, cx));
     let subscription = cx.subscribe(&dropdown, move |page, _, event: &dropdown::Changed, cx| {
         page.write_choice(def, event.0, cx);
     });
@@ -207,7 +210,7 @@ fn make_slider(
     let Value::Number(default) = def.default_value() else { return None };
     let slider = cx.new(|cx| {
         let model = SliderModel::new(range.min, range.max, range.step, default);
-        let slider = Slider::new(def.label, model, window, cx).accent().format(format);
+        let slider = Slider::new(i18n::text(def.label), model, window, cx).accent().format(format);
         match marks {
             Marks::Labelled(every, label) => slider.marks(every, label),
             Marks::Ticks(every) => slider.bare_marks(every),
@@ -229,8 +232,8 @@ fn make_field(
     let field = cx.new(|cx| {
         TextInput::new(window, cx)
             .with_text(text)
-            .with_label(def.label)
-            .with_placeholder(def.placeholder)
+            .with_label(i18n::text(def.label))
+            .with_placeholder(i18n::text(def.placeholder))
     });
     let subscription =
         cx.subscribe(&field, move |page, field, event: &text_input::Event, cx| match event {
@@ -323,4 +326,14 @@ fn show_saved(def: &SettingDef, field: &Entity<TextInput>, cx: &mut Context<Sett
 fn choice_index(def: &SettingDef, value: &Value) -> usize {
     let Value::Choice(id) = value else { return 0 };
     def.choices().iter().position(|choice| choice.id == *id).unwrap_or_default()
+}
+
+/// The keychain field of a [`Control::Secret`] row.
+fn secret_field(
+    def: &SettingDef,
+    secret: Secret,
+    window: &mut Window,
+    cx: &mut Context<SettingsPage>,
+) -> Widget {
+    Widget::Secret(cx.new(|cx| SecretField::new(secret, i18n::text(def.label), window, cx)))
 }

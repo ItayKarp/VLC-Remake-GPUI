@@ -47,7 +47,7 @@ fn act_on(main: &WeakEntity<MainWindow>, saved: Saved, window: &mut Window, cx: 
             let items = urls.into_iter().map(Media::Url).collect();
             let draft = Draft { title, thumbnail: None, items };
             let created = playlists::create(&draft, cx);
-            let done = |title| format!("Saved the playlist “{title}”.");
+            let done = |title| tr!("Saved the playlist “{title}”.", title);
             main.update(cx, |_, cx| MainWindow::report_playlists(created, done, window, cx)).ok();
         }
     }

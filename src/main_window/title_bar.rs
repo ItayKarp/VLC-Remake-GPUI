@@ -174,7 +174,7 @@ impl MainWindow {
 
     /// The `…` menu button, in the bar `place`.
     pub(super) fn render_menu_button(&self, place: Place, cx: &mut Context<Self>) -> Div {
-        let button = IconButton::new("menu", icons::MORE, "Menu")
+        let button = IconButton::new("menu", icons::MORE, tr!("Menu"))
             .size(BAR_BUTTON, icon_size(place))
             .selected(self.menu.is_some())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -186,7 +186,7 @@ impl MainWindow {
 
     /// Shows and hides the library sidebar (S4.5), lit while it shows.
     pub(super) fn sidebar_toggle(&self, place: Place, cx: &mut Context<Self>) -> IconButton {
-        let button = IconButton::new("sidebar", icons::SIDEBAR, "Show / hide file browser")
+        let button = IconButton::new("sidebar", icons::SIDEBAR, tr!("Show / hide file browser"))
             .size(BAR_BUTTON, icon_size(place))
             .selected(self.library_panel.is_open())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {

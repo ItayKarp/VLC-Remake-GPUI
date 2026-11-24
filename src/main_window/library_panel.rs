@@ -58,6 +58,7 @@ use self::search_field::SearchField;
 use self::selection::Selection;
 use super::MainWindow;
 use crate::db::media::MediaId;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::{GoBack, GoForward};
 use crate::keymap::contexts;
 use crate::library::thumbnails::Thumbnails;
@@ -262,11 +263,10 @@ impl MainWindow {
             .key_context(focus::context(&[contexts::LIBRARY]))
             .track_focus(&self.library_panel.focus)
             .absolute()
-            .left_0()
+            .inset_start(px(0.))
             .top(px(top))
             .bottom(px(bottom))
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .overflow_hidden()
             .text_color(p.text)
             .occlude()
@@ -292,7 +292,7 @@ impl MainWindow {
             .flex_1()
             .min_w_0()
             .h_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .bg(p.panel)
             .child(self.render_library_header(p, cx))

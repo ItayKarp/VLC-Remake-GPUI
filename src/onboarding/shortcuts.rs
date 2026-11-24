@@ -8,6 +8,7 @@ use super::finish::FinishState;
 use super::layout::{EDGE_LEFT, bottom_bar};
 use super::{Onboarding, save_error};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions as act;
 use crate::keymap::key_caps;
 use crate::keymap::label::{Arrow, KeyCap};
@@ -21,24 +22,33 @@ struct Shortcut {
 }
 
 const LEFT_SHORTCUTS: &[Shortcut] = &[
-    Shortcut { label: "Play / Pause", commands: &[&act::PlayPause] },
+    Shortcut { label: tr_noop!("Play / Pause"), commands: &[&act::PlayPause] },
     Shortcut {
-        label: "Seek Backward / Forward",
+        label: tr_noop!("Seek Backward / Forward"),
         commands: &[&act::SeekBackward, &act::SeekForward],
     },
-    Shortcut { label: "Previous / Next Item", commands: &[&act::PreviousItem, &act::NextItem] },
-    Shortcut { label: "Previous / Next Frame", commands: &[&act::PreviousFrame, &act::NextFrame] },
-    Shortcut { label: "Cycle Subtitle Track", commands: &[&act::CycleSubtitleTrack] },
-    Shortcut { label: "Cycle Audio Track", commands: &[&act::CycleAudioTrack] },
+    Shortcut {
+        label: tr_noop!("Previous / Next Item"),
+        commands: &[&act::PreviousItem, &act::NextItem],
+    },
+    Shortcut {
+        label: tr_noop!("Previous / Next Frame"),
+        commands: &[&act::PreviousFrame, &act::NextFrame],
+    },
+    Shortcut { label: tr_noop!("Cycle Subtitle Track"), commands: &[&act::CycleSubtitleTrack] },
+    Shortcut { label: tr_noop!("Cycle Audio Track"), commands: &[&act::CycleAudioTrack] },
 ];
 
 const RIGHT_SHORTCUTS: &[Shortcut] = &[
-    Shortcut { label: "Toggle Fullscreen", commands: &[&act::ToggleFullscreen] },
-    Shortcut { label: "Increase / Decrease Volume", commands: &[&act::VolumeUp, &act::VolumeDown] },
-    Shortcut { label: "Show / Hide Queue", commands: &[&act::ToggleQueue] },
-    Shortcut { label: "Show / Hide File Browser", commands: &[&act::ToggleFileBrowser] },
-    Shortcut { label: "Take a Snapshot", commands: &[&act::Snapshot] },
-    Shortcut { label: "Record", commands: &[&act::Record] },
+    Shortcut { label: tr_noop!("Toggle Fullscreen"), commands: &[&act::ToggleFullscreen] },
+    Shortcut {
+        label: tr_noop!("Increase / Decrease Volume"),
+        commands: &[&act::VolumeUp, &act::VolumeDown],
+    },
+    Shortcut { label: tr_noop!("Show / Hide Queue"), commands: &[&act::ToggleQueue] },
+    Shortcut { label: tr_noop!("Show / Hide File Browser"), commands: &[&act::ToggleFileBrowser] },
+    Shortcut { label: tr_noop!("Take a Snapshot"), commands: &[&act::Snapshot] },
+    Shortcut { label: tr_noop!("Record"), commands: &[&act::Record] },
 ];
 
 impl Onboarding {
@@ -47,7 +57,7 @@ impl Onboarding {
         div()
             .relative()
             .size_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(
                 div()
@@ -57,14 +67,13 @@ impl Onboarding {
                     .text_size(text_px(26.))
                     .line_height(text_px(34.))
                     .text_color(p.text)
-                    .child("Learn the basic keyboard shortcuts."),
+                    .child(tr!("Learn the basic keyboard shortcuts.")),
             )
             .child(
                 div()
                     .mt(px(55.))
                     .px(px(EDGE_LEFT))
-                    .flex()
-                    .flex_row()
+                    .flex_row_start()
                     .child(shortcut_column(LEFT_SHORTCUTS, p, cx))
                     .child(shortcut_column(RIGHT_SHORTCUTS, p, cx)),
             )
@@ -77,15 +86,16 @@ impl Onboarding {
         if let Some(error) = self.save_error() {
             return save_error::render(error, p, cx).into_any_element();
         }
-        let finish_label = if self.finish == FinishState::Saving { "Saving…" } else { "Finish" };
+        let finish_label =
+            if self.finish == FinishState::Saving { tr!("Saving…") } else { tr!("Finish") };
         bottom_bar()
-            .left(px(EDGE_LEFT))
+            .inset_start(px(EDGE_LEFT))
             .justify_between()
             .child(
                 div()
                     .text_size(text_px(16.))
                     .text_color(p.text_muted)
-                    .child("Find the full list in the menu."),
+                    .child(tr!("Find the full list in the menu.")),
             )
             .child(self.nav_buttons(true, finish_label, cx))
             .into_any_element()
@@ -95,39 +105,34 @@ impl Onboarding {
 fn shortcut_column(shortcuts: &'static [Shortcut], p: &Palette, cx: &App) -> impl IntoElement {
     div()
         .flex_1()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(37.))
         .children(shortcuts.iter().map(|s| shortcut_row(s, p, cx)))
 }
 
 fn shortcut_row(shortcut: &Shortcut, p: &Palette, cx: &App) -> impl IntoElement {
-    let mut keys = div().flex().flex_row().items_center().gap(px(10.));
+    let mut keys = div().flex_row_start().items_center().gap(px(10.));
     for (i, action) in shortcut.commands.iter().enumerate() {
         if i > 0 {
             keys = keys.child(div().text_size(text_px(16.)).text_color(p.text_muted).child("/"));
         }
         let caps = key_caps(*action, cx);
         keys = keys.child(
-            div()
-                .flex()
-                .flex_row()
-                .gap(px(6.))
-                .children(caps.into_iter().map(|cap| keycap(cap, p))),
+            div().flex_row_start().gap(px(6.)).children(caps.into_iter().map(|cap| keycap(cap, p))),
         );
     }
 
     div()
         .h(px(45.))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .child(
             div()
                 .w(px(240.))
                 .text_size(text_px(16.))
                 .text_color(p.text_muted)
-                .child(shortcut.label),
+                .child(crate::i18n::text(shortcut.label)),
         )
         .child(keys)
 }
@@ -137,7 +142,7 @@ fn keycap(cap: KeyCap, p: &Palette) -> impl IntoElement {
         .h(px(39.))
         .min_w(px(46.))
         .px(px(20.))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .rounded(px(8.))

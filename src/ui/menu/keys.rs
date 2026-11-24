@@ -40,7 +40,7 @@ impl ContextMenu {
                     self.activate(index, window, cx);
                 }
             }
-            "right" => {
+            key if key == toward_submenu() => {
                 if let Some(index) = self.highlighted
                     && self.items[index].is_submenu()
                 {
@@ -84,7 +84,7 @@ impl ContextMenu {
         cx.notify();
     }
 
-    /// Left or Escape in a submenu closes just that submenu. Runs in the capture
+    /// Left (Right when mirrored) or Escape in a submenu closes just that submenu. Runs in the capture
     /// phase, before the submenu sees the key.
     pub(super) fn on_key_down_capture_left(
         &mut self,
@@ -92,7 +92,8 @@ impl ContextMenu {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if matches!(event.keystroke.key.as_str(), "left" | "escape")
+        let key = event.keystroke.key.as_str();
+        if (key == away_from_submenu() || key == "escape")
             && let Some(open) = &self.submenu
             && open.menu.read(cx).focus_handle.is_focused(window)
         {
@@ -100,4 +101,14 @@ impl ContextMenu {
             cx.stop_propagation();
         }
     }
+}
+
+/// The arrow key that opens a submenu: toward the side submenus open on.
+fn toward_submenu() -> &'static str {
+    crate::i18n::mirrored("right", "left")
+}
+
+/// The arrow key that closes a submenu.
+fn away_from_submenu() -> &'static str {
+    crate::i18n::mirrored("left", "right")
 }

@@ -48,8 +48,8 @@ impl Face {
     /// What pressing the pill does, for its tooltip and screen readers.
     pub fn label(self) -> &'static str {
         match self {
-            Face::Play => "Play",
-            Face::Pause | Face::Waiting => "Pause",
+            Face::Play => tr!("Play"),
+            Face::Pause | Face::Waiting => tr!("Pause"),
         }
     }
 }

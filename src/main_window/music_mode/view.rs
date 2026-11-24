@@ -25,7 +25,7 @@ const ART_RADIUS: f32 = 16.;
 const CAPTION_SIZE: f32 = 24.;
 const CAPTION_COLOR: Hsla = hsla(0., 0., 1., 0.8);
 /// The note under the caption while Settings → Video turned video off, and its size.
-const VIDEO_OFF: &str = "Video is off in Settings → Video";
+const VIDEO_OFF: &str = tr_noop!("Video is off in Settings → Video");
 const NOTE_SIZE: f32 = 14.;
 const NOTE_COLOR: Hsla = hsla(0., 0., 1., 0.5);
 /// How dark the scrim over the backdrop is, so the cover and caption stand out.
@@ -50,8 +50,10 @@ impl MainWindow {
             .text_size(text_px(CAPTION_SIZE))
             .text_color(CAPTION_COLOR)
             .child(self.caption(cx));
-        let note = video_off
-            .then(|| div().text_size(text_px(NOTE_SIZE)).text_color(NOTE_COLOR).child(VIDEO_OFF));
+        let note = video_off.then(|| {
+            let text = crate::i18n::text(VIDEO_OFF);
+            div().text_size(text_px(NOTE_SIZE)).text_color(NOTE_COLOR).child(text)
+        });
         let column = div()
             .absolute()
             .inset_0()
@@ -79,7 +81,7 @@ impl MainWindow {
         let title = tags.title.clone().filter(|title| !title.is_empty());
         let title = title.unwrap_or_else(|| player.media().map_or_default(Media::display_name));
         match tags.artist.as_deref().filter(|artist| !artist.is_empty()) {
-            Some(artist) => format!("{title} - {artist}"),
+            Some(artist) => tr!("{title} - {artist}", title, artist),
             None => title,
         }
     }

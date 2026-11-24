@@ -3,6 +3,7 @@
 use crate::engine::media_info::VideoSize;
 use crate::engine::statistics::{Kbps, Statistics, VideoDecoding};
 use crate::engine::tracks::Track;
+use crate::i18n;
 
 /// Shown for a value not known yet.
 pub const UNKNOWN: &str = "—";
@@ -27,14 +28,19 @@ pub struct Sources<'a> {
 pub fn rows(sources: &Sources) -> Vec<(&'static str, String)> {
     let counts = sources.counts;
     vec![
-        ("Video", codec(sources.video)),
-        ("Audio", audio(sources.audio)),
-        ("Resolution", sources.size.map_or_else(unknown, resolution)),
-        ("Bitrate", counts.map_or_else(unknown, bitrate)),
-        ("Dropped frames", counts.map_or_else(unknown, dropped)),
-        ("Buffer", format!("{:.0}%", sources.buffer.clamp(0.0, 100.0))),
-        ("Hardware decoding", decoding(sources.video, counts)),
+        (tr!("Video"), codec(sources.video)),
+        (tr!("Audio"), audio(sources.audio)),
+        (tr!("Resolution"), sources.size.map_or_else(unknown, resolution)),
+        (tr!("Bitrate"), counts.map_or_else(unknown, bitrate)),
+        (tr!("Dropped frames"), counts.map_or_else(unknown, dropped)),
+        (tr!("Buffer"), buffer(sources.buffer)),
+        (tr!("Hardware decoding"), decoding(sources.video, counts)),
     ]
+}
+
+/// How full the cache is: "42%".
+fn buffer(percent: f32) -> String {
+    format!("{}%", i18n::decimal(f64::from(percent.clamp(0.0, 100.0)), 0))
 }
 
 fn unknown() -> String {
@@ -44,7 +50,7 @@ fn unknown() -> String {
 /// A track's codec, "None" without one.
 fn codec(track: Option<&Track>) -> String {
     match track {
-        None => "None".into(),
+        None => tr!("None").into(),
         Some(track) => track.codec.clone().unwrap_or_else(unknown),
     }
 }
@@ -53,7 +59,7 @@ fn codec(track: Option<&Track>) -> String {
 fn audio(track: Option<&Track>) -> String {
     let codec = codec(track);
     match track.and_then(|track| track.channels) {
-        Some(channels) => format!("{codec} · {channels} ch"),
+        Some(channels) => tr!("{codec} · {channels} ch", codec, channels),
         None => codec,
     }
 }
@@ -67,25 +73,26 @@ fn bitrate(counts: &Statistics) -> String {
     let Kbps(rate) =
         if counts.stream_rate.0 > 0.0 { counts.stream_rate } else { counts.input_rate };
     if rate >= KBPS_PER_MBPS {
-        format!("{:.1} Mb/s", rate / KBPS_PER_MBPS)
+        tr!("{rate} Mb/s", rate = i18n::decimal(f64::from(rate / KBPS_PER_MBPS), 1))
     } else {
-        format!("{rate:.0} kb/s")
+        tr!("{rate} kb/s", rate = i18n::decimal(f64::from(rate), 0))
     }
 }
 
 /// Pictures dropped of those decoded: "3 of 1204".
 fn dropped(counts: &Statistics) -> String {
-    format!("{} of {}", counts.dropped_pictures, counts.decoded_pictures)
+    let (dropped, decoded) = (counts.dropped_pictures, counts.decoded_pictures);
+    tr!("{dropped} of {decoded}", dropped, decoded)
 }
 
 /// "On" or "Off" for media with video; "None" without.
 fn decoding(video: Option<&Track>, counts: Option<&Statistics>) -> String {
     if video.is_none() {
-        return "None".into();
+        return tr!("None").into();
     }
     match counts.map(|counts| counts.decoding) {
-        Some(VideoDecoding::Hardware) => "On".into(),
-        Some(VideoDecoding::Software) => "Off".into(),
+        Some(VideoDecoding::Hardware) => tr!("On").into(),
+        Some(VideoDecoding::Software) => tr!("Off").into(),
         None => unknown(),
     }
 }

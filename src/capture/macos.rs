@@ -60,9 +60,9 @@ pub fn screens() -> Vec<Screen> {
 fn screen(id: CGDirectDisplayID, index: usize) -> Screen {
     let size = format!("{} × {}", CGDisplayPixelsWide(id), CGDisplayPixelsHigh(id));
     let name = if CGDisplayIsBuiltin(id) {
-        format!("Built-in Display ({size})")
+        tr!("Built-in Display ({size})", size)
     } else {
-        format!("Display {} ({size})", index + 1)
+        tr!("Display {number} ({size})", number = index + 1, size)
     };
     Screen { name, id: Some(id) }
 }

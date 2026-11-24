@@ -104,7 +104,7 @@ impl MainWindow {
             .id("bar-thumbnail")
             .flex_none()
             .cursor_pointer()
-            .tooltip(tooltip::text("Properties & Metadata", None::<SharedString>))
+            .tooltip(tooltip::text(tr!("Properties & Metadata"), None::<SharedString>))
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
                 window.dispatch_action(Box::new(ShowProperties), cx);
             }))

@@ -45,15 +45,21 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let quit =
-            DialogButton::new("Cancel and Quit").primary().on_click(|_, cx| cancel_and_quit(cx));
-        let buttons = vec![DialogButton::new("Keep Converting"), quit];
+        let quit = DialogButton::new(tr!("Cancel and Quit"))
+            .primary()
+            .on_click(|_, cx| cancel_and_quit(cx));
+        let buttons = vec![DialogButton::new(tr!("Keep Converting")), quit];
         let body = move |_: &mut Window, _: &mut App| {
-            let what = if count == 1 { "A conversion hasn't" } else { "Some conversions haven't" };
-            format!("{what} finished ({count} to go). Quitting cancels and deletes the unfinished files.")
-                .into_any_element()
+            trn!(
+                "A conversion hasn't finished ({count} to go). Quitting cancels and deletes the \
+                 unfinished files.",
+                "Some conversions haven't finished ({count} to go). Quitting cancels and deletes \
+                 the unfinished files.",
+                count
+            )
+            .into_any_element()
         };
-        let ask = cx.new(|cx| Dialog::new("Cancel conversions and quit?", body, buttons, cx));
+        let ask = cx.new(|cx| Dialog::new(tr!("Cancel conversions and quit?"), body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(ask, window, cx));
     }
 }

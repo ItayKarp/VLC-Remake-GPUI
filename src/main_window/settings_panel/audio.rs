@@ -29,6 +29,8 @@ use crate::effects;
 use crate::engine::audio::test_tone;
 use crate::engine::player::Player;
 use crate::engine::values::Offset;
+use crate::i18n;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Choice, Control, Value};
 use crate::theme::Palette;
@@ -45,9 +47,10 @@ const NOTE_GAP: f32 = 8.;
 /// The space around the effect sections.
 const EFFECTS_PADDING: f32 = 8.;
 /// What the effects can't do with passthrough on, and with a mono track.
-const PASSTHROUGH_NOTE: &str = "Passthrough is on: AC3 and DTS sound reaches the receiver \
-                                undecoded, without these effects.";
-const MONO_NOTE: &str = "This track is mono, so the Stereo Widener has nothing to widen.";
+const PASSTHROUGH_NOTE: &str = tr_noop!(
+    "Passthrough is on: AC3 and DTS sound reaches the receiver undecoded, without these effects."
+);
+const MONO_NOTE: &str = tr_noop!("This track is mono, so the Stereo Widener has nothing to widen.");
 
 /// The tab's controls.
 pub(in crate::main_window) struct AudioControls {
@@ -61,16 +64,18 @@ pub(in crate::main_window) struct AudioControls {
 impl AudioControls {
     /// The controls, showing the values in effect.
     pub(in crate::main_window) fn new(window: &mut Window, cx: &mut Context<MainWindow>) -> Self {
-        let labels = stereo_choices().iter().map(|choice| SharedString::from(choice.label));
+        let labels =
+            stereo_choices().iter().map(|choice| SharedString::from(i18n::text(choice.label)));
         let selected = stereo_index(cx);
         let stereo =
-            cx.new(|cx| Dropdown::new("Stereo Mode", labels.collect(), selected, window, cx));
+            cx.new(|cx| Dropdown::new(tr!("Stereo Mode"), labels.collect(), selected, window, cx));
         let picked = cx.subscribe(&stereo, |_, _, event: &dropdown::Changed, cx| {
             if let Some(choice) = stereo_choices().get(event.0) {
                 effects::set(cx, STEREO_MODE, Value::Choice(choice.id));
             }
         });
-        let delay = cx.new(|cx| NumberRow::new(track_delay_spec("Audio Track Delay"), window, cx));
+        let spec = track_delay_spec(tr!("Audio Track Delay"));
+        let delay = cx.new(|cx| NumberRow::new(spec, window, cx));
         let moved = cx.subscribe(&delay, |this, _, event: &Changed, cx| {
             let millis = (event.0 * MS_PER_SECOND).round() as i64;
             this.set_audio_delay(Offset::from_millis(millis), cx);
@@ -93,8 +98,8 @@ impl MainWindow {
         self.sync_audio_controls(window, cx);
         let controls = &self.settings_panel.audio;
         let defaults = section(
-            "Defaults",
-            "For videos you open next. The audio button picks this video's.",
+            tr!("Defaults"),
+            tr!("For videos you open next. The audio button picks this video's."),
             p,
         )
         .children(controls.defaults.render(p, cx))
@@ -103,10 +108,10 @@ impl MainWindow {
         .child(stereo_note(p));
         let target = self.audio_target(cx);
         let note =
-            target.unwrap_or_else(|| "Pick an audio track to sync it with the video.".into());
-        let sync = section("Synchronization", note, p).child(controls.delay.clone());
+            target.unwrap_or_else(|| tr!("Pick an audio track to sync it with the video.").into());
+        let sync = section(tr!("Synchronization"), note, p).child(controls.delay.clone());
         let effects = div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .py(px(EFFECTS_PADDING))
             .px(px(SECTION_PADDING))
@@ -121,7 +126,7 @@ impl MainWindow {
             .children(self.audio_sections().map(|controls| controls.render(p, cx)))
             .children(self.plays_mono(cx).then(|| effects_note(MONO_NOTE, p)));
         div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(defaults)
             .child(div().h(px(1.)).bg(p.divider))
@@ -149,7 +154,7 @@ impl MainWindow {
     fn audio_target(&self, cx: &App) -> Option<String> {
         let player = self.loaded_player(cx)?.read(cx);
         let label = player.tracks().label(player.audio_track()?)?;
-        Some(format!("For “{label}” in this video."))
+        Some(tr!("For “{label}” in this video.", label))
     }
 
     /// Shows the settings, the stereo mode in effect and the playing track's delay.
@@ -175,11 +180,11 @@ impl MainWindow {
     fn test_stereo(&mut self, cx: &mut Context<Self>) {
         let Some(player) = self.loaded_player(cx) else { return };
         player.update(cx, Player::play_test_tone);
-        self.show_osd("Test tone: left", cx);
+        self.show_osd(tr!("Test tone: left"), cx);
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(test_tone::RIGHT_STARTS).await;
             // The window may be gone; nobody is left to tell then.
-            let _ = this.update(cx, |this, cx| this.show_osd("Test tone: right", cx));
+            let _ = this.update(cx, |this, cx| this.show_osd(tr!("Test tone: right"), cx));
         })
         .detach();
     }
@@ -187,27 +192,28 @@ impl MainWindow {
 
 /// Stereo Mode's label, and Test at the right.
 fn stereo_row(p: &Palette, cx: &mut Context<MainWindow>) -> Div {
-    let test = Button::new("test-stereo-mode", "Test")
+    let test = Button::new("test-stereo-mode", tr!("Test"))
         .style(ButtonStyle::Subtle)
-        .tooltip("Plays a tone on the left, then the right, at a moderate level", None::<&str>)
+        .tooltip(tr!("Plays a tone on the left, then the right, at a moderate level"), None::<&str>)
         .on_click(cx.listener(|this, _, _, cx| this.test_stereo(cx)));
     div()
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .pl(px(4.))
+        .ps(px(4.))
         .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
-        .child("Stereo Mode")
+        .child(tr!("Stereo Mode"))
         .child(test)
 }
 
 /// A line about the effect sections.
 fn effects_note(text: &'static str, p: &Palette) -> Div {
+    let text = i18n::text(text);
     div()
         .pb(px(NOTE_GAP))
-        .pl(px(4.))
+        .ps(px(4.))
         .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(text)
@@ -217,11 +223,11 @@ fn effects_note(text: &'static str, p: &Palette) -> Div {
 fn stereo_note(p: &Palette) -> Div {
     div()
         .pt(px(NOTE_GAP))
-        .pl(px(4.))
+        .ps(px(4.))
         .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .mb(px(SECTION_NOTE_GAP))
-        .child("For what plays until VLC quits; Save as Default keeps it.")
+        .child(tr!("For what plays until VLC quits; Save as Default keeps it."))
 }
 
 /// Stereo Mode's choices, as Settings → Audio has them.

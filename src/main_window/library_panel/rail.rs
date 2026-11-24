@@ -6,6 +6,7 @@ use gpui::{ClickEvent, Context, Div, Hsla, div, prelude::*, px};
 
 use super::MainWindow;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::navigation::rail::{self, RailItem, RailState};
 use crate::navigation::route::Section;
 use crate::theme::Palette;
@@ -32,7 +33,7 @@ impl MainWindow {
         div()
             .w(px(super::RAIL_WIDTH))
             .h_full()
-            .flex()
+            .flex_row_start()
             .flex_none()
             .flex_col()
             .items_center()
@@ -44,7 +45,7 @@ impl MainWindow {
 
     /// "+": adds media (S4.5.7).
     fn add_button(&self, cx: &mut Context<Self>) -> Div {
-        let button = IconButton::new("rail-add", icons::ADD, "Add media")
+        let button = IconButton::new("rail-add", icons::ADD, tr!("Add media"))
             .size(BUTTON, ICON)
             .selected(self.library_panel.add_menu.is_some())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {

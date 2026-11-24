@@ -47,14 +47,14 @@ impl Preset {
     /// Its name in the dialog.
     pub fn name(self) -> &'static str {
         match self {
-            Self::Mp4H264 => "Video – H.264 + AAC (MP4)",
-            Self::Mp4H265 => "Video – H.265 + AAC (MP4)",
-            Self::WebM => "Video – VP8 + Vorbis (WebM)",
-            Self::Ogg => "Video – Theora + Vorbis (OGG)",
-            Self::Mp3 => "Audio – MP3",
-            Self::Aac => "Audio – AAC (M4A)",
-            Self::Vorbis => "Audio – Vorbis (OGG)",
-            Self::Flac => "Audio – FLAC",
+            Self::Mp4H264 => tr!("Video – H.264 + AAC (MP4)"),
+            Self::Mp4H265 => tr!("Video – H.265 + AAC (MP4)"),
+            Self::WebM => tr!("Video – VP8 + Vorbis (WebM)"),
+            Self::Ogg => tr!("Video – Theora + Vorbis (OGG)"),
+            Self::Mp3 => tr!("Audio – MP3"),
+            Self::Aac => tr!("Audio – AAC (M4A)"),
+            Self::Vorbis => tr!("Audio – Vorbis (OGG)"),
+            Self::Flac => tr!("Audio – FLAC"),
         }
     }
 

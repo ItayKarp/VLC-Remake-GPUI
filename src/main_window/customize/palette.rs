@@ -135,15 +135,15 @@ impl MainWindow {
 
 /// Cancel and Reset to default at the start, Save (once there's a change) at the end.
 fn palette_footer(changed: bool, cx: &mut Context<MainWindow>) -> Div {
-    let cancel = Button::new("customize-cancel", "Cancel").style(ButtonStyle::Filled).on_click(
-        cx.listener(|this, _: &ClickEvent, window, cx| {
+    let cancel = Button::new("customize-cancel", tr!("Cancel"))
+        .style(ButtonStyle::Filled)
+        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
             this.cancel_customizing(window, cx);
-        }),
-    );
-    let reset = Button::new("customize-reset", "Reset to default")
+        }));
+    let reset = Button::new("customize-reset", tr!("Reset to default"))
         .style(ButtonStyle::Ghost)
         .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.reset_layout(cx)));
-    let save = Button::new("customize-save", "Save")
+    let save = Button::new("customize-save", tr!("Save"))
         .primary()
         .disabled(!changed)
         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save_layout(window, cx)));
@@ -166,13 +166,14 @@ fn help(as_list: bool, p: &Palette) -> Div {
 
 /// The title, the list button and the ✕ that cancels.
 fn header(as_list: bool, p: &Palette, cx: &mut Context<MainWindow>) -> Div {
-    let list = IconButton::new("customize-as-list", icons::LIST, "Edit as a list")
+    let list = IconButton::new("customize-as-list", icons::LIST, tr!("Edit as a list"))
         .size(28., 16.)
         .selected(as_list)
         .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_list(cx)));
-    let close = IconButton::new("customize-close", icons::CLOSE, "Cancel").size(28., 16.).on_click(
-        cx.listener(|this, _: &ClickEvent, window, cx| this.cancel_customizing(window, cx)),
-    );
+    let close =
+        IconButton::new("customize-close", icons::CLOSE, tr!("Cancel")).size(28., 16.).on_click(
+            cx.listener(|this, _: &ClickEvent, window, cx| this.cancel_customizing(window, cx)),
+        );
     div()
         .px(px(PADDING))
         .pt(px(12.))
@@ -181,7 +182,9 @@ fn header(as_list: bool, p: &Palette, cx: &mut Context<MainWindow>) -> Div {
         .flex_row()
         .items_center()
         .justify_between()
-        .child(div().text_size(text_px(14.)).text_color(p.text_strong).child("Customize Player"))
+        .child(
+            div().text_size(text_px(14.)).text_color(p.text_strong).child(tr!("Customize Player")),
+        )
         .child(div().flex().flex_row().gap(px(4.)).child(list).child(close))
 }
 
@@ -190,7 +193,7 @@ fn cell(index: usize, unit: Unit, p: &Palette) -> AnyElement {
     let hover = p.hover;
     div()
         .id(("palette-unit", index))
-        .debug_selector(move || format!("palette-{}", units::label(unit)))
+        .debug_selector(move || format!("palette-{}", units::english(unit)))
         .w(px(CELL_WIDTH))
         .h(px(CELL_HEIGHT))
         .pt(px(16.))

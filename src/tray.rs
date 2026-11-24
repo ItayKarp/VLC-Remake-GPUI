@@ -56,14 +56,14 @@ impl TrayCommand {
     /// Every command, in menu order; a command's index here is its id in the OS's menu.
     const ALL: [Self; 5] = [Self::PlayPause, Self::Previous, Self::Next, Self::ShowVlc, Self::Quit];
 
-    /// The menu item's text.
+    /// The menu item's text, in the interface language.
     pub fn label(self) -> &'static str {
         match self {
-            Self::PlayPause => "Play/Pause",
-            Self::Previous => "Previous",
-            Self::Next => "Next",
-            Self::ShowVlc => "Show VLC",
-            Self::Quit => "Quit VLC",
+            Self::PlayPause => tr!("Play/Pause"),
+            Self::Previous => tr!("Previous"),
+            Self::Next => tr!("Next"),
+            Self::ShowVlc => tr!("Show VLC"),
+            Self::Quit => tr!("Quit VLC"),
         }
     }
 
@@ -107,7 +107,8 @@ impl TrayIcon {
 /// Under "Show VLC in the system tray": why there is no tray to show it in, if there isn't.
 pub fn unavailable_hint(_: &App) -> Option<String> {
     (!platform::is_available()).then(|| {
-        "This desktop has no system tray. On GNOME, the AppIndicator extension adds one.".to_owned()
+        tr!("This desktop has no system tray. On GNOME, the AppIndicator extension adds one.")
+            .to_owned()
     })
 }
 

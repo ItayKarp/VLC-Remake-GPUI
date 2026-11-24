@@ -88,6 +88,18 @@ md-5 = "0.10"
 # Services on macOS, Credential Manager on Windows, the Secret Service (over zbus, pure Rust)
 # elsewhere.
 keyring = "4"
+# Internationalization (S9.2): CLDR plural rules, number and date formats for every language,
+# with their data compiled in (ICU4X, whose core `icu_normalizer` already builds), and the OS's
+# language (`sys-locale`, already built for GPUI).
+icu_plurals = "2"
+icu_decimal = "2"
+icu_datetime = "2"
+icu_locale_core = "2"
+# Formatters shared by every thread that writes interface text.
+icu_provider = { version = "2", features = ["sync"] }
+sys-locale = "0.3"
+# The local time zone, for dates shown in the library (S9.2.1); already built for GPUI.
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 
 # Video presentation path (b) (S1.4.1): IOSurface-backed `CVPixelBuffer`s for GPUI's surface
 # primitive, and the power assertion that keeps the display awake (S1.4.3). The versions must

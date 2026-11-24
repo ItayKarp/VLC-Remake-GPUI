@@ -9,6 +9,7 @@ use gpui::{Context, Div, SharedString, Stateful, div, prelude::*, px};
 use super::SettingsWindow;
 use super::search::Search;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::settings::registry::{Category, Group};
 use crate::theme::Palette;
 use crate::theme::text_px;
@@ -49,7 +50,7 @@ impl Sidebar<'_> {
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .p(px(INSET))
             .rounded(px(metrics::RADIUS_LARGE))
@@ -65,7 +66,7 @@ impl Sidebar<'_> {
 
     /// A group's heading; a thin rule when compact.
     fn heading(&self, group: Group, p: &Palette) -> Div {
-        let heading = div().flex_none().h(px(GROUP_HEIGHT)).flex().items_center();
+        let heading = div().flex_none().h(px(GROUP_HEIGHT)).flex_row_start().items_center();
         if self.compact {
             return heading.child(div().w_full().h(px(1.)).bg(p.divider));
         }
@@ -83,10 +84,10 @@ impl Sidebar<'_> {
             if selected { (p.accent_fg, p.text_strong) } else { (p.icon, p.text) };
         let hover = p.hover;
         let row = div()
-            .id(SharedString::from(format!("category-{}", category.label())))
+            .id(SharedString::from(format!("category-{category:?}")))
             .h(px(ROW_HEIGHT))
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(ICON_GAP))
             .px(px(ROW_PADDING))
@@ -121,7 +122,7 @@ impl Sidebar<'_> {
             div()
                 .text_size(text_px(metrics::TEXT_SMALL))
                 .text_color(p.text_muted)
-                .child(count.to_string())
+                .child(crate::i18n::number(count))
         })
     }
 }

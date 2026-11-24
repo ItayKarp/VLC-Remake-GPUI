@@ -19,6 +19,7 @@ use gpui::{
 
 use crate::assets::icons;
 use crate::db::roots::RootKind;
+use crate::i18n::DirectionalStyle;
 use crate::library::indexer::Wanted;
 use crate::library::{self, Library, folders, root_text, sources};
 use crate::settings;
@@ -64,14 +65,14 @@ impl MediaFoldersPanel {
     /// One folder's row.
     fn folder_row(&self, index: usize, folder: &Wanted, p: &Palette, cx: &Context<Self>) -> Div {
         let (glyph, section) = match folder.kind {
-            RootKind::Music => (icons::MUSIC, "Music"),
-            RootKind::Video | RootKind::Mixed => (icons::VIDEOS, "Videos"),
+            RootKind::Music => (icons::MUSIC, tr!("Music")),
+            RootKind::Video | RootKind::Mixed => (icons::VIDEOS, tr!("Videos")),
         };
-        let status = format!("{section} · {}", self.status(&folder.path, cx));
+        let status = tr!("{section} · {status}", section, status = self.status(&folder.path, cx));
         let text = div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(
                 div()
@@ -86,7 +87,7 @@ impl MediaFoldersPanel {
                     .child(status),
             );
         div()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .child(icon(glyph, FOLDER_ICON, p.icon))
@@ -98,30 +99,30 @@ impl MediaFoldersPanel {
     /// What the row says about the folder at `path`.
     fn status(&self, path: &Path, cx: &Context<Self>) -> SharedString {
         if !self.enabled {
-            return "Not indexed while the library is off".into();
+            return tr!("Not indexed while the library is off").into();
         }
         match library::roots(cx).iter().find(|root| root.path == path) {
             Some(root) => root_text::status_text(root),
-            None => "Waiting to be indexed".into(),
+            None => tr!("Waiting to be indexed").into(),
         }
     }
 
     fn rescan_button(&self, index: usize, path: &Path, cx: &Context<Self>) -> Button {
         let scanning = library::roots(cx).iter().any(|r| r.path == path && r.indexing.is_some());
         let path = path.to_path_buf();
-        Button::new(("rescan-folder", index), "Rescan")
+        Button::new(("rescan-folder", index), tr!("Rescan"))
             .icon(icons::REFRESH)
             .disabled(!self.enabled || scanning)
-            .tooltip("Read every file in this folder again", None::<SharedString>)
+            .tooltip(tr!("Read every file in this folder again"), None::<SharedString>)
             .on_click(move |_: &ClickEvent, _, cx| library::resync(&path, cx))
     }
 
     fn remove_button(&self, index: usize, path: &Path) -> Button {
         let path = path.to_path_buf();
-        Button::new(("remove-folder", index), "Remove")
+        Button::new(("remove-folder", index), tr!("Remove"))
             .icon(icons::REMOVE)
             .disabled(!self.enabled)
-            .tooltip("Stop showing this folder in the library", None::<SharedString>)
+            .tooltip(tr!("Stop showing this folder in the library"), None::<SharedString>)
             .on_click(move |_: &ClickEvent, _, cx| remove(&path, cx))
     }
 
@@ -129,10 +130,10 @@ impl MediaFoldersPanel {
     fn add_buttons(&self, cx: &Context<Self>) -> Div {
         let this = cx.entity().downgrade();
         let shelves = [
-            ("add-video-folder", "Add Video Folder…", RootKind::Video),
-            ("add-music-folder", "Add Music Folder…", RootKind::Music),
+            ("add-video-folder", tr!("Add Video Folder…"), RootKind::Video),
+            ("add-music-folder", tr!("Add Music Folder…"), RootKind::Music),
         ];
-        div().flex().gap(px(GAP)).children(shelves.map(|(id, label, kind)| {
+        div().flex_row_start().gap(px(GAP)).children(shelves.map(|(id, label, kind)| {
             let this = this.clone();
             Button::new(id, label).icon(icons::ADD).disabled(!self.enabled).on_click(
                 move |_: &ClickEvent, window: &mut Window, cx| {
@@ -153,14 +154,14 @@ impl Render for MediaFoldersPanel {
             .map(|(index, folder)| self.folder_row(index, folder, &p, cx))
             .collect();
         let empty = rows.is_empty().then(|| {
-            div().text_color(p.text_muted).child("No media folders: the library is empty.")
+            div().text_color(p.text_muted).child(tr!("No media folders: the library is empty."))
         });
         let refused = self.refused.clone().map(|reason| {
             div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.danger).child(reason)
         });
         div()
             .w_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(GAP))
             .p(px(PADDING))

@@ -21,6 +21,7 @@ use super::button::{Button, ButtonStyle, IconButton};
 use super::icon::two_tone;
 use super::metrics;
 use crate::assets::{icons, two_tone as icons2};
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
@@ -216,7 +217,7 @@ impl Toasts {
         // Long paths wrap anywhere rather than overflow.
         let message = message(toast.message.clone(), p.text_strong).pt(px(4.)).overflow_hidden();
         let card = live_region(toast_card(id, p), toast.message.clone(), toast.level.politeness());
-        let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
+        let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, tr!("Dismiss"))
             .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx)));
         let lead = match toast.thumbnail.clone() {
             Some(thumbnail) => thumbnail_image(thumbnail, p),
@@ -233,10 +234,10 @@ impl Toasts {
         let body = div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(message)
-            .child(div().flex().flex_row().flex_wrap().ml(px(-8.)).children(buttons));
+            .child(div().flex_row_start().flex_wrap().ms(px(-8.)).children(buttons));
         card.child(lead).child(body).child(close)
     }
 }
@@ -248,12 +249,11 @@ fn toast_card(id: u64, p: &Palette) -> Stateful<Div> {
         .occlude()
         .w(px(TOAST_WIDTH))
         .max_w_full()
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_start()
         .gap(px(10.))
-        .pl(px(12.))
-        .pr(px(4.))
+        .ps(px(12.))
+        .pe(px(4.))
         .py(px(8.))
         .rounded(px(metrics::RADIUS_LARGE))
         .bg(p.menu)
@@ -286,9 +286,9 @@ impl Render for Toasts {
 
         div()
             .absolute()
-            .right(px(16.))
+            .inset_end(px(16.))
             .bottom(px(16.))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_end()
             .gap(px(8.))
@@ -339,7 +339,7 @@ impl RenderOnce for Banner {
                 .on_click(move |_, window, cx| f(window, cx))
         });
         let dismiss = self.on_dismiss.map(|f| {
-            IconButton::new("banner-dismiss", icons::CLOSE, "Dismiss")
+            IconButton::new("banner-dismiss", icons::CLOSE, tr!("Dismiss"))
                 .on_click(move |_, window, cx| f(window, cx))
         });
 
@@ -347,12 +347,11 @@ impl RenderOnce for Banner {
         live_region(region, self.message.clone(), self.level.politeness())
             .w_full()
             .max_w(px(640.))
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_center()
             .gap(px(10.))
-            .pl(px(12.))
-            .pr(px(6.))
+            .ps(px(12.))
+            .pe(px(6.))
             .py(px(6.))
             .min_h(px(44.))
             .rounded(px(metrics::RADIUS))

@@ -15,7 +15,7 @@ pub struct Program {
 impl Program {
     /// Its name, or "Program" and its id.
     pub fn label(&self) -> String {
-        self.name.clone().unwrap_or_else(|| format!("Program {}", self.id))
+        self.name.clone().unwrap_or_else(|| tr!("Program {id}", id = self.id))
     }
 }
 
@@ -83,10 +83,10 @@ impl Titles {
             return name.clone();
         }
         if title.is_menu {
-            return "Menu".to_owned();
+            return tr!("Menu").to_owned();
         }
         let number = self.all[..index].iter().filter(|title| !title.is_menu).count() + 1;
-        format!("Title {number}")
+        tr!("Title {number}", number)
     }
 }
 

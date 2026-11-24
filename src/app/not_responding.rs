@@ -48,8 +48,10 @@ pub fn open(cx: &mut App) -> anyhow::Result<()> {
 impl Render for NotResponding {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
-        let detail = format!(
-            "The VLC window that's already open didn't answer within {} seconds, so \
+        let detail = trn!(
+            "The VLC window that's already open didn't answer within {count} second, so \
+             these files weren't opened. Wait for it to recover, or close it and try again.",
+            "The VLC window that's already open didn't answer within {count} seconds, so \
              these files weren't opened. Wait for it to recover, or close it and try again.",
             FORWARD_TIMEOUT.as_secs()
         );
@@ -65,12 +67,12 @@ impl Render for NotResponding {
                 div()
                     .text_size(text_px(18.))
                     .text_color(p.text_strong)
-                    .child("VLC is not responding"),
+                    .child(tr!("VLC is not responding")),
             )
             .child(div().text_size(text_px(14.)).text_color(p.text_muted).child(detail))
             .child(
                 div().flex().justify_end().child(
-                    Button::new("close", "Close")
+                    Button::new("close", tr!("Close"))
                         .primary()
                         .track_focus(&self.close_button)
                         .on_click(|_: &ClickEvent, _, cx| cx.quit()),

@@ -9,6 +9,7 @@ use gpui::{
 };
 
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle, IconButton};
@@ -64,7 +65,7 @@ impl Frame {
             .overflow_y_scroll()
             .px(px(PADDING))
             .pt(px(PADDING))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(SECTION_GAP))
             .children(self.sections);
@@ -75,7 +76,7 @@ impl Frame {
             .w(px(WIDTH))
             .max_w(viewport.width - px(2. * WINDOW_MARGIN))
             .max_h(viewport.height - px(2. * WINDOW_MARGIN))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .rounded(px(metrics::RADIUS_LARGE + 4.))
             .overflow_hidden()
@@ -97,7 +98,7 @@ pub(super) fn section(
     p: &Palette,
 ) -> Div {
     div()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .child(
             div()
@@ -137,16 +138,18 @@ fn header<V: EventEmitter<DismissEvent>>(
     p: &Palette,
     cx: &mut Context<V>,
 ) -> Div {
-    let close = IconButton::new(SharedString::from(format!("{id}-close")), icons::CLOSE, "Close")
+    let close_id = SharedString::from(format!("{id}-close"));
+    let close = IconButton::new(close_id, icons::CLOSE, tr!("Close"))
         .on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(DismissEvent)));
+
     div()
         .flex_none()
         .h(px(HEADER_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .pl(px(PADDING))
-        .pr(px(PADDING - 6.))
+        .ps(px(PADDING))
+        .pe(px(PADDING - 6.))
         .bg(p.sunken)
         .text_size(text_px(DESCRIPTION_TEXT + 1.))
         .child(title)
@@ -171,7 +174,7 @@ fn footer<V: EventEmitter<DismissEvent>>(
         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| on_play(this, window, cx)));
     div()
         .flex_none()
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .px(px(PADDING))

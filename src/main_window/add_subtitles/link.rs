@@ -6,6 +6,7 @@ use gpui::{AnyElement, AppContext as _, Context, Entity, Window, div, prelude::*
 
 use super::AddSubtitlesDialog;
 use super::render::{PADDING, note};
+use crate::i18n::DirectionalStyle;
 use crate::subtitle_links::download;
 use crate::theme::Palette;
 use crate::theme::text_px;
@@ -21,7 +22,7 @@ pub(super) fn field(
         TextInput::new(window, cx)
             .with_look(Look::Bare)
             .with_placeholder("https://example.com/The.Wand.S01E01.en.srt")
-            .with_label("Subtitle file link")
+            .with_label(tr!("Subtitle file link"))
     })
 }
 
@@ -32,7 +33,7 @@ impl AddSubtitlesDialog {
         let named = match download::parse_link(&text).map(|url| download::name_of(&url)) {
             _ if text.is_empty() => None,
             Ok(Some(name)) => {
-                Some((format!("Save downloads “{name}” and adds it to this video."), false))
+                Some((tr!("Save downloads “{name}” and adds it to this video.", name), false))
             }
             Ok(None) => Some((download::Failure::NotSubtitleName.message(), true)),
             Err(failure) => Some((failure.message(), true)),
@@ -49,7 +50,13 @@ impl AddSubtitlesDialog {
                 .text_color(if problem { p.warning } else { p.text })
                 .child(text)
         });
-        div().flex().flex_col().gap(px(8.)).child(explanation).children(named).into_any_element()
+        div()
+            .flex_row_start()
+            .flex_col()
+            .gap(px(8.))
+            .child(explanation)
+            .children(named)
+            .into_any_element()
     }
 
     /// The link changed: what it names is shown again.

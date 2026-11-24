@@ -9,13 +9,16 @@ use crate::engine::hdr::{HdrStatus, SourceColour, ToneMap, Transfer};
 use crate::native_window::{self, DisplayRange};
 
 /// Why HDR shows washed out with HDR Off.
-const WASHED_OUT: &str = "HDR video without tone mapping: colors look washed out. Set HDR to Auto.";
+const WASHED_OUT: &str =
+    tr_noop!("HDR video without tone mapping: colors look washed out. Set HDR to Auto.");
 /// Why Dolby Vision profile 5 shows purple and green.
-const DOLBY_VISION_5: &str =
-    "Dolby Vision without an HDR10 base: VLC can't convert its colors, so they look wrong.";
+const DOLBY_VISION_5: &str = tr_noop!(
+    "Dolby Vision without an HDR10 base: VLC can't convert its colors, so they look wrong."
+);
 /// What an HDR display gets.
-const HDR_DISPLAY: &str =
-    "This display can show HDR, but VLC tone-maps it to SDR for now: its video path is SDR only.";
+const HDR_DISPLAY: &str = tr_noop!(
+    "This display can show HDR, but VLC tone-maps it to SDR for now: its video path is SDR only."
+);
 
 impl MainWindow {
     /// The line under the HDR row for the video playing and the display the window is on;
@@ -37,7 +40,11 @@ impl MainWindow {
 /// What to say about `status` on a display that can show `range`.
 fn describe(status: HdrStatus, range: DisplayRange) -> Option<String> {
     let video = video_note(status)?;
-    Some(if range == DisplayRange::Hdr { format!("{video} {HDR_DISPLAY}") } else { video })
+    Some(if range == DisplayRange::Hdr {
+        format!("{video} {}", crate::i18n::text(HDR_DISPLAY))
+    } else {
+        video
+    })
 }
 
 /// What the video is and how it shows; `None` for SDR video.
@@ -47,10 +54,13 @@ fn video_note(status: HdrStatus) -> Option<String> {
         return Some(warning.to_owned());
     }
     let map = status.tone_map?;
-    Some(if source.transfer == Some(map.transfer) {
-        format!("{} video, tone-mapped to SDR{}.", name(map.transfer), from_peak(map, source))
-    } else {
-        format!("Read as {} and tone-mapped to SDR.", name(map.transfer))
+    let name = name(map.transfer);
+    Some(match peak(map, source) {
+        _ if source.transfer != Some(map.transfer) => {
+            tr!("Read as {name} and tone-mapped to SDR.", name)
+        }
+        Some(peak) => tr!("{name} video, tone-mapped to SDR from {peak} nits.", name, peak),
+        None => tr!("{name} video, tone-mapped to SDR.", name),
     })
 }
 
@@ -58,17 +68,18 @@ fn video_note(status: HdrStatus) -> Option<String> {
 fn warning(status: HdrStatus) -> Option<&'static str> {
     let source = status.source?;
     if source.is_unshowable_dolby_vision() {
-        Some(DOLBY_VISION_5)
+        Some(crate::i18n::text(DOLBY_VISION_5))
     } else {
-        (source.transfer.is_some() && status.tone_map.is_none()).then_some(WASHED_OUT)
+        let washed_out = source.transfer.is_some() && status.tone_map.is_none();
+        washed_out.then(|| crate::i18n::text(WASHED_OUT))
     }
 }
 
-/// " from 1000 nits" for HDR10 whose metadata says its peak.
-fn from_peak(map: ToneMap, source: SourceColour) -> String {
+/// The peak brightness in nits ("1000") of HDR10 whose metadata says it.
+fn peak(map: ToneMap, source: SourceColour) -> Option<String> {
     match (map.transfer, source.peak) {
-        (Transfer::Pq, Some(_)) => format!(" from {:.0} nits", map.peak),
-        _ => String::new(),
+        (Transfer::Pq, Some(_)) => Some(format!("{:.0}", map.peak)),
+        _ => None,
     }
 }
 

@@ -105,5 +105,5 @@ fn stepping(p: &Palette, reduce_motion: bool) -> Div {
             })
             .into_any_element()
     };
-    div().flex().items_center().gap(px(10.)).child(spinner).child("Stepping…")
+    div().flex().items_center().gap(px(10.)).child(spinner).child(tr!("Stepping…"))
 }

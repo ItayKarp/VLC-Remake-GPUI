@@ -21,11 +21,35 @@ impl Refusal {
     /// What the dialog says under the key.
     pub fn message(&self) -> String {
         match self {
-            Refusal::Invalid => "That isn't a key VLC knows.".into(),
-            Refusal::ModifierOnly => "Add a key to the modifiers.".into(),
-            Refusal::Function => "Fn combinations can't be shortcuts.".into(),
-            Refusal::Reserved(what) => format!("The system uses this key to {what}."),
+            Refusal::Invalid => tr!("That isn't a key VLC knows.").into(),
+            Refusal::ModifierOnly => tr!("Add a key to the modifiers.").into(),
+            Refusal::Function => tr!("Fn combinations can't be shortcuts.").into(),
+            Refusal::Reserved(what) => reserved_message(what).into(),
         }
+    }
+}
+
+/// The whole sentence for a key the OS keeps for `what`, so translators see each one.
+fn reserved_message(what: &str) -> &'static str {
+    match what {
+        "quit apps" => tr!("The system uses this key to quit apps."),
+        "switch apps" => tr!("The system uses this key to switch apps."),
+        "switch windows" => tr!("The system uses this key to switch windows."),
+        "open Spotlight" => tr!("The system uses this key to open Spotlight."),
+        "hide apps" => tr!("The system uses this key to hide apps."),
+        "minimize windows" => tr!("The system uses this key to minimize windows."),
+        "lock the screen" => tr!("The system uses this key to lock the screen."),
+        "force apps to quit" => tr!("The system uses this key to force apps to quit."),
+        "take screenshots" => tr!("The system uses this key to take screenshots."),
+        "lock the computer" => tr!("The system uses this key to lock the computer."),
+        "show the desktop" => tr!("The system uses this key to show the desktop."),
+        "close windows" => tr!("The system uses this key to close windows."),
+        "open the security screen" => {
+            tr!("The system uses this key to open the security screen.")
+        }
+        "open Task Manager" => tr!("The system uses this key to open Task Manager."),
+        "log out" => tr!("The system uses this key to log out."),
+        _ => tr!("The system uses this key."),
     }
 }
 

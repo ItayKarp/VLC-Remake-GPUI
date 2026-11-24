@@ -204,10 +204,13 @@ impl MainWindow {
 /// The hint while the remote listens on `port`, at this computer's `address` on its network.
 fn listening_message(address: Option<IpAddr>, port: u16) -> String {
     match address {
-        Some(address) => format!("Open http://{address}:{port} on a phone on this network."),
-        None => format!(
-            "This computer isn't on a network, so only it can open the remote, at \
-             http://localhost:{port}."
+        Some(address) => {
+            let url = format!("http://{address}:{port}");
+            tr!("Open {url} on a phone on this network.", url)
+        }
+        None => tr!(
+            "This computer isn't on a network, so only it can open the remote, at {url}.",
+            url = format!("http://localhost:{port}")
         ),
     }
 }
@@ -217,12 +220,12 @@ fn failure_message(error: &io::Error, port: u16) -> String {
     tracing::warn!("web remote: can't listen on port {port}: {error}");
     match error.kind() {
         io::ErrorKind::AddrInUse => {
-            format!("Port {port} is in use by another program. Pick another port.")
+            tr!("Port {port} is in use by another program. Pick another port.", port)
         }
         io::ErrorKind::PermissionDenied => {
-            format!("VLC isn't allowed to listen on port {port}. Pick another port.")
+            tr!("VLC isn't allowed to listen on port {port}. Pick another port.", port)
         }
-        _ => format!("The web remote couldn't start on port {port}: {error}."),
+        _ => tr!("The web remote couldn't start on port {port}: {error}.", port, error),
     }
 }
 

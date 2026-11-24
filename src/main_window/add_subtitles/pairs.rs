@@ -19,6 +19,7 @@ use super::model::Choice;
 use super::render::{PADDING, ROW_HEIGHT, file_name, icon_and_name, note};
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::subtitle_links::pairing;
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
@@ -44,7 +45,8 @@ impl AddSubtitlesDialog {
     /// The pairs, under a note when the source folder fits none of them.
     pub(super) fn render_pairs(pairs: &Pairs, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         if pairs.choices.is_empty() {
-            return note("There are no videos here to add subtitles to.", p).into_any_element();
+            return note(tr!("There are no videos here to add subtitles to."), p)
+                .into_any_element();
         }
         let list = uniform_list(
             "add-subtitles-pairs",
@@ -61,7 +63,7 @@ impl AddSubtitlesDialog {
         div()
             .flex_1()
             .min_h_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .children(warning(pairs).map(|text| note(text, p).text_color(p.warning)))
             .child(
@@ -71,7 +73,7 @@ impl AddSubtitlesDialog {
                     .min_h_0()
                     .px(px(PADDING))
                     .role(accesskit::Role::List)
-                    .aria_label("Videos and their subtitles")
+                    .aria_label(tr!("Videos and their subtitles"))
                     .child(list),
             )
             .into_any_element()
@@ -88,7 +90,7 @@ impl AddSubtitlesDialog {
         let video = div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(14.))
             .child(
@@ -101,9 +103,9 @@ impl AddSubtitlesDialog {
             .id(("add-subtitles-pair", index))
             .h(px(ROW_HEIGHT))
             .text_color(p.text_muted)
-            .flex()
+            .flex_row_start()
             .items_center()
-            .pl(px(18.))
+            .ps(px(18.))
             .child(video)
             .child(self.subtitles_cell(choice, index, p, cx));
         spaced(row).into_any_element()
@@ -129,16 +131,19 @@ impl AddSubtitlesDialog {
             .flex_1()
             .min_w_0()
             .h_full()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .gap(px(10.))
-            .pl(px(16.))
+            .ps(px(16.))
             .rounded(px(metrics::RADIUS + 2.))
             .cursor_pointer()
             .hover(|style| style.bg(p.hover))
             .role(accesskit::Role::Button)
-            .aria_label(SharedString::from(format!("Subtitles for {}", file_name(&choice.video))))
+            .aria_label(SharedString::from(tr!(
+                "Subtitles for {video}",
+                video = file_name(&choice.video)
+            )))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
@@ -183,10 +188,10 @@ impl AddSubtitlesDialog {
             items.push(MenuItem::Separator);
         }
         let clear = this.clone();
-        items.push(MenuItem::action("No Match", move |_, cx| {
+        items.push(MenuItem::action(tr!("No Match"), move |_, cx| {
             clear.update(cx, |dialog, cx| dialog.clear_pair(index, cx)).ok();
         }));
-        items.push(MenuItem::action("Choose File…", move |window, cx| {
+        items.push(MenuItem::action(tr!("Choose File…"), move |window, cx| {
             this.update(cx, |_, cx| Self::choose_pair_file(index, window, cx)).ok();
         }));
         let menu = ContextMenu::build(items, window, cx);
@@ -221,7 +226,7 @@ impl AddSubtitlesDialog {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Choose".into()),
+            prompt: Some(tr!("Choose").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else { return };
@@ -254,12 +259,12 @@ impl AddSubtitlesDialog {
 fn warning(pairs: &Pairs) -> Option<&'static str> {
     match (pairs.candidates.is_empty(), pairs.paired_any) {
         (true, _) => {
-            Some("No subtitle files in this folder. Click the folder above to choose another.")
+            Some(tr!("No subtitle files in this folder. Click the folder above to choose another."))
         }
-        (false, false) => Some(
+        (false, false) => Some(tr!(
             "None of these subtitles seem to belong to these videos. Pick one for each video, \
-             or choose another folder.",
-        ),
+             or choose another folder."
+        )),
         (false, true) => None,
     }
 }
@@ -269,7 +274,7 @@ fn connector(p: &Palette) -> Div {
     div()
         .flex_1()
         .min_w(px(24.))
-        .mr(px(8.))
+        .me(px(8.))
         .border_t_1()
         .border_dashed()
         .border_color(p.text_muted.opacity(CONNECTOR_OPACITY))
@@ -278,7 +283,7 @@ fn connector(p: &Palette) -> Div {
 /// The first chosen subtitle and how many more, or "No match".
 fn chosen_label(choice: &Choice, p: &Palette) -> Div {
     let Some(first) = choice.chosen.first() else {
-        return icon_and_name(icons::SUBTITLE_FILE, "No match".into(), p)
+        return icon_and_name(icons::SUBTITLE_FILE, tr!("No match").into(), p)
             .text_color(p.text_muted.opacity(0.6));
     };
     let more = choice.chosen.len() - 1;
@@ -291,7 +296,7 @@ fn chosen_label(choice: &Choice, p: &Palette) -> Div {
     });
     div()
         .min_w_0()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(8.))
         .text_color(p.text_muted)

@@ -9,14 +9,16 @@ use futures::channel::mpsc::unbounded;
 use gpui::{App, Global, Task};
 
 use super::request::Launch;
+use crate::i18n::Language;
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::tray::{CommandSender, TrayCommand, TrayIcon};
 
-/// The icon, while it shows, and the task running its commands.
+/// The icon, while it shows, the language its menu is in, and the task running its commands.
 struct SystemTray {
     sender: CommandSender,
     icon: Option<TrayIcon>,
+    language: Option<Language>,
     _commands: Task<()>,
 }
 
@@ -30,7 +32,7 @@ pub fn init(cx: &mut App) {
             cx.update(|cx| run(command, cx));
         }
     });
-    cx.set_global(SystemTray { sender, icon: None, _commands: commands });
+    cx.set_global(SystemTray { sender, icon: None, language: None, _commands: commands });
     sync(cx);
     cx.observe_global::<settings::SettingsStore>(sync).detach();
 }
@@ -52,9 +54,17 @@ pub fn show_hidden_main_window(cx: &mut App) -> bool {
     hidden
 }
 
-/// Shows or takes away the icon to match the setting.
+/// Shows or takes away the icon to match the setting, and makes it again when the interface
+/// language changes so its menu (built once on macOS) speaks the new one.
 fn sync(cx: &mut App) {
-    let wanted = settings::get(cx).prefs.interface.system_tray && crate::tray::is_available();
+    let prefs = &settings::get(cx).prefs;
+    let wanted = prefs.interface.system_tray && crate::tray::is_available();
+    let language = Language::resolve(prefs.language);
+    let tray = cx.global_mut::<SystemTray>();
+    if wanted && tray.language != Some(language) {
+        tray.icon = None;
+        tray.language = Some(language);
+    }
     let tray = cx.global::<SystemTray>();
     if wanted == tray.icon.is_some() {
         return;

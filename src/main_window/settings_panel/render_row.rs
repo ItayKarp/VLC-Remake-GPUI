@@ -8,24 +8,28 @@ use gpui::{prelude::*, px};
 use super::video_defaults::{CONTROL_WIDTH, labelled, note};
 use crate::engine::cast::CastDeviceId;
 use crate::engine::player::Player;
+use crate::i18n;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
 use crate::ui::dropdown::{self, Dropdown};
 
 /// The row's label, and its first choice: playing here.
-const LABEL: &str = "Render";
-const LOCAL: &str = "Local";
+const LABEL: &str = tr_noop!("Render");
+const LOCAL: &str = tr_noop!("Local");
 /// The line under the row while "Discover cast devices" is off.
 const DISCOVERY_OFF: &str =
-    "Turn on Discover cast devices in Settings → Recording to play on a TV.";
+    tr_noop!("Turn on Discover cast devices in Settings → Recording to play on a TV.");
 /// The line under the row while no device was found.
-const NONE_FOUND: &str = "No cast devices found. They need to be on this network, and a firewall \
-                          can hide them.";
+const NONE_FOUND: &str = tr_noop!(
+    "No cast devices found. They need to be on this network, and a firewall can hide them."
+);
 /// The line under the row while media plays on a cast device.
-const CASTING: &str = "Subtitles don't show on cast devices, and the device keeps its own volume. \
-                       What it can't play is converted first, as Settings → Recording's Cast \
-                       quality says.";
+const CASTING: &str = tr_noop!(
+    "Subtitles don't show on cast devices, and the device keeps its own volume. What it can't \
+     play is converted first, as Settings → Recording's Cast quality says."
+);
 
 /// The Render dropdown and the devices its choices after "Local" stand for.
 pub(super) struct RenderControl {
@@ -39,8 +43,9 @@ pub(super) struct RenderControl {
 impl RenderControl {
     /// The row's dropdown, playing on the device picked.
     pub(super) fn new(window: &mut Window, cx: &mut Context<MainWindow>) -> Self {
-        let labels = vec![SharedString::from(LOCAL)];
-        let dropdown = cx.new(|cx| Dropdown::new(LABEL, labels.clone(), 0, window, cx));
+        let labels = vec![SharedString::from(i18n::text(LOCAL))];
+        let label = i18n::text(LABEL);
+        let dropdown = cx.new(|cx| Dropdown::new(label, labels.clone(), 0, window, cx));
         let changed = cx.subscribe(&dropdown, |this, _, event: &dropdown::Changed, cx| {
             let device = event.0.checked_sub(1).and_then(|index| {
                 this.settings_panel.video_defaults.render.devices.get(index).copied()
@@ -56,7 +61,8 @@ impl RenderControl {
             let player = player.read(cx);
             (player.cast_devices().to_vec(), player.cast_target().map(|device| device.id))
         });
-        let labels: Vec<SharedString> = std::iter::once(SharedString::from(LOCAL))
+        let local = SharedString::from(i18n::text(LOCAL));
+        let labels: Vec<SharedString> = std::iter::once(local)
             .chain(devices.iter().map(|device| SharedString::from(device.name.clone())))
             .collect();
         self.devices = devices.iter().map(|device| device.id).collect();
@@ -81,10 +87,10 @@ impl MainWindow {
         let dropdown = div().w(px(CONTROL_WIDTH)).child(control.dropdown.clone());
         let line = render_note(control, cx);
         div()
-            .flex()
+            .flex_row_start()
             .flex_col()
-            .child(labelled(LABEL, dropdown, p))
-            .children(line.map(|text| note(text.to_owned(), p)))
+            .child(labelled(i18n::text(LABEL), dropdown, p))
+            .children(line.map(|text| note(i18n::text(text).to_owned(), p)))
     }
 }
 

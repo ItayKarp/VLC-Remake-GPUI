@@ -18,6 +18,7 @@ use gpui::{
 use super::MainWindow;
 use crate::app::media::Media;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::control_bar::clock::tabular_digits;
 use crate::main_window::library_panel::DraggedMedia;
 use crate::queue::{EntryId, Length, row_duration};
@@ -91,7 +92,7 @@ impl MainWindow {
         div()
             .flex_1()
             .min_h_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(self.render_queue_header(p, cx))
             .child(self.render_rows(p, cx))
@@ -116,7 +117,7 @@ impl MainWindow {
             .flex_1()
             .min_h_0()
             .role(accesskit::Role::List)
-            .aria_label("Queue");
+            .aria_label(tr!("Queue"));
         Self::accept_drops(area, cx).child(list).children((len == 0).then(|| empty_note(p)))
     }
 
@@ -174,7 +175,7 @@ impl MainWindow {
             .w_full()
             .h(px(ROW_HEIGHT))
             .relative()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .px(px(PADDING))
@@ -218,11 +219,15 @@ impl MainWindow {
         let slot = self.queue_panel.drop_slot;
         let line_above = slot == Some(index);
         let line_below = slot == Some(index + 1) && index + 1 == self.queue.len();
-        row.when(current, |row| row.child(edge(p).left_0().top_0().bottom_0().w(px(BAR_WIDTH))))
-            .when(line_above, |row| row.child(edge(p).top_0().left_0().right_0().h(px(DROP_LINE))))
-            .when(line_below, |row| {
-                row.child(edge(p).bottom_0().left_0().right_0().h(px(DROP_LINE)))
-            })
+        row.when(current, |row| {
+            row.child(edge(p).inset_start(px(0.)).top_0().bottom_0().w(px(BAR_WIDTH)))
+        })
+        .when(line_above, |row| {
+            row.child(edge(p).top_0().inset_start(px(0.)).inset_end(px(0.)).h(px(DROP_LINE)))
+        })
+        .when(line_below, |row| {
+            row.child(edge(p).bottom_0().inset_start(px(0.)).inset_end(px(0.)).h(px(DROP_LINE)))
+        })
     }
 
     /// What dragging the row `id` (named `name`) carries: the selection when the row is in it,
@@ -231,7 +236,10 @@ impl MainWindow {
         let selection = &self.queue_panel.selection;
         if selection.contains(id) && selection.ids().len() > 1 {
             let count = selection.ids().len();
-            DraggedEntries { ids: selection.ids().clone(), label: format!("{count} items").into() }
+            DraggedEntries {
+                ids: selection.ids().clone(),
+                label: trn!("{count} item", "{count} items", count).into(),
+            }
         } else {
             DraggedEntries { ids: HashSet::from([id]), label: name.into() }
         }
@@ -268,12 +276,12 @@ fn empty_note(p: &Palette) -> gpui::Div {
     div()
         .absolute()
         .top_0()
-        .left_0()
-        .right_0()
+        .inset_start(px(0.))
+        .inset_end(px(0.))
         .p(px(NOTE_PADDING))
         .text_size(text_px(TEXT))
         .text_color(p.text_muted)
-        .child("Nothing is queued. Drop files here or press + to add some.")
+        .child(tr!("Nothing is queued. Drop files here or press + to add some."))
 }
 
 /// An accent strip placed absolutely on a row's edge.

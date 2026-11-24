@@ -94,10 +94,11 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let can = self.timeline_moves(cx);
-        let earlier = button("timeline-earlier", icons::CHEVRON_LEFT, "Show earlier", can.earlier);
-        let zoom_out = button("timeline-zoom-out", icons::REMOVE, "Zoom out", can.zoom_out);
-        let zoom_in = button("timeline-zoom-in", icons::ADD, "Zoom in", can.zoom_in);
-        let later = button("timeline-later", icons::CHEVRON_RIGHT, "Show later", can.later);
+        let earlier =
+            button("timeline-earlier", icons::CHEVRON_LEFT, tr!("Show earlier"), can.earlier);
+        let zoom_out = button("timeline-zoom-out", icons::REMOVE, tr!("Zoom out"), can.zoom_out);
+        let zoom_in = button("timeline-zoom-in", icons::ADD, tr!("Zoom in"), can.zoom_in);
+        let later = button("timeline-later", icons::CHEVRON_RIGHT, tr!("Show later"), can.later);
         bar.gap(px(BUTTON_GAP))
             .px(px(BUTTON_GAP))
             .child(

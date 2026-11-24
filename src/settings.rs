@@ -154,9 +154,10 @@ pub fn flush(cx: &mut App) -> Result<(), String> {
 /// Fails when settings can't be persisted at all (in-memory mode).
 pub fn save(cx: &mut App) -> Task<Result<(), String>> {
     if !is_persistent(cx) {
-        return Task::ready(Err(
-            "Settings can't be saved on this system (the settings folder is unavailable).".into(),
-        ));
+        return Task::ready(Err(tr!(
+            "Settings can't be saved on this system (the settings folder is unavailable)."
+        )
+        .into()));
     }
     let job = cx.update_global::<SettingsStore, _>(|store, _| {
         store.pending_save = None;

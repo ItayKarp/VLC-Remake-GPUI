@@ -213,10 +213,10 @@ impl Customizing {
 fn reminders(layout: &Layout) -> Vec<&'static str> {
     let mut reminders = Vec::new();
     if !layout.is_placed(Item::PlayPause) {
-        reminders.push("Play/Pause isn't in the player: Space still plays and pauses");
+        reminders.push(tr!("Play/Pause isn't in the player: Space still plays and pauses"));
     }
     if !layout.is_placed(Item::SeekBar) {
-        reminders.push("The seek bar isn't in the player: ← and → still seek");
+        reminders.push(tr!("The seek bar isn't in the player: ← and → still seek"));
     }
     reminders
 }

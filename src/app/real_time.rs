@@ -6,12 +6,13 @@
 //! and the row says why. Windows' high priority class needs no rights, and macOS's libVLC has no
 //! real-time option, so the row isn't shown there.
 
-/// Why real-time priority can't be had here, or `None` where it can (or doesn't apply).
+/// Why real-time priority can't be had here, in the interface language, or `None` where it can
+/// (or doesn't apply).
 pub fn refusal() -> Option<&'static str> {
     #[cfg(target_os = "linux")]
     {
         static REFUSAL: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
-        *REFUSAL.get_or_init(linux::probe)
+        (*REFUSAL.get_or_init(linux::probe)).map(crate::i18n::text)
     }
     #[cfg(not(target_os = "linux"))]
     None

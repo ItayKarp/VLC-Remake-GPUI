@@ -66,7 +66,7 @@ impl NewPlaylistDialog {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Add".into()),
+            prompt: Some(tr!("Add").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else { return };
@@ -121,9 +121,13 @@ fn left_out(resolved: &Resolved) -> Option<SharedString> {
     let count = resolved.skipped + resolved.problems.len();
     match count {
         0 => None,
-        1 => Some("1 item couldn't be added: it isn't media or couldn't be read.".into()),
         n => Some(
-            format!("{n} items couldn't be added: they aren't media or couldn't be read.").into(),
+            trn!(
+                "{count} item couldn't be added: it isn't media or couldn't be read.",
+                "{count} items couldn't be added: they aren't media or couldn't be read.",
+                n
+            )
+            .into(),
         ),
     }
 }

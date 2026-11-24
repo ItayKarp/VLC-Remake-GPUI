@@ -11,6 +11,7 @@ use gpui::{ClickEvent, Context, Div, SharedString, div, prelude::*, px};
 
 use super::{INSET, MainWindow};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::navigation::route::{HomeSection, MusicRoute, NetworkCategory, Route, Search, Section};
 use crate::theme::Palette;
 use crate::theme::text_px;
@@ -47,28 +48,36 @@ impl EmptyState {
         match route {
             Route::Search(search) => searched(search),
             Route::HomeSection(section) => home_section(*section),
-            Route::Videos(Some(_)) => {
-                state(icons::FOLDER, "This folder is empty", "It holds no videos or folders.")
-            }
-            Route::Music(MusicRoute::Songs(Some(_))) => {
-                state(icons::FOLDER, "This folder is empty", "It holds no songs or folders.")
-            }
+            Route::Videos(Some(_)) => state(
+                icons::FOLDER,
+                tr!("This folder is empty"),
+                tr!("It holds no videos or folders."),
+            ),
+            Route::Music(MusicRoute::Songs(Some(_))) => state(
+                icons::FOLDER,
+                tr!("This folder is empty"),
+                tr!("It holds no songs or folders."),
+            ),
             Route::Music(
                 MusicRoute::Albums(None) | MusicRoute::Artists(None) | MusicRoute::Genres(None),
-            ) => state(icons::MUSIC, "No music yet", NO_SONGS),
-            Route::History => {
-                state(icons::RECENT, "Nothing watched yet", "What you play shows up here.")
-            }
+            ) => state(icons::MUSIC, tr!("No music yet"), crate::i18n::text(NO_SONGS)),
+            Route::History => state(
+                icons::RECENT,
+                tr!("Nothing watched yet"),
+                tr!("What you play shows up here."),
+            ),
             Route::Network(Some(category)) => network_category(*category),
-            Route::Podcast(_) => {
-                state(icons::STREAMING, "No episodes", "Its feed lists no episodes to play yet.")
-            }
+            Route::Podcast(_) => state(
+                icons::STREAMING,
+                tr!("No episodes"),
+                tr!("Its feed lists no episodes to play yet."),
+            ),
             Route::Playlists(None) => state(
                 icons::PLAYLIST,
-                "No playlists yet",
-                "Save the queue as a playlist to see it here.",
+                tr!("No playlists yet"),
+                tr!("Save the queue as a playlist to see it here."),
             ),
-            _ => state(icons::FOLDER, "Nothing here yet", ""),
+            _ => state(icons::FOLDER, tr!("Nothing here yet"), ""),
         }
     }
 }
@@ -76,47 +85,57 @@ impl EmptyState {
 /// What an empty Network category says.
 fn network_category(category: NetworkCategory) -> EmptyState {
     let (title, hint) = match category {
-        NetworkCategory::Recent => {
-            ("No recent streams", "Streams you open with Open Network Stream show up here.")
-        }
-        NetworkCategory::Podcasts => {
-            ("No podcasts yet", "Choose Subscribe to Podcast and enter a podcast's feed address.")
-        }
-        NetworkCategory::Radio => {
-            ("No radio stations yet", "Right-click a recent stream and choose Add to Radio.")
-        }
+        NetworkCategory::Recent => (
+            tr!("No recent streams"),
+            tr!("Streams you open with Open Network Stream show up here."),
+        ),
+        NetworkCategory::Podcasts => (
+            tr!("No podcasts yet"),
+            tr!("Choose Subscribe to Podcast and enter a podcast's feed address."),
+        ),
+        NetworkCategory::Radio => (
+            tr!("No radio stations yet"),
+            tr!("Right-click a recent stream and choose Add to Radio."),
+        ),
     };
     EmptyState { icon: icons::STREAMING, title: title.to_owned(), hint, everywhere: false }
 }
 
 /// The hint of Music's empty categories.
-const NO_SONGS: &str = "Songs in your music folders show up here once the library has read them.";
+const NO_SONGS: &str =
+    tr_noop!("Songs in your music folders show up here once the library has read them.");
 
 /// What a Home section's full list says while it is empty.
 fn home_section(section: HomeSection) -> EmptyState {
     let (icon, title, hint) = match section {
-        HomeSection::ContinueWatching => {
-            (icons::VIDEOS, "Nothing to continue", "Videos you leave partway show up here.")
-        }
+        HomeSection::ContinueWatching => (
+            icons::VIDEOS,
+            tr!("Nothing to continue"),
+            tr!("Videos you leave partway show up here."),
+        ),
         HomeSection::ListenAgain => {
-            (icons::MUSIC, "Nothing played yet", "Songs you play show up here.")
+            (icons::MUSIC, tr!("Nothing played yet"), tr!("Songs you play show up here."))
         }
         HomeSection::Favorites => (
             icons::FAVORITE,
-            "No favorites yet",
-            "Choose Favorite in a file's or a playlist's menu to see it here.",
+            tr!("No favorites yet"),
+            tr!("Choose Favorite in a file's or a playlist's menu to see it here."),
         ),
-        HomeSection::Folders => {
-            (icons::FOLDER, "No folders visited yet", "The folders you open most show up here.")
-        }
+        HomeSection::Folders => (
+            icons::FOLDER,
+            tr!("No folders visited yet"),
+            tr!("The folders you open most show up here."),
+        ),
         HomeSection::Playlists => (
             icons::PLAYLIST,
-            "No playlists visited yet",
-            "The playlists you open most show up here.",
+            tr!("No playlists visited yet"),
+            tr!("The playlists you open most show up here."),
         ),
-        HomeSection::Artists => {
-            (icons::ARTIST, "No artists played yet", "The artists you play most show up here.")
-        }
+        HomeSection::Artists => (
+            icons::ARTIST,
+            tr!("No artists played yet"),
+            tr!("The artists you play most show up here."),
+        ),
     };
     EmptyState { icon, title: title.to_owned(), hint, everywhere: false }
 }
@@ -125,11 +144,11 @@ fn searched(search: &Search) -> EmptyState {
     let everywhere = search.scope == Section::Home;
     EmptyState {
         icon: icons::SEARCH,
-        title: format!("No results for “{}”", search.query),
+        title: tr!("No results for “{query}”", query = search.query),
         hint: if everywhere {
-            "Check the spelling, or try fewer words."
+            tr!("Check the spelling, or try fewer words.")
         } else {
-            "Try fewer words, or search the whole library."
+            tr!("Try fewer words, or search the whole library.")
         },
         everywhere: !everywhere,
     }
@@ -147,7 +166,7 @@ impl MainWindow {
             div().text_size(text_px(HINT_TEXT)).text_color(p.text_muted).child(state.hint)
         });
         let everywhere = state.everywhere.then(|| {
-            Button::new("library-empty-everywhere", "Search Everywhere").on_click(cx.listener(
+            Button::new("library-empty-everywhere", tr!("Search Everywhere")).on_click(cx.listener(
                 |this, _: &ClickEvent, _, cx| {
                     this.search_everywhere(cx);
                 },
@@ -156,7 +175,7 @@ impl MainWindow {
         div()
             .pt(px(TOP))
             .px(px(INSET))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_center()
             .gap(px(GAP))

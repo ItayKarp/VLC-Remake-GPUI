@@ -10,12 +10,12 @@ pub const CAMERA_FORMATS: bool = true;
 
 /// The default camera.
 pub fn cameras() -> Vec<Camera> {
-    vec![Camera { name: "Default Camera".into(), id: String::new() }]
+    vec![Camera { name: tr!("Default Camera").into(), id: String::new() }]
 }
 
 /// The screen, which libVLC captures whole.
 pub fn screens() -> Vec<Screen> {
-    vec![Screen { name: "Screen".into(), id: None }]
+    vec![Screen { name: tr!("Screen").into(), id: None }]
 }
 
 /// Windows says whether a camera may be used only when it is opened.

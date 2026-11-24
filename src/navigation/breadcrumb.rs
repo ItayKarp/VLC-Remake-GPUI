@@ -62,17 +62,18 @@ impl Trail {
             Route::Podcast(id) => {
                 let podcasts = NetworkCategory::Podcasts;
                 let title = places.podcasts.iter().find(|feed| feed.id == *id);
-                let title = title.map_or("Podcast", |feed| feed.title.as_str());
+                let title = title.map_or(tr!("Podcast"), |feed| feed.title.as_str());
                 let category = crumb(podcasts.label(), Route::Network(Some(podcasts)));
                 vec![section(Section::Network), category, crumb(title, route.clone())]
             }
             Route::Playlists(Some(id)) => {
                 let title = places.playlists.iter().find(|summary| summary.id == *id);
-                let title = title.map_or("Playlist", |summary| summary.title.as_str());
+                let title = title.map_or(tr!("Playlist"), |summary| summary.title.as_str());
                 vec![section(Section::Playlists), crumb(title, route.clone())]
             }
             Route::Search(search) => {
-                let results = crumb(&format!("Results for “{}”", search.query), route.clone());
+                let results =
+                    crumb(&tr!("Results for “{query}”", query = search.query), route.clone());
                 match search.scope {
                     Section::Home => vec![results],
                     scope => vec![section(scope), results],

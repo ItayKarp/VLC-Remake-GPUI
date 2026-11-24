@@ -113,10 +113,14 @@ impl MainWindow {
         let toast = match self.skips.failed() {
             AfterError::Skip => {
                 self.play(next, window, cx);
-                format!("Couldn't play “{name}”, skipped.")
+                tr!("Couldn't play “{name}”, skipped.", name)
             }
             AfterError::GiveUp => {
-                format!("Stopped: {MAX_CONSECUTIVE_FAILURES} items in a row couldn't play.")
+                trn!(
+                    "Stopped: {count} item in a row couldn't play.",
+                    "Stopped: {count} items in a row couldn't play.",
+                    MAX_CONSECUTIVE_FAILURES
+                )
             }
         };
         self.show_toast(Toast::new(Level::Error, toast), cx);

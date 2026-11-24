@@ -31,24 +31,36 @@ pub(super) fn profile_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem 
         .map(|profile| {
             let name = profile.name.clone();
             let choose = on_main(main, move |main, _, cx| main.choose_profile(&name, cx));
-            MenuItem::radio(profile.name.clone(), profile.name == active, choose)
+            MenuItem::radio(shown(&profile.name), profile.name == active, choose)
         })
         .collect();
-    items
-        .push(MenuItem::action("New", on_main(main, MainWindow::ask_new_profile)).icon(icons::ADD));
+    items.push(
+        MenuItem::action(tr!("New"), on_main(main, MainWindow::ask_new_profile)).icon(icons::ADD),
+    );
     items.push(MenuItem::Separator);
     items.extend(own_items(main, &active, list.len(), cx));
-    MenuItem::submenu(format!("Profile ({active})"), items)
+    MenuItem::submenu(tr!("Profile ({active})", active = shown(&active)), items)
+}
+
+/// How profile `name` is drawn: a designed profile's name in the interface language, any other
+/// as typed. Names are stored and matched in English.
+fn shown(name: &str) -> String {
+    let designed = profiles::book::DESIGNED.into_iter().find(|designed| *designed == name);
+    designed.map_or_else(|| name.to_owned(), |designed| crate::i18n::text(designed).to_owned())
 }
 
 /// Rename…, Delete… and Use Automatically ▸ for profile `active`, one of `count`.
 fn own_items(main: &WeakEntity<MainWindow>, active: &str, count: usize, cx: &App) -> Vec<MenuItem> {
-    let rename =
-        MenuItem::action(format!("Rename “{active}”…"), on_main(main, MainWindow::ask_rename));
-    let delete =
-        MenuItem::action(format!("Delete “{active}”…"), on_main(main, MainWindow::ask_delete))
-            .disabled(count < 2)
-            .why_disabled("The last profile can't be deleted");
+    let rename = MenuItem::action(
+        tr!("Rename “{active}”…", active = shown(active)),
+        on_main(main, MainWindow::ask_rename),
+    );
+    let delete = MenuItem::action(
+        tr!("Delete “{active}”…", active = shown(active)),
+        on_main(main, MainWindow::ask_delete),
+    )
+    .disabled(count < 2)
+    .why_disabled(tr!("The last profile can't be deleted"));
     vec![rename.icon(icons::EDIT), delete.icon(icons::REMOVE), automatic::menu(active, cx)]
 }
 
@@ -85,7 +97,7 @@ impl MainWindow {
         }
         profiles::select(cx, name);
         self.control_bar.sync_layout(cx);
-        self.show_osd(format!("Profile: {name}"), cx);
+        self.show_osd(tr!("Profile: {name}", name = shown(name)), cx);
         cx.notify();
     }
 
@@ -93,11 +105,15 @@ impl MainWindow {
     fn ask_new_profile(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let main = cx.entity().downgrade();
         let from = profiles::active(cx);
-        let prompt =
-            NamePrompt { title: "New Profile", name: profiles::NEW.to_owned(), confirm: "Create" };
+        let prompt = NamePrompt {
+            title: tr!("New Profile"),
+            name: crate::i18n::text(profiles::NEW).to_owned(),
+            confirm: tr!("Create"),
+        };
         self.ask_profile_name(&prompt, window, cx, move |typed, cx| {
             let made = profiles::create(cx, &typed);
-            let message = format!("Made the profile “{made}” from “{from}”.");
+            let message =
+                tr!("Made the profile “{made}” from “{from}”.", made, from = shown(&from));
             main.update(cx, |main, cx| main.profile_switched(message, cx)).ok();
         });
     }
@@ -106,11 +122,14 @@ impl MainWindow {
     fn ask_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let main = cx.entity().downgrade();
         let from = profiles::active(cx);
-        let prompt = NamePrompt { title: "Rename Profile", name: from.clone(), confirm: "Rename" };
+        let prompt =
+            NamePrompt { title: tr!("Rename Profile"), name: from.clone(), confirm: tr!("Rename") };
         self.ask_profile_name(&prompt, window, cx, move |typed, cx| {
             let message = match profiles::rename(cx, &from, &typed) {
-                Some(name) => Toast::new(Level::Success, format!("Renamed to “{name}”.")),
-                None => Toast::new(Level::Error, "A profile needs a name; it keeps the old one."),
+                Some(name) => Toast::new(Level::Success, tr!("Renamed to “{name}”.", name)),
+                None => {
+                    Toast::new(Level::Error, tr!("A profile needs a name; it keeps the old one."))
+                }
             };
             main.update(cx, |main, cx| main.show_toast(message, cx)).ok();
         });
@@ -129,7 +148,7 @@ impl MainWindow {
             TextInput::new(window, cx)
                 .with_text(&prompt.name)
                 .with_all_selected()
-                .with_label("Profile name")
+                .with_label(tr!("Profile name"))
                 .with_max_len(MAX_NAME)
         });
         let button = {
@@ -139,7 +158,7 @@ impl MainWindow {
             })
         };
         let body = move |_: &mut Window, _: &mut App| input.clone().into_any_element();
-        let buttons = vec![DialogButton::new("Cancel"), button];
+        let buttons = vec![DialogButton::new(tr!("Cancel")), button];
         let dialog = cx.new(|cx| Dialog::new(prompt.title, body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
@@ -153,16 +172,16 @@ impl MainWindow {
             return;
         }
         let main = cx.entity().downgrade();
-        let title = format!("Delete “{name}”?");
-        let delete = DialogButton::new("Delete").primary().on_click(move |_, cx| {
+        let title = tr!("Delete “{name}”?", name = shown(&name));
+        let delete = DialogButton::new(tr!("Delete")).primary().on_click(move |_, cx| {
             main.update(cx, |main, cx| main.delete_profile(&name, cx)).ok();
         });
         let body = |_: &mut Window, _: &mut App| {
-            "Its player layout is removed and VLC switches to another profile. The preset it \
-             uses stays."
-                .into_any_element()
+            tr!("Its player layout is removed and VLC switches to another profile. The preset it \
+                 uses stays.")
+            .into_any_element()
         };
-        let buttons = vec![DialogButton::new("Cancel"), delete];
+        let buttons = vec![DialogButton::new(tr!("Cancel")), delete];
         let dialog = cx.new(|cx| Dialog::new(title, body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
@@ -171,7 +190,10 @@ impl MainWindow {
     fn delete_profile(&mut self, name: &str, cx: &mut Context<Self>) {
         if profiles::delete(cx, name) {
             let now = profiles::active(cx);
-            self.profile_switched(format!("Deleted “{name}”. Now using “{now}”."), cx);
+            self.profile_switched(
+                tr!("Deleted “{name}”. Now using “{now}”.", name = shown(name), now = shown(&now)),
+                cx,
+            );
         }
     }
 

@@ -32,9 +32,9 @@ impl Repeat {
     /// The mode's name in menus.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Off => "Off",
-            Self::All => "All",
-            Self::One => "One",
+            Self::Off => trc!("repeat mode", "Off"),
+            Self::All => trc!("repeat mode", "All"),
+            Self::One => trc!("repeat mode", "One"),
         }
     }
 

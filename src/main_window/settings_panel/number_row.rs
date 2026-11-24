@@ -12,6 +12,7 @@ use gpui::{
     Context, Entity, EventEmitter, KeyDownEvent, Subscription, Window, div, prelude::*, px,
 };
 
+use crate::i18n::DirectionalStyle;
 use crate::theme;
 use crate::theme::text_px;
 use crate::ui::slider::{self, Slider, SliderModel};
@@ -201,14 +202,19 @@ impl Render for NumberRow {
             .child(self.field.clone());
         let row = div()
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(4.))
+            .ps(px(4.))
             .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
             .child(self.label)
             .child(field);
-        div().flex().flex_col().pb(px(SLIDER_BOTTOM)).child(row).child(self.slider.clone())
+        div()
+            .flex_row_start()
+            .flex_col()
+            .pb(px(SLIDER_BOTTOM))
+            .child(row)
+            .child(self.slider.clone())
     }
 }

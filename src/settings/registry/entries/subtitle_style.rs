@@ -12,52 +12,54 @@ use crate::engine::subtitle_style::{Outline, RelativeSize};
 use crate::settings::registry::{Category, hex_color};
 use crate::settings::{self, SizeValues, SubtitleArea};
 
-const APPEARANCE: (Category, &str) = (Category::Subtitles, "Appearance");
+const APPEARANCE: (Category, &str) = (Category::Subtitles, tr_noop!("Appearance"));
 /// Text opacity's ticks, and the ones labelled.
 const OPACITY_TICK: f64 = 10.;
 const OPACITY_LABEL: f64 = 50.;
 /// When a change shows, said on the rows that have nothing else to say.
 const LIVE_NOTE: &str =
-    "Subtitle files change at once; subtitles inside the video when VLC starts again.";
+    tr_noop!("Subtitle files change at once; subtitles inside the video when VLC starts again.");
 
 impl SettingChoice for SubtitleArea {
     const VALUES: &'static [Self] = &[Self::Picture, Self::Bars];
-    const CHOICES: &'static [Choice] =
-        &[Choice::new("picture", "On the picture"), Choice::new("bars", "In the black bars")];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("picture", tr_noop!("On the picture")),
+        Choice::new("bars", tr_noop!("In the black bars")),
+    ];
 }
 
 impl SettingChoice for SizeValues {
     const VALUES: &'static [Self] = &[Self::Relative, Self::Pixels];
     const CHOICES: &'static [Choice] =
-        &[Choice::new("relative", "Relative"), Choice::new("pixels", "Pixels")];
+        &[Choice::new("relative", tr_noop!("Relative")), Choice::new("pixels", tr_noop!("Pixels"))];
 }
 
 impl SettingChoice for RelativeSize {
     const VALUES: &'static [Self] =
         &[Self::Automatic, Self::Smaller, Self::Small, Self::Normal, Self::Large, Self::Larger];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("automatic", "Automatic"),
-        Choice::new("smaller", "Smaller"),
-        Choice::new("small", "Small"),
-        Choice::new("normal", "Normal"),
-        Choice::new("large", "Large"),
-        Choice::new("larger", "Larger"),
+        Choice::new("automatic", tr_noop!("Automatic")),
+        Choice::new("smaller", tr_noop!("Smaller")),
+        Choice::new("small", tr_noop!("Small")),
+        Choice::new("normal", tr_noop!("Normal")),
+        Choice::new("large", tr_noop!("Large")),
+        Choice::new("larger", tr_noop!("Larger")),
     ];
 }
 
 impl SettingChoice for Outline {
     const VALUES: &'static [Self] = &[Self::None, Self::Thin, Self::Normal, Self::Thick];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("none", "None"),
-        Choice::new("thin", "Thin"),
-        Choice::new("normal", "Normal"),
-        Choice::new("thick", "Thick"),
+        Choice::new("none", tr_noop!("None")),
+        Choice::new("thin", tr_noop!("Thin")),
+        Choice::new("normal", tr_noop!("Normal")),
+        Choice::new("thick", tr_noop!("Thick")),
     ];
 }
 
 /// An opacity as the slider says it: "50%".
 fn percent(value: f64) -> String {
-    format!("{value:.0}%")
+    tr!("{value}%", value = crate::i18n::decimal(value, 0))
 }
 
 /// Text opacity's tick labels: 0%, 50% and 100%, the other ticks bare.
@@ -77,7 +79,7 @@ fn installed_fonts(cx: &gpui::App) -> &'static [String] {
 fn font_missing(cx: &gpui::App) -> Option<String> {
     let font = settings::get(cx).prefs.subtitles.font.trim().to_lowercase();
     missing(&font, installed_fonts(cx)).then(|| {
-        "Not installed on this computer: subtitles use the system font instead.".to_owned()
+        tr!("Not installed on this computer: subtitles use the system font instead.").to_owned()
     })
 }
 
@@ -91,11 +93,11 @@ fn missing(font: &str, installed: &[String]) -> bool {
 fn unreadable(cx: &gpui::App) -> Option<String> {
     let subtitles = &settings::get(cx).prefs.subtitles;
     if subtitles.text_opacity_percent == 0 {
-        return Some("Subtitles will be invisible.".to_owned());
+        return Some(tr!("Subtitles will be invisible.").to_owned());
     }
     let same = hex_color(&subtitles.text_color) == hex_color(&subtitles.outline_color);
     (same && subtitles.outline != Outline::None)
-        .then(|| "The outline is the text's color, so letters run together.".to_owned())
+        .then(|| tr!("The outline is the text's color, so letters run together.").to_owned())
 }
 
 /// The Subtitles page's Appearance rows.
@@ -103,47 +105,51 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "subtitles.file_styles",
         APPEARANCE,
-        "Embedded Sub Format",
+        tr_noop!("Embedded Sub Format"),
         Control::Toggle,
         toggle!(prefs.subtitles.file_styles),
     )
-    .info(
+    .info(tr_noop!(
         "On, styled (ASS/SSA) subtitle files keep the fonts, colors and positions they give \
-         themselves; off, they are drawn in the style below.",
-    )
+         themselves; off, they are drawn in the style below."
+    ))
     .keywords(&["ass", "ssa", "styles", "embedded"]),
     SettingDef::new(
         "subtitles.area",
         APPEARANCE,
-        "Subtitle area",
+        tr_noop!("Subtitle area"),
         Control::Segmented(SubtitleArea::CHOICES),
         choice!(prefs.subtitles.area),
     )
-    .info("In the black bars, subtitle files sit below the picture when it has bars there.")
+    .info(tr_noop!(
+        "In the black bars, subtitle files sit below the picture when it has bars there."
+    ))
     .keywords(&["position", "letterbox", "placement"]),
     SettingDef::new(
         "subtitles.font",
         APPEARANCE,
-        "Font",
+        tr_noop!("Font"),
         Control::Text,
         text!(prefs.subtitles.font),
     )
-    .info("The font family subtitles are drawn in, such as Helvetica; empty uses the system's.")
-    .placeholder("System, sans-serif")
+    .info(tr_noop!(
+        "The font family subtitles are drawn in, such as Helvetica; empty uses the system's."
+    ))
+    .placeholder(tr_noop!("System, sans-serif"))
     .hint(font_missing)
     .keywords(&["typeface", "family"]),
     SettingDef::new(
         "subtitles.size_values",
         APPEARANCE,
-        "Size values",
+        tr_noop!("Size values"),
         Control::Segmented(SizeValues::CHOICES),
         choice!(prefs.subtitles.size_values),
     )
-    .info("Relative sizes grow with the video; Pixels keeps the text the same height."),
+    .info(tr_noop!("Relative sizes grow with the video; Pixels keeps the text the same height.")),
     SettingDef::new(
         "subtitles.relative_size",
         APPEARANCE,
-        "Font size",
+        tr_noop!("Font size"),
         Control::Dropdown(RelativeSize::CHOICES),
         choice!(prefs.subtitles.relative_size),
     )
@@ -153,18 +159,18 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "subtitles.pixel_size",
         APPEARANCE,
-        "Font size in pixels",
-        Control::Number { unit: "px" },
+        tr_noop!("Font size in pixels"),
+        Control::Number { unit: tr_noop!("px") },
         number!(u32: prefs.subtitles.pixel_size),
     )
-    .info("The text's height in the video's pixels, while Size values is Pixels.")
+    .info(tr_noop!("The text's height in the video's pixels, while Size values is Pixels."))
     .range(8., 200., 1.)
     .depends_on("subtitles.size_values", Condition::Is("pixels"))
     .keywords(&["text size"]),
     SettingDef::new(
         "subtitles.bold",
         APPEARANCE,
-        "Bold",
+        tr_noop!("Bold"),
         Control::Toggle,
         toggle!(prefs.subtitles.bold),
     )
@@ -172,17 +178,17 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "subtitles.text_color",
         APPEARANCE,
-        "Text color",
+        tr_noop!("Text color"),
         Control::HexColor,
         text!(prefs.subtitles.text_color),
     )
-    .info("A color such as #FFFFFF, #FF0 or yellow; the square opens a palette.")
+    .info(tr_noop!("A color such as #FFFFFF, #FF0 or yellow; the square opens a palette."))
     .hint(unreadable)
     .keywords(&["colour", "font color"]),
     SettingDef::new(
         "subtitles.text_opacity_percent",
         APPEARANCE,
-        "Text opacity",
+        tr_noop!("Text opacity"),
         Control::Slider { marks: Marks::Labelled(OPACITY_TICK, halves), format: percent },
         number!(u32: prefs.subtitles.text_opacity_percent),
     )
@@ -193,30 +199,30 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "subtitles.outline",
         APPEARANCE,
-        "Outline thickness",
+        tr_noop!("Outline thickness"),
         Control::Dropdown(Outline::CHOICES),
         choice!(prefs.subtitles.outline),
     )
-    .info("The border around each letter that keeps text readable on bright pictures.")
+    .info(tr_noop!("The border around each letter that keeps text readable on bright pictures."))
     .keywords(&["border", "stroke", "edge"]),
     SettingDef::new(
         "subtitles.outline_color",
         APPEARANCE,
-        "Outline color",
+        tr_noop!("Outline color"),
         Control::HexColor,
         text!(prefs.subtitles.outline_color),
     )
-    .info("A color such as #000000, #000 or black; the square opens a palette.")
+    .info(tr_noop!("A color such as #000000, #000 or black; the square opens a palette."))
     .depends_on("subtitles.outline", Condition::IsNot("none"))
     .keywords(&["colour", "border"]),
     SettingDef::new(
         "subtitles.shadow",
         APPEARANCE,
-        "Shadow",
+        tr_noop!("Shadow"),
         Control::Toggle,
         toggle!(prefs.subtitles.shadow),
     )
-    .info("A soft shadow under the text.")
+    .info(tr_noop!("A soft shadow under the text."))
     .keywords(&["drop shadow"]),
 ];
 

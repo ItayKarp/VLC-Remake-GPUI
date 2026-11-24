@@ -6,11 +6,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension as _};
 
 use super::display;
 use crate::db::artwork::{self, ArtworkSource};
-use crate::db::media;
+use crate::db::media::{self, MediaId};
 use crate::db::metadata::{self, MediaKind, Metadata};
 use crate::history::policy::clock;
 use crate::settings::{display_path, stored_path};
@@ -33,6 +33,8 @@ pub struct Properties {
     pub duration: Option<Duration>,
     /// Where its cover came from, if it has one.
     pub artwork: Option<ArtworkSource>,
+    /// When the library first found it, in milliseconds since the Unix epoch, if known.
+    pub added_ms: Option<i64>,
 }
 
 /// Reads what the library knows about the file at `path`. Blocks on the disk.
@@ -45,7 +47,16 @@ pub fn read(connection: &Connection, path: &Path) -> rusqlite::Result<Properties
     properties.metadata = metadata::get(connection, located.id)?;
     properties.duration = media::saved(connection, located.id)?.duration;
     properties.artwork = artwork::of_media(connection, located.id)?.map(|art| art.source);
+    properties.added_ms = added_ms(connection, located.id)?;
     Ok(properties)
+}
+
+/// When row `id` was added to the library; rows from before that was recorded hold 0.
+fn added_ms(connection: &Connection, id: MediaId) -> rusqlite::Result<Option<i64>> {
+    let added: Option<Option<i64>> = connection
+        .query_row("SELECT added_ms FROM media WHERE id = ?1", [id.0], |row| row.get(0))
+        .optional()?;
+    Ok(added.flatten().filter(|&millis| millis > 0))
 }
 
 /// The rows to show, in order. Rows for what isn't known are left out, except the file's own.
@@ -54,24 +65,25 @@ pub fn rows(properties: &Properties) -> Vec<(&'static str, String)> {
     let tags = &properties.metadata;
     let folder = path.parent().map(display_path);
     let optional = [
-        ("Artist", tags.artist.clone()),
-        ("Album", tags.album.clone()),
-        ("Album artist", tags.album_artist.clone()),
-        ("Track", tags.track_number.map(|number| number.to_string())),
-        ("Disc", tags.disc_number.map(|number| number.to_string())),
-        ("Genre", tags.genre.clone()),
-        ("Year", tags.year.map(|year| year.to_string())),
-        ("Kind", kind(tags.kind).map(Into::into)),
-        ("Length", properties.duration.map(clock)),
-        ("Resolution", tags.resolution.map(|r| format!("{} × {}", r.width, r.height))),
-        ("Codecs", tags.codecs.clone()),
-        ("Cover", properties.artwork.map(|source| cover(source).into())),
-        ("Size", properties.size.map(size)),
-        ("Folder", folder),
+        (tr!("Artist"), tags.artist.clone()),
+        (tr!("Album"), tags.album.clone()),
+        (tr!("Album artist"), tags.album_artist.clone()),
+        (tr!("Track"), tags.track_number.map(|number| number.to_string())),
+        (tr!("Disc"), tags.disc_number.map(|number| number.to_string())),
+        (tr!("Genre"), tags.genre.clone()),
+        (tr!("Year"), tags.year.map(|year| year.to_string())),
+        (tr!("Kind"), kind(tags.kind).map(Into::into)),
+        (tr!("Length"), properties.duration.map(clock)),
+        (tr!("Resolution"), tags.resolution.map(|r| format!("{} × {}", r.width, r.height))),
+        (tr!("Codecs"), tags.codecs.clone()),
+        (tr!("Cover"), properties.artwork.map(|source| cover(source).into())),
+        (tr!("Size"), properties.size.map(size)),
+        (tr!("Folder"), folder),
+        (tr!("Date added"), properties.added_ms.map(crate::i18n::date)),
     ];
     let mut rows = vec![
-        ("Title", display::title(tags, path)),
-        ("File", path.file_name().unwrap_or_default().to_string_lossy().into_owned()),
+        (tr!("Title"), display::title(tags, path)),
+        (tr!("File"), path.file_name().unwrap_or_default().to_string_lossy().into_owned()),
     ];
     rows.extend(optional.into_iter().filter_map(|(label, value)| Some((label, value?))));
     rows
@@ -80,16 +92,16 @@ pub fn rows(properties: &Properties) -> Vec<(&'static str, String)> {
 fn kind(kind: MediaKind) -> Option<&'static str> {
     match kind {
         MediaKind::Unknown => None,
-        MediaKind::Video => Some("Video"),
-        MediaKind::Audio => Some("Audio"),
+        MediaKind::Video => Some(tr!("Video")),
+        MediaKind::Audio => Some(tr!("Audio")),
     }
 }
 
 fn cover(source: ArtworkSource) -> &'static str {
     match source {
-        ArtworkSource::Embedded => "In the file",
-        ArtworkSource::Folder => "From the folder",
-        ArtworkSource::Online => "From the internet",
+        ArtworkSource::Embedded => tr!("In the file"),
+        ArtworkSource::Folder => tr!("From the folder"),
+        ArtworkSource::Online => tr!("From the internet"),
     }
 }
 
@@ -97,7 +109,7 @@ fn cover(source: ArtworkSource) -> &'static str {
 pub fn size(bytes: u64) -> String {
     let mut value = bytes as f64;
     if value < KILO {
-        return format!("{bytes} bytes");
+        return trn!("{count} byte", "{count} bytes", bytes);
     }
     let mut unit = UNITS[0];
     for next in UNITS {
@@ -107,7 +119,7 @@ pub fn size(bytes: u64) -> String {
             break;
         }
     }
-    format!("{value:.1} {unit}")
+    format!("{} {unit}", crate::i18n::decimal(value, 1))
 }
 
 #[cfg(test)]
@@ -144,6 +156,7 @@ mod tests {
             metadata,
             duration: Some(Duration::from_mins(25)),
             artwork: Some(ArtworkSource::Embedded),
+            added_ms: None,
         };
         let shown = rows(&full);
         assert_eq!(
@@ -152,5 +165,15 @@ mod tests {
         );
         assert_eq!(shown[4].1, "1920 × 1080");
         assert_eq!(shown[3].1, "25:00");
+    }
+
+    #[test]
+    fn the_date_added_comes_last_once_known() {
+        let path = PathBuf::from("/m/Song.mp3");
+        let added_ms = 1_764_000_000_000;
+        let known = Properties { path, added_ms: Some(added_ms), ..Properties::default() };
+        let shown = rows(&known);
+        assert_eq!(labels(shown.clone()), ["Title", "File", "Folder", "Date added"]);
+        assert_eq!(shown[3].1, crate::i18n::date(added_ms));
     }
 }

@@ -29,7 +29,7 @@ impl MainWindow {
             .bg(p.well)
             .text_size(text_px(TITLE_TEXT))
             .text_color(p.text)
-            .child("Queue");
+            .child(tr!("Queue"));
         div()
             .flex_none()
             .h(px(height))

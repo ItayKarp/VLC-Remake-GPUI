@@ -8,6 +8,7 @@ use gpui::{
 
 use super::NetworkStreamDialog;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
@@ -41,7 +42,7 @@ impl Render for NetworkStreamDialog {
             .overflow_y_scroll()
             .px(px(PADDING))
             .pt(px(PADDING))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(SECTION_GAP))
             .child(self.links_section(&p, cx))
@@ -49,11 +50,11 @@ impl Render for NetworkStreamDialog {
         div()
             .id("network-stream")
             .role(accesskit::Role::Dialog)
-            .aria_label("Open Network Stream")
+            .aria_label(tr!("Open Network Stream"))
             .w(px(WIDTH))
             .max_w(viewport.width - px(2. * self.window_margin))
             .max_h(viewport.height - px(2. * self.window_margin))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .rounded(px(metrics::RADIUS_LARGE + 4.))
             .overflow_hidden()
@@ -74,34 +75,38 @@ impl NetworkStreamDialog {
         let notes = self.notes(cx).into_iter().map(|note| {
             div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note)
         });
-        section(heading("Network URL", None, p), "You can enter multiple links to load.", p)
-            .child(div().pt(px(FIELD_GAP)).child(self.urls.clone()))
-            .child(div().pt(px(8.)).flex().flex_col().gap(px(4.)).children(notes))
+        section(
+            heading(tr!("Network URL"), None, p),
+            tr!("You can enter multiple links to load."),
+            p,
+        )
+        .child(div().pt(px(FIELD_GAP)).child(self.urls.clone()))
+        .child(div().pt(px(8.)).flex_row_start().flex_col().gap(px(4.)).children(notes))
     }
 
     /// Playlist Name (optional).
     fn name_section(&self, p: &Palette) -> Div {
-        let description = "The playlist will be saved and displayed with this title.";
-        section(heading("Playlist Name", Some("(optional)"), p), description, p)
+        let description = tr!("The playlist will be saved and displayed with this title.");
+        section(heading(tr!("Playlist Name"), Some(tr!("(optional)")), p), description, p)
             .child(div().pt(px(FIELD_GAP)).child(self.name.clone()))
     }
 
     /// Cancel at the left, Save at the right.
     fn footer(&self, cx: &mut Context<Self>) -> Div {
         let can_save = self.saved(cx).is_some();
-        let cancel = Button::new("network-stream-cancel", "Cancel")
+        let cancel = Button::new("network-stream-cancel", tr!("Cancel"))
             .style(ButtonStyle::Filled)
             .width(FOOTER_BUTTON_WIDTH)
             .on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(gpui::DismissEvent)));
         let save_style = if can_save { ButtonStyle::Primary } else { ButtonStyle::Ghost };
-        let save = Button::new("network-stream-save", "Save")
+        let save = Button::new("network-stream-save", tr!("Save"))
             .style(save_style)
             .width(FOOTER_BUTTON_WIDTH)
             .disabled(!can_save)
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)));
         div()
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .px(px(PADDING))
@@ -114,27 +119,27 @@ impl NetworkStreamDialog {
 
 /// "Open Network Stream" and ✕ on a darker band.
 fn header(p: &Palette, cx: &mut Context<NetworkStreamDialog>) -> Div {
-    let close = IconButton::new("network-stream-close", icons::CLOSE, "Close")
+    let close = IconButton::new("network-stream-close", icons::CLOSE, tr!("Close"))
         .on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(gpui::DismissEvent)));
     div()
         .flex_none()
         .h(px(HEADER_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .pl(px(PADDING))
-        .pr(px(PADDING - 6.))
+        .ps(px(PADDING))
+        .pe(px(PADDING - 6.))
         .bg(p.sunken)
         .text_size(text_px(DESCRIPTION_TEXT + 1.))
         .text_color(p.text)
-        .child("Open Network Stream")
+        .child(tr!("Open Network Stream"))
         .child(close)
 }
 
 /// A section's heading, with a muted `aside` after it.
 fn heading(text: &'static str, aside: Option<&'static str>, p: &Palette) -> Div {
     div()
-        .flex()
+        .flex_row_start()
         .gap(px(5.))
         .text_size(text_px(HEADING_TEXT))
         .font_weight(FontWeight::NORMAL)
@@ -145,7 +150,7 @@ fn heading(text: &'static str, aside: Option<&'static str>, p: &Palette) -> Div 
 
 /// A section's heading and description, as a column to add its controls to.
 fn section(heading: Div, description: &'static str, p: &Palette) -> Div {
-    div().flex().flex_col().child(heading).child(
+    div().flex_row_start().flex_col().child(heading).child(
         div()
             .pt(px(8.))
             .text_size(text_px(DESCRIPTION_TEXT))

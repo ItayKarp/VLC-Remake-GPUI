@@ -25,6 +25,7 @@ use super::row::ROW_TEXT;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
 use crate::db::media::MediaId;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::ShowContextMenu;
 use crate::library::thumbnails;
 use crate::main_window::opening::Target;
@@ -253,12 +254,12 @@ impl MainWindow {
     }
 
     fn render_gone(&self, message: &'static str, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let back = Button::new("library-gone-back", "Back")
+        let back = Button::new("library-gone-back", tr!("Back"))
             .disabled(!self.can_step_library(Step::Back, cx))
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                 this.step_library(Step::Back, cx);
             }));
-        note(message, p).flex().flex_col().items_start().gap(px(12.)).child(back)
+        note(message, p).flex_row_start().flex_col().items_start().gap(px(12.)).child(back)
     }
 }
 

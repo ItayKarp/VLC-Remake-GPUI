@@ -71,8 +71,9 @@ impl MainWindow {
                 settings::update(cx, |s| s.local.audio.last_volume_percent = percent);
             }
             PlayerEvent::AudioDeviceLost(device) => {
-                let text =
-                    format!("{} disconnected. Sound moved to the system default.", device.name);
+                let name = &device.name;
+                let text = tr!("{name} disconnected. Sound moved to the system default.", name);
+
                 self.show_toast(Toast::new(Level::Info, text), cx);
             }
             PlayerEvent::AudioDevicesChanged => {
@@ -80,7 +81,7 @@ impl MainWindow {
                 audio_devices::set(&devices, cx);
                 let none = player.read(cx).has_no_audio_device();
                 if none && !self.audio.warned_no_device {
-                    let text = "No audio device: media plays without sound.";
+                    let text = tr!("No audio device: media plays without sound.");
                     self.show_toast(Toast::new(Level::Warning, text), cx);
                 }
                 self.audio.warned_no_device = none;

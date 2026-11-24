@@ -106,21 +106,23 @@ impl MainWindow {
     /// The buttons that act on what plays, enabled while something does.
     fn media_button(&self, item: Item, cx: &App) -> Option<ButtonItem> {
         let (icon, label, press) = match item {
-            Item::Audio => (icons::AUDIO, "Audio", Press::Tracks(TrackKind::Audio)),
-            Item::Subtitles => (icons::SUBTITLES, "Subtitles", Press::Tracks(TrackKind::Subtitle)),
-            Item::Settings => (icons::SETTINGS, "Playback settings", Press::Settings),
-            Item::Speed => (icons::SPEED, "Playback speed", Press::Settings),
-            Item::Back15 => (icons::BACK_15, "Back 15 s", Press::Skip(Way::Back, SKIP_15)),
+            Item::Audio => (icons::AUDIO, tr!("Audio"), Press::Tracks(TrackKind::Audio)),
+            Item::Subtitles => {
+                (icons::SUBTITLES, tr!("Subtitles"), Press::Tracks(TrackKind::Subtitle))
+            }
+            Item::Settings => (icons::SETTINGS, tr!("Playback settings"), Press::Settings),
+            Item::Speed => (icons::SPEED, tr!("Playback speed"), Press::Settings),
+            Item::Back15 => (icons::BACK_15, tr!("Back 15 s"), Press::Skip(Way::Back, SKIP_15)),
             Item::Forward15 => {
-                (icons::FORWARD_15, "Forward 15 s", Press::Skip(Way::Forward, SKIP_15))
+                (icons::FORWARD_15, tr!("Forward 15 s"), Press::Skip(Way::Forward, SKIP_15))
             }
-            Item::Back10 => (icons::BACK_10, "Back 10 s", Press::Skip(Way::Back, SKIP_10)),
+            Item::Back10 => (icons::BACK_10, tr!("Back 10 s"), Press::Skip(Way::Back, SKIP_10)),
             Item::Forward10 => {
-                (icons::FORWARD_10, "Forward 10 s", Press::Skip(Way::Forward, SKIP_10))
+                (icons::FORWARD_10, tr!("Forward 10 s"), Press::Skip(Way::Forward, SKIP_10))
             }
-            Item::Chapters => (icons::CHAPTERS, "Chapters", Press::Tab(ListTab::Chapters)),
-            Item::Bookmarks => (icons::BOOKMARKS, "Bookmarks", Press::Tab(ListTab::Bookmarks)),
-            Item::Replay => (icons::REPLAY, "Replay", Press::Replay),
+            Item::Chapters => (icons::CHAPTERS, tr!("Chapters"), Press::Tab(ListTab::Chapters)),
+            Item::Bookmarks => (icons::BOOKMARKS, tr!("Bookmarks"), Press::Tab(ListTab::Bookmarks)),
+            Item::Replay => (icons::REPLAY, tr!("Replay"), Press::Replay),
             _ => return None,
         };
         let enabled = match item {
@@ -146,8 +148,8 @@ impl MainWindow {
         };
         let label = match press {
             Press::Dispatch(action) => menus::label(action),
-            Press::Library(LibraryPlace::Home) => "Go Home",
-            _ => "Playlists",
+            Press::Library(LibraryPlace::Home) => tr!("Go Home"),
+            _ => tr!("Playlists"),
         };
         let enabled = enabled && (!matches!(press, Press::Library(_)) || library::is_enabled(cx));
         Some(ButtonItem { icon, label, press, enabled, selected: false })

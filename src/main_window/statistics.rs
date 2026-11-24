@@ -17,6 +17,7 @@ use super::MainWindow;
 use super::control_bar::clock;
 use super::osd;
 use crate::engine::tracks::TrackKind;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::theme::text_px;
 use rows::Sources;
@@ -76,7 +77,7 @@ impl MainWindow {
         });
         let (labels, values): (Vec<_>, Vec<_>) = rows.into_iter().unzip();
         let table = div()
-            .flex()
+            .flex_row_start()
             .gap(px(COLUMN_GAP))
             .child(column().text_color(p.text_muted).children(labels.into_iter().map(div_of)))
             .child(column().children(values.into_iter().map(div_of)));
@@ -109,5 +110,5 @@ fn div_of(text: impl Into<gpui::SharedString>) -> Div {
 
 /// A column of the table.
 fn column() -> Div {
-    div().flex().flex_col().gap(px(2.))
+    div().flex_row_start().flex_col().gap(px(2.))
 }

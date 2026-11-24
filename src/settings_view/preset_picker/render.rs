@@ -8,6 +8,7 @@ use gpui::{
 
 use super::{PresetPicker, Row};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::settings::presets::{self, names};
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
@@ -31,7 +32,7 @@ impl Render for PresetPicker {
         let p = theme::palette(window, cx);
         let active = presets::active(cx).map(SharedString::from);
         let note = active.clone().map(|name| {
-            let text = format!("Changes on these pages are saved to “{name}”.");
+            let text = tr!("Changes on these pages are saved to “{name}”.", name);
             div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(text)
         });
         let status = self.status.clone().map(|status| {
@@ -46,10 +47,10 @@ impl Render for PresetPicker {
         let menu = self.menu.as_ref().map(|(position, menu, _)| {
             popover::at_position(*position, MENU_PRIORITY, menu.clone())
         });
-        let label = active.unwrap_or_else(|| names::DEFAULT.into());
+        let label = active.unwrap_or_else(|| crate::i18n::text(names::DEFAULT).into());
         div()
             .w_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(6.))
             .children(note)
@@ -75,12 +76,12 @@ impl PresetPicker {
             .relative()
             .h(px(metrics::FIELD_HEIGHT))
             .w_full()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .gap(px(8.))
-            .pl(px(14.))
-            .pr(px(12.))
+            .ps(px(14.))
+            .pe(px(12.))
             .rounded(px(metrics::RADIUS + 2.))
             .bg(p.control)
             .border_2()
@@ -92,7 +93,7 @@ impl PresetPicker {
             .track_focus(&self.focus_handle)
             .key_context(focus::context(&["PresetPicker", focus::CONTROL]))
             .role(accesskit::Role::ComboBox)
-            .aria_label("Setting preset")
+            .aria_label(tr!("Setting preset"))
             .aria_expanded(self.open)
             .aria_value(label.clone())
             .on_key_down(cx.listener(Self::on_key_down))
@@ -140,7 +141,7 @@ impl PresetPicker {
         let face = div()
             .id(("preset-row", index))
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(10.))
             .px(px(10.))
@@ -178,11 +179,13 @@ impl PresetPicker {
         match row {
             Row::New => face
                 .child(slot(icon(icons::ADD, metrics::ICON, p.icon)))
-                .child(label("New Preset".into())),
+                .child(label(tr!("New Preset").into())),
             Row::Import => face
                 .child(slot(icon(icons::FILE, metrics::ICON, p.icon)))
-                .child(label("Import Preset…".into())),
-            Row::Default => face.child(slot(div())).child(label(names::DEFAULT.into())),
+                .child(label(tr!("Import Preset…").into())),
+            Row::Default => {
+                face.child(slot(div())).child(label(crate::i18n::text(names::DEFAULT).into()))
+            }
             Row::Custom(name) => {
                 let face = face.child(Self::more_button(name.clone(), p, cx));
                 match self.renaming.as_ref().filter(|renaming| &renaming.name == name) {
@@ -200,12 +203,12 @@ impl PresetPicker {
             .id(SharedString::from(format!("preset-more-{name}")))
             .size(px(MORE_SIZE))
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .rounded(px(metrics::RADIUS))
             .hover(move |s| s.bg(hover))
-            .aria_label(SharedString::from(format!("More for {name}")))
+            .aria_label(SharedString::from(tr!("More for {name}", name)))
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 cx.stop_propagation();
                 this.open_menu(&name, event.position(), window, cx);
@@ -296,5 +299,11 @@ impl PresetPicker {
 
 /// A fixed-width slot at the start of a row, so every label lines up.
 fn slot(content: impl IntoElement) -> Div {
-    div().size(px(MORE_SIZE)).flex_none().flex().items_center().justify_center().child(content)
+    div()
+        .size(px(MORE_SIZE))
+        .flex_none()
+        .flex_row_start()
+        .items_center()
+        .justify_center()
+        .child(content)
 }

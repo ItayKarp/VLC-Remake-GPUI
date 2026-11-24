@@ -9,6 +9,7 @@ use gpui::{
     Window, div, prelude::*, px, rgb,
 };
 
+use crate::i18n::DirectionalStyle;
 use crate::settings::{
     self,
     registry::{self, SettingDef, Value},
@@ -111,7 +112,7 @@ impl Render for ColorPicker {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let saved = self.saved(cx);
-        let label = SharedString::from(format!("Choose {}", self.def.label.to_lowercase()));
+        let label = SharedString::from(choose_label(self.def.label));
         let square = div()
             .id("color-square")
             .relative()
@@ -153,12 +154,15 @@ fn palette(
     cx: &Context<ColorPicker>,
 ) -> impl IntoElement {
     let rows = COLORS.chunks(PER_ROW).map(|row| {
-        div().flex().gap(px(GAP)).children(row.iter().map(|&color| swatch(color, marks, p, cx)))
+        div()
+            .flex_row_start()
+            .gap(px(GAP))
+            .children(row.iter().map(|&color| swatch(color, marks, p, cx)))
     });
     popover::surface(p, window)
         .id("color-palette")
         .p(px(12.))
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(GAP))
         .on_mouse_down_out(cx.listener(ColorPicker::close_outside))
@@ -195,4 +199,12 @@ fn color_box(color: Option<u32>, size: f32, outline: Hsla) -> impl IntoElement {
         .border_1()
         .border_color(outline)
         .when_some(color, |square, color| square.bg(rgb(color)))
+}
+
+/// The square's accessible name, "Choose text color". English lowercases the label to fit
+/// it mid-sentence; a translation keeps the label as its translator wrote it.
+fn choose_label(label: &'static str) -> String {
+    let shown = crate::i18n::text(label);
+    let setting = if shown == label { shown.to_lowercase() } else { shown.to_owned() };
+    tr!("Choose {setting}", setting)
 }

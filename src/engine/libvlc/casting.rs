@@ -146,7 +146,7 @@ impl Worker {
         };
         self.casting.next_id += 1;
         let id = CastDeviceId(self.casting.next_id);
-        let name = name.unwrap_or_else(|| "Cast device".to_owned());
+        let name = name.unwrap_or_else(|| tr!("Cast device").to_owned());
         tracing::info!("casting: found a device");
         let device = CastDevice { id, name, video: flags & CAN_VIDEO != 0 };
         self.casting.found.push(Found { device, item });

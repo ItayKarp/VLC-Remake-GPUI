@@ -17,6 +17,7 @@ use gpui::{
 
 use super::SettingsPanel;
 use crate::engine::language::{self, Language};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::{self, Settings};
 use crate::theme::Palette;
@@ -27,7 +28,7 @@ use crate::ui::text_input::{self, TextInput, Validation};
 /// The highest track number the field takes, as in Settings.
 const MAX_TRACK: u32 = 99;
 /// What the field shows for "the media's own choice", and the language list's first choice.
-const AUTOMATIC: &str = "Automatic";
+const AUTOMATIC: &str = tr_noop!("Automatic");
 /// The rows' height, text size and control width.
 const ROW_HEIGHT: f32 = 52.;
 const ROW_TEXT: f32 = 14.;
@@ -43,15 +44,15 @@ pub(super) enum TrackDefaults {
 impl TrackDefaults {
     fn track_label(self) -> &'static str {
         match self {
-            Self::Audio => "Audio Track",
-            Self::Subtitle => "Subtitle Track",
+            Self::Audio => tr!("Audio Track"),
+            Self::Subtitle => tr!("Subtitle Track"),
         }
     }
 
     fn language_label(self) -> &'static str {
         match self {
-            Self::Audio => "Audio Language",
-            Self::Subtitle => "Subtitle Language",
+            Self::Audio => tr!("Audio Language"),
+            Self::Subtitle => tr!("Subtitle Language"),
         }
     }
 
@@ -119,7 +120,7 @@ impl DefaultsRows {
         let track = cx.new(|cx| {
             TextInput::new(window, cx)
                 .with_text(kind.track_text(cx))
-                .with_placeholder(AUTOMATIC)
+                .with_placeholder(crate::i18n::text(AUTOMATIC))
                 .with_label(kind.track_label())
         });
         let picked = cx.subscribe(&language, move |this, _, event: &dropdown::Changed, cx| {
@@ -206,7 +207,7 @@ impl MainWindow {
                 field.update(cx, |field, cx| field.set_text(track_text(track), cx));
             }
             (text_input::Event::Submitted, None) => field.update(cx, |field, cx| {
-                let why = "A track number from 1 to 99, or empty for the video's own";
+                let why = tr!("A track number from 1 to 99, or empty for the video's own");
                 field.set_validation(Validation::Error(why.into()), cx);
             }),
             (text_input::Event::Blurred, None) => {
@@ -246,10 +247,10 @@ impl MainWindow {
 pub(super) fn labelled(label: &'static str, control: impl IntoElement, p: &Palette) -> Div {
     div()
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .pl(px(4.))
+        .ps(px(4.))
         .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child(label)
@@ -260,7 +261,7 @@ pub(super) fn labelled(label: &'static str, control: impl IntoElement, p: &Palet
 /// when it isn't one of them.
 fn choices(saved: Option<&str>) -> (Vec<String>, Vec<SharedString>) {
     let mut codes: Vec<String> = language::known().iter().map(|l| l.code().to_owned()).collect();
-    let mut labels: Vec<SharedString> = vec![AUTOMATIC.into()];
+    let mut labels: Vec<SharedString> = vec![crate::i18n::text(AUTOMATIC).into()];
     labels.extend(language::known().iter().map(|l| SharedString::from(l.name())));
     if let Some(saved) = saved.filter(|saved| selected(&codes, Some(saved)) == 0) {
         codes.push(saved.to_owned());
@@ -291,7 +292,8 @@ fn track_text(track: u32) -> String {
 /// A typed track number; empty is the media's own choice (0).
 fn parse_track(text: &str) -> Option<u32> {
     let text = text.trim();
-    if text.is_empty() || text.eq_ignore_ascii_case(AUTOMATIC) {
+    let automatic = text.eq_ignore_ascii_case(AUTOMATIC) || text == crate::i18n::text(AUTOMATIC);
+    if text.is_empty() || automatic {
         return Some(0);
     }
     text.parse().ok().filter(|track| (1..=MAX_TRACK).contains(track))

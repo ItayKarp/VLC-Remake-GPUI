@@ -16,6 +16,7 @@ use gpui::{App, AppContext as _, Context, Div, Entity, Subscription, Window, div
 use super::effect_section::{self, BOX_PADDING};
 use crate::assets::icons;
 use crate::effects::{self, VIDEO_CROP};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::Value;
 use crate::theme::Palette;
@@ -31,7 +32,7 @@ const TEXT: f32 = 14.;
 const GAP: f32 = 8.;
 const LINK_SIZE: f32 = 28.;
 /// What the fields count.
-const PIXELS_TIP: &str = "In the video's own pixels, not the screen's";
+const PIXELS_TIP: &str = tr_noop!("In the video's own pixels, not the screen's");
 
 /// An edge: which side, and how its field and its pair's are found.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,10 +52,10 @@ impl Edge {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Top => "Top",
-            Self::Bottom => "Bottom",
-            Self::Left => "Left",
-            Self::Right => "Right",
+            Self::Top => tr!("Top"),
+            Self::Bottom => tr!("Bottom"),
+            Self::Left => tr!("Left"),
+            Self::Right => tr!("Right"),
         }
     }
 
@@ -134,7 +135,7 @@ impl MainWindow {
                 .find_map(|edge| invalid_reason(controls.field(*edge), cx))
                 .map(|why| div().text_size(text_px(TEXT)).text_color(p.danger).child(why));
             div()
-                .flex()
+                .flex_row_start()
                 .flex_col()
                 .gap(px(GAP))
                 .px(px(BOX_PADDING))
@@ -150,10 +151,11 @@ impl MainWindow {
     fn edge_row(&self, edges: [Edge; 2], p: &Palette, cx: &mut Context<Self>) -> Div {
         let pair = edges[0].pair();
         let linked = self.settings_panel.crop.linked[pair];
+        let (first, second) = (edges[0].label(), edges[1].label());
         let (icon, name) = if linked {
-            (icons::LINK, format!("Unlink {} and {}", edges[0].label(), edges[1].label()))
+            (icons::LINK, tr!("Unlink {first} and {second}", first, second))
         } else {
-            (icons::LINK_OFF, format!("Link {} and {}", edges[0].label(), edges[1].label()))
+            (icons::LINK_OFF, tr!("Link {first} and {second}", first, second))
         };
         let link = IconButton::new(format!("crop-link-{pair}"), icon, name)
             .size(LINK_SIZE, metrics::ICON)
@@ -161,7 +163,7 @@ impl MainWindow {
             .when(linked, |button| button.color(p.accent))
             .on_click(cx.listener(move |this, _, _, cx| this.toggle_crop_link(edges[0], cx)));
         div()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .children(edges.map(|edge| self.edge_field(edge, p)))
@@ -171,18 +173,18 @@ impl MainWindow {
     /// One edge's box: its label, its field and "px".
     fn edge_field(&self, edge: Edge, p: &Palette) -> impl IntoElement {
         div()
-            .id(edge.label())
+            .id(("crop-edge", edge as usize))
             .flex_1()
             .min_w_0()
             .h(px(FIELD_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .px(px(GAP + GAP))
             .rounded(px(metrics::RADIUS))
             .bg(p.well)
             .text_size(text_px(TEXT))
-            .tooltip(tooltip::text(PIXELS_TIP, None::<&str>))
+            .tooltip(tooltip::text(crate::i18n::text(PIXELS_TIP), None::<&str>))
             .child(div().flex_none().text_color(p.text_muted).child(edge.label()))
             .child(
                 div()
@@ -226,7 +228,8 @@ impl MainWindow {
 
     /// The pixels typed for `edge`, or why they can't be.
     fn crop_value(&self, edge: Edge, typed: &str, cx: &App) -> Result<u32, String> {
-        let value = parse_pixels(typed).ok_or_else(|| "A whole number of pixels".to_owned())?;
+        let value =
+            parse_pixels(typed).ok_or_else(|| tr!("A whole number of pixels").to_owned())?;
         let Some(side) = self.crop_side(edge, cx) else { return Ok(value) };
         let linked = self.settings_panel.crop.linked[edge.pair()];
         let other = edge.opposite().of(&effects::effective(cx).prefs.video.crop_edges);
@@ -234,7 +237,7 @@ impl MainWindow {
         if value <= most {
             return Ok(value);
         }
-        Err(format!("At most {most} px, so {MIN_KEPT} px of the picture stay"))
+        Err(tr!("At most {most} px, so {kept} px of the picture stay", most, kept = MIN_KEPT))
     }
 
     /// The playing video's pixels along `edge`'s axis, when known.

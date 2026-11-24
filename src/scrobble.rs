@@ -46,17 +46,21 @@ impl Problem {
     /// What the main window's toast says.
     pub fn message(self) -> &'static str {
         match self {
-            Self::NotSetUp => "This build of VLC can't submit to last.fm: it has no API key.",
-            Self::NoAccount => {
-                "To submit played tracks to last.fm, add your username and password in Settings → \
-                 Privacy."
-            }
-            Self::LoginRejected => {
+            Self::NotSetUp => tr!("This build of VLC can't submit to last.fm: it has no API key."),
+            Self::NoAccount => tr!(
+                "To submit played tracks to last.fm, add your username and password in Settings \
+                 → Privacy."
+            ),
+            Self::LoginRejected => tr!(
                 "last.fm didn't accept your username or password. Played tracks are kept until \
                  you fix them in Settings → Privacy."
+            ),
+            Self::KeyRejected => {
+                tr!("last.fm refused VLC's API key. Played tracks are kept for now.")
             }
-            Self::KeyRejected => "last.fm refused VLC's API key. Played tracks are kept for now.",
-            Self::Offline => "last.fm can't be reached. Played tracks are kept and sent later.",
+            Self::Offline => {
+                tr!("last.fm can't be reached. Played tracks are kept and sent later.")
+            }
         }
     }
 

@@ -52,7 +52,7 @@ fn open_window(
     let placement = Placement::restore(&saved, DEFAULT_SIZE, MIN_SIZE, display, cx);
     let mut options = window_options(TITLE_BAR_HEIGHT);
     if let Some(titlebar) = options.titlebar.as_mut() {
-        titlebar.title = Some(SharedString::from("Settings"));
+        titlebar.title = Some(SharedString::from(tr!("Settings")));
     }
     let category = category.unwrap_or(settings::get(cx).local.settings_category);
     let handle = cx.open_window(

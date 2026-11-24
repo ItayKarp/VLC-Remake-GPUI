@@ -69,14 +69,15 @@ impl MainWindow {
     pub(super) fn toggle_shuffle(&mut self, _: &mut Window, cx: &mut Context<Self>) {
         let on = !self.queue.is_shuffled();
         self.queue.set_shuffle(on);
-        self.show_osd(if on { "Shuffle: On" } else { "Shuffle: Off" }, cx);
+        self.show_osd(if on { tr!("Shuffle: On") } else { tr!("Shuffle: Off") }, cx);
         cx.notify();
     }
 
     /// Sets the repeat mode.
     fn set_repeat(&mut self, repeat: Repeat, cx: &mut Context<Self>) {
         self.queue.set_repeat(repeat);
-        self.show_osd(format!("Repeat: {}", repeat.label()), cx);
+        let (_, _, text) = repeat_button_look(repeat);
+        self.show_osd(text, cx);
         cx.notify();
     }
 
@@ -93,12 +94,12 @@ impl MainWindow {
         let prefs = &settings::get(cx).prefs.player;
         let stop_after_each = prefs.stop_after_each_item;
         vec![
-            MenuItem::submenu("Repeat", repeats.collect()).icon(icons::REPEAT),
-            MenuItem::check("Shuffle", self.queue.is_shuffled(), move |window, cx| {
+            MenuItem::submenu(tr!("Repeat"), repeats.collect()).icon(icons::REPEAT),
+            MenuItem::check(tr!("Shuffle"), self.queue.is_shuffled(), move |window, cx| {
                 shuffle.update(cx, |this, cx| this.toggle_shuffle(window, cx)).ok();
             }),
             MenuItem::Separator,
-            MenuItem::check("Stop After Each Item", stop_after_each, move |_, cx| {
+            MenuItem::check(tr!("Stop After Each Item"), stop_after_each, move |_, cx| {
                 settings::update(cx, |s| s.prefs.player.stop_after_each_item = !stop_after_each);
             }),
             when_finished_menu(prefs.when_finished),
@@ -113,16 +114,16 @@ fn when_finished_menu(current: WhenFinished) -> MenuItem {
             settings::update(cx, |s| s.prefs.player.when_finished = choice);
         })
     });
-    MenuItem::submenu("When Playback Finishes", choices.collect())
+    MenuItem::submenu(tr!("When Playback Finishes"), choices.collect())
 }
 
 /// The queue header's Repeat button: its icon, whether it shows as on, and its tooltip. The ON
 /// states aren't designed; All and One show as on, One with a 1 in the arrows.
 pub(super) fn repeat_button_look(repeat: Repeat) -> (&'static str, bool, &'static str) {
     match repeat {
-        Repeat::Off => (icons::REPEAT, false, "Repeat: Off"),
-        Repeat::All => (icons::REPEAT, true, "Repeat: All"),
-        Repeat::One => (icons::REPEAT_ONE, true, "Repeat: One"),
+        Repeat::Off => (icons::REPEAT, false, tr!("Repeat: Off")),
+        Repeat::All => (icons::REPEAT, true, tr!("Repeat: All")),
+        Repeat::One => (icons::REPEAT_ONE, true, tr!("Repeat: One")),
     }
 }
 

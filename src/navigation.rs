@@ -12,7 +12,6 @@ pub mod sort;
 pub mod stored;
 pub mod view;
 
-use crate::library::progress::group_thousands;
 use crate::settings::LibraryRoutes;
 use route::Route;
 
@@ -52,10 +51,7 @@ impl Presentation {
 /// The count under the breadcrumb (S4.5.5): "1 item" or "N items". Action rows ("+ Add") are
 /// not items, so callers leave them out of `count`.
 pub fn item_count(count: usize) -> String {
-    match count {
-        1 => "1 item".to_owned(),
-        _ => format!("{} items", group_thousands(count)),
-    }
+    trn!("{count} item", "{count} items", count)
 }
 
 #[cfg(test)]

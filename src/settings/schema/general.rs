@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use super::super::lenient::lenient;
 use crate::logging::{LogFormat, LogLevel};
 
-/// The language the interface is drawn in (S5.3.2). Only English exists until the i18n layer
-/// (S9.2) brings translations; the setting is kept so that story only adds languages.
+/// The language the interface is drawn in (S5.3.2, S9.2.4). Only English is translated so far;
+/// the pseudo-locales are made-up translations for checking long text and mirroring, listed
+/// only in debug builds.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum InterfaceLanguage {
@@ -16,6 +17,12 @@ pub enum InterfaceLanguage {
     System,
     /// English.
     English,
+    /// Accented English, about 40% longer (S9.2.3).
+    #[serde(rename = "pseudo-accented")]
+    PseudoAccented,
+    /// English in right-to-left paragraphs, with the layout mirrored (S9.2.2).
+    #[serde(rename = "pseudo-rtl")]
+    PseudoRtl,
 }
 
 /// What happens at startup and how much VLC asks (S5.3.3).

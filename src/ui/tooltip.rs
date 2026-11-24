@@ -18,7 +18,7 @@ pub struct Tooltip {
 /// show it.
 pub fn describe(label: &str, shortcut: Option<&str>) -> String {
     match shortcut {
-        Some(shortcut) if !shortcut.is_empty() => format!("{label} ({shortcut})"),
+        Some(shortcut) if !shortcut.is_empty() => tr!("{label} ({shortcut})", label, shortcut),
         _ => label.to_owned(),
     }
 }

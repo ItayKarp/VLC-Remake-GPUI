@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use gpui::{Div, ElementId, Hsla, SharedString, Stateful, accesskit, div, prelude::*, px};
 
+use crate::i18n::DirectionalStyle;
 use crate::settings::registry::Choice;
 use crate::theme::Palette;
 use crate::ui::focus::{self, Axis, Layout};
@@ -40,7 +41,7 @@ pub(super) fn swatches(
     let group = div()
         .id(id)
         .w_full()
-        .flex()
+        .flex_row_start()
         .justify_between()
         .gap(px(metrics::WELL_INSET))
         .p(px(metrics::WELL_INSET))
@@ -93,14 +94,14 @@ fn swatch(
     div()
         .id(index)
         .size(px(TILE))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .rounded(px(metrics::RADIUS))
         .when(chosen, |tile| tile.bg(p.accent_tint))
         .when(!chosen, |tile| tile.cursor_pointer().hover(move |s| s.bg(hover)))
         .role(accesskit::Role::RadioButton)
-        .aria_label(SharedString::from(choice.label))
+        .aria_label(SharedString::from(crate::i18n::text(choice.label)))
         .aria_selected(chosen)
         .when_some(on_select, |tile, on_select| {
             tile.on_click(move |_, window, cx| on_select(&index, window, cx))

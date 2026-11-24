@@ -10,6 +10,7 @@ use gpui::{AnyElement, App, Div, ElementId, SharedString, Stateful, Window, div,
 use super::icon::icon;
 use super::{focus, metrics};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
@@ -54,7 +55,7 @@ impl RenderOnce for Collapsible {
 
         div()
             .id(self.id)
-            .flex()
+            .flex_row_start()
             .flex_col()
             .border_b_1()
             .border_color(p.divider)
@@ -62,7 +63,7 @@ impl RenderOnce for Collapsible {
             .when(expanded, |section| {
                 section.child(
                     div()
-                        .flex()
+                        .flex_row_start()
                         .flex_col()
                         .gap(px(12.))
                         .px(px(16.))
@@ -84,8 +85,7 @@ fn header(
     div()
         .id("header")
         .h(px(metrics::SECTION_HEIGHT))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .px(px(14.))

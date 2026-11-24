@@ -11,6 +11,7 @@ use gpui::{
 use super::model::Pair;
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::subtitle_links::copy::{self, OnConflict};
 use crate::theme::Palette;
 use crate::theme::text_px;
@@ -28,7 +29,7 @@ fn conflict_chip(pair: &Pair, label: SharedString, p: &Palette) -> Stateful<Div>
         .role(accesskit::Role::Button)
         .aria_label(label.clone())
         .flex_none()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(4.))
         .px(px(8.))
@@ -61,7 +62,8 @@ impl AddSubtitlesDialog {
         if !added {
             return None;
         }
-        let label = SharedString::from(format!("Name taken: {}", conflict_label(*choice)));
+        let label =
+            SharedString::from(tr!("Name taken: {choice}", choice = conflict_label(*choice)));
         let pair = pair.clone();
         let keyboard_pair = pair.clone();
         let button = conflict_chip(&pair, label, p)
@@ -173,9 +175,9 @@ impl AddSubtitlesDialog {
 /// How the conflict menu and button name `choice`.
 fn conflict_label(choice: OnConflict) -> &'static str {
     match choice {
-        OnConflict::Overwrite => "Overwrite",
-        OnConflict::KeepBoth => "Keep both",
-        OnConflict::Skip => "Skip",
+        OnConflict::Overwrite => tr!("Overwrite"),
+        OnConflict::KeepBoth => tr!("Keep both"),
+        OnConflict::Skip => tr!("Skip"),
     }
 }
 
@@ -183,7 +185,7 @@ fn conflict_label(choice: OnConflict) -> &'static str {
 fn error_label(error: &str, p: &Palette) -> Div {
     let text = div().min_w_0().max_w(px(ERROR_WIDTH)).truncate().child(error.to_owned());
     div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(6.))
         .text_color(p.danger)

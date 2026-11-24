@@ -20,9 +20,9 @@ impl Group {
     /// The group's heading in the sidebar.
     pub fn label(self) -> &'static str {
         match self {
-            Self::App => "App",
-            Self::Media => "Media",
-            Self::System => "System",
+            Self::App => tr!("App"),
+            Self::Media => tr!("Media"),
+            Self::System => tr!("System"),
         }
     }
 }
@@ -126,38 +126,38 @@ impl Category {
     /// The category's name in the sidebar.
     pub fn label(self) -> &'static str {
         match self {
-            Self::General => "General",
-            Self::Interface => "Interface",
-            Self::Privacy => "Privacy",
-            Self::Controls => "Controls",
-            Self::Playback => "Playback",
-            Self::Video => "Video",
-            Self::Audio => "Audio",
-            Self::Subtitles => "Subtitles",
-            Self::Library => "Library",
-            Self::Network => "Network",
-            Self::Performance => "Performance",
-            Self::Recording => "Recording",
-            Self::Extensions => "Extensions",
+            Self::General => tr!("General"),
+            Self::Interface => tr!("Interface"),
+            Self::Privacy => tr!("Privacy"),
+            Self::Controls => tr!("Controls"),
+            Self::Playback => tr!("Playback"),
+            Self::Video => tr!("Video"),
+            Self::Audio => tr!("Audio"),
+            Self::Subtitles => tr!("Subtitles"),
+            Self::Library => tr!("Library"),
+            Self::Network => tr!("Network"),
+            Self::Performance => tr!("Performance"),
+            Self::Recording => tr!("Recording"),
+            Self::Extensions => tr!("Extensions"),
         }
     }
 
     /// The title over the category's page.
     pub fn title(self) -> &'static str {
         match self {
-            Self::General => "Global Settings",
-            Self::Interface => "Interface Settings",
-            Self::Privacy => "Privacy Settings",
-            Self::Controls => "Mouse, Keyboard & Remote Controls",
-            Self::Playback => "Playback Preferences",
-            Self::Video => "Video Defaults",
-            Self::Audio => "Audio Defaults",
-            Self::Subtitles => "Subtitle Defaults",
-            Self::Library => "Playlists, Folders & Files",
-            Self::Network => "Network Connections & Security",
-            Self::Performance => "Performance Settings",
-            Self::Recording => "Recording, Casting & Streaming Out",
-            Self::Extensions => "Add-ons & Scripts",
+            Self::General => tr!("Global Settings"),
+            Self::Interface => tr!("Interface Settings"),
+            Self::Privacy => tr!("Privacy Settings"),
+            Self::Controls => tr!("Mouse, Keyboard & Remote Controls"),
+            Self::Playback => tr!("Playback Preferences"),
+            Self::Video => tr!("Video Defaults"),
+            Self::Audio => tr!("Audio Defaults"),
+            Self::Subtitles => tr!("Subtitle Defaults"),
+            Self::Library => tr!("Playlists, Folders & Files"),
+            Self::Network => tr!("Network Connections & Security"),
+            Self::Performance => tr!("Performance Settings"),
+            Self::Recording => tr!("Recording, Casting & Streaming Out"),
+            Self::Extensions => tr!("Add-ons & Scripts"),
         }
     }
 

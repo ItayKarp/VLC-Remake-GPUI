@@ -16,10 +16,12 @@ use crate::ui::toast::{Level, Toast};
 
 /// What Stream says with nothing playing.
 const NOTHING_PLAYING: &str =
-    "Play something to stream it, or pick Stream in a file's menu in the library.";
+    tr_noop!("Play something to stream it, or pick Stream in a file's menu in the library.");
 /// What a stream that couldn't start says.
-const FAILED: &str = "The stream couldn't start, so the media plays here without it. Another \
-                      program may have taken its port, or its address can't be reached.";
+const FAILED: &str = tr_noop!(
+    "The stream couldn't start, so the media plays here without it. Another \
+     program may have taken its port, or its address can't be reached."
+);
 
 impl MainWindow {
     /// Adds the handler for Stream.
@@ -27,7 +29,12 @@ impl MainWindow {
         root.on_action(cx.listener(|this, _: &Stream, window, cx| {
             match this.loaded_player(cx).and_then(|player| player.read(cx).media().cloned()) {
                 Some(media) => this.show_stream(media, window, cx),
-                None => this.show_toast(Toast::new(Level::Info, NOTHING_PLAYING), cx),
+                None => {
+                    this.show_toast(
+                        Toast::new(Level::Info, crate::i18n::text(NOTHING_PLAYING)),
+                        cx,
+                    );
+                }
             }
         }))
     }
@@ -69,7 +76,7 @@ impl MainWindow {
             if let Some(player) = self.loaded_player(cx) {
                 player.update(cx, |player, cx| player.stream(None, cx));
             }
-            self.show_osd("Stopped streaming", cx);
+            self.show_osd(tr!("Stopped streaming"), cx);
             return;
         };
         let open = self.loaded_player(cx).filter(|player| {
@@ -93,7 +100,9 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         match event {
-            PlayerEvent::StreamFailed => self.show_toast(Toast::new(Level::Error, FAILED), cx),
+            PlayerEvent::StreamFailed => {
+                self.show_toast(Toast::new(Level::Error, crate::i18n::text(FAILED)), cx);
+            }
             PlayerEvent::StreamChanged => cx.notify(),
             _ => {}
         }
@@ -103,8 +112,8 @@ impl MainWindow {
 /// Where to watch `target`, with Copy Link.
 fn streaming_toast(target: &StreamTarget) -> Toast {
     let url = target.url();
-    let message = format!("Streaming. Watch it at {url}");
-    Toast::new(Level::Info, message).lasting_action("Copy Link", move |_, cx| {
+    let message = tr!("Streaming. Watch it at {url}", url);
+    Toast::new(Level::Info, message).lasting_action(tr!("Copy Link"), move |_, cx| {
         cx.write_to_clipboard(ClipboardItem::new_string(url.clone()));
     })
 }

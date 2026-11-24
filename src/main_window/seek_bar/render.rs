@@ -229,14 +229,14 @@ fn live_chip(p: &Palette) -> Div {
         .text_size(text_px(LIVE_TEXT))
         .font_weight(gpui::FontWeight::BOLD)
         .text_color(gpui::white())
-        .child("LIVE")
+        .child(tr!("LIVE"))
 }
 
 /// Describes the bar to screen readers as a slider over the media's seconds.
 fn accessible(bar: Stateful<Div>, shown: Shown, cx: &App) -> Stateful<Div> {
-    let bar = bar.role(accesskit::Role::Slider).aria_label("Seek");
+    let bar = bar.role(accesskit::Role::Slider).aria_label(tr!("Seek"));
     let Some((position, duration)) = shown.times else {
-        let value = if shown.live { "Live" } else { clock::UNKNOWN };
+        let value = if shown.live { tr!("Live") } else { clock::UNKNOWN };
         return bar.aria_value(value);
     };
     let step = settings::get(cx).prefs.controls.skip(SkipLength::Short);
@@ -244,7 +244,11 @@ fn accessible(bar: Stateful<Div>, shown: Shown, cx: &App) -> Stateful<Div> {
         .aria_min_numeric_value(0.)
         .aria_max_numeric_value(duration.as_secs_f64())
         .aria_numeric_value_step(step.as_secs_f64())
-        .aria_value(format!("{} of {}", clock::format(position), clock::format(duration)))
+        .aria_value(tr!(
+            "{position} of {duration}",
+            position = clock::format(position),
+            duration = clock::format(duration)
+        ))
         .aria_orientation(accesskit::Orientation::Horizontal)
 }
 

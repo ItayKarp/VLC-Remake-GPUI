@@ -95,7 +95,8 @@ impl Crop {
 }
 
 /// What a typed ratio looks like, for a field that refused one.
-pub const RATIO_HELP: &str = "A width and height such as 21:9 or 2.35:1, between 1:10 and 10:1";
+pub const RATIO_HELP: &str =
+    tr_noop!("A width and height such as 21:9 or 2.35:1, between 1:10 and 10:1");
 
 /// The decimals a typed ratio keeps: "2.35" counts in hundredths.
 const RATIO_SCALE: f64 = 1000.;

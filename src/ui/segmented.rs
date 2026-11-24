@@ -16,6 +16,7 @@ use gpui::{
 
 use super::focus::{self, Axis, Layout};
 use super::metrics;
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
@@ -82,7 +83,7 @@ fn radio_option(
 fn radio_group(id: ElementId, label: SharedString, p: &Palette) -> Stateful<Div> {
     div()
         .id(id)
-        .flex()
+        .flex_row_start()
         .gap(px(metrics::WELL_INSET))
         .p(px(metrics::WELL_INSET))
         .rounded(px(metrics::RADIUS + 2.))
@@ -141,7 +142,7 @@ impl RenderOnce for Segmented {
                 .flex_1()
                 .min_w_0()
                 .h_full()
-                .flex()
+                .flex_row_start()
                 .items_center()
                 .justify_center()
                 .px(px(8.))
@@ -150,7 +151,7 @@ impl RenderOnce for Segmented {
 
         let group = radio_group(self.id, self.label, &p)
             .h(px(metrics::FIELD_HEIGHT))
-            .flex_row()
+            .flex_row_start()
             .children(segments);
         radio_keys(focus::ring(group, &p), selected, len, Axis::Horizontal, self.on_select)
     }
@@ -214,12 +215,11 @@ impl RenderOnce for StackedChoice {
         let rows = self.choices.into_iter().enumerate().map(|(i, choice)| {
             radio_option(i, selected, &p, on_select.clone())
                 .h(px(36.))
-                .flex()
-                .flex_row()
+                .flex_row_start()
                 .items_center()
                 .gap(px(10.))
-                .pl(px(12.))
-                .pr(px(2.))
+                .ps(px(12.))
+                .pe(px(2.))
                 .py(px(2.))
                 .child(div().flex_none().child(choice.label))
                 .when_some(choice.field, |s, field| {

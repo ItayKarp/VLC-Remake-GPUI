@@ -20,6 +20,8 @@ use super::custom_ratio::CustomRatioField;
 use super::render_row::RenderControl;
 use crate::effects::{self, VIDEO_DEFAULTS};
 use crate::engine::transform::Rotation;
+use crate::i18n;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Choice, Control, SettingChoice as _, Value};
 use crate::theme::Palette;
@@ -36,11 +38,11 @@ const ROTATION: &str = "video.rotation";
 /// The dropdown rows: each setting's key and the row's label.
 const ASPECT_RATIO: &str = "video.aspect_ratio";
 const DROPDOWNS: [(&str, &str); 5] = [
-    ("video.zoom", "Zoom"),
-    ("player.video_quality", "Resolution"),
-    (ASPECT_RATIO, "Aspect Ratio"),
-    ("video.crop", "Crop"),
-    (HDR, "HDR"),
+    ("video.zoom", tr_noop!("Zoom")),
+    ("player.video_quality", tr_noop!("Resolution")),
+    (ASPECT_RATIO, tr_noop!("Aspect Ratio")),
+    ("video.crop", tr_noop!("Crop")),
+    (HDR, tr_noop!("HDR")),
 ];
 const HDR: &str = "video.hdr";
 /// The rows' height, text size and control width, and the space under Flip's label.
@@ -50,9 +52,9 @@ pub(super) const CONTROL_WIDTH: f32 = 220.;
 const ROTATE_WIDTH: f32 = 136.;
 const LABEL_GAP: f32 = 12.;
 /// What the heading says the rows change.
-const NOTE: &str = "For what plays until VLC quits; Save as Default keeps them.";
+const NOTE: &str = tr_noop!("For what plays until VLC quits; Save as Default keeps them.");
 /// Why typed text isn't an angle.
-const NOT_AN_ANGLE: &str = "Degrees, such as 90 or -90";
+const NOT_AN_ANGLE: &str = tr_noop!("Degrees, such as 90 or -90");
 
 /// One dropdown row: its setting, the setting's choices, and the dropdown.
 struct DropdownRow {
@@ -75,8 +77,9 @@ pub(super) struct DefaultsControls {
 impl DefaultsControls {
     /// The controls, changing the session when used.
     pub(super) fn new(window: &mut Window, cx: &mut Context<MainWindow>) -> Self {
-        let rotate =
-            cx.new(|cx| TextInput::new(window, cx).with_text(rotate_text(cx)).with_label("Rotate"));
+        let rotate = cx.new(|cx| {
+            TextInput::new(window, cx).with_text(rotate_text(cx)).with_label(tr!("Rotate"))
+        });
         let mut events = vec![cx.subscribe(&rotate, |_, field, event, cx| {
             MainWindow::on_rotate(&field, event, cx);
         })];
@@ -87,8 +90,9 @@ impl DefaultsControls {
                 tracing::warn!("settings panel: {key} isn't a dropdown setting");
                 continue;
             };
-            let labels = choices.iter().map(|choice| SharedString::from(choice.label)).collect();
-            let dropdown = cx.new(|cx| Dropdown::new(label, labels, 0, window, cx));
+            let labels =
+                choices.iter().map(|choice| SharedString::from(i18n::text(choice.label))).collect();
+            let dropdown = cx.new(|cx| Dropdown::new(i18n::text(label), labels, 0, window, cx));
             events.push(cx.subscribe(&dropdown, move |_, _, event: &dropdown::Changed, cx| {
                 pick(cx, key, choices, event.0);
             }));
@@ -130,21 +134,21 @@ impl MainWindow {
             .child(controls.rotate.clone());
         let custom = effects::effective(cx).prefs.video.aspect_ratio == AspectRatio::Custom;
         let dropdowns = controls.dropdowns.iter().flat_map(|row| {
-            let dropdown =
-                labelled(row.label, div().w(px(CONTROL_WIDTH)).child(row.dropdown.clone()), p);
+            let control = div().w(px(CONTROL_WIDTH)).child(row.dropdown.clone());
+            let dropdown = labelled(i18n::text(row.label), control, p);
             let field = (custom && row.key == ASPECT_RATIO).then(|| {
                 let field = div().w(px(CONTROL_WIDTH)).child(controls.custom_ratio.field());
-                labelled("Custom Ratio", field, p)
+                labelled(tr!("Custom Ratio"), field, p)
             });
             let note = (row.key == HDR).then(|| hdr_note.clone().map(|text| note(text, p)));
             std::iter::once(dropdown).chain(field).chain(note.flatten())
         });
         div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(heading(p, cx))
             .child(flip_row(p, cx))
-            .child(labelled("Rotate", rotate, p))
+            .child(labelled(tr!("Rotate"), rotate, p))
             .children(dropdowns)
             .child(self.render_render_row(p, cx))
     }
@@ -161,7 +165,7 @@ impl MainWindow {
                 field.update(cx, |field, cx| field.set_text(text, cx));
             }
             (text_input::Event::Submitted, None) => field.update(cx, |field, cx| {
-                field.set_validation(Validation::Error(NOT_AN_ANGLE.into()), cx);
+                field.set_validation(Validation::Error(i18n::text(NOT_AN_ANGLE).into()), cx);
             }),
             (text_input::Event::Blurred, None) => {
                 let text = rotate_text(cx);
@@ -192,23 +196,25 @@ impl MainWindow {
 
 /// The heading, the line under it, and Reset, dimmed while the panel changed none of the rows.
 fn heading(p: &Palette, cx: &App) -> Div {
-    let reset = Button::new("reset-video-defaults", "Reset")
+    let reset = Button::new("reset-video-defaults", tr!("Reset"))
         .style(ButtonStyle::Ghost)
         .disabled(!VIDEO_DEFAULTS.iter().any(|key| effects::is_changed(cx, key)))
-        .tooltip("Put these back on Settings' values", None::<&str>)
+        .tooltip(tr!("Put these back on Settings' values"), None::<&str>)
         .on_click(|_, _, cx| effects::reset(cx, VIDEO_DEFAULTS.iter().copied()));
     let title = div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .child(div().text_size(text_px(super::HEADING_TEXT)).text_color(p.text).child("Defaults"))
+        .child(
+            div().text_size(text_px(super::HEADING_TEXT)).text_color(p.text).child(tr!("Defaults")),
+        )
         .child(reset);
     let note = div()
         .pt(px(super::SECTION_NOTE_GAP))
         .text_size(text_px(super::SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
-        .child(NOTE);
-    div().flex().flex_col().pb(px(super::SECTION_NOTE_GAP)).child(title).child(note)
+        .child(i18n::text(NOTE));
+    div().flex_row_start().flex_col().pb(px(super::SECTION_NOTE_GAP)).child(title).child(note)
 }
 
 /// A line under a row, about what it does to the media playing.
@@ -225,16 +231,21 @@ fn flip_row(p: &Palette, cx: &App) -> Div {
     let choices = registry::find(FLIP).map(|def| def.control);
     let Some(Control::Segmented(choices)) = choices else { return div() };
     let selected = chosen(cx, FLIP, choices);
-    let control = Segmented::new("video-flip", "Flip", choices.iter().map(|c| c.label), selected)
-        .on_select(move |index, _, cx| pick(cx, FLIP, choices, *index));
+    let control = Segmented::new(
+        "video-flip",
+        tr!("Flip"),
+        choices.iter().map(|c| i18n::text(c.label)),
+        selected,
+    )
+    .on_select(move |index, _, cx| pick(cx, FLIP, choices, *index));
     div()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(LABEL_GAP))
         .pt(px(LABEL_GAP))
         .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
-        .child("Flip")
+        .child(tr!("Flip"))
         .child(control)
 }
 
@@ -242,7 +253,7 @@ fn flip_row(p: &Palette, cx: &App) -> Div {
 pub(super) fn labelled(label: &'static str, control: impl IntoElement, p: &Palette) -> Div {
     div()
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .text_size(text_px(ROW_TEXT))

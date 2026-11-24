@@ -78,7 +78,7 @@ pub fn check(text: &str) -> Result<(), String> {
             unsafe { (vlc.api.libvlc_release)(instance) };
             Ok(())
         }
-        Err(_) => Err("VLC doesn't know one of these options, or a value is wrong".into()),
+        Err(_) => Err(tr!("VLC doesn't know one of these options, or a value is wrong").into()),
     }
 }
 
@@ -89,7 +89,7 @@ fn split(text: &str) -> Result<Vec<String>, String> {
     let mut quote: Option<char> = None;
     for c in text.chars() {
         if c.is_control() && !c.is_whitespace() {
-            return Err("Options can't hold control characters".into());
+            return Err(tr!("Options can't hold control characters").into());
         }
         match (quote, c) {
             (Some(open), c) if c == open => quote = None,
@@ -102,7 +102,7 @@ fn split(text: &str) -> Result<Vec<String>, String> {
         }
     }
     if quote.is_some() {
-        return Err("A quote isn't closed".into());
+        return Err(tr!("A quote isn't closed").into());
     }
     words.extend(word);
     Ok(words)
@@ -111,17 +111,17 @@ fn split(text: &str) -> Result<Vec<String>, String> {
 /// `--name` or `--name=value`, with a name libVLC could have and VLC lets the user set.
 fn check_syntax(option: &str) -> Result<(), String> {
     let Some(rest) = option.strip_prefix("--") else {
-        return Err(format!("“{option}” isn't an option; options start with --"));
+        return Err(tr!("“{option}” isn't an option; options start with --", option));
     };
     let name = rest.split_once('=').map_or(rest, |(name, _)| name);
     let valid = name.starts_with(|c: char| c.is_ascii_alphanumeric())
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
     if !valid {
-        return Err(format!("“{option}” isn't an option name"));
+        return Err(tr!("“{option}” isn't an option name", option));
     }
     let base = name.strip_prefix("no-").unwrap_or(name);
     if REFUSED.contains(&base) {
-        return Err(format!("--{base} can't be changed here; VLC sets it itself"));
+        return Err(tr!("--{base} can't be changed here; VLC sets it itself", base));
     }
     Ok(())
 }

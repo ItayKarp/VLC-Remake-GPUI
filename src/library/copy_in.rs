@@ -32,11 +32,11 @@ pub fn copy_into(sources: &[PathBuf], folder: &Path) -> Copied {
 
 /// Copies `source` into `folder` under a free name, answering how many files that was.
 fn copy_one(source: &Path, folder: &Path) -> io::Result<usize> {
-    let name = source.file_name().ok_or_else(|| invalid("it has no name"))?;
+    let name = source.file_name().ok_or_else(|| invalid(tr!("it has no name")))?;
     let target = free_name(folder, Path::new(name))?;
     if fs::metadata(source)?.is_dir() {
         if inside(folder, source) {
-            return Err(invalid("a folder can't be copied into itself"));
+            return Err(invalid(tr!("a folder can't be copied into itself")));
         }
         copy_tree(source, &target)
     } else {
@@ -72,7 +72,7 @@ fn free_name(folder: &Path, name: &Path) -> io::Result<PathBuf> {
     (2..=MAX_NUMBER)
         .map(|n| folder.join(format!("{stem} {n}{}", extension.as_deref().unwrap_or(""))))
         .find(|candidate| !exists(candidate))
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AlreadyExists, "every name is taken"))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AlreadyExists, tr!("every name is taken")))
 }
 
 /// Whether anything (even a broken link) is at `path`.

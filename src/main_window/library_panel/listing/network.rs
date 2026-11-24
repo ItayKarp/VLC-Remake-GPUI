@@ -29,25 +29,28 @@ pub(super) fn rows(category: Option<NetworkCategory>, cx: &App) -> Vec<Row> {
 
 /// "+ Subscribe to Podcast", then the feeds subscribed to.
 fn feed_rows(cx: &App) -> Vec<Row> {
-    let subscribe = Row::new("Subscribe to Podcast", icons::ADD, Target::Subscribe);
+    let subscribe = Row::new(tr!("Subscribe to Podcast"), icons::ADD, Target::Subscribe);
     let feeds = podcasts::subscriptions(cx).iter().map(|feed| {
         Row::new(feed.title.clone(), icons::STREAMING, Target::Go(Route::Podcast(feed.id)))
     });
     std::iter::once(subscribe).chain(feeds).collect()
 }
 
-/// Feed `id`'s episodes, the latest first; a played one is checked.
+/// Feed `id`'s episodes, the latest first, each with its date when the feed gives one; a
+/// played one is checked.
 pub(super) fn episode_rows(id: FeedId, cx: &App) -> Vec<Row> {
     let episodes = podcasts::episodes(id, cx).map(|episode| {
         let icon = if episode.played { icons::CHECK } else { icons::PLAY };
+        let published = episode.published_s.map(|seconds| crate::i18n::date(seconds * 1000));
         Row::new(episode.title.clone(), icon, Target::Episode(episode.id, episode.url.clone()))
+            .with_detail(published)
     });
     episodes.collect()
 }
 
 /// "+ Add Network Stream", the categories, then the playlists of streams.
 fn root(cx: &App) -> Vec<Row> {
-    let add = Row::new("Add Network Stream", icons::ADD, Target::AddStream);
+    let add = Row::new(tr!("Add Network Stream"), icons::ADD, Target::AddStream);
     let has_recent = !network::urls(NetworkCategory::Recent, cx).is_empty();
     let categories = NetworkCategory::ALL
         .into_iter()

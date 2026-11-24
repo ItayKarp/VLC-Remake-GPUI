@@ -42,10 +42,10 @@ impl Choice {
     /// The entry's text.
     pub fn label(self) -> String {
         match self {
-            Self::Off => "Off".into(),
-            Self::Minutes(minutes) => format!("{minutes} min"),
-            Self::EndOfItem => "End of current item".into(),
-            Self::Custom => "Custom".into(),
+            Self::Off => tr!("Off").into(),
+            Self::Minutes(minutes) => tr!("{minutes} min", minutes),
+            Self::EndOfItem => tr!("End of current item").into(),
+            Self::Custom => tr!("Custom").into(),
         }
     }
 }
@@ -113,12 +113,14 @@ pub fn parse_minutes(text: &str) -> Result<u32, Invalid> {
 /// the end of an item "Stops when this item ends".
 pub fn hint(timer: Timer, left: Option<Duration>) -> String {
     match (timer, left) {
-        (Timer::EndOfItem, _) | (Timer::At(_), None) => "Stops when this item ends".into(),
+        (Timer::EndOfItem, _) | (Timer::At(_), None) => tr!("Stops when this item ends").into(),
         (Timer::At(_), Some(left)) if left.as_secs() < MINUTE => {
-            format!("Stops in {} s", left.as_secs())
+            tr!("Stops in {seconds} s", seconds = left.as_secs())
         }
         // Rounded up, so "1 min" means it's under a minute and a bit.
-        (Timer::At(_), Some(left)) => format!("Stops in {} min", left.as_secs().div_ceil(MINUTE)),
+        (Timer::At(_), Some(left)) => {
+            tr!("Stops in {minutes} min", minutes = left.as_secs().div_ceil(MINUTE))
+        }
     }
 }
 

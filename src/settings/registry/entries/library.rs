@@ -8,9 +8,9 @@ use super::super::value::{Binding, Choice, SettingChoice, Value, choice, toggle}
 use crate::settings::registry::Category;
 use crate::settings::{self, ArtworkSource};
 
-const FOLDERS: (Category, &str) = (Category::Library, "Media Folders");
-const OPENING: (Category, &str) = (Category::Library, "Opening Files");
-const METADATA: (Category, &str) = (Category::Library, "Metadata & Artwork");
+const FOLDERS: (Category, &str) = (Category::Library, tr_noop!("Media Folders"));
+const OPENING: (Category, &str) = (Category::Library, tr_noop!("Opening Files"));
+const METADATA: (Category, &str) = (Category::Library, tr_noop!("Metadata & Artwork"));
 
 /// The key of "Only allow one VLC window", which its dependents name.
 const ONE_WINDOW_KEY: &str = "library.allow_multiple_instances";
@@ -20,9 +20,9 @@ const ENABLED_KEY: &str = "library.enabled";
 impl SettingChoice for ArtworkSource {
     const VALUES: &'static [Self] = &[Self::File, Self::Folder, Self::Internet];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("file", "From the file only"),
-        Choice::new("folder", "From the file and its folder"),
-        Choice::new("internet", "Also from the internet"),
+        Choice::new("file", tr_noop!("From the file only")),
+        Choice::new("folder", tr_noop!("From the file and its folder")),
+        Choice::new("internet", tr_noop!("Also from the internet")),
     ];
 }
 
@@ -32,15 +32,16 @@ fn internet_hint(cx: &gpui::App) -> Option<String> {
     (prefs.library.artwork_source == ArtworkSource::Internet
         && !prefs.privacy.fetch_online_metadata)
         .then(|| {
-            "The internet is off in Settings → Privacy, so only the file and its folder are used."
-                .to_owned()
+            tr!("The internet is off in Settings → Privacy, so only the file and its folder are \
+                 used.")
+            .to_owned()
         })
 }
 
 /// "When opening a folder"'s choices, over the `include_subfolders` switch.
 const FOLDER_CHOICES: &[Choice] = &[
-    Choice::new("include_subfolders", "Include subfolders"),
-    Choice::new("folder_only", "This folder only"),
+    Choice::new("include_subfolders", tr_noop!("Include subfolders")),
+    Choice::new("folder_only", tr_noop!("This folder only")),
 ];
 
 /// "Only allow one VLC window": the opposite of `allow_multiple_instances`.
@@ -71,24 +72,24 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "library.media_folders",
         FOLDERS,
-        "Media folders",
+        tr_noop!("Media folders"),
         Control::MediaFolders,
         Binding::ACTION,
     )
-    .info("The folders the library shows and keeps up to date as files change.")
+    .info(tr_noop!("The folders the library shows and keeps up to date as files change."))
     .depends_on(ENABLED_KEY, Condition::IsOn)
     .keywords(&["library folders", "add folder", "remove folder", "rescan", "resync", "index"]),
     SettingDef::new(
         ONE_WINDOW_KEY,
         OPENING,
-        "Only allow one VLC window",
+        tr_noop!("Only allow one VLC window"),
         Control::Toggle,
         ONE_WINDOW,
     )
-    .info(
+    .info(tr_noop!(
         "Files you open while VLC is running go to the window already open. Off, each one opens \
-         its own VLC.",
-    )
+         its own VLC."
+    ))
     .applies(ApplyMode::Restart)
     .keywords(&["single instance", "one instance", "multiple windows"]),
     // On macOS the system itself hands files opened in the Finder to the running app.
@@ -96,70 +97,70 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "library.one_window_from_file_manager",
         OPENING,
-        "Apply to files opened from the file manager",
+        tr_noop!("Apply to files opened from the file manager"),
         Control::Toggle,
         toggle!(prefs.library.one_window_from_file_manager),
     )
-    .info(
+    .info(tr_noop!(
         "Files you open from the file manager go to the window already open too. Off, each one \
-         opens its own VLC.",
-    )
+         opens its own VLC."
+    ))
     .depends_on(ONE_WINDOW_KEY, Condition::IsOn)
     .keywords(&["explorer", "finder", "double-click", "single instance"]),
     SettingDef::new(
         "library.add_instead_of_replacing",
         OPENING,
-        "Add to the playlist instead of replacing it",
+        tr_noop!("Add to the playlist instead of replacing it"),
         Control::Toggle,
         toggle!(prefs.library.add_instead_of_replacing),
     )
-    .info(
-        "Files you open while VLC is running, and items you open from the library while \
-         something plays, go to the end of the queue instead of replacing it.",
-    )
+    .info(tr_noop!(
+        "Files you open while VLC is running, and items you open from the library while something \
+         plays, go to the end of the queue instead of replacing it."
+    ))
     .depends_on(ONE_WINDOW_KEY, Condition::IsOn)
     .keywords(&["enqueue", "queue", "append"]),
     SettingDef::new(
         "library.include_subfolders",
         OPENING,
-        "When opening a folder",
+        tr_noop!("When opening a folder"),
         Control::Dropdown(FOLDER_CHOICES),
         OPENING_FOLDERS,
     )
-    .info("Whether opening a folder also plays the media in the folders inside it.")
+    .info(tr_noop!("Whether opening a folder also plays the media in the folders inside it."))
     .keywords(&["subfolders", "recursive", "directory"]),
     SettingDef::new(
         "library.show_hidden_files",
         OPENING,
-        "Show hidden files",
+        tr_noop!("Show hidden files"),
         Control::Toggle,
         toggle!(prefs.library.show_hidden_files),
     )
-    .info("Lists files whose names start with a dot, and files the system marks hidden.")
+    .info(tr_noop!("Lists files whose names start with a dot, and files the system marks hidden."))
     .keywords(&["dot files", "system files"]),
     SettingDef::new(
         "library.artwork_source",
         METADATA,
-        "Fetch titles and artwork",
+        tr_noop!("Fetch titles and artwork"),
         Control::Dropdown(ArtworkSource::CHOICES),
         choice!(prefs.library.artwork_source),
     )
-    .info(
+    .info(tr_noop!(
         "Where the library finds titles and covers: the file's own tags and pictures, a cover \
-         image in its folder, or the internet, while Settings → Privacy allows it.",
-    )
+         image in its folder, or the internet, while Settings → Privacy allows it."
+    ))
     .hint(internet_hint)
     .keywords(&["metadata", "cover art", "album art", "tags", "online"]),
     SettingDef::new(
         ENABLED_KEY,
         METADATA,
-        "Use the media library",
+        tr_noop!("Use the media library"),
         Control::Toggle,
         toggle!(prefs.library.enabled),
     )
-    .info(
-        "Shows the library and keeps its folders indexed. Off, the library is hidden and \
-         nothing is indexed; VLC offers to keep what was indexed for later.",
-    )
+    .info(tr_noop!(
+        "Shows the library and keeps its folders indexed. Off, the library is hidden and nothing \
+         is indexed; VLC offers to keep what was indexed for later."
+    ))
     .keywords(&["index", "indexing", "scan", "file browser", "sidebar"]),
 ];

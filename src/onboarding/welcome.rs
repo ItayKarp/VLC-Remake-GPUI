@@ -10,6 +10,7 @@ use gpui::{
 use super::Onboarding;
 use super::layout::bottom_bar;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::settings;
 use crate::theme::Palette;
 use crate::theme::text_px;
@@ -19,9 +20,11 @@ use crate::ui::button::{Button, ButtonStyle};
 const COLUMN_WIDTH: f32 = 594.;
 
 /// What VLC is, shown under the welcome title.
-const INTRO: &str = "VLC is a free and open source cross-platform multimedia player and \
+const INTRO: &str = tr_noop!(
+    "VLC is a free and open source cross-platform multimedia player and \
                      framework that plays most multimedia files as well as DVDs, Audio CDs, \
-                     VCDs, and various streaming protocols.";
+                     VCDs, and various streaming protocols."
+);
 
 impl Onboarding {
     /// Renders step 1: logo, welcome title, intro text and the folder picker.
@@ -31,7 +34,7 @@ impl Onboarding {
         div()
             .relative()
             .size_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_center()
             .pt(px(118.))
@@ -40,13 +43,13 @@ impl Onboarding {
             .child(
                 div()
                     .w(px(COLUMN_WIDTH))
-                    .flex()
+                    .flex_row_start()
                     .flex_col()
                     .child(intro(p))
                     .child(folder_prompt(p))
                     .child(folder_picker(folder, p, cx)),
             )
-            .child(bottom_bar().justify_end().child(self.nav_buttons(false, "Next", cx)))
+            .child(bottom_bar().justify_end().child(self.nav_buttons(false, tr!("Next"), cx)))
             .into_any_element()
     }
 
@@ -56,7 +59,7 @@ impl Onboarding {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Choose Media Folder".into()),
+            prompt: Some(tr!("Choose Media Folder").into()),
         });
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else { return };
@@ -79,7 +82,7 @@ fn welcome_title(p: &Palette) -> impl IntoElement {
         .line_height(text_px(44.))
         .font_weight(FontWeight::LIGHT)
         .text_color(p.text_strong)
-        .child("Welcome to VLC!")
+        .child(tr!("Welcome to VLC!"))
 }
 
 fn intro(p: &Palette) -> impl IntoElement {
@@ -88,7 +91,7 @@ fn intro(p: &Palette) -> impl IntoElement {
         .text_size(text_px(16.))
         .line_height(text_px(28.))
         .text_color(p.text_muted)
-        .child(INTRO)
+        .child(crate::i18n::text(INTRO))
 }
 
 fn folder_prompt(p: &Palette) -> impl IntoElement {
@@ -97,7 +100,7 @@ fn folder_prompt(p: &Palette) -> impl IntoElement {
         .text_size(text_px(15.))
         .line_height(text_px(20.))
         .text_color(p.text_muted)
-        .child("Choose a Media Folder to get started with")
+        .child(tr!("Choose a Media Folder to get started with"))
 }
 
 /// The chosen folder and a Browse button; clicking either opens the folder dialog.
@@ -108,13 +111,12 @@ fn folder_picker(
 ) -> impl IntoElement {
     div()
         .mt(px(14.))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .gap(px(11.))
         .h(px(35.))
         .child(folder_field(folder, p, cx))
         .child(
-            Button::new("browse", "Browse")
+            Button::new("browse", tr!("Browse"))
                 .style(ButtonStyle::Filled)
                 .width(114.)
                 .on_click(cx.listener(|_, _: &ClickEvent, _, cx| Onboarding::browse(cx))),
@@ -131,7 +133,7 @@ fn folder_field(
         .flex_1()
         .min_w_0()
         .h_full()
-        .flex()
+        .flex_row_start()
         .items_center()
         .px(px(13.))
         .rounded(px(4.))

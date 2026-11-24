@@ -30,7 +30,6 @@ use crate::history::History;
 use crate::history::policy::WatchedRule;
 use crate::library::folder_view::Card;
 use crate::library::home::{self, Home, Wanted, writes};
-use crate::navigation::item_count;
 use crate::navigation::route::{HomeSection, MusicRoute, Route};
 use crate::navigation::view::View;
 use crate::playlists;
@@ -105,7 +104,9 @@ impl Page {
     /// What `section` says under its items about those that are away, if anything.
     fn away_note(&self, section: HomeSection) -> Option<String> {
         let away = section == HomeSection::ContinueWatching && self.unavailable > 0;
-        away.then(|| format!("{} unavailable", item_count(self.unavailable)))
+        away.then(|| {
+            trn!("{count} item unavailable", "{count} items unavailable", self.unavailable)
+        })
     }
 
     /// Which of the page's children (headings, items or `lined` sections' lines of tiles, and
@@ -240,7 +241,7 @@ impl MainWindow {
         if files.is_empty() || !files.iter().all(listed) {
             return None;
         }
-        let label = "Remove from Continue Watching";
+        let label = tr!("Remove from Continue Watching");
         Some(on_all(main, files, label, icons::REMOVE, |main, files, _, cx| {
             let media = files.iter().filter_map(|file| file.media).collect();
             writes::remove_from_continue_watching(media, cx);

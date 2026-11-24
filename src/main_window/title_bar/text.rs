@@ -4,7 +4,7 @@
 use crate::app::media::Media;
 
 /// The title when nothing is loaded, or when the file name is not to be shown.
-pub const APP_TITLE: &str = "VLC Media Player";
+pub const APP_TITLE: &str = tr_noop!("VLC Media Player");
 
 /// Explicit bidi embeddings, overrides and isolates. Text shaping orders right-to-left text by
 /// itself; a stray override from a bad tag would only reverse what follows it.
@@ -25,12 +25,12 @@ pub struct Loaded<'a> {
 /// its URL), else [`APP_TITLE`]. `show_file_name` off always gives [`APP_TITLE`].
 pub fn window_title(loaded: Option<Loaded<'_>>, show_file_name: bool) -> String {
     let Some(loaded) = loaded.filter(|_| show_file_name) else {
-        return APP_TITLE.to_owned();
+        return crate::i18n::text(APP_TITLE).to_owned();
     };
     let tagged = loaded.tag.map(clean).filter(|title| !title.is_empty());
     tagged
         .or_else(|| Some(clean(&loaded.media.display_name())).filter(|name| !name.is_empty()))
-        .unwrap_or_else(|| APP_TITLE.to_owned())
+        .unwrap_or_else(|| crate::i18n::text(APP_TITLE).to_owned())
 }
 
 /// `text` on one line: control characters (newlines and tabs too) become spaces, runs of

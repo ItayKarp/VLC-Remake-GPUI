@@ -211,7 +211,7 @@ impl PipWindow {
         accent: Hsla,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let pop_in = WindowButton { icon: icons::PIP, label: "Back to the player".into() };
+        let pop_in = WindowButton { icon: icons::PIP, label: tr!("Back to the player").into() };
         let handlers = Handlers {
             close: Self::on_click(PipCommand::Stop, cx),
             window: Self::on_click(PipCommand::PopIn, cx),

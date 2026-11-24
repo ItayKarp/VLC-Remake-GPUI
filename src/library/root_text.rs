@@ -4,7 +4,6 @@
 use gpui::SharedString;
 
 use super::indexer::RootState;
-use super::progress::group_thousands;
 use crate::db::roots::RootStatus;
 
 /// What the row says about `root`.
@@ -12,23 +11,25 @@ pub fn status_text(root: &RootState) -> SharedString {
     if let Some(progress) = root.indexing {
         return progress.label().into();
     }
-    let items = match root.files {
-        1 => "1 item".to_owned(),
-        n => format!("{} items", group_thousands(n)),
-    };
+    let items = crate::navigation::item_count(root.files);
     let text = match root.status {
         RootStatus::Ok => items,
-        RootStatus::Slow => format!("{items} · Slow network folder"),
+        RootStatus::Slow => tr!("{items} · Slow network folder", items),
         RootStatus::Missing if root.files > 0 => {
-            format!("{items} · Drive not connected or folder moved")
+            tr!("{items} · Drive not connected or folder moved", items)
         }
-        RootStatus::Missing => "This folder doesn't exist".to_owned(),
-        RootStatus::PermissionDenied => "VLC isn't allowed to read this folder".to_owned(),
+        RootStatus::Missing => tr!("This folder doesn't exist").to_owned(),
+        RootStatus::PermissionDenied => tr!("VLC isn't allowed to read this folder").to_owned(),
     };
     match root.unreadable {
         0 => text.into(),
-        1 => format!("{text} · 1 folder couldn't be read").into(),
-        n => format!("{text} · {n} folders couldn't be read").into(),
+        n => trn!(
+            "{text} · {count} folder couldn't be read",
+            "{text} · {count} folders couldn't be read",
+            n,
+            text
+        )
+        .into(),
     }
 }
 

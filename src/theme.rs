@@ -46,9 +46,9 @@ impl ThemeMode {
     /// The name shown to the user.
     pub fn label(self) -> &'static str {
         match self {
-            ThemeMode::Light => "Light",
-            ThemeMode::Dark => "Dark",
-            ThemeMode::System => "System",
+            ThemeMode::Light => tr!("Light"),
+            ThemeMode::Dark => tr!("Dark"),
+            ThemeMode::System => tr!("System"),
         }
     }
 

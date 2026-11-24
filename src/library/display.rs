@@ -7,10 +7,10 @@ use std::path::Path;
 use super::episode;
 use crate::db::metadata::Metadata;
 
-/// Shown for a song without an artist tag.
-pub const UNKNOWN_ARTIST: &str = "Unknown Artist";
-/// Shown for a song without an album tag.
-pub const UNKNOWN_ALBUM: &str = "Unknown Album";
+/// Shown for a song without an artist tag, translated by [`artist`].
+pub const UNKNOWN_ARTIST: &str = tr_noop!("Unknown Artist");
+/// Shown for a song without an album tag, translated by [`album`].
+pub const UNKNOWN_ALBUM: &str = tr_noop!("Unknown Album");
 /// What separates artists in one tag (`A; B`, `A feat. B`), matched in any letter case. `&`
 /// and `/` aren't here: they are part of too many names (`Simon & Garfunkel`, `AC/DC`).
 pub const ARTIST_SEPARATORS: [&str; 5] = [";", " feat. ", " feat ", " ft. ", " featuring "];
@@ -30,12 +30,16 @@ pub fn title(metadata: &Metadata, path: &Path) -> String {
 
 /// The artist to show: the artist tag, else the album artist, else "Unknown Artist".
 pub fn artist(metadata: &Metadata) -> &str {
-    metadata.artist.as_deref().or(metadata.album_artist.as_deref()).unwrap_or(UNKNOWN_ARTIST)
+    metadata
+        .artist
+        .as_deref()
+        .or(metadata.album_artist.as_deref())
+        .unwrap_or(crate::i18n::text(UNKNOWN_ARTIST))
 }
 
 /// The album to show: the album tag, else "Unknown Album".
 pub fn album(metadata: &Metadata) -> &str {
-    metadata.album.as_deref().unwrap_or(UNKNOWN_ALBUM)
+    metadata.album.as_deref().unwrap_or(crate::i18n::text(UNKNOWN_ALBUM))
 }
 
 /// The artists an artist tag names, split at `separators` (matched in any letter case), each

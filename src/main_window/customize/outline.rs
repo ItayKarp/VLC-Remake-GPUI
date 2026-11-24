@@ -153,7 +153,7 @@ impl MainWindow {
         let grows = matches!(unit, Unit::Spacer | Unit::Item(Item::CurrentTime));
         let handle = div()
             .id(piece_id(spot))
-            .debug_selector(move || format!("customize-{}", units::label(unit)))
+            .debug_selector(move || format!("customize-{}", units::english(unit)))
             .absolute()
             .inset_0()
             .border_1()
@@ -248,7 +248,7 @@ impl MainWindow {
             .rounded(px(metrics::RADIUS))
             .text_size(text_px(13.))
             .text_color(p.text_muted)
-            .child("Drop here for a second row")
+            .child(tr!("Drop here for a second row"))
             .on_drag_move(cx.listener(|this, event: &DragMoveEvent<DraggedUnit>, _, cx| {
                 let over = event.bounds.contains(&event.event.position);
                 this.track_drop_area(Some(Target::NewRow), over, cx);

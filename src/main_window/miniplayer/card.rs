@@ -111,7 +111,8 @@ impl MainWindow {
     /// ✕ and pop-out in the top corners, and the transport in the middle: on hover, or always
     /// once the media ended.
     fn render_hover_controls(&self, cx: &mut Context<Self>) -> Div {
-        let pop_out = WindowButton { icon: icons::POP_OUT, label: "Back to the player".into() };
+        let label = tr!("Back to the player").into();
+        let pop_out = WindowButton { icon: icons::POP_OUT, label };
         let handlers = Handlers {
             close: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| this.stop(window, cx))),
             window: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -205,7 +206,7 @@ impl MainWindow {
                 },
             ))
         });
-        let queue = IconButton::new("miniplayer-queue", icons::LIST, "Queue")
+        let queue = IconButton::new("miniplayer-queue", icons::LIST, tr!("Queue"))
             .size(QUEUE_BUTTON, QUEUE_ICON)
             .selected(self.is_miniplayer_queue_open())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {

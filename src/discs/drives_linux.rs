@@ -35,7 +35,7 @@ fn disc(name: &str, mounts: &str) -> Disc {
     let label =
         mount.as_deref().and_then(Path::file_name).map(|n| n.to_string_lossy().into_owned());
     Disc {
-        name: label.unwrap_or_else(|| format!("Drive {name}")),
+        name: label.unwrap_or_else(|| tr!("Drive {name}", name)),
         kind,
         device: Some(device),
         mount,

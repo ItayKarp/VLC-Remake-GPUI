@@ -99,7 +99,7 @@ fn command(
     dispatching(action, menus::label(action), cx)
         .icon(icon)
         .disabled(!available)
-        .why_disabled("Not available here")
+        .why_disabled(tr!("Not available here"))
 }
 
 /// An item that dispatches `action` (an app command) under `label`, with its shortcut from the
@@ -114,7 +114,8 @@ pub(super) fn dispatching(action: &'static dyn Action, label: &'static str, cx: 
 /// Open Recent: the recent media, newest first, then Clear Recent. Empty (so disabled, saying
 /// why) when there is nothing recent or history is off.
 pub(super) fn recent_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem {
-    MenuItem::submenu("Open Recent", recent_items(main, cx)).why_disabled("Nothing opened recently")
+    MenuItem::submenu(tr!("Open Recent"), recent_items(main, cx))
+        .why_disabled(tr!("Nothing opened recently"))
 }
 
 fn recent_items(main: &WeakEntity<MainWindow>, cx: &App) -> Vec<MenuItem> {
@@ -133,6 +134,6 @@ fn recent_items(main: &WeakEntity<MainWindow>, cx: &App) -> Vec<MenuItem> {
         })
         .collect();
     items.push(MenuItem::Separator);
-    items.push(MenuItem::action("Clear Recent", |_, cx| recent::clear(cx)));
+    items.push(MenuItem::action(tr!("Clear Recent"), |_, cx| recent::clear(cx)));
     items
 }

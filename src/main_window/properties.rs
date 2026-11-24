@@ -10,6 +10,7 @@ use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, prelude::*,
 
 use super::MainWindow;
 use crate::history::History;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::ShowProperties;
 use crate::library::properties::{self, Properties};
 use crate::theme;
@@ -66,7 +67,7 @@ impl MainWindow {
 
     fn open_properties(&mut self, read: &Properties, window: &mut Window, cx: &mut Context<Self>) {
         let rows = properties::rows(read).into_iter().map(|(label, value)| (label, value.into()));
-        self.show_info_dialog("Properties & Metadata", rows.collect(), window, cx);
+        self.show_info_dialog(tr!("Properties & Metadata"), rows.collect(), window, cx);
     }
 
     /// Opens a read-only dialog titled `title` of `rows`: a muted label and its value on each
@@ -79,7 +80,7 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         let body = move |window: &mut Window, cx: &mut App| body(&rows, window, cx);
-        let buttons = vec![DialogButton::new("Close").primary()];
+        let buttons = vec![DialogButton::new(tr!("Close")).primary()];
         let dialog = cx.new(|cx| Dialog::new(title, body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
@@ -89,10 +90,15 @@ fn body(rows: &[(&'static str, SharedString)], window: &mut Window, cx: &mut App
     let p = theme::palette(window, cx);
     let row = |(label, value): &(&'static str, SharedString)| {
         div()
-            .flex()
+            .flex_row_start()
             .gap(px(ROW_GAP * 2.))
             .child(div().w(px(LABEL_WIDTH)).flex_none().text_color(p.text_muted).child(*label))
             .child(div().flex_1().min_w_0().child(value.clone()))
     };
-    div().flex().flex_col().gap(px(ROW_GAP)).children(rows.iter().map(row)).into_any_element()
+    div()
+        .flex_row_start()
+        .flex_col()
+        .gap(px(ROW_GAP))
+        .children(rows.iter().map(row))
+        .into_any_element()
 }

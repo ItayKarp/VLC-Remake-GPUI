@@ -22,6 +22,7 @@ use self::filter::{Field, Group};
 use self::rows::{ROW_HEIGHT, columns, table};
 use super::MainWindow;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::{self, actions::ShowKeyboardShortcuts};
 use crate::settings;
 use crate::theme;
@@ -50,11 +51,11 @@ impl Search {
         let query = cx.new(|cx| {
             TextInput::new(window, cx)
                 .with_look(Look::Bare)
-                .with_placeholder("Search Keyboard Shortcuts…")
-                .with_label("Search keyboard shortcuts")
+                .with_placeholder(tr!("Search Keyboard Shortcuts…"))
+                .with_label(tr!("Search keyboard shortcuts"))
         });
         let fields = Field::ALL.iter().map(|field| SharedString::from(field.label())).collect();
-        let field = cx.new(|cx| Dropdown::new("Search in", fields, 0, window, cx));
+        let field = cx.new(|cx| Dropdown::new(tr!("Search in"), fields, 0, window, cx));
         Self { query, field }
     }
 
@@ -99,15 +100,15 @@ fn build(editor: Entity<ShortcutsEditor>, window: &mut Window, cx: &mut App) -> 
     };
     let save = {
         let editor = editor.clone();
-        DialogButton::new("Save").primary().on_click(move |_, cx| {
+        DialogButton::new(tr!("Save")).primary().on_click(move |_, cx| {
             let draft = editor.read(cx).draft().clone();
             keymap::apply(&draft, cx);
         })
     };
-    let buttons = vec![DialogButton::new("Cancel").leading(), save];
+    let buttons = vec![DialogButton::new(tr!("Cancel")).leading(), save];
     cx.new(|cx| {
         let this = cx.weak_entity();
-        Dialog::new("Keyboard Shortcuts", body, buttons, cx)
+        Dialog::new(tr!("Keyboard Shortcuts"), body, buttons, cx)
             .with_width(WIDTH)
             .with_toolbar(toolbar)
             .with_close_button()
@@ -143,12 +144,12 @@ fn may_close(
     if !editor.read(cx).is_dirty() || !settings::get(cx).prefs.startup.show_dialogs {
         return true;
     }
-    let detail = "The shortcuts you changed won't be saved.";
+    let detail = tr!("The shortcuts you changed won't be saved.");
     let answer = window.prompt(
         PromptLevel::Warning,
-        "Discard your changes?",
+        tr!("Discard your changes?"),
         Some(detail),
-        &["Discard Changes", "Keep Editing"],
+        &[tr!("Discard Changes"), tr!("Keep Editing")],
         cx,
     );
     let dialog = dialog.clone();
@@ -166,7 +167,7 @@ fn toolbar(search: &Search, window: &mut Window, cx: &mut App) -> AnyElement {
     let p = theme::palette(window, cx);
     let field = div()
         .flex_1()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(10.))
         .h(px(ROW_HEIGHT))
@@ -176,16 +177,23 @@ fn toolbar(search: &Search, window: &mut Window, cx: &mut App) -> AnyElement {
         .child(svg().path(icons::SEARCH).size(px(ICON_SIZE)).flex_none().text_color(p.icon))
         .child(div().flex_1().child(search.query.clone()));
     let search_row = div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(12.))
         .child(field)
         .child(div().w(px(FIELD_WIDTH)).flex_none().child(search.field.clone()));
-    let heading = |text: &'static str| div().flex().text_color(p.text_muted).child(text);
+    let heading = |text: &'static str| div().flex_row_start().text_color(p.text_muted).child(text);
     let centered = |text| heading(text).justify_center();
-    let headings = columns(heading("Action"), centered("Hotkey"), centered("Global Hotkey"))
-        .pt(px(16.))
+    let headings =
+        columns(heading(tr!("Action")), centered(tr!("Hotkey")), centered(tr!("Global Hotkey")))
+            .pt(px(16.))
+            .pb(px(4.))
+            .text_size(text_px(metrics::TEXT_SMALL));
+    div()
+        .flex_row_start()
+        .flex_col()
         .pb(px(4.))
-        .text_size(text_px(metrics::TEXT_SMALL));
-    div().flex().flex_col().pb(px(4.)).child(search_row).child(headings).into_any_element()
+        .child(search_row)
+        .child(headings)
+        .into_any_element()
 }

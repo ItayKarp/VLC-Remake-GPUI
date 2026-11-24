@@ -5,6 +5,7 @@ use gpui::{ClickEvent, Context, FontWeight, Hsla, SharedString, div, prelude::*,
 
 use super::Onboarding;
 use super::layout::{EDGE_BOTTOM, EDGE_LEFT, EDGE_RIGHT, NAV_BUTTON_WIDTH, back_button};
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
@@ -20,11 +21,10 @@ pub(super) fn render(
 ) -> impl IntoElement {
     div()
         .absolute()
-        .left(px(EDGE_LEFT))
-        .right(px(EDGE_RIGHT))
+        .inset_start(px(EDGE_LEFT))
+        .inset_end(px(EDGE_RIGHT))
         .bottom(px(EDGE_BOTTOM))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_end()
         .gap(px(24.))
         .child(message(error, p))
@@ -36,7 +36,7 @@ fn message(error: SharedString, p: &Palette) -> impl IntoElement {
     div()
         .flex_1()
         .min_w_0()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(2.))
         .child(
@@ -44,7 +44,7 @@ fn message(error: SharedString, p: &Palette) -> impl IntoElement {
                 .text_size(text_px(16.))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(danger)
-                .child("Your choices couldn't be saved."),
+                .child(tr!("Your choices couldn't be saved.")),
         )
         .child(
             div()
@@ -58,19 +58,18 @@ fn message(error: SharedString, p: &Palette) -> impl IntoElement {
 
 fn buttons(cx: &mut Context<Onboarding>) -> impl IntoElement {
     div()
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .gap(px(8.))
         .child(back_button(cx))
         .child(
-            Button::new("continue-without-saving", "Continue without saving")
+            Button::new("continue-without-saving", tr!("Continue without saving"))
                 .style(ButtonStyle::Filled)
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     this.continue_without_saving(window, cx);
                 })),
         )
         .child(
-            Button::new("retry", "Retry")
+            Button::new("retry", tr!("Retry"))
                 .primary()
                 .width(NAV_BUTTON_WIDTH)
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.finish(window, cx))),

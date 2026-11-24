@@ -45,13 +45,14 @@ use self::row::RowLabel;
 use self::widgets::Widgets;
 use crate::app::audio_devices::AudioDevices;
 use crate::effects::EffectSession;
+use crate::i18n::DirectionalStyle;
 use crate::settings::registry::{self, ApplyMode, Category, SettingDef, Value};
 use crate::settings::{self, Settings, SettingsStore};
 use crate::theme::{self, Palette};
 use crate::ui::toast::{Level, banner};
 
 /// The note under a `NextMedia` row once it was changed.
-const NEXT_MEDIA_NOTE: &str = "Applies to the next file you open";
+const NEXT_MEDIA_NOTE: &str = tr_noop!("Applies to the next file you open");
 
 /// One category's page.
 pub struct SettingsPage {
@@ -185,14 +186,18 @@ impl SettingsPage {
     ) -> gpui::Div {
         let state = RowState { value: def.value(settings), enabled: def.is_enabled(settings) };
         let hint = def.hint.and_then(|hint| hint(cx)).map(SharedString::from);
-        let edited = self.edited.contains(def.key).then_some(SharedString::from(NEXT_MEDIA_NOTE));
+        let edited = self
+            .edited
+            .contains(def.key)
+            .then_some(SharedString::from(crate::i18n::text(NEXT_MEDIA_NOTE)));
         let note_is_danger = hint.is_some() && def.hint_tone == registry::HintTone::Danger;
         let note = hint.or(edited);
+        let shown = crate::i18n::text(def.label);
         let label = RowLabel {
             key: def.key,
-            label: def.label,
-            highlights: highlight::ranges(def.label, &self.words),
-            info: def.info,
+            label: shown,
+            highlights: highlight::ranges(shown, &self.words),
+            info: crate::i18n::text(def.info),
             note,
             note_is_danger,
             enabled: state.enabled,
@@ -219,8 +224,8 @@ impl SettingsPage {
     /// "Restart VLC to apply", while a restart setting was changed.
     fn restart_banner(cx: &Context<Self>) -> Option<AnyElement> {
         settings::needs_restart(cx).then(|| {
-            banner("restart-banner", Level::Warning, "Restart VLC to apply")
-                .action("Restart now", |_, cx| settings::restart(cx))
+            banner("restart-banner", Level::Warning, tr!("Restart VLC to apply"))
+                .action(tr!("Restart now"), |_, cx| settings::restart(cx))
                 .into_any_element()
         })
     }
@@ -236,9 +241,9 @@ impl Render for SettingsPage {
         let advanced_rows =
             if open { self.sections(&advanced, &settings, &p, cx) } else { Vec::new() };
         let empty_note = if self.words.is_empty() {
-            "Nothing to set here yet."
+            tr!("Nothing to set here yet.")
         } else {
-            "No settings on this page match the search."
+            tr!("No settings on this page match the search.")
         };
         let advanced_bar = (!advanced.is_empty()).then(|| {
             row::advanced_bar(open, &p).on_click(cx.listener(move |this, _, _, cx| {
@@ -249,7 +254,7 @@ impl Render for SettingsPage {
             .id("settings-page")
             .size_full()
             .overflow_y_scroll()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .px(px(PAGE_PADDING))
             .pb(px(PAGE_PADDING))

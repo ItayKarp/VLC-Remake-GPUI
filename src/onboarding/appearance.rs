@@ -9,6 +9,7 @@ use super::Onboarding;
 use super::layout::{bottom_bar, radio_group, radio_step};
 use super::preview;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{Accent, Palette, ThemeMode, blend};
 
@@ -45,7 +46,7 @@ impl Onboarding {
                     .left(px(43. - 6.))
                     .justify_between()
                     .child(self.render_swatches(p, cx))
-                    .child(self.nav_buttons(true, "Next", cx)),
+                    .child(self.nav_buttons(true, tr!("Next"), cx)),
             )
             .into_any_element()
     }
@@ -62,7 +63,7 @@ impl Onboarding {
     fn render_preview(&self, p: &Palette, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .bg(p.sunken)
             .overflow_hidden()
@@ -75,7 +76,7 @@ impl Onboarding {
     fn theme_picker(&self, p: &Palette, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .flex_1()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_center()
             .pt(px(136.))
@@ -85,11 +86,11 @@ impl Onboarding {
                     .line_height(text_px(34.))
                     .font_weight(FontWeight::LIGHT)
                     .text_color(p.text)
-                    .child("Select your preferred theme and color."),
+                    .child(tr!("Select your preferred theme and color.")),
             )
             .child(
                 // One tab stop; the arrow keys pick a theme (S0.4.14).
-                radio_group("theme-tiles", "Theme", p)
+                radio_group("theme-tiles", tr!("Theme"), p)
                     .mt(px(66. - 6.))
                     .gap(px(34.))
                     .on_key_down(cx.listener(Self::on_theme_key))
@@ -110,7 +111,7 @@ impl Onboarding {
         let selected = self.theme == mode;
         div()
             .id(SharedString::from(format!("theme-{}", mode.key())))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_center()
             .gap(px(16.))
@@ -136,7 +137,7 @@ impl Onboarding {
     }
 
     fn render_swatches(&self, p: &Palette, cx: &mut Context<Self>) -> impl IntoElement {
-        radio_group("accent-swatches", "Accent color", p)
+        radio_group("accent-swatches", tr!("Accent color"), p)
             .on_key_down(cx.listener(Self::on_accent_key))
             .gap(px(SWATCH_PITCH - SWATCH_SIZE - 2. * (SWATCH_GAP + SWATCH_RING)))
             .children(Accent::ALL.map(|accent| self.accent_swatch(accent, p, cx)))

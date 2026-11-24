@@ -10,7 +10,7 @@ const MS_PER_SECOND: f64 = 1_000.;
 
 /// A delay in seconds as the field shows it: `-4.000 s`.
 pub(super) fn delay_text(seconds: f64) -> String {
-    format!("{seconds:.3} s")
+    format!("{} s", crate::i18n::decimal(seconds, 3))
 }
 
 /// The delay slider's labels: `-10 s`, `0 s`, `+10 s`.
@@ -21,61 +21,66 @@ pub(super) fn delay_mark(seconds: f64) -> String {
 /// A typed delay in seconds: `-4.5`, `-4,5`, `-4.5 s`, `−4.5s` or `4500ms`, up to ten minutes
 /// either way.
 pub(super) fn parse_delay(text: &str) -> Result<f64, &'static str> {
-    const NOT_A_DELAY: &str = "A delay such as -4.5 s or 4500 ms";
-    let (number, unit) = split(text).ok_or(NOT_A_DELAY)?;
+    let not_a_delay = tr!("A delay such as -4.5 s or 4500 ms");
+    let (number, unit) = split(text).ok_or(not_a_delay)?;
     let seconds = match unit.as_str() {
         "" | "s" | "sec" | "secs" => number,
         "ms" => number / MS_PER_SECOND,
-        _ => return Err(NOT_A_DELAY),
+        _ => return Err(not_a_delay),
     };
     let limit = MAX_DELAY_MS as f64 / MS_PER_SECOND;
     if seconds.abs() > limit {
-        return Err("Up to 10 minutes either way");
+        return Err(tr!("Up to 10 minutes either way"));
     }
     Ok(seconds)
 }
 
 /// A subtitle speed as the field shows it: `1.043×`.
 pub(super) fn speed_text(speed: f64) -> String {
-    format!("{speed:.3}×")
+    format!("{}×", crate::i18n::decimal(speed, 3))
 }
 
 /// A typed subtitle speed: `1.043`, `1.043x`, or two frame rates `25/23.976` (the video's over
 /// the one the file was made for).
 pub(super) fn parse_speed(text: &str) -> Result<f64, &'static str> {
-    const NOT_A_SPEED: &str = "A speed such as 1.043 or 25/23.976";
+    let not_a_speed = tr!("A speed such as 1.043 or 25/23.976");
     let speed = match text.split_once('/') {
         Some((video, file)) => {
             let rate =
                 |text: &str| split(text).filter(|(_, unit)| unit.is_empty() || unit == "fps");
             let (video, file) =
-                (rate(video).ok_or(NOT_A_SPEED)?.0, rate(file).ok_or(NOT_A_SPEED)?.0);
+                (rate(video).ok_or(not_a_speed)?.0, rate(file).ok_or(not_a_speed)?.0);
             if file <= 0. {
-                return Err(NOT_A_SPEED);
+                return Err(not_a_speed);
             }
             video / file
         }
-        None => factor(text).ok_or(NOT_A_SPEED)?,
+        None => factor(text).ok_or(not_a_speed)?,
     };
     if !(f64::from(MIN_SPEED)..=f64::from(MAX_SPEED)).contains(&speed) {
-        return Err("Between 0.5× and 2×");
+        return Err(tr!("Between 0.5× and 2×"));
     }
     Ok(speed)
 }
 
 /// A duration factor as the field shows it: `Off` or `1.500×`.
 pub(super) fn duration_text(factor: f64) -> String {
-    if factor <= 0. { "Off".to_owned() } else { format!("{factor:.3}×") }
+    if factor <= 0. {
+        tr!("Off").to_owned()
+    } else {
+        format!("{}×", crate::i18n::decimal(factor, 3))
+    }
 }
 
 /// A typed duration factor: `off`, `0`, `1.5` or `1.5x`, up to 20.
 pub(super) fn parse_duration(text: &str) -> Result<f64, &'static str> {
-    if text.trim().eq_ignore_ascii_case("off") {
+    let typed = text.trim();
+    if typed.eq_ignore_ascii_case("off") || typed == tr!("Off") {
         return Ok(0.);
     }
-    let factor = factor(text).ok_or("A factor such as 1.5, or Off")?;
+    let factor = factor(text).ok_or(tr!("A factor such as 1.5, or Off"))?;
     if !(0. ..=f64::from(MAX_DURATION_FACTOR)).contains(&factor) {
-        return Err("Between 0 (off) and 20");
+        return Err(tr!("Between 0 (off) and 20"));
     }
     Ok(factor)
 }

@@ -10,6 +10,7 @@ use gpui::{
 };
 
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::theme::text_px;
 use crate::ui::icon::icon;
@@ -62,13 +63,13 @@ pub(super) fn section_title(title: &'static str, p: &Palette) -> Div {
         .pb(px(SECTION_BOTTOM))
         .text_size(text_px(SECTION_TEXT))
         .text_color(p.text_strong)
-        .child(title)
+        .child(crate::i18n::text(title))
 }
 
 /// A label/control row, dimmed while disabled.
 pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
     let text = div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(INFO_GAP))
         .child(label_text(label, p))
@@ -80,14 +81,14 @@ pub(super) fn row(label: &RowLabel, control: AnyElement, p: &Palette) -> Div {
     div()
         .min_h(px(ROW_HEIGHT))
         .py(px(4.))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(ROW_GAP))
         .text_size(text_px(metrics::TEXT))
         .text_color(p.text)
         .when(!label.enabled, |row| row.opacity(DISABLED_OPACITY))
-        .child(div().flex_1().min_w_0().flex().flex_col().child(text).children(note))
-        .child(div().w(px(CONTROL_WIDTH)).flex_none().flex().justify_end().child(control))
+        .child(div().flex_1().min_w_0().flex_row_start().flex_col().child(text).children(note))
+        .child(div().w(px(CONTROL_WIDTH)).flex_none().flex_row_start().justify_end().child(control))
 }
 
 /// The label, with the search's matches marked.
@@ -119,7 +120,7 @@ pub(super) fn advanced_bar(open: bool, p: &Palette) -> Stateful<Div> {
         .id("advanced-options")
         .mt(px(ADVANCED_TOP))
         .h(px(ADVANCED_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .gap(px(INFO_GAP))
@@ -131,11 +132,19 @@ pub(super) fn advanced_bar(open: bool, p: &Palette) -> Stateful<Div> {
         .cursor_pointer()
         .tab_index(0)
         .aria_expanded(open)
-        .aria_label("Advanced Options")
+        .aria_label(tr!("Advanced Options"))
         .text_size(text_px(metrics::TEXT))
         .text_color(p.text)
-        .child("Advanced Options")
-        .child(icon(if open { icons::CHEVRON_DOWN } else { icons::CHEVRON_RIGHT }, 20., p.icon));
+        .child(tr!("Advanced Options"))
+        .child(icon(
+            if open {
+                icons::CHEVRON_DOWN
+            } else {
+                crate::i18n::mirrored(icons::CHEVRON_RIGHT, icons::CHEVRON_LEFT)
+            },
+            20.,
+            p.icon,
+        ));
     focus::ring(bar, p)
 }
 

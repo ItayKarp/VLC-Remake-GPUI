@@ -26,9 +26,9 @@ impl Target {
     /// The Target dropdown's label for it.
     pub(super) fn label(&self) -> &'static str {
         match self {
-            Self::File(_) => "To This File",
-            Self::Folder(_) => "To This Folder",
-            Self::Playlist { .. } => "To This Playlist",
+            Self::File(_) => tr!("To This File"),
+            Self::Folder(_) => tr!("To This Folder"),
+            Self::Playlist { .. } => tr!("To This Playlist"),
         }
     }
 
@@ -59,9 +59,9 @@ impl Origin {
     /// The Origin dropdown's label for it.
     pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Computer => "From Computer",
-            Self::OpenSubtitles => "From OpenSubtitles",
-            Self::Link => "From Link …",
+            Self::Computer => tr!("From Computer"),
+            Self::OpenSubtitles => tr!("From OpenSubtitles"),
+            Self::Link => tr!("From Link …"),
         }
     }
 

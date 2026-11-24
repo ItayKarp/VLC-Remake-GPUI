@@ -17,6 +17,7 @@ use gpui::{
 
 use super::icon::icon;
 use super::{focus, metrics, tooltip};
+use crate::i18n::DirectionalStyle;
 use crate::theme::text_px;
 use crate::theme::{self, Palette, blend};
 
@@ -202,8 +203,7 @@ fn face(id: ElementId, width: Option<f32>, colors: &Colors, weight: FontWeight) 
         .h(px(metrics::BUTTON_HEIGHT))
         .px(px(16.))
         .when_some(width, |b, w| b.w(px(w)))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .gap(px(8.))
@@ -322,7 +322,7 @@ impl RenderOnce for IconButton {
             .id(self.id)
             .size(px(self.size))
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .rounded(px(metrics::RADIUS))

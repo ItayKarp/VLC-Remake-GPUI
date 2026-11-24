@@ -93,12 +93,12 @@ impl Controls {
     fn new(targets: &[Target], window: &mut Window, cx: &mut Context<AddSubtitlesDialog>) -> Self {
         let labels = targets.iter().map(|target| target.label().into()).collect();
         let target_menu = cx.new(|cx| {
-            Dropdown::new("Target", labels, 0, window, cx).with_height(header::CONTROL_HEIGHT)
+            Dropdown::new(tr!("Target"), labels, 0, window, cx).with_height(header::CONTROL_HEIGHT)
         });
         let origins = Origin::offered(&targets[0]);
         let labels = origins.iter().map(|origin| origin.label().into()).collect();
         let origin_menu = cx.new(|cx| {
-            Dropdown::new("Origin", labels, 0, window, cx).with_height(header::CONTROL_HEIGHT)
+            Dropdown::new(tr!("Origin"), labels, 0, window, cx).with_height(header::CONTROL_HEIGHT)
         });
         let (language_menu, search_field) = search::controls(&targets[0], window, cx);
         let link_field = link::field(window, cx);

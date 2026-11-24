@@ -22,10 +22,10 @@ impl MainWindow {
         };
         let toast = Toast::new(
             Level::Warning,
-            "VLC closed unexpectedly last time. A crash report was saved on this computer; \
-             nothing was sent.",
+            tr!("VLC closed unexpectedly last time. A crash report was saved on this computer; \
+                 nothing was sent."),
         )
-        .action("Show Report", move |_, cx| cx.reveal_path(&report));
+        .action(tr!("Show Report"), move |_, cx| cx.reveal_path(&report));
         self.show_toast(toast, cx);
     }
 
@@ -34,6 +34,6 @@ impl MainWindow {
         system::remember_gpu(window);
         let text = debug_info::text(settings::get(cx), system::gpu());
         cx.write_to_clipboard(ClipboardItem::new_string(text));
-        self.show_toast(Toast::new(Level::Success, "Debug info copied to the clipboard."), cx);
+        self.show_toast(Toast::new(Level::Success, tr!("Debug info copied to the clipboard.")), cx);
     }
 }

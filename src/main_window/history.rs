@@ -208,8 +208,8 @@ impl MainWindow {
 
     fn ask_to_resume(&mut self, id: SessionId, at: Duration, cx: &mut Context<Self>) {
         let main = cx.entity().downgrade();
-        let text = format!("Resume from {}?", policy::clock(at));
-        let toast = Toast::new(Level::Info, text).action("Resume", move |_, cx| {
+        let text = tr!("Resume from {time}?", time = policy::clock(at));
+        let toast = Toast::new(Level::Info, text).action(tr!("Resume"), move |_, cx| {
             main.update(cx, |this, cx| this.resume_at(id, at, cx)).ok();
         });
         let toast = self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
@@ -239,8 +239,8 @@ impl MainWindow {
 
     fn history_turned_off(&mut self, cx: &mut Context<Self>) {
         self.discard_history();
-        let toast = Toast::new(Level::Info, "History is off. Clear what was already saved?")
-            .action("Clear History", |_, cx| clear_history(cx));
+        let toast = Toast::new(Level::Info, tr!("History is off. Clear what was already saved?"))
+            .action(tr!("Clear History"), |_, cx| clear_history(cx));
         self.show_toast(toast, cx);
     }
 
@@ -251,12 +251,16 @@ impl MainWindow {
         cx.spawn(async move |this, cx| {
             let Ok(Some(count @ 1..)) = count.await else { return };
             let text = if count == 1 {
-                "Positions are no longer saved. Forget the one already saved?".to_owned()
+                tr!("Positions are no longer saved. Forget the one already saved?").to_owned()
             } else {
-                format!("Positions are no longer saved. Forget the {count} already saved?")
+                trn!(
+                    "Positions are no longer saved. Forget the {count} already saved?",
+                    "Positions are no longer saved. Forget the {count} already saved?",
+                    count
+                )
             };
             let toast = Toast::new(Level::Info, text)
-                .action("Forget Positions", |_, cx| forget_positions(cx));
+                .action(tr!("Forget Positions"), |_, cx| forget_positions(cx));
             this.update(cx, |this, cx| this.show_toast(toast, cx)).ok();
         })
         .detach();

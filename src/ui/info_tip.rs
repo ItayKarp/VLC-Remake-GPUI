@@ -55,7 +55,7 @@ impl RenderOnce for InfoTip {
             .key_context(focus::CONTROL)
             .rounded(px(2.))
             .role(accesskit::Role::Button)
-            .aria_label(SharedString::from(format!("About {}", self.about)))
+            .aria_label(SharedString::from(tr!("About {topic}", topic = self.about)))
             .aria_description(self.text.clone())
             .tooltip(tooltip::text(self.text, None::<SharedString>))
             .child(icon(icons::INFO, self.size, p.icon))

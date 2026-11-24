@@ -111,24 +111,27 @@ fn read(entry: &Entry) -> Result<Option<String>, KeychainError> {
 fn entry(secret: Secret) -> Result<Entry, KeychainError> {
     if let Err(error) = Entry::store_status() {
         tracing::warn!("keychain: none to use: {error}");
-        return Err(KeychainError::Unavailable(UNAVAILABLE.to_owned()));
+        return Err(KeychainError::Unavailable(crate::i18n::text(UNAVAILABLE).to_owned()));
     }
     Entry::new(SERVICE, secret.account()).map_err(|error| failed(&error))
 }
 
-/// What the row says when there's no keychain.
+/// What the row says when there's no keychain; translated where it is used.
 const UNAVAILABLE: &str = if cfg!(target_os = "linux") {
-    "No keychain: VLC needs a Secret Service, such as GNOME Keyring or KWallet, to save passwords."
+    tr_noop!(
+        "No keychain: VLC needs a Secret Service, such as GNOME Keyring or KWallet, to save \
+         passwords."
+    )
 } else {
-    "The system keychain can't be reached, so the password can't be saved."
+    tr_noop!("The system keychain can't be reached, so the password can't be saved.")
 };
 
 fn failed(error: &keyring::Error) -> KeychainError {
     tracing::warn!("keychain: {error}");
     match error {
         keyring::Error::NoStorageAccess(_) | keyring::Error::NoDefaultStore => {
-            KeychainError::Unavailable(UNAVAILABLE.to_owned())
+            KeychainError::Unavailable(crate::i18n::text(UNAVAILABLE).to_owned())
         }
-        _ => KeychainError::Failed("The keychain couldn't be used. Try again.".to_owned()),
+        _ => KeychainError::Failed(tr!("The keychain couldn't be used. Try again.").to_owned()),
     }
 }

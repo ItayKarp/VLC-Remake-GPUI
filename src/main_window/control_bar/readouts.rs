@@ -60,11 +60,11 @@ impl MainWindow {
         let readout = match self.subtitle_timeline(cx) {
             Some(shown) => {
                 let start = clock::format(shown.start);
-                let note = format!("Subtitle timeline from {start}. Now at {text}");
+                let note = tr!("Subtitle timeline from {start}. Now at {text}", start, text);
                 window_end("current-time", p, &start, note)
             }
             None => pill("current-time", p, text.clone())
-                .aria_label(SharedString::from(format!("Current time {text}. Jump to a time"))),
+                .aria_label(SharedString::from(tr!("Current time {text}. Jump to a time", text))),
         };
         readout
             .when(seekable, |pill| {
@@ -81,8 +81,8 @@ impl MainWindow {
         let duration = player.and_then(Player::duration);
         if let (Some(timeline), Some(duration)) = (self.subtitle_timeline(cx), duration) {
             let end = clock::format(timeline.end());
-            let note =
-                format!("Subtitle timeline to {end}. The media is {}", clock::format(duration));
+            let length = clock::format(duration);
+            let note = tr!("Subtitle timeline to {end}. The media is {length}", end, length);
             return window_end("duration", p, &end, note).into_any_element();
         }
         let shown = settings::get(cx).prefs.interface.duration_readout;
@@ -94,8 +94,8 @@ impl MainWindow {
             }
         };
         let label = match shown {
-            settings::DurationReadout::Total => format!("Length {text}. Show the time left"),
-            settings::DurationReadout::Remaining => format!("Time left {text}. Show the length"),
+            settings::DurationReadout::Total => tr!("Length {text}. Show the time left", text),
+            settings::DurationReadout::Remaining => tr!("Time left {text}. Show the length", text),
         };
         pill("duration", p, text)
             .aria_label(SharedString::from(label))
@@ -135,7 +135,7 @@ impl MainWindow {
                 .with_text(text)
                 .with_all_selected()
                 .with_look(Look::Bare)
-                .with_label("Jump to time")
+                .with_label(tr!("Jump to time"))
         });
         let events = cx.subscribe_in(&input, window, Self::on_time_input);
         let focus = input.read(cx).focus_handle(cx);
@@ -162,7 +162,7 @@ impl MainWindow {
                     self.seek_player(target, cx);
                 }
                 Err(time_entry::Invalid) => input.update(cx, |input, cx| {
-                    input.set_validation(Validation::Error("Not a time".into()), cx);
+                    input.set_validation(Validation::Error(tr!("Not a time").into()), cx);
                 }),
             },
         }

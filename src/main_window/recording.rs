@@ -19,6 +19,7 @@ use super::library_panel::show_in_folder_label;
 use super::video_menu::NOTHING_PLAYING;
 use crate::engine::player::PlayerEvent;
 use crate::engine::recording::Recording;
+use crate::i18n::DirectionalStyle;
 use crate::recording::{self, Destination, STOP_SPACE, Unready};
 use crate::settings::{self, display_path};
 use crate::theme::Palette;
@@ -36,9 +37,9 @@ const TEXT_SIZE: f32 = 14.;
 const FIND_FOR: Duration = Duration::from_secs(3);
 const FIND_TRIES: u32 = 12;
 /// Why seeking does nothing while recording: libVLC 3 refuses it.
-const SEEK_WHILE_RECORDING: &str = "Can't seek while recording";
+const SEEK_WHILE_RECORDING: &str = tr_noop!("Can't seek while recording");
 /// Why Record can't start while a recording is being set up.
-const STARTING: &str = "Starting to record";
+const STARTING: &str = tr_noop!("Starting to record");
 
 /// The recording being made, from asking for it until its file is found.
 #[derive(Default)]
@@ -61,15 +62,16 @@ struct Session {
 impl MainWindow {
     /// Why Record can't start now; `None` when it can, or while recording (it stops).
     pub(super) fn why_no_recording(&self, cx: &App) -> Option<&'static str> {
-        let Some(player) = self.loaded_player(cx) else { return Some(NOTHING_PLAYING) };
+        let nothing_playing = || crate::i18n::text(NOTHING_PLAYING);
+        let Some(player) = self.loaded_player(cx) else { return Some(nothing_playing()) };
         let player = player.read(cx);
         if player.recorded().is_some() {
             return None;
         }
         if self.recording.session.is_some() {
-            return Some(STARTING);
+            return Some(crate::i18n::text(STARTING));
         }
-        (!player.state().is_active()).then_some(NOTHING_PLAYING)
+        (!player.state().is_active()).then(nothing_playing)
     }
 
     /// Whether a recording is running.
@@ -129,7 +131,10 @@ impl MainWindow {
     pub(super) fn on_recording_event(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
         let recording = match event {
             PlayerEvent::RecordingChanged(recording) => *recording,
-            PlayerEvent::SeekRefused => return self.show_osd(SEEK_WHILE_RECORDING, cx),
+            PlayerEvent::SeekRefused => {
+                return self.show_osd(crate::i18n::text(SEEK_WHILE_RECORDING), cx);
+            }
+
             _ => return,
         };
         match recording {
@@ -137,7 +142,7 @@ impl MainWindow {
             Recording::Stopped => self.recording_stopped(cx),
             Recording::Refused => {
                 self.recording.session = None;
-                let message = "This media can't be recorded.";
+                let message = tr!("This media can't be recorded.");
                 self.show_toast(Toast::new(Level::Error, message), cx);
             }
         }
@@ -228,7 +233,7 @@ async fn find_settled(folder: PathBuf, since: SystemTime, cx: &mut AsyncApp) -> 
 fn badge(p: &Palette) -> Div {
     let dot = div().size(px(DOT)).flex_none().rounded_full().bg(p.danger);
     div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(8.))
         .px(px(12.))
@@ -247,10 +252,11 @@ fn unready_toast(unready: &Unready) -> Toast {
     let message = match unready {
         Unready::Unwritable(error) => {
             tracing::warn!("recording: no folder could be written: {error}");
-            "Couldn't record: no folder could be written.".to_owned()
+            tr!("Couldn't record: no folder could be written.").to_owned()
         }
         Unready::NoSpace(folder) => {
-            format!("Couldn't record: there's too little space left in {}.", display_path(folder))
+            let folder = display_path(folder);
+            tr!("Couldn't record: there's too little space left in {folder}.", folder)
         }
     };
     Toast::new(Level::Error, message)
@@ -262,22 +268,27 @@ fn stopped_toast(file: Option<PathBuf>, destination: &Destination, disk_full: bo
     let folder = display_path(&destination.folder);
     let Some(file) = file else {
         let message = if disk_full {
-            format!("The disk is full, so nothing could be recorded in {folder}.")
+            tr!("The disk is full, so nothing could be recorded in {folder}.", folder)
         } else {
-            "Nothing was recorded: stop a moment later, once the picture has started.".to_owned()
+            tr!("Nothing was recorded: stop a moment later, once the picture has started.")
+                .to_owned()
         };
         return Toast::new(Level::Error, message);
     };
     let (level, message) = match (&destination.instead_of, disk_full) {
         (_, true) => (
             Level::Error,
-            format!("The disk is nearly full, so recording stopped. It's saved in {folder}"),
+            tr!("The disk is nearly full, so recording stopped. It's saved in {folder}", folder),
         ),
         (Some(wanted), false) => (
             Level::Warning,
-            format!("Couldn't record in {}, so the recording is in {folder}", display_path(wanted)),
+            tr!(
+                "Couldn't record in {wanted}, so the recording is in {folder}",
+                wanted = display_path(wanted),
+                folder
+            ),
         ),
-        (None, false) => (Level::Success, format!("Recording saved in {folder}")),
+        (None, false) => (Level::Success, tr!("Recording saved in {folder}", folder)),
     };
     with_file_actions(Toast::new(level, message), &file)
 }
@@ -286,6 +297,6 @@ fn stopped_toast(file: Option<PathBuf>, destination: &Destination, disk_full: bo
 fn with_file_actions(toast: Toast, file: &Path) -> Toast {
     let (open, reveal) = (file.to_path_buf(), file.to_path_buf());
     toast
-        .lasting_action("Open", move |_, cx| cx.open_with_system(&open))
+        .lasting_action(tr!("Open"), move |_, cx| cx.open_with_system(&open))
         .lasting_action(show_in_folder_label(), move |_, cx| cx.reveal_path(&reveal))
 }

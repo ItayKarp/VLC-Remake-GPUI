@@ -48,15 +48,15 @@ impl Outcome {
     fn message(&self, host: &str) -> String {
         match self {
             Self::NoAddress => {
-                "Enter a proxy address to test. Empty, VLC uses the system's proxy.".to_owned()
+                tr!("Enter a proxy address to test. Empty, VLC uses the system's proxy.").to_owned()
             }
-            Self::Testing => format!("Testing {host}…"),
-            Self::Answered => format!("{host} answered as an HTTP proxy."),
+            Self::Testing => tr!("Testing {host}…", host),
+            Self::Answered => tr!("{host} answered as an HTTP proxy.", host),
             Self::WantsPassword => {
-                format!("{host} answered and asks for a user name and password.")
+                tr!("{host} answered and asks for a user name and password.", host)
             }
-            Self::NotHttp => format!("Something answered at {host}, but it isn't an HTTP proxy."),
-            Self::Unreachable(why) => format!("Couldn't reach {host}: {why}."),
+            Self::NotHttp => tr!("Something answered at {host}, but it isn't an HTTP proxy.", host),
+            Self::Unreachable(why) => tr!("Couldn't reach {host}: {why}.", host, why),
         }
     }
 }
@@ -107,9 +107,9 @@ pub fn hint(cx: &App) -> Option<String> {
 fn test(host: &str, port: u16) -> Outcome {
     let addresses = match (host, port).to_socket_addrs() {
         Ok(addresses) => addresses.collect::<Vec<_>>(),
-        Err(_) => return Outcome::Unreachable("no such host".to_owned()),
+        Err(_) => return Outcome::Unreachable(tr!("no such host").to_owned()),
     };
-    let mut last_error = "no address for that host".to_owned();
+    let mut last_error = tr!("no address for that host").to_owned();
     for address in addresses {
         match TcpStream::connect_timeout(&address, TIMEOUT) {
             Ok(stream) => return ask(stream, host),
@@ -154,10 +154,10 @@ fn judge(answer: &str) -> Outcome {
 fn describe(error: &std::io::Error) -> String {
     use std::io::ErrorKind;
     match error.kind() {
-        ErrorKind::ConnectionRefused => "nothing is listening on that port".to_owned(),
-        ErrorKind::TimedOut | ErrorKind::WouldBlock => "it didn't answer in time".to_owned(),
+        ErrorKind::ConnectionRefused => tr!("nothing is listening on that port").to_owned(),
+        ErrorKind::TimedOut | ErrorKind::WouldBlock => tr!("it didn't answer in time").to_owned(),
         ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted => {
-            "it closed the connection".to_owned()
+            tr!("it closed the connection").to_owned()
         }
         _ => error.to_string(),
     }

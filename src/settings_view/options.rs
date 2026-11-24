@@ -36,7 +36,8 @@ impl OptionsDropdown {
         let labels = labels(&options);
         let glyphs = glyphs(&options);
         let dropdown = cx.new(|cx| {
-            let mut dropdown = Dropdown::new(def.label, labels, selected, window, cx);
+            let mut dropdown =
+                Dropdown::new(crate::i18n::text(def.label), labels, selected, window, cx);
             dropdown.set_glyphs(glyphs, cx);
             dropdown
         });

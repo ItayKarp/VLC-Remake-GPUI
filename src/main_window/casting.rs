@@ -11,7 +11,7 @@ use crate::settings::Settings;
 use crate::ui::toast::{Level, Toast};
 
 /// What the message over the video says once media plays here again.
-const PLAYING_HERE: &str = "Playing on this computer";
+const PLAYING_HERE: &str = tr_noop!("Playing on this computer");
 
 /// The casting setup in `settings`: "Discover cast devices" and "Cast quality".
 pub(super) fn setup(settings: &Settings) -> CastSetup {
@@ -30,8 +30,11 @@ impl MainWindow {
         if device.is_some() && name.is_none() {
             return;
         }
-        let message =
-            name.map_or_else(|| PLAYING_HERE.to_owned(), |name| format!("Playing on {name}"));
+        let message = name.map_or_else(
+            || crate::i18n::text(PLAYING_HERE).to_owned(),
+            |name| tr!("Playing on {name}", name),
+        );
+
         self.show_osd(message, cx);
     }
 
@@ -39,7 +42,9 @@ impl MainWindow {
     pub(super) fn on_cast_event(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
         match event {
             PlayerEvent::CastLost(device) => {
-                let text = format!("{} can't be found any more. Playing here again.", device.name);
+                let text =
+                    tr!("{name} can't be found any more. Playing here again.", name = device.name);
+
                 self.show_toast(Toast::new(Level::Info, text), cx);
             }
             PlayerEvent::CastDevicesChanged | PlayerEvent::CastChanged => cx.notify(),

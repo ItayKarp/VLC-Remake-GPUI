@@ -39,10 +39,18 @@ pub(super) fn menu(name: &str, cx: &App) -> MenuItem {
         MenuItem::check(label, set == kind, move |_, cx| toggle(&name, kind, cx)).hint(hint)
     };
     let items = vec![
-        item("For Music", Automatic::Music, format!("Songs and other audio switch to “{name}”")),
-        item("For Videos", Automatic::Video, format!("Videos switch to “{name}”")),
+        item(
+            tr!("For Music"),
+            Automatic::Music,
+            tr!("Songs and other audio switch to “{name}”", name = super::shown(name)),
+        ),
+        item(
+            tr!("For Videos"),
+            Automatic::Video,
+            tr!("Videos switch to “{name}”", name = super::shown(name)),
+        ),
     ];
-    MenuItem::submenu("Use Automatically", items)
+    MenuItem::submenu(tr!("Use Automatically"), items)
 }
 
 /// Makes `kind` of media switch to profile `name`, or stops it when it already does.

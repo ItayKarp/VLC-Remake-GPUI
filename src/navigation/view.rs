@@ -16,14 +16,14 @@ pub enum View {
 impl View {
     /// How `section` is shown, given the sections remembered as grids.
     pub fn of(section: Section, grid: &[String]) -> Self {
-        if grid.iter().any(|name| name == section.label()) { Self::Grid } else { Self::List }
+        if grid.iter().any(|name| name == section.name()) { Self::Grid } else { Self::List }
     }
 
     /// Remembers this as how `section` is shown.
     pub fn remember(self, section: Section, grid: &mut Vec<String>) {
-        grid.retain(|name| name != section.label());
+        grid.retain(|name| name != section.name());
         if self == Self::Grid {
-            grid.push(section.label().to_owned());
+            grid.push(section.name().to_owned());
         }
     }
 }

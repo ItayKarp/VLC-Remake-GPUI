@@ -73,9 +73,9 @@ impl ListTab {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Queue => "Queue",
-            Self::Bookmarks => "Bookmarks",
-            Self::Chapters => "Chapters",
+            Self::Queue => tr!("Queue"),
+            Self::Bookmarks => tr!("Bookmarks"),
+            Self::Chapters => tr!("Chapters"),
         }
     }
 

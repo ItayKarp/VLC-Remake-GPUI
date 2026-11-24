@@ -116,11 +116,11 @@ fn same_file(a: &Path, b: &Path) -> bool {
 pub fn failure_message(error: &io::Error) -> String {
     match error.kind() {
         io::ErrorKind::PermissionDenied | io::ErrorKind::ReadOnlyFilesystem => {
-            "Can't write next to this video.".to_owned()
+            tr!("Can't write next to this video.").to_owned()
         }
-        io::ErrorKind::StorageFull => "The disk is full.".to_owned(),
-        io::ErrorKind::NotFound => "The file is gone.".to_owned(),
-        _ => format!("Couldn't copy it: {error}."),
+        io::ErrorKind::StorageFull => tr!("The disk is full.").to_owned(),
+        io::ErrorKind::NotFound => tr!("The file is gone.").to_owned(),
+        _ => tr!("Couldn't copy it: {error}.", error),
     }
 }
 

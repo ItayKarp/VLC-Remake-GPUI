@@ -26,6 +26,7 @@ use self::store::{Bookmarkable, past_the_end};
 use super::{MainWindow, QueuePanel, note};
 use crate::assets::icons;
 use crate::db::bookmarks::Bookmark;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::{self, actions as act};
 use crate::main_window::control_bar::clock::tabular_digits;
 use crate::theme::text_px;
@@ -71,11 +72,13 @@ impl MainWindow {
     /// The header and the rows, or a note when the media takes no bookmarks.
     pub(super) fn render_bookmarks_tab(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let why_none = match self.bookmarkable(cx) {
-            Bookmarkable::NothingLoaded => Some("Open media to bookmark places in it."),
+            Bookmarkable::NothingLoaded => Some(tr!("Open media to bookmark places in it.")),
             Bookmarkable::CantSeek => {
-                Some("Live streams and media that can't seek take no bookmarks.")
+                Some(tr!("Live streams and media that can't seek take no bookmarks."))
             }
-            Bookmarkable::Unstorable => Some("This media can't be read, so it takes no bookmarks."),
+            Bookmarkable::Unstorable => {
+                Some(tr!("This media can't be read, so it takes no bookmarks."))
+            }
             Bookmarkable::Reading | Bookmarkable::Yes => None,
         };
         if let Some(why) = why_none {
@@ -83,14 +86,14 @@ impl MainWindow {
         }
         let len = self.bookmark_list(cx).len();
         let body = if len == 0 {
-            note("No bookmarks yet. + marks where playback is.", p)
+            note(tr!("No bookmarks yet. + marks where playback is."), p)
         } else {
             div().flex_1().min_h_0().child(self.render_bookmark_rows(len, cx))
         };
         div()
             .flex_1()
             .min_h_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(self.render_bookmarks_header(len, p, cx))
             .child(body)
@@ -98,9 +101,9 @@ impl MainWindow {
 
     /// "N Bookmarks", then "−" (the cursor's bookmark) and "+".
     fn render_bookmarks_header(&self, len: usize, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let count = if len == 1 { "1 Bookmark".to_owned() } else { format!("{len} Bookmarks") };
+        let count = trn!("{count} Bookmark", "{count} Bookmarks", len);
         let cursor = self.bookmark_cursor(cx);
-        let remove = IconButton::new("bookmark-remove", icons::REMOVE, "Remove bookmark")
+        let remove = IconButton::new("bookmark-remove", icons::REMOVE, tr!("Remove bookmark"))
             .size(BUTTON, ICON)
             .disabled(cursor.is_none())
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -108,7 +111,7 @@ impl MainWindow {
                     this.remove_bookmark(index, cx);
                 }
             }));
-        let add = IconButton::new("bookmark-add", icons::ADD, "Add bookmark")
+        let add = IconButton::new("bookmark-add", icons::ADD, tr!("Add bookmark"))
             .size(BUTTON, ICON)
             .disabled(self.bookmarkable(cx) != Bookmarkable::Yes)
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.add_bookmark(cx)));
@@ -119,15 +122,15 @@ impl MainWindow {
         div()
             .flex_none()
             .h(px(HEADER_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(HEADER_LEFT))
-            .pr(px(HEADER_RIGHT))
+            .ps(px(HEADER_LEFT))
+            .pe(px(HEADER_RIGHT))
             .text_size(text_px(TEXT))
             .text_color(p.text_muted)
             .child(div().min_w_0().truncate().child(count))
-            .child(div().flex().flex_none().gap(px(BUTTON_GAP)).child(remove).child(add))
+            .child(div().flex_row_start().flex_none().gap(px(BUTTON_GAP)).child(remove).child(add))
     }
 
     fn render_bookmark_rows(&self, len: usize, cx: &mut Context<Self>) -> Stateful<Div> {
@@ -145,7 +148,7 @@ impl MainWindow {
             .id("bookmark-rows-area")
             .size_full()
             .role(accesskit::Role::List)
-            .aria_label("Bookmarks")
+            .aria_label(tr!("Bookmarks"))
             .child(list)
     }
 
@@ -198,7 +201,7 @@ impl MainWindow {
             .id(("bookmark-row", index))
             .w_full()
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .px(px(PADDING))

@@ -5,6 +5,7 @@
 use gpui::{Div, Stateful, Window, div, prelude::*, px};
 
 use super::TITLE_BAR_HEIGHT;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::ui::metrics;
 
@@ -31,7 +32,7 @@ pub(super) fn surface(
         .bottom(px(bar + GAP))
         .w(px(width(window)))
         .h(px(height(f32::from(size.height), design_height, bar)))
-        .flex()
+        .flex_row_start()
         .flex_col()
         .overflow_hidden()
         .rounded(px(metrics::RADIUS_LARGE))

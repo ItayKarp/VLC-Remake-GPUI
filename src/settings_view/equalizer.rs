@@ -16,6 +16,7 @@ use gpui::{
 
 use crate::assets::icons;
 use crate::engine::audio::equalizer::{FREQUENCIES, GAIN_RANGE, Preset, format_gain, parse_gain};
+use crate::i18n::DirectionalStyle;
 use crate::settings::{self, AudioSettings};
 use crate::theme::text_px;
 use crate::theme::{self, Palette};
@@ -36,7 +37,7 @@ const READOUT_PADDING: f32 = 6.;
 const PADDING: f32 = 20.;
 const GAP: f32 = 12.;
 /// The slider name before the bands.
-const PREAMP: &str = "Preamp";
+const PREAMP: &str = tr_noop!("Preamp");
 /// The longest text a gain box takes ("-12.5 dB" and some slack).
 const FIELD_MAX_LEN: usize = 12;
 
@@ -70,7 +71,7 @@ impl EqualizerPanel {
                 TextInput::new(window, cx)
                     .with_look(Look::Bare)
                     .with_text(format_gain(f64::from(gain)))
-                    .with_label(format!("{name} gain"))
+                    .with_label(tr!("{name} gain", name))
                     .with_max_len(FIELD_MAX_LEN)
             });
             changes.push(cx.subscribe(&field, move |_, field, event, cx| {
@@ -103,13 +104,16 @@ impl EqualizerPanel {
     /// The bar that opens and closes the panel.
     fn header(&self, p: &Palette, cx: &mut Context<Self>) -> impl IntoElement {
         let (text, chevron) = if self.open {
-            ("Close Equalizer", icons::CHEVRON_DOWN)
+            (tr!("Close Equalizer"), icons::CHEVRON_DOWN)
         } else {
-            ("Open Equalizer", icons::CHEVRON_RIGHT)
+            (
+                tr!("Open Equalizer"),
+                crate::i18n::mirrored(icons::CHEVRON_RIGHT, icons::CHEVRON_LEFT),
+            )
         };
         let bar = div()
             .id("equalizer-toggle")
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .gap(px(GAP))
@@ -134,7 +138,7 @@ impl EqualizerPanel {
         let invalid = gain.field.read(cx).is_invalid();
         div()
             .w(px(COLUMN_WIDTH))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_center()
             .gap(px(GAP))
@@ -144,7 +148,7 @@ impl EqualizerPanel {
                 div()
                     .h(px(READOUT_HEIGHT))
                     .w_full()
-                    .flex()
+                    .flex_row_start()
                     .items_center()
                     .px(px(READOUT_PADDING))
                     .rounded(px(metrics::RADIUS))
@@ -163,13 +167,13 @@ impl Render for EqualizerPanel {
         let p = theme::palette(window, cx);
         let columns = self.open.then(|| {
             div()
-                .flex()
+                .flex_row_start()
                 .justify_between()
                 .children((0..self.gains.len()).map(|index| self.column(index, &p, cx)))
         });
         div()
             .w_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(GAP))
             .p(px(PADDING))
@@ -183,7 +187,9 @@ impl Render for EqualizerPanel {
 
 /// Gain `index`'s name: "Preamp", then the bands' frequencies.
 fn name(index: usize) -> &'static str {
-    index.checked_sub(1).map_or(PREAMP, |band| FREQUENCIES.get(band).copied().unwrap_or_default())
+    index.checked_sub(1).map_or(crate::i18n::text(PREAMP), |band| {
+        FREQUENCIES.get(band).copied().unwrap_or_default()
+    })
 }
 
 /// A gain's slider, from −20 to 20 dB.
