@@ -115,7 +115,7 @@ impl Player {
             return;
         }
         self.controls.volume = volume;
-        self.with_backend(|backend| backend.set_volume(volume));
+        self.push_volume();
         if unmute {
             self.controls.muted = false;
             self.with_backend(|backend| backend.set_mute(false));
@@ -152,7 +152,7 @@ impl Player {
         self.audio.max_volume = max;
         if self.controls.volume.get() > max.get() {
             self.controls.volume = max;
-            self.with_backend(|backend| backend.set_volume(max));
+            self.push_volume();
             cx.emit(PlayerEvent::VolumeChanged);
         }
         cx.notify();

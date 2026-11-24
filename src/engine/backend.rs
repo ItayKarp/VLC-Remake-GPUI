@@ -23,6 +23,7 @@ use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::navigation::{Navigation, Programs, Titles};
 use super::recording::Recording;
 use super::state::PlaybackState;
+use super::statistics::Statistics;
 use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -76,6 +77,8 @@ pub enum BackendEvent {
     CastLost(CastDevice),
     /// The stream couldn't start (S8.12): the media plays here without it.
     StreamFailed,
+    /// What the backend counted about the media, as [`Backend::read_statistics`] asked.
+    Statistics(Statistics),
 }
 
 impl BackendEvent {
@@ -195,6 +198,8 @@ pub enum Command {
     Cast(Option<CastDeviceId>),
     /// Stream the media open now this way, or stop streaming it.
     Stream(Option<StreamTarget>),
+    /// Report what was counted about the media.
+    ReadStatistics,
 }
 
 /// A playback backend.
@@ -303,6 +308,9 @@ pub trait Backend: Send {
     /// Media opened later streams only as its [`Start`] says. A stream that can't start is
     /// dropped, the media playing on without it, and [`BackendEvent::StreamFailed`] says so.
     fn stream(&mut self, target: Option<StreamTarget>);
+    /// Reports what was counted about the open media so far (S8.13.2) with
+    /// [`BackendEvent::Statistics`]; nothing when no media is open.
+    fn read_statistics(&mut self);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

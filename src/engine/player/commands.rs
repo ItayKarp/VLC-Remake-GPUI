@@ -7,6 +7,7 @@ use gpui::Context;
 
 use super::{Info, Intent, Player, PlayerEvent};
 use crate::app::media::Media;
+use crate::engine::ab_loop::AbLoop;
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::TrackKind;
@@ -26,6 +27,7 @@ impl Player {
         self.intent = if start.paused { Intent::Pause } else { Intent::Play };
         self.audio.user_took_over();
         self.info = Info::default();
+        self.ab_loop = AbLoop::Off;
         self.push_subtitle_delay();
         self.push_audio_delay();
         self.track_choices.forget_media();

@@ -1,6 +1,7 @@
 //! The settings panel's Playback tab (S2.7.2, `controls-playback.png`): Show Subtitle Timeline on
-//! Seekbar (S6.6), the Audio Visualizer (`visualizer_row.rs`, S7.8.1), and the speed, as a field ("1x") and a slider from 0.25× to 2× with a tick and
-//! a label every quarter.
+//! Seekbar (S6.6), Show Statistics (S8.13.2), the Sleep Timer (`sleep_timer_row.rs`, S8.13.1),
+//! the Audio Visualizer (`visualizer_row.rs`, S7.8.1), and the speed, as a field ("1x") and a
+//! slider from 0.25× to 2× with a tick and a label every quarter.
 //!
 //! The timeline toggle is kept across launches (`prefs.interface.subtitle_timeline`). With no
 //! subtitle showing, or one whose times aren't known, it is disabled with a line saying why.
@@ -34,8 +35,9 @@ const PADDING: f32 = 20.;
 /// The toggle row's height, and its hint's text size.
 const TOGGLE_ROW_HEIGHT: f32 = 52.;
 const HINT_TEXT: f32 = 12.;
-/// The timeline toggle's label.
+/// The toggles' labels.
 const TIMELINE_LABEL: &str = "Show Subtitle Timeline on Seekbar";
+const STATISTICS_LABEL: &str = "Show Statistics";
 
 /// The speed field and slider, and what they last showed.
 pub(in crate::main_window) struct SpeedControls {
@@ -99,6 +101,8 @@ impl MainWindow {
             .flex_col()
             .px(px(PADDING))
             .child(self.render_timeline_toggle(p, cx))
+            .child(self.render_statistics_toggle(p, cx))
+            .child(self.render_sleep_timer(p, cx))
             .child(self.settings_panel.visualizer.render(p, cx))
             .child(row)
             .child(speed.slider.clone())
@@ -113,17 +117,7 @@ impl MainWindow {
             .on_change(|on, _, cx| {
                 settings::update(cx, |s| s.prefs.interface.subtitle_timeline = *on);
             });
-        let row = div()
-            .h(px(TOGGLE_ROW_HEIGHT))
-            .flex()
-            .items_center()
-            .justify_between()
-            .gap(px(8.))
-            .pl(px(4.))
-            .text_size(px(ROW_TEXT))
-            .text_color(p.text_muted)
-            .child(TIMELINE_LABEL)
-            .child(toggle);
+        let row = toggle_row(TIMELINE_LABEL, toggle, p);
         let hint = unavailable.map(|why| {
             div()
                 .pl(px(4.))
@@ -133,6 +127,13 @@ impl MainWindow {
                 .child(why.hint())
         });
         div().flex().flex_col().child(row).children(hint)
+    }
+
+    /// Show Statistics, which shows the overlay over the video (`statistics.rs`).
+    fn render_statistics_toggle(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
+        let toggle = Toggle::new("show-statistics", self.shows_statistics(), STATISTICS_LABEL)
+            .on_change(cx.listener(|this, on: &bool, _, cx| this.set_show_statistics(*on, cx)));
+        toggle_row(STATISTICS_LABEL, toggle, p)
     }
 
     /// Shows the player's speed in the controls, and disables them for live streams.
@@ -216,4 +217,19 @@ impl MainWindow {
             field.set_validation(Validation::None, cx);
         });
     }
+}
+
+/// A toggle's row: its label, then the toggle.
+fn toggle_row(label: &'static str, toggle: Toggle, p: &Palette) -> Div {
+    div()
+        .h(px(TOGGLE_ROW_HEIGHT))
+        .flex()
+        .items_center()
+        .justify_between()
+        .gap(px(8.))
+        .pl(px(4.))
+        .text_size(px(ROW_TEXT))
+        .text_color(p.text_muted)
+        .child(label)
+        .child(toggle)
 }

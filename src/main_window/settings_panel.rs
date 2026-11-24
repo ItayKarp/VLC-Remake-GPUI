@@ -7,9 +7,10 @@
 //! resets it; and Save as Default (S7.1.5) writes a tab's values into its Settings page. Speed
 //! already works this way (S2.7.4), its default applying at the next launch.
 //!
-//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6), the Audio Visualizer
-//! (`visualizer_row.rs`, S7.8) and the speed (`playback.rs`). Its other designed rows (Show
-//! Statistics, Reverse, Sleep Timer) come with their story (S8.13) and are hidden until then. The Audio tab holds its Defaults, the
+//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6), Show Statistics (S8.13.2),
+//! the Sleep Timer (`sleep_timer_row.rs`, S8.13.1), the Audio Visualizer (`visualizer_row.rs`,
+//! S7.8) and the speed (`playback.rs`). The design's Reverse row is gone: libVLC can't play
+//! backwards (S8.13.3, ADR 0002). The Audio tab holds its Defaults, the
 //! stereo mode with its Test, the playing track's delay (`audio.rs`, S7.6), and its effect
 //! sections: the Equalizer (`equalizer_section.rs`, S7.7), then the Compressor, Spatializer and
 //! Stereo Widener (S7.9). The Video tab holds its Defaults (`video_defaults.rs`, S7.2, with Render in `render_row.rs`, S8.11), the Crop section
@@ -39,6 +40,7 @@ mod footer;
 mod number_row;
 mod playback;
 mod render_row;
+mod sleep_timer_row;
 mod subtitles;
 mod sync_rules;
 mod track_defaults;
@@ -52,6 +54,7 @@ use gpui::{
 };
 
 pub(super) use playback::SpeedControls;
+use sleep_timer_row::SleepTimerControl;
 use visualizer_row::VisualizerControl;
 
 use self::audio::AudioControls;
@@ -170,6 +173,7 @@ pub(super) struct SettingsPanel {
     button: BoundsTracker,
     speed: SpeedControls,
     visualizer: VisualizerControl,
+    sleep_timer: SleepTimerControl,
     /// The Audio and Subtitles tabs' defaults and synchronization.
     audio: AudioControls,
     subtitles: SubtitleControls,
@@ -192,6 +196,7 @@ impl SettingsPanel {
             button: BoundsTracker::new(),
             speed: SpeedControls::new(window, cx),
             visualizer: VisualizerControl::new(window, cx),
+            sleep_timer: SleepTimerControl::new(window, cx),
             audio: AudioControls::new(window, cx),
             subtitles: SubtitleControls::new(window, cx),
             effects: PanelTab::ALL

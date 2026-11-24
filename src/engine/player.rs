@@ -1,15 +1,18 @@
 //! The [`Player`] GPUI entity (S1.2.1): owns a backend, runs the playback state machine, and
 //! turns backend events into [`PlayerEvent`]s for the UI.
 
+mod ab_loop;
 mod audio;
 mod audio_delay;
 mod casting;
 mod commands;
 mod drawn;
+mod fade;
 mod navigation;
 mod picture;
 mod receive;
 mod recording;
+mod statistics;
 mod streaming;
 mod subtitle_files;
 mod sync;
@@ -28,8 +31,10 @@ pub use self::timeline::CueSpan;
 
 use self::audio::AudioState;
 use self::casting::CastState;
+use self::fade::Fade;
 use self::recording::RecordClock;
 use self::tracks::TrackChoices;
+use super::ab_loop::AbLoop;
 use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
 use super::cast::CastDevice;
@@ -43,6 +48,7 @@ use super::position::PositionTracker;
 use super::recording::Recording;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
+use super::statistics::Statistics;
 use super::stream_out::StreamTarget;
 use super::subtitle_sync::{SubtitleKey, SubtitleSync};
 use super::tracks::{SubtitleFile, TrackId, Tracks};
@@ -128,6 +134,8 @@ struct Controls {
     muted: bool,
     /// The audio delay the backend was last given, which outlives the media (`audio_delay.rs`).
     backend_audio_delay: Offset,
+    /// How much of the volume is heard while the sleep timer fades it (`fade.rs`).
+    fade: Fade,
 }
 
 /// What the backend reported about the open media.
@@ -160,6 +168,8 @@ struct Info {
     programs: Programs,
     /// The disc's titles (S8.9.1).
     titles: Titles,
+    /// What the backend last counted about the media (S8.13.2).
+    statistics: Option<Statistics>,
 }
 
 /// The playback engine as a GPUI entity. Commands are methods; changes arrive as
@@ -200,6 +210,8 @@ pub struct Player {
     cast: CastState,
     /// The stream the media open now goes to (S8.12).
     stream: Option<StreamTarget>,
+    /// The A-B loop on the media open now (S8.13.4).
+    ab_loop: AbLoop,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -238,6 +250,7 @@ impl Player {
             recording: None,
             cast: CastState::default(),
             stream: None,
+            ab_loop: AbLoop::Off,
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

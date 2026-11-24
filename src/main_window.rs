@@ -11,9 +11,11 @@
 //! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4), and Shift+R
 //! records what plays (S8.6). Picture in
 //! Picture pops the player out into a small window above the others (S8.5). The bars show what
-//! the player layout says, which Customize Player edits (S8.7).
+//! the player layout says, which Customize Player edits (S8.7). The settings panel's Playback
+//! tab holds the sleep timer and the statistics overlay, and Shift+L loops from A to B (S8.13).
 //! Onboarding hands off to it (S0.2).
 
+mod ab_loop;
 mod about;
 mod add_subtitles;
 mod audio;
@@ -67,8 +69,10 @@ mod seeking;
 mod session;
 mod settings_panel;
 mod shortcuts_dialog;
+mod sleep_timer;
 mod snapshot;
 mod speed;
+mod statistics;
 mod stream_dialog;
 pub(crate) mod subtitle_style;
 mod subtitle_sync;
@@ -160,6 +164,10 @@ pub struct MainWindow {
     volume_slider: volume_slider::VolumeSlider,
     /// The message over the video (S2.5.7, S2.10.2).
     osd: osd::Osd,
+    /// The statistics over the video (S8.13.2).
+    statistics: statistics::StatisticsOverlay,
+    /// The sleep timer (S8.13.1).
+    sleep_timer: sleep_timer::SleepTimer,
     /// The recording being made (S8.6).
     recording: recording::RecordingWatch,
     /// Whether frame steps are taking a while (S2.10.3).
@@ -224,6 +232,8 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            statistics: statistics::StatisticsOverlay::default(),
+            sleep_timer: sleep_timer::SleepTimer::default(),
             recording: recording::RecordingWatch::default(),
             frame_step: frame_step::FrameStepWait::default(),
             video_mouse: video_mouse::VideoMouse::default(),
@@ -333,6 +343,7 @@ impl MainWindow {
                     this.scroll_on_video(event, window, cx);
                 }))
                 .child(self.video_area(shown, window, cx))
+                .children(self.render_statistics(p, cx))
                 .children(self.render_osd(p, cx))
                 .children(self.render_recording_badge(p, cx))
             }

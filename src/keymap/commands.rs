@@ -144,6 +144,8 @@ pub const COMMANDS: &[Command] = &[
     // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
     cmd("Repeat (Off, All, One)", Player, NONE, &act::CycleRepeat),
     cmd("Shuffle", Player, NONE, &act::ToggleShuffle),
+    // VLC's key; L alone is the file browser here (D3).
+    cmd("A-B loop", Player, keys(&["shift-l"]), &act::LoopAToB),
     // The skip amounts (S2.3.4): Shift is finer, Alt (Option) and Ctrl (Cmd) coarser.
     held("Seek backward", keys(&["left"]), &act::SeekBackward),
     held("Seek forward", keys(&["right"]), &act::SeekForward),

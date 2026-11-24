@@ -12,6 +12,8 @@ use super::certificates::{DialogCallbacks, DialogId};
 use super::core_vars::CoreVars;
 use super::runtime::Runtime;
 
+mod records;
+
 /// Declares an opaque libVLC handle type.
 macro_rules! opaque {
     ($($(#[$doc:meta])* $name:ident;)*) => {
@@ -85,99 +87,10 @@ pub type UnlockCallback = unsafe extern "C" fn(*mut c_void, *mut c_void, *const 
 /// `libvlc_video_display_cb`: the picture is due on screen.
 pub type DisplayCallback = unsafe extern "C" fn(*mut c_void, *mut c_void);
 
-/// `libvlc_media_track_t` from libVLC 3, field for field.
-#[repr(C)]
-pub struct MediaTrack {
-    pub codec: u32,
-    pub original_fourcc: u32,
-    pub id: c_int,
-    /// `libvlc_track_type_t`: -1 unknown, 0 audio, 1 video, 2 text.
-    pub kind: c_int,
-    pub profile: c_int,
-    pub level: c_int,
-    /// The kind's details; which member is valid depends on `kind`.
-    pub detail: TrackDetail,
-    pub bitrate: c_uint,
-    pub language: *mut c_char,
-    pub description: *mut c_char,
-}
-
-/// The anonymous union in `libvlc_media_track_t`: one pointer, to the details of the track's
-/// kind. Each may be NULL.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub union TrackDetail {
-    /// `libvlc_audio_track_t`, when the track is audio.
-    pub audio: *mut AudioTrack,
-    /// `libvlc_video_track_t`, when the track is video.
-    pub video: *mut VideoTrack,
-    /// `libvlc_subtitle_track_t`, when the track is text; unread.
-    pub subtitle: *mut c_void,
-}
-
-/// `libvlc_audio_track_t` from libVLC 3, field for field.
-#[repr(C)]
-pub struct AudioTrack {
-    pub channels: c_uint,
-    pub rate: c_uint,
-}
-
-/// `libvlc_video_track_t` from libVLC 3, field for field.
-#[repr(C)]
-pub struct VideoTrack {
-    pub height: c_uint,
-    pub width: c_uint,
-    pub sar_num: c_uint,
-    pub sar_den: c_uint,
-    pub frame_rate_num: c_uint,
-    pub frame_rate_den: c_uint,
-    pub orientation: c_int,
-    pub projection: c_int,
-    pub pose: [c_float; 4],
-}
-
-/// `libvlc_track_description_t`: one node of a linked list of track names.
-#[repr(C)]
-pub struct TrackDescription {
-    pub id: c_int,
-    pub name: *mut c_char,
-    pub next: *mut TrackDescription,
-}
-
-/// `libvlc_chapter_description_t`.
-#[repr(C)]
-pub struct ChapterDescription {
-    /// Start, in milliseconds.
-    pub time_offset: i64,
-    /// Length, in milliseconds.
-    pub duration: i64,
-    pub name: *mut c_char,
-}
-
-/// `libvlc_title_description_t`.
-#[repr(C)]
-pub struct TitleDescription {
-    /// Length, in milliseconds.
-    pub duration: i64,
-    pub name: *mut c_char,
-    /// `libvlc_title_menu` (1) and `libvlc_title_interactive` (2).
-    pub flags: c_uint,
-}
-
-/// `libvlc_rd_description_t`: a renderer discovery service.
-#[repr(C)]
-pub struct RendererService {
-    pub name: *mut c_char,
-    pub long_name: *mut c_char,
-}
-
-/// `libvlc_audio_output_device_t`: one node of a linked list of output devices.
-#[repr(C)]
-pub struct AudioOutputDevice {
-    pub next: *mut AudioOutputDevice,
-    pub device: *mut c_char,
-    pub description: *mut c_char,
-}
+pub use self::records::{
+    AudioOutputDevice, ChapterDescription, MediaStats, MediaTrack, RendererService,
+    TitleDescription, TrackDescription, VideoTrack,
+};
 
 type Player = *mut MediaPlayer;
 
@@ -224,6 +137,7 @@ libvlc_api! {
     libvlc_media_get_meta: fn(*mut Media, c_int) -> *mut c_char;
     libvlc_media_tracks_get: fn(*mut Media, *mut *mut *mut MediaTrack) -> c_uint;
     libvlc_media_tracks_release: fn(*mut *mut MediaTrack, c_uint);
+    libvlc_media_get_stats: fn(*mut Media, *mut MediaStats) -> bool;
     libvlc_media_slaves_add: fn(*mut Media, c_int, c_uint, *const c_char) -> c_int;
     libvlc_media_player_new: fn(*mut Instance) -> Player;
     libvlc_media_player_release: fn(Player);

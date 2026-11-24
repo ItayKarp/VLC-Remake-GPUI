@@ -122,7 +122,7 @@ impl MainWindow {
     ) {
         self.on_side_events(event, cx);
         match event {
-            PlayerEvent::EndReached => self.advance(window, cx),
+            PlayerEvent::EndReached => self.item_ended(window, cx),
             PlayerEvent::Error(kind) => self.failed(*kind, window, cx),
             PlayerEvent::StateChanged(state) => {
                 if *state == PlaybackState::Playing {

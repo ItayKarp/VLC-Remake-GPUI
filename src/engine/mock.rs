@@ -23,6 +23,7 @@ use super::media_options::{MediaOptions, Picture, VideoFilters};
 use super::navigation::Navigation;
 use super::recording::Recording;
 use super::state::PlaybackState;
+use super::statistics::Statistics;
 use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
@@ -304,6 +305,11 @@ impl Backend for MockBackend {
 
     fn stream(&mut self, target: Option<StreamTarget>) {
         self.note(Command::Stream(target));
+    }
+
+    fn read_statistics(&mut self) {
+        self.note(Command::ReadStatistics);
+        self.respond([BackendEvent::Statistics(Statistics::default())]);
     }
 
     fn shut_down(self: Box<Self>) {
