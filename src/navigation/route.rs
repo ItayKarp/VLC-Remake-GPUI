@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use crate::db::playlists::PlaylistId;
+use crate::db::podcasts::FeedId;
 
 /// A place in the library.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,6 +18,8 @@ pub enum Route {
     Music(MusicRoute),
     /// Network streams: their categories (`None`), or one category (S4.11).
     Network(Option<NetworkCategory>),
+    /// A podcast's episodes, in Network → Podcasts (S8.17.2).
+    Podcast(FeedId),
     /// The saved playlists (`None`), or one of them.
     Playlists(Option<PlaylistId>),
     /// The recently played list (S4.5.7).
@@ -67,7 +70,7 @@ impl HomeSection {
 }
 
 /// Network's categories (S4.11.3): built in, since streams are filed into them rather than
-/// organized freely (playlists do that). Podcasts are filled by subscriptions (S8.17).
+/// organized freely (playlists do that). Podcasts lists subscribed feeds (S8.17.2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NetworkCategory {
     /// The streams opened from Open Network Stream, the latest first.
@@ -221,7 +224,7 @@ impl Route {
             Self::Home | Self::HomeSection(_) => Section::Home,
             Self::Videos(_) => Section::Videos,
             Self::Music(_) => Section::Music,
-            Self::Network(_) => Section::Network,
+            Self::Network(_) | Self::Podcast(_) => Section::Network,
             Self::Playlists(_) => Section::Playlists,
             Self::History => Section::History,
             Self::Search(search) => search.scope,
@@ -273,6 +276,7 @@ mod tests {
             Route::Videos(Some("/media/Shows".into())),
             MusicCategory::Songs.route(),
             Route::Playlists(Some(PlaylistId(3))),
+            Route::Podcast(FeedId(2)),
             Route::Search(Search { query: "wand".into(), scope: Section::Videos }),
             Route::HomeSection(HomeSection::ListenAgain),
         ];

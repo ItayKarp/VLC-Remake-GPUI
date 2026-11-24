@@ -6,7 +6,8 @@
 //! and Shift+N), the speed (S2.7.3: `[`,
 //! `]` and `=`), the audio delay (S4.8.1: J and K), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
 //! (S2.9: Shift+F10 and the context-menu key), frame stepping (`,` and `.`) and T (S2.10.3)
-//! work, Q shows the queue (S3.2) and L the library sidebar (S4.5). A command whose story hasn't
+//! work, Q shows the queue (S3.2) and L the library sidebar (S4.5), and Shift+L loops from A to B
+//! (S8.13.4). A command whose story hasn't
 //! shipped (X, Shift+S, Shift+R) says "Coming soon" over the video in debug builds and is only
 //! logged in release builds.
 
@@ -101,6 +102,7 @@ impl MainWindow {
                 AddBookmark,
                 CycleRepeat,
                 ToggleShuffle,
+                LoopAToB,
                 PreviousFrame,
                 NextFrame,
                 NextProgram,
@@ -191,6 +193,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::SelectInDiscMenu, |this, _, cx| this.select_in_disc_menu(cx)),
     (&act::CycleRepeat, MainWindow::cycle_repeat),
     (&act::ToggleShuffle, MainWindow::toggle_shuffle),
+    (&act::LoopAToB, |this, _, cx| this.loop_a_to_b(cx)),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),
     (&act::SeekForward, |this, _, cx| this.skip(Way::Forward, SkipLength::Short, cx)),
     (&act::SeekBackwardVeryShort, |this, _, cx| this.skip(Way::Back, SkipLength::VeryShort, cx)),

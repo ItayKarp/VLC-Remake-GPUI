@@ -16,12 +16,17 @@ const SERVICE: &str = "org.redesignedvlc.app";
 pub enum Secret {
     /// The last.fm password (S5.5.2), for submitting played tracks (S8.17).
     LastFmPassword,
+    /// The session last.fm gave for that account, after the user name and the submission URL
+    /// it is for (S8.17.1).
+    LastFmSession,
     /// The HTTP proxy's password (S5.10.1).
     ProxyPassword,
     /// The OpenSubtitles account's password (S6.5.1), for more downloads a day.
     OpenSubtitlesPassword,
     /// The token OpenSubtitles gave for that account, after the user name it is for (S6.5.1).
     OpenSubtitlesToken,
+    /// The password phones sign in to the web remote with (S8.15).
+    WebRemotePassword,
 }
 
 impl Secret {
@@ -29,9 +34,11 @@ impl Secret {
     fn account(self) -> &'static str {
         match self {
             Self::LastFmPassword => "lastfm",
+            Self::LastFmSession => "lastfm-session",
             Self::ProxyPassword => "http-proxy",
             Self::OpenSubtitlesPassword => "opensubtitles",
             Self::OpenSubtitlesToken => "opensubtitles-token",
+            Self::WebRemotePassword => "web-remote",
         }
     }
 }

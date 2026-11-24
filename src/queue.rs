@@ -43,6 +43,13 @@ pub fn random_start(len: usize) -> usize {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EntryId(u64);
 
+impl EntryId {
+    /// The id as a number, for naming the entry outside the app (the web remote, S8.15).
+    pub fn number(self) -> u64 {
+        self.0
+    }
+}
+
 /// One queued item.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {

@@ -109,6 +109,7 @@ impl Worker {
             Command::SetCastSetup(setup) => self.set_cast_setup(setup),
             Command::Cast(device) => self.cast(device),
             Command::Stream(target) => self.stream(target),
+            Command::ReadStatistics => self.read_statistics(),
         }
     }
 

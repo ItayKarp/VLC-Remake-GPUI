@@ -4,8 +4,9 @@
 //! ([`metadata`]), its cover ([`artwork`]) and thumbnails ([`thumbnails`]), and plays, visits
 //! and favorites ([`activity`]) with the media Home lists ([`played`]), and the search index
 //! ([`search`]). Network streams are in [`network`], each subtitle track's remembered sync in
-//! [`subtitle_sync`], the subtitle files linked to each media in [`subtitle_links`], and each media's bookmarks in
-//! [`bookmarks`].
+//! [`subtitle_sync`], the subtitle files linked to each media in [`subtitle_links`], each media's bookmarks in
+//! [`bookmarks`], the plays waiting for last.fm in [`scrobbles`] and podcast subscriptions in
+//! [`podcasts`].
 //!
 //! Opening never fails. The file is checked with `PRAGMA integrity_check` and brought up to date
 //! by [`migrations`]; a damaged one is moved aside to `library.db.corrupt` and started over, since
@@ -28,7 +29,9 @@ mod migrations;
 pub mod network;
 pub mod played;
 pub mod playlists;
+pub mod podcasts;
 pub mod roots;
+pub mod scrobbles;
 pub mod search;
 pub mod songs;
 pub mod subtitle_links;

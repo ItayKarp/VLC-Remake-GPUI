@@ -12,8 +12,8 @@ use crate::window_chrome::TITLE_BAR_HEIGHT;
 const DESIGN_ORIGIN: (u32, u32) = (30, 30);
 const DESIGN_SIZE: (f32, f32) = (1048., 860.);
 /// The share of differing pixels: the text, the (i) icons the Picture rows have and the design
-/// doesn't, and the Play video as desktop wallpaper row the page leaves out, which moves every
-/// row under it up. Measured near 4.2% on macOS (November 2026).
+/// doesn't, and the Play video as desktop wallpaper row the page leaves out except on Windows,
+/// which moves every row under it up. Measured near 4.2% on macOS (November 2026).
 const MAX_MISMATCH: f64 = 0.06;
 
 #[test]

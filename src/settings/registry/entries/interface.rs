@@ -1,5 +1,5 @@
-//! Interface: when the controls hide, and the now-playing notification (S5.4.2, S5.4.3). The
-//! Skin and Window sections are in `window.rs`.
+//! Interface: when the controls hide, the now-playing notification and the system tray (S5.4.2,
+//! S5.4.3, S8.16). The Skin and Window sections are in `window.rs`.
 
 use super::super::def::{Condition, Control, Marks, SettingDef};
 use super::super::rules::trim;
@@ -9,6 +9,15 @@ use crate::settings::{AutoHide, DurationReadout, NowPlayingNotification};
 
 const CONTROLS: (Category, &str) = (Category::Interface, "Playback Controls");
 const NOTIFICATIONS: (Category, &str) = (Category::Interface, "Notifications and System Tray");
+/// What the tray is called where VLC runs.
+#[cfg(target_os = "macos")]
+const SYSTEM_TRAY_LABEL: &str = "Show VLC in the menu bar";
+#[cfg(not(target_os = "macos"))]
+const SYSTEM_TRAY_LABEL: &str = "Show VLC in the system tray";
+#[cfg(target_os = "macos")]
+const KEEP_PLAYING_LABEL: &str = "Keep playing in the menu bar when the window closes";
+#[cfg(not(target_os = "macos"))]
+const KEEP_PLAYING_LABEL: &str = "Keep playing in the tray when the window closes";
 /// Milliseconds in the second "Hide after" is shown in.
 const MS_PER_SECOND: f64 = 1000.;
 
@@ -146,4 +155,30 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          background means only while you are using another app.",
     )
     .keywords(&["notify", "notification", "popup", "track change", "now playing"]),
+    SettingDef::new(
+        "interface.system_tray",
+        NOTIFICATIONS,
+        SYSTEM_TRAY_LABEL,
+        Control::Toggle,
+        toggle!(prefs.interface.system_tray),
+    )
+    .info(
+        "Shows VLC's icon with a menu to play or pause, skip, show VLC or quit, even while its \
+         window is hidden.",
+    )
+    .danger_hint(crate::tray::unavailable_hint)
+    .keywords(&["tray", "menu bar", "status bar", "icon", "minimize", "background"]),
+    SettingDef::new(
+        "interface.keep_playing_in_tray",
+        NOTIFICATIONS,
+        KEEP_PLAYING_LABEL,
+        Control::Toggle,
+        toggle!(prefs.interface.keep_playing_in_tray),
+    )
+    .info(
+        "Closing the main window hides it and playback goes on. Show VLC in the icon's menu \
+         brings the window back; Quit stops playback.",
+    )
+    .depends_on("interface.system_tray", Condition::IsOn)
+    .keywords(&["tray", "minimize to tray", "close", "background", "hide"]),
 ];

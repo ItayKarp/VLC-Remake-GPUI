@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::db::playlists::PlaylistId;
+use crate::db::podcasts::FeedId;
 use crate::navigation::route::Search;
 
 fn labels(trail: &Trail) -> Vec<&str> {
@@ -13,7 +14,14 @@ fn with<R>(f: impl FnOnce(Places) -> R) -> R {
     let music = [PathBuf::from("/music/My Songs")];
     let playlists =
         [Summary { id: PlaylistId(4), title: "Cool Songs".into(), len: 2, streams_only: false }];
-    f(Places { video_roots: &videos, music_roots: &music, playlists: &playlists })
+    let podcasts =
+        [Subscription { id: FeedId(2), url: "https://e.com/feed".into(), title: "Night".into() }];
+    f(Places {
+        video_roots: &videos,
+        music_roots: &music,
+        playlists: &playlists,
+        podcasts: &podcasts,
+    })
 }
 
 #[test]
@@ -90,4 +98,14 @@ fn two_levels_hide_nothing() {
     let (hidden, shown) = trail.collapsed();
     assert_eq!(hidden, &[] as &[Crumb]);
     assert_eq!(shown.len(), 2);
+}
+
+#[test]
+fn a_podcast_is_inside_network_podcasts() {
+    let podcasts = Route::Network(Some(NetworkCategory::Podcasts));
+    let trail = with(|places| Trail::of(&Route::Podcast(FeedId(2)), places));
+    assert_eq!(labels(&trail), ["Network", "Podcasts", "Night"]);
+    assert_eq!(trail.crumbs[1].route, podcasts);
+    let gone = with(|places| Trail::of(&Route::Podcast(FeedId(9)), places));
+    assert_eq!(labels(&gone), ["Network", "Podcasts", "Podcast"]);
 }

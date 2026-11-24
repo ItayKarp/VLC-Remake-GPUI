@@ -50,6 +50,7 @@ impl Player {
             BackendEvent::CastDevices(devices) => self.cast_devices_reported(devices, cx),
             BackendEvent::CastLost(device) => self.cast_lost(device, cx),
             BackendEvent::StreamFailed => self.stream_failed(cx),
+            BackendEvent::Statistics(statistics) => self.info.statistics = Some(statistics),
         }
         cx.notify();
     }
@@ -117,6 +118,7 @@ impl Player {
         if let Some(shown) = self.position.report(time, Instant::now()) {
             cx.emit(PlayerEvent::PositionChanged(shown));
         }
+        self.wrap_ab_loop(time, cx);
     }
 
     fn duration_reported(&mut self, duration: Option<Duration>, cx: &mut Context<Self>) {

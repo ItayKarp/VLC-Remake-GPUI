@@ -180,6 +180,7 @@ fn playback_menu() -> Menu {
             plain(&act::NextChapter, "Next Chapter"),
             plain(&act::NextProgram, "Next Program"),
             plain(&act::DiscMenu, "Disc Menu"),
+            plain(&act::LoopAToB, "A-B Loop"),
             item(&act::AddBookmark, "Add Bookmark"),
             plain(&act::Record, "Record"),
             SEPARATOR,

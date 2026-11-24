@@ -102,6 +102,7 @@ impl Backend for UnavailableBackend {
     fn cast(&mut self, _: Option<CastDeviceId>) {}
 
     fn stream(&mut self, _: Option<StreamTarget>) {}
+    fn read_statistics(&mut self) {}
 
     fn shut_down(self: Box<Self>) {}
 }

@@ -25,7 +25,9 @@ const SHOWN_FOR: Duration = Duration::from_millis(1500);
 /// How long a message takes to fade in.
 const FADE_IN: Duration = Duration::from_millis(120);
 /// How far the message sits from the video's top and left edges.
-const MARGIN: f32 = 24.;
+pub(super) const MARGIN: f32 = 24.;
+/// The message's height, fixed so what sits below it (the statistics, S8.13.2) stays put.
+pub(super) const HEIGHT: f32 = 50.;
 /// The message's text size.
 const TEXT_SIZE: f32 = 18.;
 /// The frame step spinner's size.
@@ -77,8 +79,10 @@ impl MainWindow {
 /// The message's surface.
 fn bubble(p: &Palette) -> Div {
     div()
+        .h(px(HEIGHT))
+        .flex()
+        .items_center()
         .px(px(18.))
-        .py(px(10.))
         .rounded(px(8.))
         .bg(p.panel)
         .shadow_lg()

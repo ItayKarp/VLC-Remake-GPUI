@@ -330,6 +330,7 @@ fn rows(route: &Route, cx: &App) -> Vec<Row> {
             .collect(),
         Route::History => recent::items(cx).into_iter().map(Row::recent).collect(),
         Route::Network(category) => network::rows(*category, cx),
+        Route::Podcast(id) => network::episode_rows(*id, cx),
         _ => Vec::new(),
     }
 }

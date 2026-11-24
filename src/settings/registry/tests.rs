@@ -195,6 +195,13 @@ fn every_category_but_hand_built_ones_lists_in_the_sidebar() {
 }
 
 #[test]
+fn extensions_is_listed_only_with_its_feature() {
+    assert_eq!(Category::Extensions.is_listed(), cfg!(feature = "extensions"));
+    assert!(Category::ALL.iter().all(|category| category.is_listed()));
+    assert_eq!(Category::ALL.len(), if cfg!(feature = "extensions") { 13 } else { 12 });
+}
+
+#[test]
 fn the_log_rows_follow_save_a_log() {
     let mut settings = Settings::default();
     for key in ["log_file", "diagnostics.log_level", "diagnostics.log_format"] {

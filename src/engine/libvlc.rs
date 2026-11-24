@@ -8,6 +8,7 @@
 //! - [`failure`] names the cause of an error libVLC reports without one.
 //! - [`casting`] finds cast devices and plays to one (S8.11).
 //! - [`streaming`] streams the media playing to the network (S8.12).
+//! - [`statistics`] reads what libVLC counted about the media playing (S8.13.2).
 //!
 //! - [`audio`] lists output devices and picks one (S1.5).
 //! - [`vmem`] hands decoded pictures to a [`VideoSink`] (S1.4.1), and [`prepare`] reads a file's
@@ -60,6 +61,9 @@ mod reopen;
 mod reopen_tests;
 pub mod runtime;
 mod size_watch;
+mod statistics;
+#[cfg(test)]
+mod statistics_tests;
 mod stream_colour;
 mod streaming;
 #[cfg(test)]
@@ -329,6 +333,10 @@ impl Backend for LibVlcBackend {
 
     fn stream(&mut self, target: Option<StreamTarget>) {
         self.send(Command::Stream(target));
+    }
+
+    fn read_statistics(&mut self) {
+        self.send(Command::ReadStatistics);
     }
 
     fn shut_down(mut self: Box<Self>) {

@@ -42,6 +42,7 @@ pub const SECTIONS: &[Section] = &[
             &act::AddBookmark,
             &act::CycleRepeat,
             &act::ToggleShuffle,
+            &act::LoopAToB,
             &act::NextProgram,
             &act::DiscMenu,
             &act::SelectInDiscMenu,

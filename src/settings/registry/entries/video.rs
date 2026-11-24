@@ -2,8 +2,8 @@
 //! with; the framing, flip and rotation are in `video_framing.rs`. The in-player panels (Stage 7)
 //! change them for the session only (S5.8.4, D24).
 //!
-//! "Play video as desktop wallpaper" isn't offered: video draws inside VLC's own windows, and a
-//! wallpaper needs a window behind the desktop icons that only Windows has.
+//! "Play video as desktop wallpaper" is only offered on Windows (S8.16.3): a window behind the
+//! desktop icons only exists there.
 
 use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, choice, number, toggle};
@@ -148,6 +148,19 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
          window that shows.",
     )
     .keywords(&["sleep", "display", "power", "idle", "inhibit"]),
+    #[cfg(target_os = "windows")]
+    SettingDef::new(
+        "video.desktop_wallpaper",
+        OUTPUT,
+        "Play video as desktop wallpaper",
+        Control::Toggle,
+        toggle!(prefs.video.desktop_wallpaper),
+    )
+    .info(
+        "Plays video behind the desktop icons on the main display, instead of in a window. The \
+         main window keeps the controls.",
+    )
+    .keywords(&["wallpaper", "background", "desktop", "live wallpaper"]),
     SettingDef::new(
         "video.picture.enabled",
         PICTURE,

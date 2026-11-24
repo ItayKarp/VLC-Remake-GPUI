@@ -6,9 +6,10 @@
 
 use std::path::{Path, PathBuf};
 
-use super::route::{MusicCategory, MusicRoute, Route, Section};
+use super::route::{MusicCategory, MusicRoute, NetworkCategory, Route, Section};
 use crate::app::media::Media;
 use crate::db::playlists::Summary;
+use crate::db::podcasts::Subscription;
 
 /// How many segments show before the rest fold into `…`.
 const VISIBLE: usize = 2;
@@ -22,6 +23,8 @@ pub struct Places<'a> {
     pub music_roots: &'a [PathBuf],
     /// The saved playlists, for their titles.
     pub playlists: &'a [Summary],
+    /// The podcasts subscribed to, for their titles.
+    pub podcasts: &'a [Subscription],
 }
 
 /// One segment: what it says and where clicking it goes.
@@ -55,6 +58,13 @@ impl Trail {
             }
             Route::Network(Some(category)) => {
                 vec![section(Section::Network), crumb(category.label(), route.clone())]
+            }
+            Route::Podcast(id) => {
+                let podcasts = NetworkCategory::Podcasts;
+                let title = places.podcasts.iter().find(|feed| feed.id == *id);
+                let title = title.map_or("Podcast", |feed| feed.title.as_str());
+                let category = crumb(podcasts.label(), Route::Network(Some(podcasts)));
+                vec![section(Section::Network), category, crumb(title, route.clone())]
             }
             Route::Playlists(Some(id)) => {
                 let title = places.playlists.iter().find(|summary| summary.id == *id);

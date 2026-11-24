@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use crate::engine::ab_loop::AbLoop;
 use crate::main_window::control_bar::clock;
 use crate::main_window::seeking::Way;
 
@@ -22,6 +23,19 @@ pub fn skip(way: Way, jump: Duration, landed: &str) -> String {
         Way::Forward => '+',
     };
     format!("{sign}{} · {landed}", length(jump))
+}
+
+/// The A-B loop's marks: "A-B Loop: A at 00:01:23", "A-B Loop: 00:01:23 → 00:01:45", "A-B
+/// Loop: Off"; or, for media that can't loop, why.
+pub fn ab_loop(marks: Option<AbLoop>) -> String {
+    match marks {
+        None => "A-B Loop: this media can't seek".into(),
+        Some(AbLoop::Off) => "A-B Loop: Off".into(),
+        Some(AbLoop::From(a)) => format!("A-B Loop: A at {}", clock::format(a)),
+        Some(AbLoop::Between { a, b }) => {
+            format!("A-B Loop: {} → {}", clock::format(a), clock::format(b))
+        }
+    }
 }
 
 /// The chapter just gone to: "Chapter 2 · Spring", or "Chapter 2" when that is its title.
@@ -47,6 +61,15 @@ mod tests {
 
     const fn secs(seconds: u64) -> Duration {
         Duration::from_secs(seconds)
+    }
+
+    #[test]
+    fn the_a_b_loop_says_its_marks() {
+        assert_eq!(ab_loop(Some(AbLoop::From(secs(83)))), "A-B Loop: A at 00:01:23");
+        let both = AbLoop::Between { a: secs(83), b: secs(105) };
+        assert_eq!(ab_loop(Some(both)), "A-B Loop: 00:01:23 → 00:01:45");
+        assert_eq!(ab_loop(Some(AbLoop::Off)), "A-B Loop: Off");
+        assert_eq!(ab_loop(None), "A-B Loop: this media can't seek");
     }
 
     #[test]

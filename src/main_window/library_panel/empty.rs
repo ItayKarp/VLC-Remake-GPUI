@@ -59,6 +59,9 @@ impl EmptyState {
                 state(icons::RECENT, "Nothing watched yet", "What you play shows up here.")
             }
             Route::Network(Some(category)) => network_category(*category),
+            Route::Podcast(_) => {
+                state(icons::STREAMING, "No episodes", "Its feed lists no episodes to play yet.")
+            }
             Route::Playlists(None) => state(
                 icons::PLAYLIST,
                 "No playlists yet",
@@ -76,7 +79,7 @@ fn network_category(category: NetworkCategory) -> EmptyState {
             ("No recent streams", "Streams you open with Open Network Stream show up here.")
         }
         NetworkCategory::Podcasts => {
-            ("No podcasts yet", "Subscribing to podcasts isn't available yet.")
+            ("No podcasts yet", "Choose Subscribe to Podcast and enter a podcast's feed address.")
         }
         NetworkCategory::Radio => {
             ("No radio stations yet", "Right-click a recent stream and choose Add to Radio.")

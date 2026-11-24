@@ -106,8 +106,10 @@ impl SettingsWindow {
         this
     }
 
-    /// Shows `category`'s page, answering the current search, and remembers it.
+    /// Shows `category`'s page, answering the current search, and remembers it. A page this
+    /// build doesn't list, saved by one that does, shows General instead.
     pub fn select(&mut self, category: Category, window: &mut Window, cx: &mut Context<Self>) {
+        let category = if category.is_listed() { category } else { Category::default() };
         self.category = category;
         let page = self
             .pages

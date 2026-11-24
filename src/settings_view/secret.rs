@@ -11,6 +11,7 @@ use gpui::{
 };
 
 use crate::privacy::keychain::{self, KeychainError, Secret, Status};
+use crate::scrobble;
 use crate::ui::button::Button;
 use crate::ui::text_input::{self, TextInput, Validation};
 
@@ -103,10 +104,7 @@ impl SecretField {
         cx.spawn(async move |this, cx| {
             let result = done.await;
             this.update(cx, |this, cx| match result {
-                Ok(()) => {
-                    this.input.update(cx, |input, cx| input.set_text("", cx));
-                    this.refresh(cx);
-                }
+                Ok(()) => this.changed(cx),
                 Err(error) => {
                     let message = Validation::Error(error.message().to_owned().into());
                     this.input.update(cx, |input, cx| input.set_validation(message, cx));
@@ -115,6 +113,16 @@ impl SecretField {
             .ok();
         })
         .detach();
+    }
+
+    /// The keychain took the change: the field empties, the hint says what is saved now, and
+    /// scrobbling signs in again with a new last.fm password (S8.17.1).
+    fn changed(&mut self, cx: &mut Context<Self>) {
+        self.input.update(cx, |input, cx| input.set_text("", cx));
+        if self.secret == Secret::LastFmPassword {
+            scrobble::password_changed(cx);
+        }
+        self.refresh(cx);
     }
 
     /// Whether a password can be typed: the parent is on and the keychain is there.

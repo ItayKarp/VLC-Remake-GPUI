@@ -11,9 +11,11 @@
 //! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4), and Shift+R
 //! records what plays (S8.6). Picture in
 //! Picture pops the player out into a small window above the others (S8.5). The bars show what
-//! the player layout says, which Customize Player edits (S8.7).
+//! the player layout says, which Customize Player edits (S8.7). The settings panel's Playback
+//! tab holds the sleep timer and the statistics overlay, and Shift+L loops from A to B (S8.13).
 //! Onboarding hands off to it (S0.2).
 
+mod ab_loop;
 mod about;
 mod add_subtitles;
 mod audio;
@@ -56,19 +58,23 @@ mod pip;
 mod play_order;
 mod player_keys;
 mod playing_id;
+mod podcasts;
 mod profiles;
 mod properties;
 mod queue_panel;
 mod queue_play;
 mod recording;
 mod saved_playlists;
+mod scrobbling;
 mod seek_bar;
 mod seeking;
 mod session;
 mod settings_panel;
 mod shortcuts_dialog;
+mod sleep_timer;
 mod snapshot;
 mod speed;
+mod statistics;
 mod stream_dialog;
 pub(crate) mod subtitle_style;
 mod subtitle_sync;
@@ -78,11 +84,14 @@ mod title_bar;
 mod track_popover;
 mod tracks;
 mod transport;
+mod tray;
 mod video_menu;
 mod video_mouse;
 mod video_window;
 mod viewport;
 mod volume_slider;
+mod wallpaper;
+mod web_remote;
 mod wheel;
 
 use gpui::{
@@ -112,6 +121,7 @@ pub use self::convert_dialog::ask_before_quitting;
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
 pub use self::pip::{PipCommand, PipView};
 pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
+pub use self::web_remote::web_remote_hint;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -160,6 +170,10 @@ pub struct MainWindow {
     volume_slider: volume_slider::VolumeSlider,
     /// The message over the video (S2.5.7, S2.10.2).
     osd: osd::Osd,
+    /// The statistics over the video (S8.13.2).
+    statistics: statistics::StatisticsOverlay,
+    /// The sleep timer (S8.13.1).
+    sleep_timer: sleep_timer::SleepTimer,
     /// The recording being made (S8.6).
     recording: recording::RecordingWatch,
     /// Whether frame steps are taking a while (S2.10.3).
@@ -192,6 +206,10 @@ pub struct MainWindow {
     playing_id: playing_id::PlayingId,
     /// The profile media switched to by itself, and the one to go back to (S8.8.3).
     auto_profile: profiles::AutoProfile,
+    /// The web remote phones control playback from (S8.15).
+    web_remote: web_remote::WebRemote,
+    /// The track being listened to, for last.fm (S8.17.1).
+    scrobbling: scrobbling::Scrobbling,
 }
 
 impl MainWindow {
@@ -224,6 +242,8 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            statistics: statistics::StatisticsOverlay::default(),
+            sleep_timer: sleep_timer::SleepTimer::default(),
             recording: recording::RecordingWatch::default(),
             frame_step: frame_step::FrameStepWait::default(),
             video_mouse: video_mouse::VideoMouse::default(),
@@ -240,22 +260,27 @@ impl MainWindow {
             customizing: None,
             playing_id: playing_id::PlayingId::default(),
             auto_profile: profiles::AutoProfile::default(),
+            web_remote: web_remote::WebRemote::default(),
+            scrobbling: scrobbling::Scrobbling::default(),
         };
         this.start(request, window, cx);
         this
     }
 
     /// Gives the Open button the keyboard, starts recording history and the session, brings the
-    /// last session back, and opens `request`.
+    /// last session back, opens `request`, and starts the web remote if it's on. Problems
+    /// submitting to last.fm show here.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
         self.control_bar.sync_layout(cx);
         self.plan_compact_start(cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
+        self.set_up_scrobbling(cx);
         self.restore_session(&request, window, cx);
         self.open(request, window, cx);
         self.show_pending_crash(cx);
+        self.sync_web_remote(window, cx);
     }
 
     /// Follows the window: the theme, redraws, its geometry, focus, the GPU it renders with, and
@@ -271,20 +296,23 @@ impl MainWindow {
         crate::diagnostics::system::remember_gpu(window);
     }
 
-    /// Closing the window while conversions run asks whether to cancel them first (S8.10).
+    /// Closing the window hides it into the tray when Settings says to (S8.16.1); otherwise,
+    /// while conversions run, it asks whether to cancel them first (S8.10).
     fn ask_before_closing(window: &mut Window, cx: &mut Context<Self>) {
         let main = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
-            convert_dialog::may_close(&main, window, cx)
+            let hidden = main.update(cx, |main, cx| main.hide_to_tray(window, cx));
+            !hidden.unwrap_or(false) && convert_dialog::may_close(&main, window, cx)
         });
     }
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when
     /// the window is maximized, restored or goes fullscreen (the Maximize/Restore icon, the
-    /// layout).
+    /// layout). Settings changes also start or stop the web remote.
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_global_in::<settings::SettingsStore>(window, |this, window, cx| {
             this.sync_video_window(window, cx);
+            this.sync_web_remote(window, cx);
             this.control_bar.sync_layout(cx);
             cx.notify();
         })
@@ -333,6 +361,7 @@ impl MainWindow {
                     this.scroll_on_video(event, window, cx);
                 }))
                 .child(self.video_area(shown, window, cx))
+                .children(self.render_statistics(p, cx))
                 .children(self.render_osd(p, cx))
                 .children(self.render_recording_badge(p, cx))
             }

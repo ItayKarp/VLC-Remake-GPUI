@@ -109,6 +109,8 @@ actions!(
         CycleRepeat,
         /// Switch Shuffle on or off.
         ToggleShuffle,
+        /// Mark A, then B, of a loop, then end it (S8.13.4).
+        LoopAToB,
         /// Step one frame back.
         PreviousFrame,
         /// Step one frame forward.

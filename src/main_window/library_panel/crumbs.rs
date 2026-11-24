@@ -11,6 +11,7 @@ use super::header::GAP;
 use super::{MainWindow, OpenMenu};
 use crate::navigation::breadcrumb::{Crumb, Places, Trail};
 use crate::playlists;
+use crate::podcasts;
 use crate::settings;
 use crate::theme::Palette;
 use crate::ui::menu::{ContextMenu, MenuItem};
@@ -29,6 +30,7 @@ pub(super) fn places(cx: &App) -> Places<'_> {
         video_roots: &local.media_folders,
         music_roots: &local.music_folders,
         playlists: playlists::summaries(cx),
+        podcasts: podcasts::subscriptions(cx),
     }
 }
 
