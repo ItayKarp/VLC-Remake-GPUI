@@ -163,9 +163,14 @@ impl MainWindow {
         cx.notify();
     }
 
-    /// What the history, recording, disc menus, casting and streaming follow of `event`.
+    /// What the history, scrobbling, podcasts, recording, disc menus, casting and streaming
+    /// follow of `event`.
     fn on_side_events(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
         self.on_history_event(event, cx);
+        self.on_scrobble_event(event, cx);
+        if *event == PlayerEvent::EndReached {
+            self.episode_played(cx);
+        }
         self.on_recording_event(event, cx);
         self.on_disc_event(event, cx);
         self.on_cast_event(event, cx);

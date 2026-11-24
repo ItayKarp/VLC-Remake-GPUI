@@ -25,6 +25,7 @@ mod opening;
 mod pip_window;
 mod player_layout;
 mod playlists;
+mod podcasts;
 mod power;
 mod privacy;
 mod queue;
@@ -32,6 +33,7 @@ mod recording;
 mod remote;
 #[cfg(test)]
 mod screenshot_test;
+mod scrobble;
 mod session;
 mod settings;
 mod settings_view;
@@ -73,6 +75,8 @@ fn main() {
         playlists::init(cx);
         convert::init(cx);
         network::init(cx);
+        podcasts::init(cx);
+        scrobble::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);
         theme::init(cx);

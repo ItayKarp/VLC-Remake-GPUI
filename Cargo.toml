@@ -80,6 +80,9 @@ fs4 = "1"
 # Session tokens for the web remote (S8.15) from the OS's randomness; already built for other
 # crates.
 getrandom = "0.3"
+# Signing last.fm API calls (S8.17.1), which take an MD5 of their parameters. Already built for
+# the Secret Service on Linux.
+md-5 = "0.10"
 
 # The last.fm password (S5.5.3) lives in the OS keychain, never in a settings file: Keychain
 # Services on macOS, Credential Manager on Windows, the Secret Service (over zbus, pure Rust)

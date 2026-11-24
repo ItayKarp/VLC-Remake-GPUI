@@ -33,6 +33,7 @@ mod layout;
 mod listing;
 mod mode;
 mod playlist_menu;
+mod podcast_menu;
 mod rail;
 mod row;
 mod search_field;

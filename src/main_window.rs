@@ -58,12 +58,14 @@ mod pip;
 mod play_order;
 mod player_keys;
 mod playing_id;
+mod podcasts;
 mod profiles;
 mod properties;
 mod queue_panel;
 mod queue_play;
 mod recording;
 mod saved_playlists;
+mod scrobbling;
 mod seek_bar;
 mod seeking;
 mod session;
@@ -206,6 +208,8 @@ pub struct MainWindow {
     auto_profile: profiles::AutoProfile,
     /// The web remote phones control playback from (S8.15).
     web_remote: web_remote::WebRemote,
+    /// The track being listened to, for last.fm (S8.17.1).
+    scrobbling: scrobbling::Scrobbling,
 }
 
 impl MainWindow {
@@ -257,19 +261,22 @@ impl MainWindow {
             playing_id: playing_id::PlayingId::default(),
             auto_profile: profiles::AutoProfile::default(),
             web_remote: web_remote::WebRemote::default(),
+            scrobbling: scrobbling::Scrobbling::default(),
         };
         this.start(request, window, cx);
         this
     }
 
     /// Gives the Open button the keyboard, starts recording history and the session, brings the
-    /// last session back, opens `request`, and starts the web remote if it's on.
+    /// last session back, opens `request`, and starts the web remote if it's on. Problems
+    /// submitting to last.fm show here.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
         self.control_bar.sync_layout(cx);
         self.plan_compact_start(cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
+        self.set_up_scrobbling(cx);
         self.restore_session(&request, window, cx);
         self.open(request, window, cx);
         self.show_pending_crash(cx);

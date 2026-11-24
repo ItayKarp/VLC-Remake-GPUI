@@ -1,7 +1,8 @@
 //! The listing's plain rows (`player_02`, `sidebar-videos*`): an icon and a name, for a place to
-//! go to, a recently played media, a network stream (S4.11), or the "+ Add" and "+ Add Network
-//! Stream" actions (S4.6.1). A folder's, a saved playlist's and a stream's row has a menu
-//! (S4.8.2, S4.8.3), from a right-click or its `•••` on hover.
+//! go to, a recently played media, a network stream (S4.11), a podcast episode (S8.17.2), or the
+//! "+ Add", "+ Add Network Stream" and "+ Subscribe to Podcast" actions (S4.6.1). A folder's, a
+//! saved playlist's, a stream's, a podcast's and an episode's row has a menu (S4.8.2, S4.8.3),
+//! from a right-click or its `•••` on hover.
 
 use gpui::{
     ClickEvent, Context, MouseButton, MouseDownEvent, SharedString, Stateful, Window, div,
@@ -16,6 +17,7 @@ use super::selection::Key;
 use crate::app::media::Media;
 use crate::app::request::OpenRequest;
 use crate::assets::icons;
+use crate::db::podcasts::EpisodeId;
 use crate::navigation::route::{MusicRoute, NetworkCategory, Route};
 use crate::network::{self, links};
 use crate::theme::Palette;
@@ -48,6 +50,10 @@ pub(super) enum Target {
     Stream(String, NetworkCategory),
     /// Opens the Open Network Stream dialog.
     AddStream,
+    /// Plays a podcast episode: its row and its file's URL.
+    Episode(EpisodeId, String),
+    /// Asks for a podcast feed to subscribe to.
+    Subscribe,
 }
 
 impl Row {
@@ -95,13 +101,15 @@ impl Row {
 
     /// Whether the row is an action rather than an item.
     pub(super) fn is_action(&self) -> bool {
-        matches!(self.target, Target::Add(_) | Target::AddStream)
+        matches!(self.target, Target::Add(_) | Target::AddStream | Target::Subscribe)
     }
 
     /// The menu the row has: a folder's or a saved playlist's.
     pub(super) fn menu(&self) -> Option<MenuKind> {
         match &self.target {
             Target::Go(Route::Playlists(Some(_))) => Some(MenuKind::Playlist),
+            Target::Go(Route::Podcast(_)) => Some(MenuKind::Podcast),
+            Target::Episode(..) => Some(MenuKind::Episode),
             Target::Go(route) if route.folder().is_some() => Some(MenuKind::Folder),
             Target::Stream(..) => Some(MenuKind::Stream),
             _ => None,
@@ -113,8 +121,10 @@ impl Row {
         match &self.target {
             Target::Go(route) => Key::Place(route.clone()),
             Target::Play(media) => Key::Recent(media.clone()),
-            Target::Stream(url, _) => Key::Recent(Media::Url(url.clone())),
-            Target::Add(_) | Target::AddStream => Key::Add,
+            Target::Stream(url, _) | Target::Episode(_, url) => {
+                Key::Recent(Media::Url(url.clone()))
+            }
+            Target::Add(_) | Target::AddStream | Target::Subscribe => Key::Add,
         }
     }
 
@@ -188,8 +198,8 @@ pub(super) fn row_frame(id: impl Into<gpui::ElementId>, p: &Palette) -> Stateful
 }
 
 impl MainWindow {
-    /// Does what a row says: goes to its route, plays its media or stream, adds a folder, or
-    /// opens Open Network Stream. A recent stream played moves to the top of its list.
+    /// Does what a row says: goes to its route, plays its media, stream or episode, adds a
+    /// folder, or opens Open Network Stream or Subscribe to Podcast. A recent stream played moves to the top of its list.
     pub(super) fn follow(&mut self, target: Target, window: &mut Window, cx: &mut Context<Self>) {
         match target {
             Target::Go(route) => self.navigate(route, cx),
@@ -206,6 +216,11 @@ impl MainWindow {
                 self.open(OpenRequest::placed(vec![Media::Url(url)], placement), window, cx);
             }
             Target::AddStream => self.show_network_stream(window, cx),
+            Target::Episode(_, url) => {
+                let placement = self.library_placement(cx);
+                self.open(OpenRequest::placed(vec![Media::Url(url)], placement), window, cx);
+            }
+            Target::Subscribe => self.ask_podcast_feed(window, cx),
         }
     }
 }
