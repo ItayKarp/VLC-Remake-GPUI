@@ -1,0 +1,8 @@
+# The Rust toolchain every build uses, here and on CI (the Jenkinsfile's RUSTUP_TOOLCHAIN, which
+# overrides this file, says the same). A pinned version keeps new clippy lints from failing builds
+# unannounced and keeps a Rust release from throwing the build cache away. Bump it on purpose:
+# change both, then fix what the new clippy finds.
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
