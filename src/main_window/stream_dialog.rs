@@ -88,19 +88,19 @@ impl StreamDialog {
         let send_to = cx.new(|cx| {
             TextInput::new(window, cx)
                 .with_text(DEFAULT_SEND_TO)
-                .with_label("Send to")
+                .with_label(tr!("Send to"))
                 .with_max_len(ADDRESS_LENGTH)
         });
         let port = cx.new(|cx| {
             TextInput::new(window, cx)
                 .with_text(protocol.default_port().to_string())
-                .with_label("Port")
+                .with_label(tr!("Port"))
                 .with_max_len(PORT_DIGITS)
         });
         let qualities = cx.new(|cx| {
             let names = StreamQuality::ALL.iter().map(|quality| quality.name().into()).collect();
             let medium = StreamQuality::ALL.iter().position(|&q| q == StreamQuality::default());
-            Dropdown::new("Quality", names, medium.unwrap_or_default(), window, cx)
+            Dropdown::new(tr!("Quality"), names, medium.unwrap_or_default(), window, cx)
         });
         let edited = |this: &mut Self,
                       _: Entity<TextInput>,
@@ -163,13 +163,13 @@ impl StreamDialog {
     /// The stream the fields and Settings → Recording describe, or why there's none.
     fn target(&self, cx: &App) -> Result<StreamTarget, String> {
         let recording = &settings::get(cx).prefs.recording;
-        let contents = Contents::from_settings(recording).ok_or(
-            "Settings → Recording includes neither audio nor video in streams. Turn one on there.",
-        )?;
+        let contents = Contents::from_settings(recording).ok_or(tr!(
+            "Settings → Recording includes neither audio nor video in streams. Turn one on there."
+        ))?;
         let port = parse_port(self.port.read(cx).text())?;
         let (address, viewer_host) = self.addresses(port, cx)?;
         if self.protocol.listens() && !stream_out::is_port_free(address) {
-            return Err(format!("Port {port} is in use by another program. Try another one."));
+            return Err(tr!("Port {port} is in use by another program. Try another one.", port));
         }
         let quality = StreamQuality::ALL.get(self.qualities.read(cx).selected()).copied();
         Ok(StreamTarget {
@@ -189,7 +189,7 @@ impl StreamDialog {
             let text = self.send_to.read(cx).text().trim().to_owned();
             let ip: IpAddr = text
                 .parse()
-                .map_err(|_| format!("“{text}” isn't an IP address, like 192.168.1.20"))?;
+                .map_err(|_| tr!("“{text}” isn't an IP address, like 192.168.1.20", text))?;
             return Ok((SocketAddr::new(ip, port), ip));
         }
         Ok(match self.reach {
@@ -224,7 +224,7 @@ fn parse_port(text: &str) -> Result<u16, String> {
     text.parse::<u16>()
         .ok()
         .filter(|&port| port > 0)
-        .ok_or_else(|| format!("“{text}” isn't a port: use a number from 1 to 65535"))
+        .ok_or_else(|| tr!("“{text}” isn't a port: use a number from 1 to 65535", text))
 }
 
 #[cfg(test)]

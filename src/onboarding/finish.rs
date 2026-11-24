@@ -84,7 +84,7 @@ impl Onboarding {
             Ok(()) => window.remove_window(),
             Err(err) => {
                 tracing::error!("onboarding: couldn't open the main window: {err:#}");
-                self.finish = FinishState::Failed("Couldn't open the main window.".into());
+                self.finish = FinishState::Failed(tr!("Couldn't open the main window.").into());
                 cx.notify();
             }
         }

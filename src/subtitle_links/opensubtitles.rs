@@ -56,13 +56,12 @@ impl Found {
     /// ("English · ★ 8.5 · 1,204 downloads · Made for this file").
     pub fn details(&self) -> String {
         let mut parts = vec![results::language_name(&self.language)];
-        parts.extend(self.rating.map(|rating| format!("★ {rating:.1}")));
-        parts.push(match self.downloads {
-            1 => "1 download".to_owned(),
-            count => format!("{} downloads", grouped(count)),
-        });
+        parts.extend(
+            self.rating.map(|rating| format!("★ {}", crate::i18n::decimal(f64::from(rating), 1))),
+        );
+        parts.push(trn!("{count} download", "{count} downloads", self.downloads));
         if self.matches_file {
-            parts.push("Made for this file".to_owned());
+            parts.push(tr!("Made for this file").to_owned());
         }
         parts.retain(|part| !part.is_empty());
         parts.join(" · ")
@@ -146,19 +145,6 @@ fn file_name(name: &str, id: &str) -> String {
     }
 }
 
-/// `count` with its thousands grouped ("12,345").
-fn grouped(count: u64) -> String {
-    let digits = count.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,7 +171,5 @@ mod tests {
         assert_eq!(file_name("../../evil/Movie.en.srt", "7"), "Movie.en.srt");
         assert_eq!(file_name("The Wand", "7"), "The Wand.srt");
         assert_eq!(file_name("", "7"), "7.srt");
-        assert_eq!(grouped(999), "999");
-        assert_eq!(grouped(1_000_000), "1,000,000");
     }
 }

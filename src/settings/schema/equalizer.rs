@@ -84,7 +84,7 @@ impl EqualizerPick {
     /// What the dropdown shows.
     pub fn label(&self) -> String {
         match self {
-            Self::None => "None".to_owned(),
+            Self::None => tr!("None").to_owned(),
             Self::Preset(preset) => preset.label().to_owned(),
             Self::Saved(name) => name.clone(),
         }

@@ -220,15 +220,18 @@ fn notification_text(summary: &Summary) -> (String, String) {
     let failed = match summary.failed.as_slice() {
         [] => None,
         [why] if summary.done.is_empty() => Some(format!("{why}.")),
-        [_] => Some("1 file couldn't be converted.".to_owned()),
-        many => Some(format!("{} files couldn't be converted.", many.len())),
+        many => Some(trn!(
+            "{count} file couldn't be converted.",
+            "{count} files couldn't be converted.",
+            many.len()
+        )),
     };
     let done = match summary.done.as_slice() {
         [] => None,
-        [only] => Some(format!("Saved {}.", file_name(only))),
-        many => Some(format!("Converted {} files.", many.len())),
+        [only] => Some(tr!("Saved {name}.", name = file_name(only))),
+        many => Some(trn!("Converted {count} file.", "Converted {count} files.", many.len())),
     };
-    let title = if done.is_some() { "Conversion finished" } else { "Conversion failed" };
+    let title = if done.is_some() { tr!("Conversion finished") } else { tr!("Conversion failed") };
     let body: Vec<String> = done.into_iter().chain(failed).collect();
     (title.to_owned(), body.join(" "))
 }

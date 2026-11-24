@@ -33,11 +33,11 @@ impl Visualizer {
     /// The choice's name, for the user.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Disabled => "Disabled",
-            Self::Spectrometer => "Spectrometer",
-            Self::Scope => "Scope",
-            Self::Spectrum => "Spectrum",
-            Self::Waveform => "Waveform",
+            Self::Disabled => tr!("Disabled"),
+            Self::Spectrometer => tr!("Spectrometer"),
+            Self::Scope => tr!("Scope"),
+            Self::Spectrum => tr!("Spectrum"),
+            Self::Waveform => tr!("Waveform"),
         }
     }
 

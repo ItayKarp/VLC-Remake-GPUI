@@ -53,8 +53,13 @@ pub fn parse(text: &str) -> Result<f32, Invalid> {
 
 /// The speed as a number without trailing zeros: `1`, `1.5`, `0.25`.
 pub fn number(speed: f64) -> String {
-    let text = format!("{speed:.2}");
-    text.trim_end_matches('0').trim_end_matches('.').to_owned()
+    let hundredths = (speed * 100.).round() as i64;
+    let digits = match hundredths {
+        h if h % 100 == 0 => 0,
+        h if h % 10 == 0 => 1,
+        _ => 2,
+    };
+    crate::i18n::decimal(speed, digits)
 }
 
 /// The speed for the field and the slider's bubble: `1.25x`, as designed.
@@ -64,7 +69,7 @@ pub fn field_text(speed: f64) -> String {
 
 /// The speed for the on-screen message: `Speed 1.25×`.
 pub fn message(speed: f32) -> String {
-    format!("Speed {}×", number(f64::from(speed)))
+    tr!("Speed {speed}×", speed = number(f64::from(speed)))
 }
 
 #[cfg(test)]

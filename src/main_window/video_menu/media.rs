@@ -25,6 +25,7 @@ use crate::engine::player::Player;
 use crate::engine::sidecar;
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind};
 use crate::engine::values::Offset;
+use crate::i18n;
 use crate::keymap::actions as act;
 use crate::main_window::MainWindow;
 use crate::settings;
@@ -33,13 +34,13 @@ use crate::ui::menu::MenuItem;
 
 /// The Video menu's submenus of a setting held for the session: its key and the title.
 const SESSION_MENUS: [(&str, &str); 7] = [
-    ("video.zoom", "Zoom"),
-    ("video.aspect_ratio", "Aspect Ratio"),
-    ("video.crop", "Crop"),
-    ("video.flip", "Flip"),
-    ("video.rotation", "Rotate"),
-    ("video.deinterlace", "Deinterlace"),
-    ("video.deinterlace_method", "Deinterlacing Method"),
+    ("video.zoom", tr_noop!("Zoom")),
+    ("video.aspect_ratio", tr_noop!("Aspect Ratio")),
+    ("video.crop", tr_noop!("Crop")),
+    ("video.flip", tr_noop!("Flip")),
+    ("video.rotation", tr_noop!("Rotate")),
+    ("video.deinterlace", tr_noop!("Deinterlace")),
+    ("video.deinterlace_method", tr_noop!("Deinterlacing Method")),
 ];
 
 impl MainWindow {
@@ -50,8 +51,11 @@ impl MainWindow {
         window: &Window,
         cx: &App,
     ) -> MenuItem {
-        let fullscreen =
-            if self.video_is_fullscreen(window) { "Exit Fullscreen" } else { "Fullscreen" };
+        let fullscreen = if self.video_is_fullscreen(window) {
+            tr!("Exit Fullscreen")
+        } else {
+            tr!("Fullscreen")
+        };
         let mut items: Vec<MenuItem> = self
             .loaded_player(cx)
             .map(|player| track_menu(TrackKind::Video, &player, cx))
@@ -61,29 +65,29 @@ impl MainWindow {
         items.extend(SESSION_MENUS.iter().map(|(key, title)| session_menu(key, title, cx)));
         items.push(MenuItem::Separator);
         let no_snapshot = self.why_no_snapshot(cx);
-        let snapshot = run(main, &act::Snapshot, "Take Snapshot", cx).icon(icons::SNAPSHOT);
+        let snapshot = run(main, &act::Snapshot, tr!("Take Snapshot"), cx).icon(icons::SNAPSHOT);
         items
             .push(snapshot.disabled(no_snapshot.is_some()).why_disabled(no_snapshot.unwrap_or("")));
         items.push(run(main, &act::ToggleFullscreen, fullscreen, cx).icon(icons::FULLSCREEN));
         items.push(self.pip_item(main, cx));
-        MenuItem::submenu("Video", items).icon(icons::VIDEO)
+        MenuItem::submenu(tr!("Video"), items).icon(icons::VIDEO)
     }
 
     /// Picture in Picture, or Exit Picture in Picture while it shows (S8.5).
     fn pip_item(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let shown = self.windowing.pip.is_shown();
-        let label = if shown { "Exit Picture in Picture" } else { "Picture in Picture" };
+        let label = if shown { tr!("Exit Picture in Picture") } else { tr!("Picture in Picture") };
         let idle = !shown && self.loaded_player(cx).is_none();
         let item = run(main, &act::PictureInPicture, label, cx).icon(icons::PIP);
-        item.disabled(idle).why_disabled(if idle { NOTHING_PLAYING } else { "" })
+        item.disabled(idle).why_disabled(if idle { i18n::text(NOTHING_PLAYING) } else { "" })
     }
 
     /// Audio ▸.
     pub(super) fn audio_submenu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let Some(player) = self.loaded_player(cx) else {
-            return MenuItem::submenu("Audio", Vec::new())
+            return MenuItem::submenu(tr!("Audio"), Vec::new())
                 .icon(icons::AUDIO)
-                .why_disabled(NOTHING_PLAYING);
+                .why_disabled(i18n::text(NOTHING_PLAYING));
         };
         let muted = player.read(cx).is_muted();
         let mute = player.clone();
@@ -93,45 +97,45 @@ impl MainWindow {
             stereo_mode_menu(cx),
             visualizer_menu(cx),
             MenuItem::Separator,
-            MenuItem::check("Mute", muted, move |_, cx| mute.update(cx, Player::toggle_mute)),
-            run(main, &act::VolumeUp, "Increase Volume", cx),
-            run(main, &act::VolumeDown, "Decrease Volume", cx),
+            MenuItem::check(tr!("Mute"), muted, move |_, cx| mute.update(cx, Player::toggle_mute)),
+            run(main, &act::VolumeUp, tr!("Increase Volume"), cx),
+            run(main, &act::VolumeDown, tr!("Decrease Volume"), cx),
         ];
-        MenuItem::submenu("Audio", items).icon(icons::AUDIO)
+        MenuItem::submenu(tr!("Audio"), items).icon(icons::AUDIO)
     }
 
     /// Subtitle ▸.
     pub(super) fn subtitle_submenu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let Some(player) = self.loaded_player(cx) else {
-            return MenuItem::submenu("Subtitle", Vec::new())
+            return MenuItem::submenu(tr!("Subtitle"), Vec::new())
                 .icon(icons::SUBTITLES)
-                .why_disabled(NOTHING_PLAYING);
+                .why_disabled(i18n::text(NOTHING_PLAYING));
         };
         let sync = player.read(cx).subtitle_sync();
         let showing = player.read(cx).subtitle_key().is_some();
-        let reset = on_main(main, "Reset Delay", move |main, _, cx| {
+        let reset = on_main(main, tr!("Reset Delay"), move |main, _, cx| {
             main.set_subtitle_sync(sync.with_delay(Offset::default()), cx);
         });
-        let why = if showing { "No delay" } else { "No subtitles showing" };
+        let why = if showing { tr!("No delay") } else { tr!("No subtitles showing") };
         let items = vec![
             track_menu(TrackKind::Subtitle, &player, cx),
-            run(main, &act::AddSubtitleFile, "Add Subtitle File…", cx),
+            run(main, &act::AddSubtitleFile, tr!("Add Subtitle File…"), cx),
             encoding_menu(&player, cx),
             MenuItem::Separator,
-            run(main, &act::SubtitleDelayLater, "Increase Delay", cx),
-            run(main, &act::SubtitleDelayEarlier, "Decrease Delay", cx),
+            run(main, &act::SubtitleDelayLater, tr!("Increase Delay"), cx),
+            run(main, &act::SubtitleDelayEarlier, tr!("Decrease Delay"), cx),
             reset.disabled(sync.delay() == Offset::default()).why_disabled(why),
         ];
-        MenuItem::submenu("Subtitle", items).icon(icons::SUBTITLES)
+        MenuItem::submenu(tr!("Subtitle"), items).icon(icons::SUBTITLES)
     }
 }
 
 /// "Video Track ▸" and so on: "None" and each track of `kind`, the playing one checked.
 fn track_menu(kind: TrackKind, player: &Entity<Player>, cx: &App) -> MenuItem {
     let (title, why) = match kind {
-        TrackKind::Video => ("Video Track", "No video tracks"),
-        TrackKind::Audio => ("Audio Track", "No audio tracks"),
-        TrackKind::Subtitle => ("Subtitle Track", "No subtitles"),
+        TrackKind::Video => (tr!("Video Track"), tr!("No video tracks")),
+        TrackKind::Audio => (tr!("Audio Track"), tr!("No audio tracks")),
+        TrackKind::Subtitle => (tr!("Subtitle Track"), tr!("No subtitles")),
     };
     let read = player.read(cx);
     let tracks = read.tracks();
@@ -149,7 +153,7 @@ fn track_menu(kind: TrackKind, player: &Entity<Player>, cx: &App) -> MenuItem {
     let items = if choices.is_empty() {
         Vec::new()
     } else {
-        std::iter::once((None, "None".to_owned()))
+        std::iter::once((None, tr!("None").to_owned()))
             .chain(choices)
             .map(|(id, label)| {
                 let player = player.clone();
@@ -169,8 +173,8 @@ fn encoding_menu(player: &Entity<Player>, cx: &App) -> MenuItem {
     let shown = read.tracks().subtitle;
     let file = read.subtitle_files().iter().find(|file| shown.is_some() && file.track == shown);
     let Some((file, track)) = file.filter(|file| sidecar::is_text(&file.path)).zip(shown) else {
-        return MenuItem::submenu("Text Encoding", Vec::new())
-            .why_disabled("The subtitles showing aren't from a text file");
+        return MenuItem::submenu(tr!("Text Encoding"), Vec::new())
+            .why_disabled(tr!("The subtitles showing aren't from a text file"));
     };
     let reread = |encoding: Option<&'static Encoding>| {
         let player = player.clone();
@@ -179,25 +183,27 @@ fn encoding_menu(player: &Entity<Player>, cx: &App) -> MenuItem {
         }
     };
     let automatic = match file.encoding.filter(|_| !file.encoding_chosen) {
-        Some(found) => format!("Automatic: {}", encoding_label(found)),
-        None => "Automatic".to_owned(),
+        Some(found) => tr!("Automatic: {encoding}", encoding = encoding_label(found)),
+        None => tr!("Automatic").to_owned(),
     };
     let mut items = vec![MenuItem::radio(automatic, !file.encoding_chosen, reread(None))];
     items.push(MenuItem::Separator);
     let listed = TEXT_ENCODINGS.iter().skip(1).filter_map(|choice| {
-        Encoding::for_label(choice.id.as_bytes()).map(|encoding| (choice.label, encoding))
+        let encoding = Encoding::for_label(choice.id.as_bytes())?;
+        Some((i18n::text(choice.label), encoding))
     });
     items.extend(listed.map(|(label, encoding)| {
         let checked = file.encoding_chosen && file.encoding == Some(encoding);
         MenuItem::radio(label, checked, reread(Some(encoding)))
     }));
-    MenuItem::submenu("Text Encoding", items)
+    MenuItem::submenu(tr!("Text Encoding"), items)
 }
 
 /// A submenu of the choices of the setting `key`, the one in effect checked; picking one holds
 /// it for the session. Disabled, saying why, while the setting depends on another that is off
 /// (the method while deinterlacing is).
 fn session_menu(key: &'static str, title: &'static str, cx: &App) -> MenuItem {
+    let title = i18n::text(title);
     let Some(def) = registry::find(key) else { return MenuItem::submenu(title, Vec::new()) };
     let (Control::Dropdown(choices) | Control::Segmented(choices)) = def.control else {
         return MenuItem::submenu(title, Vec::new());
@@ -206,7 +212,7 @@ fn session_menu(key: &'static str, title: &'static str, cx: &App) -> MenuItem {
     let current = def.value(&effective);
     let items = choices.iter().map(|choice| {
         let checked = current == Value::Choice(choice.id);
-        MenuItem::radio(choice.label, checked, move |_, cx| {
+        MenuItem::radio(i18n::text(choice.label), checked, move |_, cx| {
             effects::set(cx, key, Value::Choice(choice.id));
         })
     });
@@ -214,7 +220,7 @@ fn session_menu(key: &'static str, title: &'static str, cx: &App) -> MenuItem {
     if def.is_enabled(&effective) {
         menu
     } else {
-        menu.disabled(true).why_disabled("Deinterlacing is off")
+        menu.disabled(true).why_disabled(tr!("Deinterlacing is off"))
     }
 }
 
@@ -223,7 +229,7 @@ fn encoding_label(encoding: &'static Encoding) -> String {
     let listed = TEXT_ENCODINGS
         .iter()
         .find(|choice| Encoding::for_label(choice.id.as_bytes()) == Some(encoding));
-    listed.map_or_else(|| encoding.name().to_owned(), |choice| choice.label.to_owned())
+    listed.map_or_else(|| encoding.name().to_owned(), |choice| i18n::text(choice.label).to_owned())
 }
 
 /// Audio Device ▸: the system default and each device, the one sound goes to checked.
@@ -234,7 +240,7 @@ fn device_menu(player: &Entity<Player>, cx: &App) -> MenuItem {
         .audio_devices()
         .iter()
         .map(|device| (OutputDevice::Device(device.id.clone()), device.name.clone()));
-    let items = std::iter::once((OutputDevice::SystemDefault, "System default".to_owned()))
+    let items = std::iter::once((OutputDevice::SystemDefault, tr!("System default").to_owned()))
         .chain(devices)
         .map(|(device, name)| {
             let checked = device == active;
@@ -243,19 +249,20 @@ fn device_menu(player: &Entity<Player>, cx: &App) -> MenuItem {
                 settings::update(cx, |s| device.id().clone_into(&mut s.local.audio.output_device));
             })
         });
-    MenuItem::submenu("Audio Device", items.collect())
+    MenuItem::submenu(tr!("Audio Device"), items.collect())
 }
 
 /// Stereo Mode ▸: Settings → Audio "Speaker setup".
 fn stereo_mode_menu(cx: &App) -> MenuItem {
     let setup = settings::get(cx).prefs.audio.speaker_setup;
-    let choices = [(SpeakerSetup::Automatic, "Automatic"), (SpeakerSetup::Stereo, "Stereo")];
+    let choices =
+        [(SpeakerSetup::Automatic, tr!("Automatic")), (SpeakerSetup::Stereo, tr!("Stereo"))];
     let items = choices.into_iter().map(|(choice, label)| {
         MenuItem::radio(label, choice == setup, move |_, cx| {
             settings::update(cx, |s| s.prefs.audio.speaker_setup = choice);
         })
     });
-    MenuItem::submenu("Stereo Mode", items.collect())
+    MenuItem::submenu(tr!("Stereo Mode"), items.collect())
 }
 
 /// Visualizer ▸: Settings → Audio "Audio visualizer".
@@ -266,5 +273,5 @@ fn visualizer_menu(cx: &App) -> MenuItem {
             settings::update(cx, |s| s.prefs.audio.visualizer = choice);
         })
     });
-    MenuItem::submenu("Visualizer", items.collect())
+    MenuItem::submenu(tr!("Visualizer"), items.collect())
 }

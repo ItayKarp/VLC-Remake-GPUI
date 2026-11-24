@@ -12,6 +12,8 @@ use gpui::{
 use super::icon::{icon, two_tone};
 use super::metrics;
 use crate::assets::{TwoTone, icons};
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Labels longer than this many characters get a tooltip with the full text.
@@ -132,6 +134,11 @@ impl OptionRow {
     }
 }
 
+/// The chevron a submenu's row ends with, pointing to the side the submenu opens on.
+fn submenu_chevron() -> &'static str {
+    crate::i18n::mirrored(icons::CHEVRON_RIGHT, icons::CHEVRON_LEFT)
+}
+
 impl RenderOnce for OptionRow {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = theme::palette(window, cx);
@@ -144,13 +151,12 @@ impl RenderOnce for OptionRow {
             .id(self.id)
             .h(px(self.height))
             .flex_none()
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_center()
             .gap(px(12.))
             .px(px(14.))
             .rounded(px(metrics::RADIUS + 2.))
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(fg)
             .role(accesskit::Role::MenuItem)
             .aria_label(self.label.clone())
@@ -167,7 +173,7 @@ impl RenderOnce for OptionRow {
             })
             .child(label(self.label))
             .when_some(self.shortcut, |r, hint| r.child(shortcut_hint(hint, &p)))
-            .when(self.submenu, |r| r.child(icon(icons::CHEVRON_RIGHT, 18., p.icon)))
+            .when(self.submenu, |r| r.child(icon(submenu_chevron(), 18., p.icon)))
             .when(self.checked, |r| r.child(icon(icons::CHECK, CHECK_SIZE, p.accent_fg)))
             .when(check_spacer, |r| r.child(div().size(px(CHECK_SIZE)).flex_none()))
     }
@@ -190,5 +196,5 @@ fn label(text: SharedString) -> Stateful<Div> {
 
 /// The muted keyboard shortcut after the label.
 fn shortcut_hint(hint: SharedString, p: &Palette) -> Div {
-    div().flex_none().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(hint)
+    div().flex_none().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(hint)
 }

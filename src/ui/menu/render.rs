@@ -6,6 +6,7 @@ use gpui::{
 };
 
 use super::{ContextMenu, MenuItem};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::focus;
 use crate::ui::metrics;
@@ -18,12 +19,17 @@ const ROW_HEIGHT: f32 = 40.;
 /// Widest a menu gets, in logical pixels.
 const MAX_WIDTH: f32 = 420.;
 
+/// The side submenus open on: the end side, mirrored right to left (S9.2.2).
+fn submenu_side() -> Side {
+    crate::i18n::mirrored(Side::Right, Side::Left)
+}
+
 impl Render for ContextMenu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let submenu = self.submenu.as_ref().and_then(|open| {
             let bounds = self.rows[open.index].bounds()?;
-            Some(popover::attached(bounds, Side::Right, 4., self.depth + 2, open.menu.clone()))
+            Some(popover::attached(bounds, submenu_side(), 4., self.depth + 2, open.menu.clone()))
         });
         // The submenu renders inside this element, so keys pressed in it pass
         // through here: Left and Escape are caught on the way down.
@@ -56,7 +62,7 @@ impl ContextMenu {
             .p(px(6.))
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .child(self.tracker.element())
             .children(self.row_elements(p, cx))
     }

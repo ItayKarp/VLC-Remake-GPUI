@@ -67,9 +67,9 @@ pub fn is_pending(action: &dyn Action) -> bool {
     PENDING.iter().any(|pending| pending.partial_eq(action))
 }
 
-/// The command table's label for `action`.
+/// The command table's label for `action`, in the interface language.
 pub fn label(action: &dyn Action) -> &'static str {
-    commands::find(action).map_or("", |command| command.label)
+    commands::find(action).map_or("", commands::Command::title)
 }
 
 /// The macOS menu bar (S2.9.5): the main menu's commands and the video menu's player commands.
@@ -84,22 +84,22 @@ pub fn mac_menu_bar() -> Vec<Menu> {
         audio_menu(),
         subtitle_menu(),
         menu(
-            "View",
+            tr!("View"),
             [
-                plain(&act::ToggleFullscreen, "Toggle Fullscreen"),
-                item(&act::HideInterface, "Hide Interface"),
-                item(&act::PictureInPicture, "Picture in Picture"),
-                plain(&act::Snapshot, "Take Snapshot"),
+                plain(&act::ToggleFullscreen, tr!("Toggle Fullscreen")),
+                item(&act::HideInterface, tr!("Hide Interface")),
+                item(&act::PictureInPicture, tr!("Picture in Picture")),
+                plain(&act::Snapshot, tr!("Take Snapshot")),
             ],
         ),
-        menu("Window", [item(&act::CloseWindow, "Close Window")]),
+        menu(tr!("Window"), [item(&act::CloseWindow, tr!("Close Window"))]),
         menu(
-            "Help",
+            tr!("Help"),
             [
-                item(&act::ShowKeyboardShortcuts, "Keyboard Shortcuts"),
-                item(&act::RunSetupAgain, "Run Setup Again…"),
+                item(&act::ShowKeyboardShortcuts, tr!("Keyboard Shortcuts")),
+                item(&act::RunSetupAgain, tr!("Run Setup Again…")),
                 SEPARATOR,
-                item(&act::CopyDebugInfo, "Copy Debug Info"),
+                item(&act::CopyDebugInfo, tr!("Copy Debug Info")),
             ],
         ),
     ]
@@ -108,12 +108,12 @@ pub fn mac_menu_bar() -> Vec<Menu> {
 /// Audio: the audio track and the volume.
 fn audio_menu() -> Menu {
     menu(
-        "Audio",
+        tr!("Audio"),
         [
-            plain(&act::CycleAudioTrack, "Next Audio Track"),
+            plain(&act::CycleAudioTrack, tr!("Next Audio Track")),
             SEPARATOR,
-            plain(&act::VolumeUp, "Increase Volume"),
-            plain(&act::VolumeDown, "Decrease Volume"),
+            plain(&act::VolumeUp, tr!("Increase Volume")),
+            plain(&act::VolumeDown, tr!("Decrease Volume")),
         ],
     )
 }
@@ -121,13 +121,13 @@ fn audio_menu() -> Menu {
 /// Subtitle: the subtitle track, adding a file, and the delay (S6.3.2).
 fn subtitle_menu() -> Menu {
     menu(
-        "Subtitle",
+        tr!("Subtitle"),
         [
-            plain(&act::CycleSubtitleTrack, "Next Subtitle Track"),
-            item(&act::AddSubtitleFile, "Add Subtitle File…"),
+            plain(&act::CycleSubtitleTrack, tr!("Next Subtitle Track")),
+            item(&act::AddSubtitleFile, tr!("Add Subtitle File…")),
             SEPARATOR,
-            plain(&act::SubtitleDelayLater, "Increase Delay"),
-            plain(&act::SubtitleDelayEarlier, "Decrease Delay"),
+            plain(&act::SubtitleDelayLater, tr!("Increase Delay")),
+            plain(&act::SubtitleDelayEarlier, tr!("Decrease Delay")),
         ],
     )
 }
@@ -136,60 +136,60 @@ fn app_menu() -> Menu {
     menu(
         "VLC",
         [
-            item(&act::About, "About VLC"),
+            item(&act::About, tr!("About VLC")),
             SEPARATOR,
-            item(&act::OpenSettings, "Settings…"),
-            item(&act::ShowKeyboardShortcuts, "Keyboard Shortcuts"),
-            item(&act::CustomizePlayer, "Customize Player…"),
+            item(&act::OpenSettings, tr!("Settings…")),
+            item(&act::ShowKeyboardShortcuts, tr!("Keyboard Shortcuts")),
+            item(&act::CustomizePlayer, tr!("Customize Player…")),
             SEPARATOR,
-            item(&act::Quit, "Quit VLC"),
+            item(&act::Quit, tr!("Quit VLC")),
         ],
     )
 }
 
 fn file_menu() -> Menu {
     menu(
-        "File",
+        tr!("File"),
         [
-            item(&act::OpenFile, "Open File(s)…"),
-            item(&act::OpenFolder, "Open Folder…"),
-            item(&act::OpenFromClipboard, "Open from Clipboard"),
-            item(&act::OpenNetworkStream, "Open Network Stream…"),
-            item(&act::OpenDisc, "Open Disc…"),
-            item(&act::OpenCaptureDevice, "Open Capture Device…"),
+            item(&act::OpenFile, tr!("Open File(s)…")),
+            item(&act::OpenFolder, tr!("Open Folder…")),
+            item(&act::OpenFromClipboard, tr!("Open from Clipboard")),
+            item(&act::OpenNetworkStream, tr!("Open Network Stream…")),
+            item(&act::OpenDisc, tr!("Open Disc…")),
+            item(&act::OpenCaptureDevice, tr!("Open Capture Device…")),
             SEPARATOR,
-            item(&act::NewPlaylist, "New Playlist…"),
-            item(&act::SaveQueueAsPlaylist, "Save Queue as Playlist…"),
-            item(&act::ImportPlaylist, "Import Playlist…"),
+            item(&act::NewPlaylist, tr!("New Playlist…")),
+            item(&act::SaveQueueAsPlaylist, tr!("Save Queue as Playlist…")),
+            item(&act::ImportPlaylist, tr!("Import Playlist…")),
             SEPARATOR,
-            item(&act::Convert, "Convert…"),
-            item(&act::Stream, "Stream…"),
+            item(&act::Convert, tr!("Convert…")),
+            item(&act::Stream, tr!("Stream…")),
         ],
     )
 }
 
 fn playback_menu() -> Menu {
     menu(
-        "Playback",
+        tr!("Playback"),
         [
-            plain(&act::PlayPause, "Play / Pause"),
-            plain(&act::Stop, "Stop"),
-            plain(&act::PreviousItem, "Previous Item"),
-            plain(&act::NextItem, "Next Item"),
-            plain(&act::PreviousChapter, "Previous Chapter"),
-            plain(&act::NextChapter, "Next Chapter"),
-            plain(&act::NextProgram, "Next Program"),
-            plain(&act::DiscMenu, "Disc Menu"),
-            plain(&act::LoopAToB, "A-B Loop"),
-            item(&act::AddBookmark, "Add Bookmark"),
-            plain(&act::Record, "Record"),
+            plain(&act::PlayPause, tr!("Play / Pause")),
+            plain(&act::Stop, tr!("Stop")),
+            plain(&act::PreviousItem, tr!("Previous Item")),
+            plain(&act::NextItem, tr!("Next Item")),
+            plain(&act::PreviousChapter, tr!("Previous Chapter")),
+            plain(&act::NextChapter, tr!("Next Chapter")),
+            plain(&act::NextProgram, tr!("Next Program")),
+            plain(&act::DiscMenu, tr!("Disc Menu")),
+            plain(&act::LoopAToB, tr!("A-B Loop")),
+            item(&act::AddBookmark, tr!("Add Bookmark")),
+            plain(&act::Record, tr!("Record")),
             SEPARATOR,
-            plain(&act::Faster, "Faster"),
-            plain(&act::Slower, "Slower"),
-            plain(&act::NormalSpeed, "Normal Speed"),
+            plain(&act::Faster, tr!("Faster")),
+            plain(&act::Slower, tr!("Slower")),
+            plain(&act::NormalSpeed, tr!("Normal Speed")),
             SEPARATOR,
-            plain(&act::SeekForward, "Jump Forward"),
-            plain(&act::SeekBackward, "Jump Backward"),
+            plain(&act::SeekForward, tr!("Jump Forward")),
+            plain(&act::SeekBackward, tr!("Jump Backward")),
         ],
     )
 }

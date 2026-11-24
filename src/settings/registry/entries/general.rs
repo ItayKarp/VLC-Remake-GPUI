@@ -10,36 +10,53 @@ use crate::settings::InterfaceLanguage;
 use crate::settings::registry::Category;
 use crate::theme::{Accent, ThemeMode};
 
-const APPEARANCE: (Category, &str) = (Category::General, "Appearance");
-const STARTUP: (Category, &str) = (Category::General, "Startup");
+const APPEARANCE: (Category, &str) = (Category::General, tr_noop!("Appearance"));
+const STARTUP: (Category, &str) = (Category::General, tr_noop!("Startup"));
+
+/// The interface languages, and in debug builds the pseudo-locales after them (S9.2).
+const LANGUAGES: &[InterfaceLanguage] = &[
+    InterfaceLanguage::System,
+    InterfaceLanguage::English,
+    InterfaceLanguage::PseudoAccented,
+    InterfaceLanguage::PseudoRtl,
+];
+const LANGUAGE_CHOICES: &[Choice] = &[
+    Choice::new("system", tr_noop!("Same as the system")),
+    Choice::new("english", "English"),
+    Choice::new("pseudo-accented", "[Ƥšéûðö Åççéñţéð]"),
+    Choice::new("pseudo-rtl", "Pseudo RTL"),
+];
+/// How many languages release builds list: the pseudo-locales are for checking the layout.
+const RELEASED_LANGUAGES: usize = 2;
+const LISTED_LANGUAGES: usize =
+    if cfg!(debug_assertions) { LANGUAGES.len() } else { RELEASED_LANGUAGES };
 
 impl SettingChoice for InterfaceLanguage {
-    const VALUES: &'static [Self] = &[Self::System, Self::English];
-    const CHOICES: &'static [Choice] =
-        &[Choice::new("system", "Same as the system"), Choice::new("english", "English")];
+    const VALUES: &'static [Self] = LANGUAGES.split_at(LISTED_LANGUAGES).0;
+    const CHOICES: &'static [Choice] = LANGUAGE_CHOICES.split_at(LISTED_LANGUAGES).0;
 }
 
 impl SettingChoice for ThemeMode {
     const VALUES: &'static [Self] = &ThemeMode::ALL;
     const CHOICES: &'static [Choice] = &[
-        Choice::new("light", "Light"),
-        Choice::new("dark", "Dark"),
-        Choice::new("system", "System"),
+        Choice::new("light", tr_noop!("Light")),
+        Choice::new("dark", tr_noop!("Dark")),
+        Choice::new("system", tr_noop!("System")),
     ];
 }
 
 impl SettingChoice for Accent {
     const VALUES: &'static [Self] = &Accent::ALL;
     const CHOICES: &'static [Choice] = &[
-        Choice::new("orange", "Orange"),
-        Choice::new("red", "Red"),
-        Choice::new("yellow", "Yellow"),
-        Choice::new("green", "Green"),
-        Choice::new("teal", "Teal"),
-        Choice::new("blue", "Blue"),
-        Choice::new("purple", "Purple"),
-        Choice::new("pink", "Pink"),
-        Choice::new("gray", "Gray"),
+        Choice::new("orange", tr_noop!("Orange")),
+        Choice::new("red", tr_noop!("Red")),
+        Choice::new("yellow", tr_noop!("Yellow")),
+        Choice::new("green", tr_noop!("Green")),
+        Choice::new("teal", tr_noop!("Teal")),
+        Choice::new("blue", tr_noop!("Blue")),
+        Choice::new("purple", tr_noop!("Purple")),
+        Choice::new("pink", tr_noop!("Pink")),
+        Choice::new("gray", tr_noop!("Gray")),
     ];
 }
 
@@ -60,61 +77,61 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "language",
         APPEARANCE,
-        "Interface language",
+        tr_noop!("Interface language"),
         Control::Dropdown(InterfaceLanguage::CHOICES),
         choice!(prefs.language),
     )
-    .info("The language of menus, buttons and messages. More languages are on the way.")
+    .info(tr_noop!("The language of menus, buttons and messages. More languages are on the way."))
     .keywords(&["locale", "translation", "english"]),
     SettingDef::new(
         "theme",
         APPEARANCE,
-        "Theme",
+        tr_noop!("Theme"),
         Control::Segmented(ThemeMode::CHOICES),
         choice!(prefs.theme),
     )
-    .info("Dark or light windows, or whichever the system uses right now.")
+    .info(tr_noop!("Dark or light windows, or whichever the system uses right now."))
     .keywords(&["appearance", "dark mode", "light mode", "color scheme"]),
     SettingDef::new(
         "accent",
         APPEARANCE,
-        "Accent color",
+        tr_noop!("Accent color"),
         Control::Swatches { choices: Accent::CHOICES, color: accent_color },
         choice!(prefs.accent),
     )
-    .info("The color of selected items, switches, sliders and the progress bar.")
+    .info(tr_noop!("The color of selected items, switches, sliders and the progress bar."))
     .keywords(&["highlight", "colour", "tint"]),
     SettingDef::new(
         "startup.show_dialogs",
         STARTUP,
-        "Show confirmation and error dialogs",
+        tr_noop!("Show confirmation and error dialogs"),
         Control::Toggle,
         toggle!(prefs.startup.show_dialogs),
     )
-    .info(
-        "Asks before discarding or deleting something. Off, it happens at once; a deleted \
-         playlist can still be brought back with Undo.",
-    )
+    .info(tr_noop!(
+        "Asks before discarding or deleting something. Off, it happens at once; a deleted playlist \
+         can still be brought back with Undo."
+    ))
     .keywords(&["confirm", "ask", "prompt", "warning"]),
     SettingDef::new(
         "startup.check_for_updates",
         STARTUP,
-        "Check for updates automatically",
+        tr_noop!("Check for updates automatically"),
         Control::Toggle,
         toggle!(prefs.startup.check_for_updates),
     )
-    .info("Looks for a new version of VLC now and then, and offers to install it.")
+    .info(tr_noop!("Looks for a new version of VLC now and then, and offers to install it."))
     .keywords(&["update", "upgrade", "version", "new version"]),
     SettingDef::new(
         "run_setup_again",
         STARTUP,
-        "Setup",
-        Control::Button { label: "Run Setup Again…", action: run_setup_again },
+        tr_noop!("Setup"),
+        Control::Button { label: tr_noop!("Run Setup Again…"), action: run_setup_again },
         Binding::ACTION,
     )
-    .info(
-        "Walks through the first-run setup again: media folder, theme and shortcuts, starting \
-         from your current choices. Cancel leaves everything as it was.",
-    )
+    .info(tr_noop!(
+        "Walks through the first-run setup again: media folder, theme and shortcuts, starting from \
+         your current choices. Cancel leaves everything as it was."
+    ))
     .keywords(&["onboarding", "welcome", "first run", "wizard"]),
 ];

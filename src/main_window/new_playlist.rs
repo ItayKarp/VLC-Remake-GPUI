@@ -84,8 +84,8 @@ impl NewPlaylistDialog {
     ) -> Self {
         let title = cx.new(|cx| {
             TextInput::new(window, cx)
-                .with_placeholder("e.g., Favorite Videos")
-                .with_label("Playlist title")
+                .with_placeholder(tr!("e.g., Favorite Videos"))
+                .with_label(tr!("Playlist title"))
                 .with_max_len(playlists::title::MAX_CHARS)
         });
         let title_events =
@@ -150,14 +150,14 @@ impl NewPlaylistDialog {
             return;
         }
         let this = cx.entity().downgrade();
-        let discard = DialogButton::new("Discard").primary().on_click(move |_, cx| {
+        let discard = DialogButton::new(tr!("Discard")).primary().on_click(move |_, cx| {
             this.update(cx, |_, cx| cx.emit(DismissEvent)).ok();
         });
-        let buttons = vec![DialogButton::new("Keep Editing"), discard];
+        let buttons = vec![DialogButton::new(tr!("Keep Editing")), discard];
         let body = |_: &mut Window, _: &mut App| {
-            "The files you added to this playlist won't be saved.".into_any_element()
+            tr!("The files you added to this playlist won't be saved.").into_any_element()
         };
-        let confirm = cx.new(|cx| Dialog::new("Discard this playlist?", body, buttons, cx));
+        let confirm = cx.new(|cx| Dialog::new(tr!("Discard this playlist?"), body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(confirm, window, cx)).ok();
     }
 
@@ -175,7 +175,7 @@ impl NewPlaylistDialog {
             files: true,
             directories: false,
             multiple: false,
-            prompt: Some("Choose".into()),
+            prompt: Some(tr!("Choose").into()),
         });
         let task = cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(mut paths))) = paths.await else { return };

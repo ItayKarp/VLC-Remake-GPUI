@@ -80,7 +80,10 @@ impl Layer {
     /// Adds an empty preset, which shows the defaults until changed, and uses it. Answers its
     /// name.
     pub fn create(&mut self, prefs: &mut Preferences) -> String {
-        self.add(prefs, Preset { name: names::NEW.to_owned(), values: toml::Table::new() })
+        self.add(
+            prefs,
+            Preset { name: crate::i18n::text(names::NEW).to_owned(), values: toml::Table::new() },
+        )
     }
 
     /// Adds `preset`, numbered when its name is taken, and uses it. Answers its name.

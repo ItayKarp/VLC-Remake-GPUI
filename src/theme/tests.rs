@@ -48,7 +48,7 @@ fn accent_fg_meets_ui_minimum_on_background() {
 
 #[test]
 fn accent_fg_is_the_accent_when_it_already_passes() {
-    let p = Palette::new(false, Accent::Blue);
+    let p = Palette::new(true, Accent::Orange);
     assert_eq!(p.accent_fg, p.accent);
     // Gray is 1.98:1 on the light background, so it's darkened.
     let p = Palette::new(false, Accent::Gray);
@@ -99,7 +99,7 @@ fn high_contrast_ignores_theme_and_accent() {
     let theme = super::Theme {
         mode: ThemeMode::Light,
         accent: Accent::Pink,
-        system: super::SystemPrefs { reduce_motion: false, high_contrast: Some(sys) },
+        system: super::SystemPrefs { high_contrast: Some(sys), ..super::SystemPrefs::default() },
     };
     let p = theme.palette(WindowAppearance::Light);
     assert_eq!(p, Palette::high_contrast(sys));
@@ -117,4 +117,47 @@ fn system_mode_follows_appearance() {
     assert!(!ThemeMode::System.is_dark(WindowAppearance::Light));
     assert!(ThemeMode::Dark.is_dark(WindowAppearance::Light));
     assert!(!ThemeMode::Light.is_dark(WindowAppearance::Dark));
+}
+
+/// Every foreground token against every surface, for both themes and every accent
+/// (S9.1.3): text 4.5:1; icons, accent strokes and the focus ring 3:1.
+#[test]
+fn foregrounds_meet_wcag_on_every_surface() {
+    for dark in [false, true] {
+        for accent in Accent::ALL {
+            let p = Palette::new(dark, accent);
+            let foregrounds = [
+                ("text_strong", p.text_strong, TEXT_MIN),
+                ("text", p.text, TEXT_MIN),
+                ("text_muted", p.text_muted, TEXT_MIN),
+                ("danger", p.danger, TEXT_MIN),
+                ("success", p.success, TEXT_MIN),
+                ("warning", p.warning, TEXT_MIN),
+                ("icon", p.icon, UI_MIN),
+                ("accent_fg", p.accent_fg, UI_MIN),
+                ("focus_ring", p.focus_ring, UI_MIN),
+            ];
+            for (name, color, min) in foregrounds {
+                assert_on_every_surface(&p, color, min, &format!("{accent:?} {name}"));
+            }
+        }
+    }
+}
+
+/// Fails, naming `what` and the surface, where `color` is below `min` on one of `p`'s surfaces.
+fn assert_on_every_surface(p: &Palette, color: gpui::Hsla, min: f32, what: &str) {
+    for (index, surface) in p.surfaces().into_iter().enumerate() {
+        let r = ratio(color, surface);
+        assert!(r >= min, "{what} (dark: {}) on surface {index}: {r:.2}", p.dark);
+    }
+}
+
+#[test]
+fn legibility_keeps_tokens_that_already_pass() {
+    // The dark design's body text passes everywhere, so it's left as sampled.
+    let p = Palette::new(true, Accent::Orange);
+    assert_eq!(p.text_strong, hex(0xE6E6E6));
+    // Light muted text fails on the gray sidebar, so it's darkened.
+    let light = Palette::new(false, Accent::Orange);
+    assert!(contrast::luminance(light.text_muted) < contrast::luminance(hex(0x6B6B6B)));
 }

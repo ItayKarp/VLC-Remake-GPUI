@@ -91,6 +91,14 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
+/// Rebuilds the macOS menu bar, whose titles are drawn by the OS and so don't follow a
+/// language change by themselves (S9.2.4).
+pub fn refresh_menus(cx: &mut App) {
+    if is_mac(cx) {
+        cx.set_menus(menus::mac_menu_bar());
+    }
+}
+
 /// Saves `shortcuts` as the user's keymap and binds them in place of the commands' current
 /// keys. Other bindings (text fields, the Settings window) keep their place, and so their
 /// precedence.

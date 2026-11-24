@@ -162,7 +162,7 @@ impl<'a> Run<'a> {
     /// What libVLC said went wrong, or a plain cause when it said nothing.
     fn error(&self) -> String {
         let said = self.vlc.last_error();
-        if said.trim().is_empty() { "VLC couldn't read or encode it".to_owned() } else { said }
+        if said.trim().is_empty() { tr!("VLC couldn't read or encode it").to_owned() } else { said }
     }
 
     /// The kinds of stream the played media has.

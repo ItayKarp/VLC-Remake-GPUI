@@ -227,11 +227,11 @@ impl MainWindow {
                 FolderState::Read(contents) => {
                     Body::Items(Items::new(read_rows(route, contents), &contents.cards))
                 }
-                FolderState::Gone => Body::Gone("This folder is no longer available."),
+                FolderState::Gone => Body::Gone(tr!("This folder is no longer available.")),
             };
         }
         if !super::exists(route, cx) {
-            return Body::Gone("This playlist no longer exists.");
+            return Body::Gone(tr!("This playlist no longer exists."));
         }
         Body::Items(Items::new(rows(route, cx), &[]))
     }

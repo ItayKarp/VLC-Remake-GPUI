@@ -8,6 +8,7 @@ use super::basics::section;
 use crate::settings::registry::{Category, Group};
 use crate::settings_view::SettingsPage;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 
 /// The page's height in the gallery: tall enough for most pages without scrolling.
@@ -44,7 +45,7 @@ impl SettingsDemo {
     /// The section: the picker, the page's title, and the page.
     pub(super) fn render(&self, p: &Palette) -> Div {
         let picker = div().w(px(PICKER_WIDTH)).child(self.picker.clone());
-        let title = div().text_size(px(20.)).text_color(p.text).child(self.category.title());
+        let title = div().text_size(text_px(20.)).text_color(p.text).child(self.category.title());
         let page = div()
             .h(px(PAGE_HEIGHT))
             .rounded(px(8.))

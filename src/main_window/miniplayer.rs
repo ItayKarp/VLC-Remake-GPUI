@@ -14,8 +14,9 @@ mod dock;
 mod queue;
 
 use gpui::{
-    AnyElement, App, Context, DispatchPhase, Entity, IntoElement, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, Pixels, Point, Window, canvas, div, prelude::*, px,
+    AnyElement, App, Context, DispatchPhase, Entity, FocusHandle, IntoElement, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Window, canvas, div, prelude::*,
+    px,
 };
 
 use self::dock::{Area, CardSize, MARGIN};
@@ -44,6 +45,10 @@ pub(super) struct Miniplayer {
     placed: Option<Placed>,
     /// The progress bar's bounds, for seeking where it is clicked.
     progress: BoundsTracker,
+    /// Holds the hover controls, to tell when Tab reached one of them; made on first use.
+    overlay_focus: Option<FocusHandle>,
+    /// Whether one of the hover controls had the keyboard focus this frame.
+    overlay_focused: bool,
 }
 
 /// A press on the card that may become a drag.
@@ -135,10 +140,14 @@ impl MainWindow {
     pub(super) fn render_miniplayer(
         &mut self,
         p: &Palette,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let placed = self.miniplayer.placed?;
         let player = self.miniplayer_player(cx)?;
+        let overlay_focus = self.miniplayer.overlay_focus.get_or_insert_with(|| cx.focus_handle());
+        self.miniplayer.overlay_focused =
+            overlay_focus.contains_focused(window, cx) && window.last_input_was_keyboard();
         let (width, height) = placed.size();
         let (x, y) = placed.origin;
         let card = self.render_miniplayer_card(&player, placed.card, p, cx);

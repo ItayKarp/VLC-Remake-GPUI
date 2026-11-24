@@ -18,6 +18,7 @@
 mod ab_loop;
 mod about;
 mod add_subtitles;
+mod announcements;
 mod audio;
 mod audio_delay;
 mod audio_tracks;
@@ -103,6 +104,7 @@ use self::auto_hide::rules::Chrome;
 use crate::app;
 use crate::app::request::OpenRequest;
 use crate::engine::player::Player;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::CopyDebugInfo;
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
@@ -110,6 +112,7 @@ use crate::power::DisplaySleep;
 use crate::queue::{Queue, Skips};
 use crate::settings;
 use crate::theme;
+use crate::ui::announcer::Announcer;
 use crate::ui::focus;
 use crate::ui::modal::ModalLayer;
 use crate::ui::popover::BoundsTracker;
@@ -210,6 +213,8 @@ pub struct MainWindow {
     web_remote: web_remote::WebRemote,
     /// The track being listened to, for last.fm (S8.17.1).
     scrobbling: scrobbling::Scrobbling,
+    /// What a screen reader was last told about playback (S9.1.2).
+    announcer: Announcer,
 }
 
 impl MainWindow {
@@ -262,6 +267,7 @@ impl MainWindow {
             auto_profile: profiles::AutoProfile::default(),
             web_remote: web_remote::WebRemote::default(),
             scrobbling: scrobbling::Scrobbling::default(),
+            announcer: Announcer::default(),
         };
         this.start(request, window, cx);
         this
@@ -388,7 +394,8 @@ impl Render for MainWindow {
         self.place_miniplayer(chrome.title_bar, window, cx);
         let full = self.library_panel.is_full();
 
-        let root = Self::player_keys(focus::tab_navigation(div()), cx);
+        // Text aligns to the start side, mirrored for right-to-left languages (S9.2.2).
+        let root = Self::player_keys(focus::tab_navigation(div().text_start()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
         let root = Self::menu_actions(Self::playlist_actions(root, cx), cx);
         Self::open_actions(Self::open_dialog_actions(root, cx), cx)
@@ -415,10 +422,10 @@ impl Render for MainWindow {
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
             .children((!full).then(|| self.render_queue_panel(&p, window, cx)).flatten())
-            .children(self.render_miniplayer(&p, cx))
+            .children(self.render_miniplayer(&p, window, cx))
             .children(chrome.controls.then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(Self::pointer_watcher(cx))
-            .child(self.toasts.clone())
+            .children(self.render_messages())
             .children(self.render_menus())
             .child(self.modals.clone())
             .child(drop_target::highlight(&p))

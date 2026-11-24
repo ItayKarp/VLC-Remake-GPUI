@@ -320,7 +320,7 @@ fn correct_dpi_drift<V: 'static>(
 pub fn run_setup_again(display: Option<DisplayId>, cx: &mut App) {
     if let Err(err) = open_onboarding(display, cx) {
         tracing::error!("couldn't open onboarding: {err:#}");
-        show_error_in_main_windows("Setup couldn't be opened. See the log for details.", cx);
+        show_error_in_main_windows(tr!("Setup couldn't be opened. See the log for details."), cx);
         return;
     }
     for handle in cx.windows() {

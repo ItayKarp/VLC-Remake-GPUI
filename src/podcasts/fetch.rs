@@ -33,12 +33,14 @@ impl Failure {
     /// What the app says about it.
     pub fn message(&self) -> String {
         match self {
-            Self::NotALink => "Enter a feed address that starts with http:// or https://.".into(),
-            Self::Status(404) => "Nothing was found at that address.".into(),
-            Self::Status(code) => format!("The server refused the feed (HTTP {code})."),
-            Self::TooBig => "That feed is too big to read.".into(),
-            Self::NotAFeed => "That address isn't a podcast feed.".into(),
-            Self::Network(why) => format!("The feed couldn't be downloaded: {why}."),
+            Self::NotALink => {
+                tr!("Enter a feed address that starts with http:// or https://.").into()
+            }
+            Self::Status(404) => tr!("Nothing was found at that address.").into(),
+            Self::Status(code) => tr!("The server refused the feed (HTTP {code}).", code),
+            Self::TooBig => tr!("That feed is too big to read.").into(),
+            Self::NotAFeed => tr!("That address isn't a podcast feed.").into(),
+            Self::Network(why) => tr!("The feed couldn't be downloaded: {why}.", why),
         }
     }
 }

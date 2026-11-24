@@ -52,8 +52,8 @@ impl MainWindow {
             .icon(icon)
         };
         let items = vec![
-            item(View::Grid, "Grid View", icons::GRID_VIEW),
-            item(View::List, "List View", icons::LIST_VIEW),
+            item(View::Grid, tr!("Grid View"), icons::GRID_VIEW),
+            item(View::List, tr!("List View"), icons::LIST_VIEW),
         ];
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &gpui::DismissEvent, cx| {

@@ -100,8 +100,8 @@ pub fn save(changes: Vec<Change>, cx: &App) -> Task<Vec<Outcome>> {
         }));
         match written.await {
             Ok(Ok(())) => outcomes,
-            Ok(Err(error)) => failed_all(outcomes, &format!("Couldn't save the link: {error}.")),
-            Err(_) => failed_all(outcomes, "Couldn't save the link."),
+            Ok(Err(error)) => failed_all(outcomes, &tr!("Couldn't save the link: {error}.", error)),
+            Err(_) => failed_all(outcomes, tr!("Couldn't save the link.")),
         }
     })
 }
@@ -133,7 +133,7 @@ fn prepare(change: &Change) -> Vec<Outcome> {
             let linked = if video_there {
                 link_target(&change.video, addition)
             } else {
-                Err("The video is gone.".to_owned())
+                Err(tr!("The video is gone.").to_owned())
             };
             Outcome { video: change.video.clone(), subtitle: addition.subtitle.clone(), linked }
         })
@@ -143,7 +143,7 @@ fn prepare(change: &Change) -> Vec<Outcome> {
 /// The file to link for `addition` to `video`: the copy, when one is asked for and made.
 fn link_target(video: &Path, addition: &Addition) -> Result<PathBuf, String> {
     if !addition.subtitle.is_file() {
-        return Err("The subtitle file is gone.".to_owned());
+        return Err(tr!("The subtitle file is gone.").to_owned());
     }
     let Some(on_conflict) = addition.copy else { return Ok(addition.subtitle.clone()) };
     match copy::copy(video, &addition.subtitle, on_conflict) {

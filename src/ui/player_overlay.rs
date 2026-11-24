@@ -47,6 +47,26 @@ pub struct TransportState {
     pub can_go_back: bool,
     /// Next would do something.
     pub can_go_next: bool,
+    /// When the controls show.
+    pub reveal: Reveal,
+}
+
+/// When an overlay's controls show.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Reveal {
+    /// While the pointer is over the picture.
+    #[default]
+    OnHover,
+    /// Now: one of them has the keyboard focus, which needs seeing as much as hovering does
+    /// (S9.1.1).
+    Always,
+}
+
+impl Reveal {
+    /// Always while a control has the keyboard focus, else on hover.
+    pub fn keyboard_inside(focused: bool) -> Self {
+        if focused { Reveal::Always } else { Reveal::OnHover }
+    }
 }
 
 /// The top-right button: what it is called and shows.
@@ -87,7 +107,7 @@ pub fn overlay(
             .on_click(move |event, window, cx| click(event, window, cx));
         if in_title_bar { button.in_title_bar() } else { button }
     };
-    let close = corner("overlay-close", icons::CLOSE, "Stop".into(), handlers.close.clone());
+    let close = corner("overlay-close", icons::CLOSE, tr!("Stop").into(), handlers.close.clone());
     let window = corner("overlay-window", button.icon, button.label, handlers.window.clone());
     let corners = div().flex().justify_between().p(px(CORNER_PAD)).child(close).child(window);
     let overlay = div()
@@ -99,7 +119,7 @@ pub fn overlay(
         .bg(gpui::black().opacity(SCRIM))
         .child(corners)
         .child(transport(state, handlers, in_title_bar));
-    if state.middle == Middle::Replay {
+    if state.middle == Middle::Replay || state.reveal == Reveal::Always {
         overlay
     } else {
         overlay.opacity(0.).group_hover(group, |s| s.opacity(1.))
@@ -109,9 +129,9 @@ pub fn overlay(
 /// Previous, Play/Pause (Replay once ended) and Next.
 fn transport(state: TransportState, handlers: &Handlers, in_title_bar: bool) -> Div {
     let (middle, label) = match state.middle {
-        Middle::Replay => (icons::REPLAY, "Replay"),
-        Middle::Pause => (icons::PAUSE, "Pause"),
-        Middle::Play => (icons::PLAY, "Play"),
+        Middle::Replay => (icons::REPLAY, tr!("Replay")),
+        Middle::Pause => (icons::PAUSE, tr!("Pause")),
+        Middle::Play => (icons::PLAY, tr!("Play")),
     };
     let button = |id: &'static str, glyph: &'static str, label: &'static str, click: &OnClick| {
         let click = click.clone();
@@ -121,10 +141,10 @@ fn transport(state: TransportState, handlers: &Handlers, in_title_bar: bool) -> 
             .on_click(move |event, window, cx| click(event, window, cx));
         if in_title_bar { button.in_title_bar() } else { button }
     };
-    let previous = button("overlay-previous", icons::PREVIOUS, "Previous", &handlers.previous)
+    let previous = button("overlay-previous", icons::PREVIOUS, tr!("Previous"), &handlers.previous)
         .disabled(!state.can_go_back);
-    let next =
-        button("overlay-next", icons::NEXT, "Next", &handlers.next).disabled(!state.can_go_next);
+    let next = button("overlay-next", icons::NEXT, tr!("Next"), &handlers.next)
+        .disabled(!state.can_go_next);
     div()
         .flex_1()
         .flex()

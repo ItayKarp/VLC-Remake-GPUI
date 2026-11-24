@@ -12,7 +12,7 @@ use futures::StreamExt as _;
 use futures::channel::mpsc::UnboundedReceiver;
 use gpui::{
     App, ClickEvent, ContentMask, Context, Entity, Hsla, Subscription, Task, WeakEntity, Window,
-    WindowVisibility, black, canvas, div, hsla, prelude::*, px,
+    WindowVisibility, black, canvas, div, hsla, prelude::*,
 };
 
 use super::Output;
@@ -26,6 +26,7 @@ use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::stream_out::Local;
 use crate::keymap::actions::ToggleFullscreen;
 use crate::settings::{self, SettingsStore};
+use crate::theme::text_px;
 
 /// What the placeholder for audio-only media says while music mode (S8.1) doesn't show its cover:
 /// a visualizer draws there and hasn't drawn yet, or a stream's tracks aren't known yet.
@@ -34,7 +35,7 @@ const PLACEHOLDER_SIZE: f32 = 64.;
 /// The placeholder's grey: readable on the black video area in both themes.
 const PLACEHOLDER_COLOR: Hsla = hsla(0., 0., 1., 0.35);
 /// Under the placeholder while Settings → Video turned video off, so a black screen has a reason.
-const VIDEO_OFF: &str = "Video is off in Settings → Video";
+const VIDEO_OFF: &str = tr_noop!("Video is off in Settings → Video");
 const VIDEO_OFF_SIZE: f32 = 14.;
 /// The size of what the view says while media plays on a cast device (S8.11).
 const CASTING_SIZE: f32 = 20.;
@@ -184,10 +185,10 @@ impl VideoView {
     fn elsewhere(&self, cx: &App) -> Option<String> {
         let player = self.player.read(cx);
         if let Some(device) = player.cast_target() {
-            return Some(format!("Playing on {}", device.name));
+            return Some(tr!("Playing on {device}", device = device.name));
         }
         let stream = player.stream_target().filter(|stream| stream.local == Local::StreamOnly)?;
-        Some(format!("Streaming to {}", stream.url()))
+        Some(tr!("Streaming to {link}", link = stream.url()))
     }
 
     fn is_audio_only(&self, cx: &App) -> bool {
@@ -284,19 +285,20 @@ fn picture(frame: Frame, source: Source, framing: Framing) -> impl IntoElement {
 
 /// The audio-only placeholder, saying why when Settings turned video off.
 fn placeholder(video_on: bool) -> impl IntoElement {
-    let note = (!video_on).then(|| div().text_size(px(VIDEO_OFF_SIZE)).child(VIDEO_OFF));
+    let note = (!video_on)
+        .then(|| div().text_size(text_px(VIDEO_OFF_SIZE)).child(crate::i18n::text(VIDEO_OFF)));
     div()
         .flex()
         .flex_col()
         .items_center()
         .text_color(PLACEHOLDER_COLOR)
-        .child(div().text_size(px(PLACEHOLDER_SIZE)).child(AUDIO_ONLY))
+        .child(div().text_size(text_px(PLACEHOLDER_SIZE)).child(AUDIO_ONLY))
         .children(note)
 }
 
 /// What shows while the media plays elsewhere: where it plays.
 fn away_placeholder(where_to: String) -> impl IntoElement {
-    div().text_size(px(CASTING_SIZE)).text_color(PLACEHOLDER_COLOR).child(where_to)
+    div().text_size(text_px(CASTING_SIZE)).text_color(PLACEHOLDER_COLOR).child(where_to)
 }
 
 /// Redraws the view whenever the engine delivers, until the view is gone.

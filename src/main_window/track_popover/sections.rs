@@ -14,9 +14,11 @@ use crate::assets::icons;
 use crate::engine::audio::{AudioDevice, OutputDevice};
 use crate::engine::player::Player;
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::focus;
 use crate::ui::icon::icon;
@@ -98,7 +100,7 @@ impl MainWindow {
         let from_files: Vec<TrackId> =
             snapshot.files.iter().filter_map(|file| file.track).collect();
         let own = tracks.of(kind).filter(|track| !from_files.contains(&track.id));
-        let choices = std::iter::once((None, "None".to_owned()))
+        let choices = std::iter::once((None, tr!("None").to_owned()))
             .chain(own.map(|track| (Some(track.id), tracks.label(track.id).unwrap_or_default())));
         let rows = choices.enumerate().map(|(index, (id, label))| {
             choice_row(("embedded", index), label.into(), id == selected, p)
@@ -107,19 +109,20 @@ impl MainWindow {
                 }))
                 .into_any_element()
         });
-        section(p).child(header("Embedded Tracks", Vec::new(), p)).children(rows)
+        section(p).child(header(tr!("Embedded Tracks"), Vec::new(), p)).children(rows)
     }
 
     /// The output devices, with a check on the one sound goes to and a refresh button.
     fn render_devices(snapshot: &TrackSnapshot, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let refresh = IconButton::new("refresh-devices", icons::REFRESH, "Look for devices again")
+        let refresh_label = tr!("Look for devices again");
+        let refresh = IconButton::new("refresh-devices", icons::REFRESH, refresh_label)
             .size(HEADER_BUTTON, HEADER_ICON)
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.refresh_devices(cx)));
         let devices = snapshot.devices.iter().map(|device| {
             (OutputDevice::Device(device.id.clone()), SharedString::from(device.name.clone()))
         });
-        let choices =
-            std::iter::once((OutputDevice::SystemDefault, "System default".into())).chain(devices);
+        let default = (OutputDevice::SystemDefault, tr!("System default").into());
+        let choices = std::iter::once(default).chain(devices);
         let rows = choices.enumerate().map(|(index, (device, name))| {
             let checked = device == snapshot.active;
             choice_row(("device", index), name, checked, p)
@@ -131,10 +134,13 @@ impl MainWindow {
         // The chosen device is unplugged: the check sits on the system default instead.
         let missing = snapshot.preferred != snapshot.active;
         let note = missing.then(|| {
-            note("The chosen device isn't connected. Sound plays through the system default.", p)
+            note(
+                tr!("The chosen device isn't connected. Sound plays through the system default."),
+                p,
+            )
         });
         section(p)
-            .child(header("Output Device", vec![refresh.into_any_element()], p))
+            .child(header(tr!("Output Device"), vec![refresh.into_any_element()], p))
             .children(note)
             .children(rows)
     }
@@ -164,7 +170,7 @@ fn choose_device(device: &OutputDevice, cx: &mut App) {
 
 /// A section of the popover: a header and its choices.
 pub(super) fn section(p: &Palette) -> Div {
-    div().py(px(8.)).flex().flex_col().text_color(p.text)
+    div().py(px(8.)).flex_row_start().flex_col().text_color(p.text)
 }
 
 /// A section's muted title, with its buttons at the right end.
@@ -172,12 +178,12 @@ pub(super) fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette)
     div()
         .h(px(HEADER_HEIGHT))
         .flex_none()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(16.))
-        .pl(px(INSET))
-        .pr(px(26.))
-        .text_size(px(HEADER_TEXT))
+        .ps(px(INSET))
+        .pe(px(26.))
+        .text_size(text_px(HEADER_TEXT))
         .text_color(p.text_muted)
         .child(div().flex_1().child(title))
         .children(buttons)
@@ -185,7 +191,12 @@ pub(super) fn header(title: &'static str, buttons: Vec<AnyElement>, p: &Palette)
 
 /// A muted line of explanation under a header.
 pub(super) fn note(text: &'static str, p: &Palette) -> Div {
-    div().px(px(INSET)).pb(px(8.)).text_size(px(HEADER_TEXT)).text_color(p.text_muted).child(text)
+    div()
+        .px(px(INSET))
+        .pb(px(8.))
+        .text_size(text_px(HEADER_TEXT))
+        .text_color(p.text_muted)
+        .child(text)
 }
 
 /// One choice: a ✓ when it is the selected one, then its name.
@@ -207,13 +218,13 @@ fn choice_row(
         .flex_none()
         .mx(px(8.))
         .px(px(14.))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(14.))
         .rounded(px(6.))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .tab_index(0)
         .cursor_pointer()
         .hover(move |s| s.bg(hover))

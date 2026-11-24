@@ -18,11 +18,12 @@ use crate::engine::values::Volume;
 use crate::main_window::MainWindow;
 use crate::main_window::control_bar::{BUTTON, ICON, LEVEL_GAP};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::{focus, tooltip};
 
 /// The wedge's tooltip without an audio device.
-const NO_DEVICE: &str = "No audio device: the volume can't change";
+const NO_DEVICE: &str = tr_noop!("No audio device: the volume can't change");
 /// The focus ring's width around the wedge.
 const RING: f32 = 2.;
 /// The value bubble's size and corner radius, from the design.
@@ -89,7 +90,7 @@ impl MainWindow {
     ) -> AnyElement {
         let player = self.loaded_player(cx);
         let shown = Shown::of(player.as_ref(), cx);
-        let label = if shown.muted { "Unmute" } else { "Mute" };
+        let label = if shown.muted { tr!("Unmute") } else { tr!("Mute") };
         let speaker = IconButton::new("speaker", speaker_icon(shown), label)
             .size(BUTTON, ICON)
             .disabled(player.is_none())
@@ -134,7 +135,7 @@ impl MainWindow {
                 this.scroll_volume(event, false, window, cx);
             }))
             .when(shown.availability == Availability::NoDevice, |wedge| {
-                wedge.tooltip(tooltip::text(NO_DEVICE, None::<&str>))
+                wedge.tooltip(tooltip::text(crate::i18n::text(NO_DEVICE), None::<&str>))
             })
             .child(slider.track.element())
             .child(painted(p, shown))
@@ -197,7 +198,7 @@ fn bubble(p: &Palette, shown: Shown) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(BUBBLE_TEXT))
+        .text_size(text_px(BUBBLE_TEXT))
         .text_color(p.text)
         .child(text)
 }
@@ -206,10 +207,10 @@ fn bubble(p: &Palette, shown: Shown) -> Div {
 fn accessible(wedge: Stateful<Div>, shown: Shown, cx: &App) -> Stateful<Div> {
     let step = crate::main_window::audio::volume_step(crate::settings::get(cx));
     let value = percent_text(shown.volume);
-    let value = if shown.muted { format!("Muted, {value}") } else { value };
+    let value = if shown.muted { tr!("Muted, {value}", value) } else { value };
     wedge
         .role(accesskit::Role::Slider)
-        .aria_label("Volume")
+        .aria_label(tr!("Volume"))
         .aria_numeric_value(f64::from(shown.volume.as_percent()))
         .aria_min_numeric_value(0.)
         .aria_max_numeric_value(f64::from(shown.max.as_percent()))

@@ -17,7 +17,7 @@ pub struct Section {
 /// The dialog's sections, in order.
 pub const SECTIONS: &[Section] = &[
     Section {
-        title: "Basic",
+        title: tr_noop!("Basic"),
         actions: &[
             &act::ToggleFullscreen,
             &act::ExitFullscreen,
@@ -31,7 +31,7 @@ pub const SECTIONS: &[Section] = &[
         ],
     },
     Section {
-        title: "Playback",
+        title: tr_noop!("Playback"),
         actions: &[
             &act::PlayPause,
             &act::Stop,
@@ -54,7 +54,7 @@ pub const SECTIONS: &[Section] = &[
         ],
     },
     Section {
-        title: "Seeking",
+        title: tr_noop!("Seeking"),
         actions: &[
             &act::SeekBackward,
             &act::SeekForward,
@@ -69,7 +69,7 @@ pub const SECTIONS: &[Section] = &[
         ],
     },
     Section {
-        title: "Audio and Subtitles",
+        title: tr_noop!("Audio and Subtitles"),
         actions: &[
             &act::VolumeUp,
             &act::VolumeDown,
@@ -82,9 +82,9 @@ pub const SECTIONS: &[Section] = &[
             &act::SubtitleDelayLater,
         ],
     },
-    Section { title: "Capture", actions: &[&act::Snapshot, &act::Record] },
+    Section { title: tr_noop!("Capture"), actions: &[&act::Snapshot, &act::Record] },
     Section {
-        title: "Open",
+        title: tr_noop!("Open"),
         actions: &[
             &act::OpenFile,
             &act::OpenFolder,
@@ -97,7 +97,7 @@ pub const SECTIONS: &[Section] = &[
         ],
     },
     Section {
-        title: "Library",
+        title: tr_noop!("Library"),
         actions: &[
             &act::Search,
             &act::GoBack,
@@ -112,7 +112,7 @@ pub const SECTIONS: &[Section] = &[
         ],
     },
     Section {
-        title: "Application",
+        title: tr_noop!("Application"),
         actions: &[
             &act::ShowKeyboardShortcuts,
             &act::CustomizePlayer,

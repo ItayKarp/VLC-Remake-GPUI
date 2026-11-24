@@ -20,6 +20,7 @@
 //! element, and Mica/Acrylic/vibrancy behind a video would show the desktop, not
 //! the video. At 95% the difference from real blur isn't visible.
 
+pub mod announcer;
 pub mod button;
 pub mod collapsible;
 pub mod drop_target;
@@ -27,6 +28,7 @@ pub mod dropdown;
 pub mod focus;
 pub mod gallery;
 pub mod icon;
+pub mod info_tip;
 pub mod list;
 pub mod menu;
 pub mod modal;
@@ -69,6 +71,8 @@ pub mod metrics {
     pub const ICON: f32 = 20.;
     /// Space kept between floating surfaces and the window edges.
     pub const EDGE_MARGIN: f32 = 8.;
+    /// The smallest a pointer target may be on either side (WCAG 2.5.8, S9.1.4).
+    pub const MIN_TARGET: f32 = 24.;
 }
 
 /// Key bindings for the kit. Call once at startup.

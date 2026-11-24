@@ -10,6 +10,8 @@ use gpui::{
 };
 
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::metrics;
@@ -210,8 +212,7 @@ impl Dialog {
         }
         div()
             .flex_none()
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .justify_end()
             .gap(px(8.))
             .px(px(PADDING))
@@ -237,7 +238,7 @@ impl Render for Dialog {
             .w(px(self.width))
             .max_w(viewport.width - px(2. * WINDOW_MARGIN))
             .max_h(viewport.height - px(2. * WINDOW_MARGIN))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .rounded(px(metrics::RADIUS_LARGE + 4.))
             .bg(p.popover)
@@ -256,18 +257,18 @@ impl Dialog {
     /// The title, and the ✕ when there is one.
     fn title_line(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let close = self.close_button.then(|| {
-            IconButton::new("dialog-close", icons::CLOSE, "Close")
+            IconButton::new("dialog-close", icons::CLOSE, tr!("Close"))
                 .on_click(cx.listener(|this, _, window, cx| this.dismiss(window, cx)))
         });
         div()
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .px(px(PADDING))
             .pt(px(20.))
             .pb(px(12.))
-            .text_size(px(18.))
+            .text_size(text_px(18.))
             .text_color(p.text_strong)
             .child(self.title.clone())
             .children(close)
@@ -282,7 +283,7 @@ fn scrolling_body(body: AnyElement) -> Stateful<Div> {
         .min_h_0()
         .overflow_y_scroll()
         .px(px(PADDING))
-        .text_size(px(metrics::TEXT - 1.))
-        .line_height(px(22.))
+        .text_size(text_px(metrics::TEXT - 1.))
+        .line_height(text_px(22.))
         .child(body)
 }

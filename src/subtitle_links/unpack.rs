@@ -47,7 +47,7 @@ fn limited(reader: impl std::io::Read) -> Result<Vec<u8>, Failure> {
     reader
         .take(MAX_BYTES + 1)
         .read_to_end(&mut out)
-        .map_err(|error| Failure::Network(format!("couldn't unpack it ({error})")))?;
+        .map_err(|error| Failure::Network(tr!("couldn't unpack it ({error})", error)))?;
     if out.len() as u64 > MAX_BYTES {
         return Err(Failure::TooBig);
     }

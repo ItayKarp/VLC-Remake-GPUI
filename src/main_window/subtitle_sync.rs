@@ -40,7 +40,7 @@ impl MainWindow {
         let Some(player) = self.loaded_player(cx) else { return };
         let before = player.read(cx).subtitle_sync();
         let Some(key) = player.update(cx, |player, cx| player.set_subtitle_sync(sync, cx)) else {
-            self.show_osd("No subtitles showing", cx);
+            self.show_osd(tr!("No subtitles showing"), cx);
             return;
         };
         let sync = player.read(cx).subtitle_sync();
@@ -155,9 +155,11 @@ fn restored(text: &str, saved: &SavedSync) -> Option<(SubtitleKey, SubtitleSync)
 /// The OSD's text for a subtitle delay: "Subtitle delay: −150 ms".
 pub(super) fn delay_message(delay: Offset) -> String {
     match delay.as_millis() {
-        0 => "Subtitle delay: 0 ms".to_owned(),
-        millis if millis < 0 => format!("Subtitle delay: −{} ms", millis.unsigned_abs()),
-        millis => format!("Subtitle delay: +{millis} ms"),
+        0 => tr!("Subtitle delay: 0 ms").to_owned(),
+        millis if millis < 0 => {
+            tr!("Subtitle delay: −{millis} ms", millis = millis.unsigned_abs())
+        }
+        millis => tr!("Subtitle delay: +{millis} ms", millis),
     }
 }
 

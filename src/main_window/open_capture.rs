@@ -63,15 +63,16 @@ impl CaptureDialog {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let devices = cx.new(|cx| Dropdown::new("Device", vec!["Looking…".into()], 0, window, cx));
+        let looking = vec![tr!("Looking…").into()];
+        let devices = cx.new(|cx| Dropdown::new(tr!("Device"), looking, 0, window, cx));
         let sizes = cx.new(|cx| {
             let options =
                 choices(capture::SIZES.iter().map(|s| format!("{} × {}", s.width, s.height)));
-            Dropdown::new("Size", options, 0, window, cx)
+            Dropdown::new(tr!("Size"), options, 0, window, cx)
         });
         let rates = cx.new(|cx| {
-            let options = choices(capture::FRAME_RATES.iter().map(|fps| format!("{fps} fps")));
-            Dropdown::new("Frame rate", options, 0, window, cx)
+            let options = choices(capture::FRAME_RATES.iter().map(|fps| tr!("{fps} fps", fps)));
+            Dropdown::new(tr!("Frame rate"), options, 0, window, cx)
         });
         let subscriptions =
             [cx.subscribe(&devices, |this: &mut Self, _, _: &dropdown::Changed, cx| {
@@ -119,8 +120,8 @@ impl CaptureDialog {
     fn refresh_devices(&mut self, cx: &mut Context<Self>) {
         let names: Vec<SharedString> = match self.kind {
             Kind::Camera => match &self.cameras {
-                None => vec!["Looking…".into()],
-                Some(cameras) if cameras.is_empty() => vec!["No camera found".into()],
+                None => vec![tr!("Looking…").into()],
+                Some(cameras) if cameras.is_empty() => vec![tr!("No camera found").into()],
                 Some(cameras) => cameras.iter().map(|camera| camera.name.clone().into()).collect(),
             },
             Kind::Screen => self.screens.iter().map(|screen| screen.name.clone().into()).collect(),
@@ -173,5 +174,5 @@ impl CaptureDialog {
 
 /// A list's choices: the device's own first, then `options`.
 fn choices(options: impl Iterator<Item = String>) -> Vec<SharedString> {
-    std::iter::once("Device's default".into()).chain(options.map(Into::into)).collect()
+    std::iter::once(tr!("Device's default").into()).chain(options.map(Into::into)).collect()
 }

@@ -16,10 +16,12 @@ use gpui::{
 
 use crate::assets::icons;
 use crate::effects::{self, EffectSection};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Control, Marks, Value};
 use crate::settings::{self};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::icon::icon;
 use crate::ui::slider::{self, Slider, SliderModel};
@@ -96,7 +98,7 @@ impl EffectControls {
     /// The section: its title row, then its box.
     pub(super) fn render(&self, p: &Palette, cx: &App) -> Div {
         let content = is_expanded(cx, &self.section).then(|| {
-            div().flex().flex_col().px(px(BOX_PADDING)).pb(px(BOX_PADDING)).children(
+            div().flex_row_start().flex_col().px(px(BOX_PADDING)).pb(px(BOX_PADDING)).children(
                 self.sliders.iter().map(|(key, label, slider)| {
                     slider_row(label, slider, is_live(cx, &self.section, key), p)
                 }),
@@ -114,11 +116,11 @@ pub(super) fn slider_row(
     p: &Palette,
 ) -> Div {
     div()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(ROW_GAP))
         .pt(px(ROW_GAP))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(div().when(!live, |label| label.opacity(DISABLED_OPACITY)).child(label))
         .child(slider.clone())
@@ -144,63 +146,70 @@ pub(super) fn folding(section: &EffectSection, content: Option<Div>, p: &Palette
     // Folded, the box is a well (`video_essential-collapsed`); open, its controls are wells
     // themselves, so it keeps the panel's color inside a border.
     let fold = div()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .rounded(px(metrics::RADIUS_LARGE))
         .when(expanded, |fold| fold.border_1().border_color(p.divider))
         .when(!expanded, |fold| fold.bg(p.well))
         .child(header(section, expanded, p))
         .children(content);
-    div().flex().flex_col().child(title_row(section, p, cx)).child(fold)
+    div().flex_row_start().flex_col().child(title_row(section, p, cx)).child(fold)
 }
 
 /// The section's title, its Reset and its toggle.
 fn title_row(section: &EffectSection, p: &Palette, cx: &App) -> Div {
     let on = effects::value(cx, section.toggle) == Some(Value::Bool(true));
     let section = *section;
-    let reset = Button::new(element_id("reset-effect", &section), "Reset")
+    let title = crate::i18n::text(section.title);
+    let reset = Button::new(element_id("reset-effect", &section), tr!("Reset"))
         .style(ButtonStyle::Ghost)
         .disabled(!effects::any_changed(cx, &section))
-        .tooltip(format!("Put {} back on its defaults", section.title), None::<&str>)
+        .tooltip(tr!("Put {title} back on its defaults", title), None::<&str>)
         .on_click(move |_, _, cx| effects::reset(cx, section.keys()));
-    let toggle = Toggle::new(element_id("effect-toggle", &section), on, section.title)
+    let toggle = Toggle::new(element_id("effect-toggle", &section), on, title)
         .on_change(move |on, _, cx| effects::set_enabled(cx, &section, *on));
     div()
         .h(px(TITLE_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
-        .child(section.title)
-        .child(div().flex().items_center().gap(px(TITLE_GAP)).child(reset).child(toggle))
+        .child(title)
+        .child(div().flex_row_start().items_center().gap(px(TITLE_GAP)).child(reset).child(toggle))
 }
 
 /// The box's header button: "Expand Settings ›" or "Collapse Settings ⌄".
 fn header(section: &EffectSection, expanded: bool, p: &Palette) -> Stateful<Div> {
-    let (text, chevron) = if expanded {
-        ("Collapse Settings", icons::CHEVRON_DOWN)
+    let title = crate::i18n::text(section.title);
+    let (text, label, chevron) = if expanded {
+        let label = tr!("Collapse Settings: {title}", title);
+        (tr!("Collapse Settings"), label, icons::CHEVRON_DOWN)
     } else {
-        ("Expand Settings", icons::CHEVRON_RIGHT)
+        (
+            tr!("Expand Settings"),
+            tr!("Expand Settings: {title}", title),
+            crate::i18n::mirrored(icons::CHEVRON_RIGHT, icons::CHEVRON_LEFT),
+        )
     };
     let id = section.id;
     let hover = p.text;
     let header = div()
         .id(element_id("effect-fold", section))
         .h(px(metrics::SECTION_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .px(px(BOX_PADDING))
         .rounded(px(metrics::RADIUS_LARGE))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text_muted)
         .tab_index(0)
         .cursor_pointer()
         .aria_expanded(expanded)
-        .aria_label(format!("{text}: {}", section.title))
+        .aria_label(label)
         .hover(move |s| s.text_color(hover))
         .on_click(move |_, _, cx| set_expanded(cx, id, !expanded))
         .child(text)
@@ -219,17 +228,18 @@ fn make_slider(
         tracing::warn!("effects: {key} isn't a slider setting");
         return None;
     };
+    let label = crate::i18n::text(def.label);
     let default = number(Some(&def.default_value())).unwrap_or(range.min);
     let model = SliderModel::new(range.min, range.max, range.step, default);
     let slider = cx.new(|cx| {
-        let slider = Slider::new(def.label, model, window, cx).accent().format(format);
+        let slider = Slider::new(label, model, window, cx).accent().format(format);
         match marks {
             Marks::None => slider,
             Marks::Ticks(every) => slider.bare_marks(every),
             Marks::Labelled(every, label) => slider.marks(every, label),
         }
     });
-    Some((def.label, slider))
+    Some((label, slider))
 }
 
 /// An id for one of `section`'s elements, `what` it is.

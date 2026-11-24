@@ -36,7 +36,7 @@ impl MediaFoldersPanel {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Add to Library".into()),
+            prompt: Some(tr!("Add to Library").into()),
         });
         let local = settings::get(cx).local.clone();
         cx.spawn_in(window, async move |this, cx| {
@@ -61,12 +61,15 @@ impl MediaFoldersPanel {
         let name = display_path(&checked.folder);
         match &checked.placement {
             Placement::Duplicate(_) => {
-                self.set_refused(Some(format!("“{name}” is in the library already.")), cx);
+                self.set_refused(Some(tr!("“{name}” is in the library already.", name)), cx);
             }
             Placement::Inside(outer) => {
                 let outer = display_path(outer);
-                let reason =
-                    format!("“{name}” is inside “{outer}”, which the library has already.");
+                let reason = tr!(
+                    "“{name}” is inside “{outer}”, which the library has already.",
+                    name,
+                    outer
+                );
                 self.set_refused(Some(reason), cx);
             }
             _ if checked.broad && settings::get(cx).prefs.startup.show_dialogs => {
@@ -84,11 +87,13 @@ fn confirm_broad(
     window: &mut Window,
     cx: &mut Context<MediaFoldersPanel>,
 ) {
-    let title = format!("Add all of “{}” to the library?", display_path(&checked.folder));
-    let detail = "Indexing a whole drive or your home folder can take a long time. The system \
-                  and app folders in it are skipped.";
-    let answer =
-        window.prompt(PromptLevel::Warning, &title, Some(detail), &["Add Folder", "Cancel"], cx);
+    let folder = display_path(&checked.folder);
+    let title = tr!("Add all of “{folder}” to the library?", folder);
+    let detail =
+        tr!("Indexing a whole drive or your home folder can take a long time. The system \
+                  and app folders in it are skipped.");
+    let buttons = [tr!("Add Folder"), tr!("Cancel")];
+    let answer = window.prompt(PromptLevel::Warning, &title, Some(detail), &buttons, cx);
     cx.spawn(async move |_, cx| {
         if answer.await == Ok(0) {
             cx.update(|cx| add(kind, &checked, cx));

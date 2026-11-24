@@ -9,11 +9,13 @@ use gpui::{
 
 use super::header::GAP;
 use super::{MainWindow, OpenMenu};
+use crate::i18n::DirectionalStyle;
 use crate::navigation::breadcrumb::{Crumb, Places, Trail};
 use crate::playlists;
 use crate::podcasts;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::menu::{ContextMenu, MenuItem};
 use crate::ui::popover::{self, BoundsTracker, Side};
 use crate::ui::{focus, metrics};
@@ -58,11 +60,11 @@ impl MainWindow {
         div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .overflow_hidden()
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .children(segments)
     }
 
@@ -143,7 +145,7 @@ fn segment(element: Stateful<Div>, p: &Palette) -> Stateful<Div> {
 
 /// The `▸` between segments.
 fn separator(p: &Palette) -> Div {
-    div().flex_none().text_size(px(SEPARATOR)).text_color(p.text_muted).child("▶")
+    div().flex_none().text_size(text_px(SEPARATOR)).text_color(p.text_muted).child("▶")
 }
 
 /// The `…` menu below its segment, while open.

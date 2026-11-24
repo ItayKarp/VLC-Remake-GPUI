@@ -22,6 +22,7 @@ use crate::engine::subtitle_sync::{
 };
 use crate::engine::tracks::TrackKind;
 use crate::engine::values::Offset;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::theme::Palette;
 use crate::ui::button::{Button, ButtonStyle};
@@ -95,7 +96,7 @@ impl MainWindow {
     ) -> Div {
         self.sync_subtitle_controls(window, cx);
         div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(self.render_subtitle_defaults(p, cx))
             .child(div().h(px(1.)).bg(p.divider))
@@ -104,33 +105,37 @@ impl MainWindow {
 
     fn render_subtitle_defaults(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let rows = self.settings_panel.subtitles.defaults.render(p, cx);
-        section("Defaults", "For videos you open next. The subtitle button picks this video's.", p)
-            .children(rows)
+        section(
+            tr!("Defaults"),
+            tr!("For videos you open next. The subtitle button picks this video's."),
+            p,
+        )
+        .children(rows)
     }
 
     fn render_synchronization(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let showing = self.showing_sync(cx);
         let note = match &showing {
-            None => "Pick a subtitle to sync it with the video.".to_owned(),
-            Some(showing) if !showing.stretches => format!(
-                "{} Speed and duration only change text files VLC draws itself.",
-                showing.target
+            None => tr!("Pick a subtitle to sync it with the video.").to_owned(),
+            Some(showing) if !showing.stretches => tr!(
+                "{target} Speed and duration only change text files VLC draws itself.",
+                target = showing.target
             ),
             Some(showing) => showing.target.clone(),
         };
         let unchanged = showing.as_ref().is_none_or(|showing| showing.sync.is_default());
-        let reset = Button::new("reset-subtitle-sync", "Reset")
+        let reset = Button::new("reset-subtitle-sync", tr!("Reset"))
             .style(ButtonStyle::Ghost)
             .disabled(unchanged)
             .on_click(cx.listener(|this, _, _, cx| {
                 this.set_subtitle_sync(SubtitleSync::default(), cx);
             }));
         let controls = &self.settings_panel.subtitles;
-        section("Synchronization", note, p)
+        section(tr!("Synchronization"), note, p)
             .child(controls.delay.clone())
             .child(controls.speed.clone())
             .child(controls.duration.clone())
-            .child(div().flex().justify_end().child(reset))
+            .child(div().flex_row_start().justify_end().child(reset))
     }
 
     /// The subtitle showing and its sync; `None` while none shows.
@@ -148,7 +153,7 @@ impl MainWindow {
             }
         };
         Some(Showing {
-            target: name.map_or_else(String::new, |name| format!("For “{name}” in this video.")),
+            target: name.map_or_else(String::new, |name| tr!("For “{name}” in this video.", name)),
             sync: player.subtitle_sync(),
             stretches: player.sync_stretches(),
         })
@@ -192,7 +197,7 @@ impl MainWindow {
 
 /// Subtitle Track Delay: −10 s … +10 s on the slider, ten minutes either way in the field.
 fn delay_spec() -> Spec {
-    track_delay_spec("Subtitle Track Delay")
+    track_delay_spec(tr!("Subtitle Track Delay"))
 }
 
 /// A track delay labelled `label`: −10 s … +10 s on the slider, ten minutes either way in the
@@ -214,7 +219,7 @@ pub(super) fn track_delay_spec(label: &'static str) -> Spec {
 /// Subtitle Speed: 0.5× to 2×.
 fn speed_spec() -> Spec {
     Spec {
-        label: "Subtitle Speed",
+        label: tr!("Subtitle Speed"),
         model: SliderModel::new(f64::from(MIN_SPEED), f64::from(MAX_SPEED), SPEED_STEP, 1.),
         centered: false,
         marks: None,
@@ -226,7 +231,7 @@ fn speed_spec() -> Spec {
 /// Subtitle Duration Factor: off (0) to 20.
 fn duration_spec() -> Spec {
     Spec {
-        label: "Subtitle Duration Factor",
+        label: tr!("Subtitle Duration Factor"),
         model: SliderModel::new(0., f64::from(MAX_DURATION_FACTOR), DURATION_STEP, 0.),
         centered: false,
         marks: None,

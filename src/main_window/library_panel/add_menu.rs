@@ -36,14 +36,14 @@ impl MainWindow {
 fn items(main: &WeakEntity<MainWindow>, cx: &App) -> Vec<MenuItem> {
     let main = main.clone();
     vec![
-        MenuItem::action("Add Folder to Library…", move |_, cx| {
+        MenuItem::action(tr!("Add Folder to Library…"), move |_, cx| {
             add_folder(main.clone(), Shelf::Videos, cx);
         })
         .icon(icons::FOLDER),
         MenuItem::Separator,
-        dispatching(&OpenFile, "Open File(s)…", cx).icon(icons::FILE),
-        dispatching(&OpenFolder, "Open Folder…", cx).icon(icons::FOLDER),
-        dispatching(&OpenNetworkStream, "Open Network Stream…", cx).icon(icons::STREAMING),
+        dispatching(&OpenFile, tr!("Open File(s)…"), cx).icon(icons::FILE),
+        dispatching(&OpenFolder, tr!("Open Folder…"), cx).icon(icons::FOLDER),
+        dispatching(&OpenNetworkStream, tr!("Open Network Stream…"), cx).icon(icons::STREAMING),
     ]
 }
 
@@ -62,7 +62,7 @@ pub(super) fn add_folder(main: WeakEntity<MainWindow>, shelf: Shelf, cx: &mut Ap
         files: false,
         directories: true,
         multiple: false,
-        prompt: Some("Add to Library".into()),
+        prompt: Some(tr!("Add to Library").into()),
     };
     let picked = cx.prompt_for_paths(options);
     cx.spawn(async move |cx| {
@@ -96,5 +96,11 @@ fn add_library_folder(folder: &PathBuf, shelf: Shelf, cx: &mut App) {
 /// The "+" menu beside its button, while open.
 pub(super) fn render(menu: &OpenMenu, button: &BoundsTracker) -> Option<AnyElement> {
     let (menu, _) = menu.as_ref()?;
-    Some(popover::attached(button.bounds()?, Side::Right, 4., 1, menu.clone()))
+    Some(popover::attached(
+        button.bounds()?,
+        crate::i18n::mirrored(Side::Right, Side::Left),
+        4.,
+        1,
+        menu.clone(),
+    ))
 }

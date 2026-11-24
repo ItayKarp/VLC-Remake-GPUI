@@ -13,8 +13,11 @@ pub const CURRENT_SCREEN: &str = "";
 /// "Current screen", then each connected display, the main one first. A saved display that is
 /// no longer connected is listed last, so the row still shows what is saved.
 pub fn choices(cx: &App, saved: &str) -> Vec<MachineChoice> {
-    let current =
-        MachineChoice { id: CURRENT_SCREEN.into(), label: "Current screen".into(), glyph: None };
+    let current = MachineChoice {
+        id: CURRENT_SCREEN.into(),
+        label: tr!("Current screen").into(),
+        glyph: None,
+    };
     let mut choices = vec![current];
     choices.extend(ordered(cx).iter().enumerate().filter_map(|(index, display)| {
         Some(MachineChoice {
@@ -26,7 +29,7 @@ pub fn choices(cx: &App, saved: &str) -> Vec<MachineChoice> {
     if !choices.iter().any(|choice| choice.id == saved) {
         choices.push(MachineChoice {
             id: saved.into(),
-            label: "Disconnected screen".into(),
+            label: tr!("Disconnected screen").into(),
             glyph: None,
         });
     }
@@ -58,6 +61,9 @@ fn id_of(display: &dyn PlatformDisplay) -> Option<String> {
 fn label(index: usize, display: &dyn PlatformDisplay) -> String {
     let size = display.bounds().size;
     let (width, height) = (f32::from(size.width).round(), f32::from(size.height).round());
-    let name = if index == 0 { "Main screen".to_owned() } else { format!("Screen {}", index + 1) };
-    format!("{name} ({width} × {height})")
+    if index == 0 {
+        tr!("Main screen ({width} × {height})", width, height)
+    } else {
+        tr!("Screen {number} ({width} × {height})", number = index + 1, width, height)
+    }
 }

@@ -11,8 +11,8 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    ClickEvent, Context, Div, Entity, MouseButton, MouseDownEvent, SharedString, Stateful, div,
-    prelude::*, px,
+    ClickEvent, Context, Div, Entity, MouseButton, MouseDownEvent, SharedString, Stateful,
+    accesskit, div, prelude::*, px,
 };
 
 use super::dock::{CHIPS_HEIGHT, CardSize, NAME_HEIGHT, PAD, PROGRESS_GAP, PROGRESS_HEIGHT};
@@ -27,10 +27,13 @@ use crate::main_window::MainWindow;
 use crate::main_window::viewport;
 use crate::navigation::route::{MusicRoute, Route};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
+use crate::ui::focus;
 use crate::ui::icon::icon;
 use crate::ui::metrics;
-use crate::ui::player_overlay::{self, Handlers, WindowButton};
+use crate::ui::metrics::MIN_TARGET;
+use crate::ui::player_overlay::{self, Handlers, Reveal, TransportState, WindowButton};
 use crate::ui::thumbnail::{Placeholder, ThumbnailTile};
 
 /// What hovering the picture lights up together.
@@ -108,7 +111,8 @@ impl MainWindow {
     /// ✕ and pop-out in the top corners, and the transport in the middle: on hover, or always
     /// once the media ended.
     fn render_hover_controls(&self, cx: &mut Context<Self>) -> Div {
-        let pop_out = WindowButton { icon: icons::POP_OUT, label: "Back to the player".into() };
+        let label = tr!("Back to the player").into();
+        let pop_out = WindowButton { icon: icons::POP_OUT, label };
         let handlers = Handlers {
             close: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| this.stop(window, cx))),
             window: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -122,7 +126,15 @@ impl MainWindow {
             ),
             next: Rc::new(cx.listener(|this, _: &ClickEvent, window, cx| this.next(window, cx))),
         };
-        player_overlay::overlay(GROUP, self.transport_state(cx), pop_out, &handlers, false)
+        let state = TransportState {
+            reveal: Reveal::keyboard_inside(self.miniplayer.overlay_focused),
+            ..self.transport_state(cx)
+        };
+        let overlay = player_overlay::overlay(GROUP, state, pop_out, &handlers, false);
+        match &self.miniplayer.overlay_focus {
+            Some(focus) => div().absolute().inset_0().track_focus(focus).child(overlay),
+            None => overlay,
+        }
     }
 
     /// The progress bar: a click seeks to where it lands.
@@ -194,7 +206,7 @@ impl MainWindow {
                 },
             ))
         });
-        let queue = IconButton::new("miniplayer-queue", icons::LIST, "Queue")
+        let queue = IconButton::new("miniplayer-queue", icons::LIST, tr!("Queue"))
             .size(QUEUE_BUTTON, QUEUE_ICON)
             .selected(self.is_miniplayer_queue_open())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -231,16 +243,23 @@ fn name_line(media: Option<&Media>, p: &Palette) -> Div {
         .px(px(PAD + PAD))
         .flex()
         .items_center()
-        .text_size(px(NAME_TEXT))
+        .text_size(text_px(NAME_TEXT))
         .text_color(p.text_muted)
         .child(div().min_w_0().truncate().child(name))
 }
 
-/// A chip: an icon and a name, which goes somewhere in the library.
+/// A chip: an icon and a name, which goes somewhere in the library. A tab stop that Enter
+/// and Space press, at least [`MIN_TARGET`] tall (S9.1).
 fn chip(id: &'static str, glyph: &'static str, name: SharedString, p: &Palette) -> Stateful<Div> {
     let hover = p.hover;
-    div()
+    let chip = div()
         .id(id)
+        .tab_index(0)
+        .key_context(focus::CONTROL)
+        .role(accesskit::Role::Link)
+        .aria_label(name.clone());
+    focus::outline_ring(chip, p)
+        .min_h(px(MIN_TARGET))
         .flex()
         .items_center()
         .gap(px(CHIP_ICON_GAP))
@@ -248,7 +267,7 @@ fn chip(id: &'static str, glyph: &'static str, name: SharedString, p: &Palette) 
         .rounded(px(metrics::RADIUS))
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
-        .text_size(px(CHIP_TEXT))
+        .text_size(text_px(CHIP_TEXT))
         .text_color(p.text_muted)
         .tooltip(crate::ui::tooltip::text(name.clone(), None::<SharedString>))
         .child(icon(glyph, CHIP_ICON, p.icon))

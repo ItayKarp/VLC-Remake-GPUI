@@ -24,6 +24,7 @@ use crate::library;
 use crate::power::Playback;
 use crate::settings::{self, SettingsStore};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
 use crate::video::{Output, VideoView};
@@ -40,7 +41,8 @@ impl MainWindow {
                 .update(cx, |player, cx| subtitles.iter().all(|path| player.add_subtitle(path, cx)))
         });
         if !attached {
-            self.show_toast(Toast::new(Level::Info, "Open a video first, then add subtitles."), cx);
+            let text = tr!("Open a video first, then add subtitles.");
+            self.show_toast(Toast::new(Level::Info, text), cx);
         }
     }
 
@@ -134,6 +136,7 @@ impl MainWindow {
                 }
                 self.found_playing(*state, cx);
                 self.notify_now_playing(*state, cx);
+                self.announce_state(*state, cx);
                 self.attach_pending_audio(cx);
                 let busy = matches!(
                     state,
@@ -198,12 +201,12 @@ impl MainWindow {
             .flex()
             .items_center()
             .gap(px(12.))
-            .text_size(px(14.))
+            .text_size(text_px(14.))
             .text_color(p.text)
             .child(text);
         let line = if cancellable {
             line.child(
-                Button::new("cancel-open", "Cancel")
+                Button::new("cancel-open", tr!("Cancel"))
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.cancel(cx))),
             )
         } else {
@@ -213,26 +216,26 @@ impl MainWindow {
     }
 
     /// What to say, and whether Cancel applies.
-    fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
+    pub(super) fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
         if let Some(job) = self.jobs.running.last() {
-            return Some((format!("Opening {}…", job.label).into(), true));
+            return Some((tr!("Opening {name}…", name = job.label).into(), true));
         }
         let (player, _) = self.player.as_ref()?;
         let player = player.read(cx);
         let name = player.media().map_or_default(Media::display_name);
         let text = match player.state() {
             PlaybackState::Idle => return None,
-            PlaybackState::Opening => return Some((format!("Opening {name}…").into(), true)),
-            PlaybackState::Buffering => format!("Buffering {name}…"),
-            PlaybackState::Playing => format!("Playing {name}"),
-            PlaybackState::Paused => format!("Paused: {name}"),
-            PlaybackState::Ended => format!("Finished {name}"),
-            PlaybackState::Stopped => format!("Stopped {name}"),
+            PlaybackState::Opening => return Some((tr!("Opening {name}…", name).into(), true)),
+            PlaybackState::Buffering => tr!("Buffering {name}…", name),
+            PlaybackState::Playing => tr!("Playing {name}", name),
+            PlaybackState::Paused => tr!("Paused: {name}", name),
+            PlaybackState::Ended => tr!("Finished {name}", name),
+            PlaybackState::Stopped => tr!("Stopped {name}", name),
             PlaybackState::Error(kind) => {
                 let device = player.media().and_then(Media::as_device);
                 let reason =
                     device.map_or(error_message(kind), |d| device_failure::reason(d, kind));
-                format!("Couldn't play {name}: {reason}")
+                tr!("Couldn't play {name}: {reason}", name, reason)
             }
         };
         Some((text.into(), false))
@@ -242,16 +245,16 @@ impl MainWindow {
 /// Why something couldn't play, for the user.
 fn error_message(kind: ErrorKind) -> &'static str {
     match kind {
-        ErrorKind::NotFound => "the file doesn't exist.",
-        ErrorKind::EmptyFile => "the file is empty.",
-        ErrorKind::NotAFile => "it isn't a media file.",
-        ErrorKind::Unreadable => "the file can't be read.",
-        ErrorKind::Locked => "another program is using the file.",
-        ErrorKind::OpenFailed => "VLC can't open this media.",
-        ErrorKind::NoPlayableStreams => "it has nothing VLC can play.",
-        ErrorKind::Corrupt => "the file is damaged.",
-        ErrorKind::Protected => "protected content can't be played.",
-        ErrorKind::BackendUnavailable => "VLC's playback engine couldn't be loaded.",
-        ErrorKind::SourceLost => "the file or its drive went away.",
+        ErrorKind::NotFound => tr!("the file doesn't exist."),
+        ErrorKind::EmptyFile => tr!("the file is empty."),
+        ErrorKind::NotAFile => tr!("it isn't a media file."),
+        ErrorKind::Unreadable => tr!("the file can't be read."),
+        ErrorKind::Locked => tr!("another program is using the file."),
+        ErrorKind::OpenFailed => tr!("VLC can't open this media."),
+        ErrorKind::NoPlayableStreams => tr!("it has nothing VLC can play."),
+        ErrorKind::Corrupt => tr!("the file is damaged."),
+        ErrorKind::Protected => tr!("protected content can't be played."),
+        ErrorKind::BackendUnavailable => tr!("VLC's playback engine couldn't be loaded."),
+        ErrorKind::SourceLost => tr!("the file or its drive went away."),
     }
 }

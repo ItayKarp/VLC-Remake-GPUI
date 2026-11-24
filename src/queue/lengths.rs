@@ -101,15 +101,12 @@ impl Total {
     /// "4 items - 2h 3m", with a "+" while some lengths are missing; just the count while none
     /// is known.
     pub fn label(self) -> String {
-        let items = match self.count {
-            1 => "1 item".to_owned(),
-            count => format!("{count} items"),
-        };
         if self.known.is_zero() {
-            return items;
+            return trn!("{count} item", "{count} items", self.count);
         }
         let plus = if self.complete { "" } else { "+" };
-        format!("{items} - {}{plus}", hours_and_minutes(self.known))
+        let length = format!("{}{plus}", hours_and_minutes(self.known));
+        trn!("{count} item - {length}", "{count} items - {length}", self.count, length)
     }
 }
 
@@ -118,9 +115,9 @@ fn hours_and_minutes(duration: Duration) -> String {
     let seconds = duration.as_secs();
     let (hours, minutes) = (seconds / SECONDS_PER_HOUR, seconds / SECONDS_PER_MINUTE % 60);
     match (hours, minutes) {
-        (0, 0) => format!("{seconds}s"),
-        (0, minutes) => format!("{minutes}m"),
-        (hours, minutes) => format!("{hours}h {minutes}m"),
+        (0, 0) => tr!("{seconds}s", seconds),
+        (0, minutes) => tr!("{minutes}m", minutes),
+        (hours, minutes) => tr!("{hours}h {minutes}m", hours, minutes),
     }
 }
 

@@ -14,22 +14,25 @@ use crate::engine::audio::equalizer::Equalizer;
 use crate::settings::registry::Category;
 use crate::settings::{self, EqualizerPick};
 
-const LOUDNESS: (Category, &str) = (Category::Audio, "Loudness");
-const EFFECTS: (Category, &str) = (Category::Audio, "Effects");
+const LOUDNESS: (Category, &str) = (Category::Audio, tr_noop!("Loudness"));
+const EFFECTS: (Category, &str) = (Category::Audio, tr_noop!("Effects"));
 /// A gain field.
-const DECIBELS: Control = Control::Number { unit: "dB" };
+const DECIBELS: Control = Control::Number { unit: tr_noop!("dB") };
 
 impl SettingChoice for ReplayGain {
     const VALUES: &'static [Self] = &[Self::Off, Self::Track, Self::Album];
-    const CHOICES: &'static [Choice] =
-        &[Choice::new("off", "Off"), Choice::new("track", "Track"), Choice::new("album", "Album")];
+    const CHOICES: &'static [Choice] = &[
+        Choice::new("off", tr_noop!("Off")),
+        Choice::new("track", tr_noop!("Track")),
+        Choice::new("album", tr_noop!("Album")),
+    ];
 }
 
 impl SettingChoice for SpatialMode {
     const VALUES: &'static [Self] = &[Self::HeadphoneVirtualization, Self::Binaural];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("headphone_virtualization", "Headphone virtualization"),
-        Choice::new("binaural", "Binaural (360° audio)"),
+        Choice::new("headphone_virtualization", tr_noop!("Headphone virtualization")),
+        Choice::new("binaural", tr_noop!("Binaural (360° audio)")),
     ];
 }
 
@@ -79,119 +82,125 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "audio.normalize_loudness",
         LOUDNESS,
-        "Normalize loudness",
+        tr_noop!("Normalize loudness"),
         Control::Toggle,
         toggle!(prefs.audio.normalize_loudness),
     )
-    .info(
-        "Turns loud passages down to the target level, so loud and quiet media sound alike. \
-         Heard at once.",
-    )
+    .info(tr_noop!(
+        "Turns loud passages down to the target level, so loud and quiet media sound alike. Heard \
+         at once."
+    ))
     .keywords(&["volume", "level", "normalizer", "loud"]),
     SettingDef::new(
         "audio.loudness_target",
         LOUDNESS,
-        "Target level",
+        tr_noop!("Target level"),
         Control::Number { unit: "" },
         number!(f32: prefs.audio.loudness_target),
     )
-    .info("How loud sound may get before it is turned down: lower is quieter. VLC uses 2.")
+    .info(tr_noop!(
+        "How loud sound may get before it is turned down: lower is quieter. VLC uses 2."
+    ))
     .range(0.5, 10., 0.1)
     .depends_on("audio.normalize_loudness", Condition::IsOn),
     SettingDef::new(
         "audio.night_mode",
         LOUDNESS,
-        "Night mode",
+        tr_noop!("Night mode"),
         Control::Toggle,
         toggle!(prefs.audio.night_mode),
     )
-    .info(
+    .info(tr_noop!(
         "Softens explosions and music and lifts quiet dialogue, for listening at low volume: a \
-         compressor preset, unless the Compressor below is on.",
-    )
+         compressor preset, unless the Compressor below is on."
+    ))
     .keywords(&["compressor", "dynamic range", "dialogue", "quiet"]),
     SettingDef::new(
         "audio.replay_gain",
         LOUDNESS,
-        "Replay gain",
+        tr_noop!("Replay gain"),
         Control::Dropdown(ReplayGain::CHOICES),
         choice!(prefs.audio.replay_gain),
     )
-    .info(
-        "Uses the loudness tags in music files: Track makes every track equally loud, Album \
-         keeps an album's own loud and quiet tracks. Files without tags play as they are.",
-    )
+    .info(tr_noop!(
+        "Uses the loudness tags in music files: Track makes every track equally loud, Album keeps \
+         an album's own loud and quiet tracks. Files without tags play as they are."
+    ))
     .keywords(&["replaygain", "music", "tags", "volume"]),
     SettingDef::new(
         "audio.replay_gain_preamp",
         LOUDNESS,
-        "Replay gain preamp",
+        tr_noop!("Replay gain preamp"),
         DECIBELS,
         number!(f32: prefs.audio.replay_gain_preamp),
     )
-    .info("Added to the tagged gain, in decibels; raise it if tagged music plays too quietly.")
+    .info(tr_noop!(
+        "Added to the tagged gain, in decibels; raise it if tagged music plays too quietly."
+    ))
     .range(-20., 20., 0.1)
     .depends_on("audio.replay_gain", Condition::IsNot("off")),
     SettingDef::new(
         "audio.equalizer",
         EFFECTS,
-        "Equalizer",
+        tr_noop!("Equalizer"),
         Control::Toggle,
         toggle!(prefs.audio.equalizer),
     )
-    .info("Shapes the sound with the bands below, from bass on the left to treble on the right.")
+    .info(tr_noop!(
+        "Shapes the sound with the bands below, from bass on the left to treble on the right."
+    ))
     .keywords(&["eq", "bass", "treble", "bands"]),
     SettingDef::new(
         "audio.equalizer_preset",
         EFFECTS,
-        "Equalizer preset",
+        tr_noop!("Equalizer preset"),
         Control::Options(equalizer_presets),
         EQUALIZER_PRESET,
     )
-    .info(
+    .info(tr_noop!(
         "Sets the bands for a kind of music; None turns the equalizer off. Moving a band \
-         afterwards says Custom.",
-    )
+         afterwards says Custom."
+    ))
     .keywords(&["eq", "rock", "pop", "classical", "custom"]),
     SettingDef::new(
         "audio.equalizer_bands",
         EFFECTS,
-        "Equalizer bands",
+        tr_noop!("Equalizer bands"),
         Control::Equalizer,
         EQUALIZER_GAINS,
     )
-    .info("The preamp and ten bands, each from -20 to 20 decibels.")
+    .info(tr_noop!("The preamp and ten bands, each from -20 to 20 decibels."))
     .keywords(&["eq", "preamp", "bass", "treble", "hz"]),
     SettingDef::new(
         "audio.equalizer_two_pass",
         EFFECTS,
-        "2 Pass",
+        tr_noop!("2 Pass"),
         Control::Toggle,
         toggle!(prefs.audio.equalizer_two_pass),
     )
-    .info("Runs the equalizer twice, for a stronger effect.")
+    .info(tr_noop!("Runs the equalizer twice, for a stronger effect."))
     .depends_on("audio.equalizer", Condition::IsOn)
     .keywords(&["eq", "stronger", "two-pass", "twice"]),
     SettingDef::new(
         "audio.spatial_audio",
         EFFECTS,
-        "Spatial audio",
+        tr_noop!("Spatial audio"),
         Control::Toggle,
         toggle!(prefs.audio.spatial_audio),
     )
-    .info("Places sound around you in headphones, as the mode below says.")
+    .info(tr_noop!("Places sound around you in headphones, as the mode below says."))
     .keywords(&["3d", "surround", "headphones", "virtual"]),
     SettingDef::new(
         "audio.spatial_mode",
         EFFECTS,
-        "Spatial audio mode",
+        tr_noop!("Spatial audio mode"),
         Control::Dropdown(SpatialMode::CHOICES),
         choice!(prefs.audio.spatial_mode),
     )
-    .info(
+    .info(tr_noop!(
         "Headphone virtualization plays surround (5.1, 7.1) as if from speakers around you. \
-         Binaural renders 360° (ambisonic) sound for headphones.",
-    )
+         Binaural renders 360° (ambisonic) sound for headphones."
+    ))
     .depends_on("audio.spatial_audio", Condition::IsOn)
     .keywords(&["ambisonic", "360", "binaural", "hrtf"]),
 ];

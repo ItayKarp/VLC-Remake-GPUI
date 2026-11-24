@@ -35,21 +35,21 @@ impl EpisodeTarget {
 
 /// The menu of the podcasts `feeds`.
 pub(super) fn feed_items(main: &WeakEntity<MainWindow>, feeds: &[FeedId]) -> Vec<MenuItem> {
-    let refresh = on_all(main, feeds, "Refresh", icons::REFRESH, |_, feeds, _, cx| {
+    let refresh = on_all(main, feeds, tr!("Refresh"), icons::REFRESH, |_, feeds, _, cx| {
         for id in feeds {
             refresh(*id, cx);
         }
     });
-    let mark = on_all(main, feeds, "Mark All as Played", icons::CHECK, |_, feeds, _, cx| {
+    let mark = on_all(main, feeds, tr!("Mark All as Played"), icons::CHECK, |_, feeds, _, cx| {
         let ids = feeds.iter().flat_map(|feed| podcasts::episodes(*feed, cx).map(|e| e.id));
         podcasts::set_played(ids.collect(), true, cx);
     });
-    let copy = on_one(main, feeds, "Copy Feed Link", icons::LIST, |_, id, _, cx| {
+    let copy = on_one(main, feeds, tr!("Copy Feed Link"), icons::LIST, |_, id, _, cx| {
         if let Some(feed) = podcasts::subscription(*id, cx) {
             cx.write_to_clipboard(ClipboardItem::new_string(feed.url.clone()));
         }
     });
-    let unsubscribe = on_all(main, feeds, "Unsubscribe", icons::REMOVE, |_, feeds, _, cx| {
+    let unsubscribe = on_all(main, feeds, tr!("Unsubscribe"), icons::REMOVE, |_, feeds, _, cx| {
         for id in feeds {
             podcasts::unsubscribe(*id, cx);
         }
@@ -68,17 +68,20 @@ pub(super) fn episode_items(
         })
     };
     let played = !episodes.is_empty() && episodes.iter().all(|episode| episode.played);
-    let (label, icon) =
-        if played { ("Mark as Unplayed", icons::REPLAY) } else { ("Mark as Played", icons::CHECK) };
+    let (label, icon) = if played {
+        (tr!("Mark as Unplayed"), icons::REPLAY)
+    } else {
+        (tr!("Mark as Played"), icons::CHECK)
+    };
     let mark = on_all(main, episodes, label, icon, move |_, episodes, _, cx| {
         podcasts::set_played(episodes.iter().map(|episode| episode.id).collect(), !played, cx);
     });
-    let copy = on_one(main, episodes, "Copy Link", icons::LIST, |_, episode, _, cx| {
+    let copy = on_one(main, episodes, tr!("Copy Link"), icons::LIST, |_, episode, _, cx| {
         cx.write_to_clipboard(ClipboardItem::new_string(episode.url.clone()));
     });
     vec![
-        play("Play", icons::PLAY, Placement::Replace),
-        play("Add to Queue", icons::QUEUE, Placement::Enqueue),
+        play(tr!("Play"), icons::PLAY, Placement::Replace),
+        play(tr!("Add to Queue"), icons::QUEUE, Placement::Enqueue),
         mark,
         copy,
     ]

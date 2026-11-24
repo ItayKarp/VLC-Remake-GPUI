@@ -28,9 +28,9 @@ pub(super) fn title_menu(
         })
         .collect();
     if titles.menu().is_some() {
-        items.extend([MenuItem::Separator, run(main, &act::DiscMenu, "Disc Menu", cx)]);
+        items.extend([MenuItem::Separator, run(main, &act::DiscMenu, tr!("Disc Menu"), cx)]);
     }
-    Some(MenuItem::submenu("Title", items))
+    Some(MenuItem::submenu(trc!("disc menu", "Title"), items))
 }
 
 /// Program ▸: each program (service), the playing one checked, then Next Program.
@@ -52,6 +52,6 @@ pub(super) fn program_menu(
             })
         })
         .collect();
-    items.extend([MenuItem::Separator, run(main, &act::NextProgram, "Next Program", cx)]);
-    Some(MenuItem::submenu("Program", items))
+    items.extend([MenuItem::Separator, run(main, &act::NextProgram, tr!("Next Program"), cx)]);
+    Some(MenuItem::submenu(tr!("Program"), items))
 }

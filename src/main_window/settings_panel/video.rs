@@ -7,12 +7,15 @@
 use gpui::{Context, Div, Window, div, prelude::*, px};
 
 use super::{PanelTab, SECTION_PADDING, section};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::theme::Palette;
 
 /// What the Filters heading says its sections change.
-const FILTERS_NOTE: &str = "For what plays until VLC quits. Double-click a slider to put it \
-                            back; Save as Default keeps them for later sessions.";
+const FILTERS_NOTE: &str = tr_noop!(
+    "For what plays until VLC quits. Double-click a slider to put it back; Save as Default \
+     keeps them for later sessions."
+);
 
 impl MainWindow {
     /// The Video tab: Defaults and the Crop section, then Filters and its sections.
@@ -33,14 +36,19 @@ impl MainWindow {
             controls.sync(window, cx);
         }
         let defaults = div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .p(px(SECTION_PADDING))
             .child(self.render_video_defaults(p, window, cx))
             .child(self.render_crop_section(p, cx));
-        let filters = section("Filters", FILTERS_NOTE, p)
+        let filters = section(tr!("Filters"), crate::i18n::text(FILTERS_NOTE), p)
             .children(sections.map(|controls| controls.render(p, cx)))
             .child(self.settings_panel.colors.render(p, cx));
-        div().flex().flex_col().child(defaults).child(div().h(px(1.)).bg(p.divider)).child(filters)
+        div()
+            .flex_row_start()
+            .flex_col()
+            .child(defaults)
+            .child(div().h(px(1.)).bg(p.divider))
+            .child(filters)
     }
 }

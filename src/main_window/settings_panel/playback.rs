@@ -14,10 +14,12 @@
 use gpui::{Context, Div, Entity, KeyDownEvent, Subscription, Window, div, prelude::*, px};
 
 use crate::engine::values::MIN_RATE;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::main_window::speed::rules::{self, STEP};
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::slider::{self, Slider, SliderModel};
 use crate::ui::text_input::{self, TextInput, Validation};
 use crate::ui::toggle::Toggle;
@@ -36,8 +38,8 @@ const PADDING: f32 = 20.;
 const TOGGLE_ROW_HEIGHT: f32 = 52.;
 const HINT_TEXT: f32 = 12.;
 /// The toggles' labels.
-const TIMELINE_LABEL: &str = "Show Subtitle Timeline on Seekbar";
-const STATISTICS_LABEL: &str = "Show Statistics";
+const TIMELINE_LABEL: &str = tr_noop!("Show Subtitle Timeline on Seekbar");
+const STATISTICS_LABEL: &str = tr_noop!("Show Statistics");
 
 /// The speed field and slider, and what they last showed.
 pub(in crate::main_window) struct SpeedControls {
@@ -55,13 +57,13 @@ impl SpeedControls {
         let slider = cx.new(|cx| {
             let mut model = SliderModel::new(f64::from(MIN_RATE), SLIDER_MAX, SLIDER_STEP, 1.);
             model.big_step = f64::from(STEP);
-            Slider::new("Speed", model, window, cx)
+            Slider::new(tr!("Speed"), model, window, cx)
                 .accent()
                 .format(rules::field_text)
                 .marks(f64::from(STEP), rules::number)
         });
         let field = cx.new(|cx| {
-            TextInput::new(window, cx).with_text(rules::field_text(1.)).with_label("Speed")
+            TextInput::new(window, cx).with_text(rules::field_text(1.)).with_label(tr!("Speed"))
         });
         let slid = cx.subscribe_in(&slider, window, |this, _, event: &slider::Changed, _, cx| {
             this.set_speed(event.0 as f32, cx);
@@ -88,16 +90,16 @@ impl MainWindow {
             .child(speed.field.clone());
         let row = div()
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(4.))
-            .text_size(px(ROW_TEXT))
+            .ps(px(4.))
+            .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
-            .child("Speed")
+            .child(tr!("Speed"))
             .child(field);
         div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .px(px(PADDING))
             .child(self.render_timeline_toggle(p, cx))
@@ -112,28 +114,30 @@ impl MainWindow {
     fn render_timeline_toggle(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let on = settings::get(cx).prefs.interface.subtitle_timeline;
         let unavailable = self.subtitle_timeline_unavailable(cx);
-        let toggle = Toggle::new("subtitle-timeline", on, TIMELINE_LABEL)
+        let label = crate::i18n::text(TIMELINE_LABEL);
+        let toggle = Toggle::new("subtitle-timeline", on, label)
             .disabled(unavailable.is_some())
             .on_change(|on, _, cx| {
                 settings::update(cx, |s| s.prefs.interface.subtitle_timeline = *on);
             });
-        let row = toggle_row(TIMELINE_LABEL, toggle, p);
+        let row = toggle_row(label, toggle, p);
         let hint = unavailable.map(|why| {
             div()
-                .pl(px(4.))
+                .ps(px(4.))
                 .pb(px(8.))
-                .text_size(px(HINT_TEXT))
+                .text_size(text_px(HINT_TEXT))
                 .text_color(p.text_muted)
                 .child(why.hint())
         });
-        div().flex().flex_col().child(row).children(hint)
+        div().flex_row_start().flex_col().child(row).children(hint)
     }
 
     /// Show Statistics, which shows the overlay over the video (`statistics.rs`).
     fn render_statistics_toggle(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let toggle = Toggle::new("show-statistics", self.shows_statistics(), STATISTICS_LABEL)
+        let label = crate::i18n::text(STATISTICS_LABEL);
+        let toggle = Toggle::new("show-statistics", self.shows_statistics(), label)
             .on_change(cx.listener(|this, on: &bool, _, cx| this.set_show_statistics(*on, cx)));
-        toggle_row(STATISTICS_LABEL, toggle, p)
+        toggle_row(label, toggle, p)
     }
 
     /// Shows the player's speed in the controls, and disables them for live streams.
@@ -175,7 +179,7 @@ impl MainWindow {
                     Self::show_speed_text(field, speed, cx);
                 }
                 Err(rules::Invalid) => field.update(cx, |field, cx| {
-                    field.set_validation(Validation::Error("Not a speed".into()), cx);
+                    field.set_validation(Validation::Error(tr!("Not a speed").into()), cx);
                 }),
             },
             // Leaving the field takes a valid speed, and shows the speed playing either way.
@@ -223,12 +227,12 @@ impl MainWindow {
 fn toggle_row(label: &'static str, toggle: Toggle, p: &Palette) -> Div {
     div()
         .h(px(TOGGLE_ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .gap(px(8.))
-        .pl(px(4.))
-        .text_size(px(ROW_TEXT))
+        .ps(px(4.))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text_muted)
         .child(label)
         .child(toggle)

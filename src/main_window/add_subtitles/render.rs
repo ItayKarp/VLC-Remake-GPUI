@@ -9,6 +9,8 @@ use gpui::{
 
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::IconButton;
 use crate::ui::icon::icon;
@@ -41,7 +43,7 @@ impl Render for AddSubtitlesDialog {
         let body = div()
             .flex_1()
             .min_h_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .pt(px(PADDING + 3.))
             .child(self.body(&p, cx));
@@ -50,12 +52,12 @@ impl Render for AddSubtitlesDialog {
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(Self::on_key_down))
             .role(accesskit::Role::Dialog)
-            .aria_label("Add Subtitles")
+            .aria_label(tr!("Add Subtitles"))
             .w(px(WIDTH))
             .h(px(HEIGHT))
             .max_w(viewport.width - px(2. * self.window_margin))
             .max_h(viewport.height - px(2. * self.window_margin))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .rounded(px(metrics::RADIUS_LARGE + 4.))
             .overflow_hidden()
@@ -74,22 +76,22 @@ impl Render for AddSubtitlesDialog {
 impl AddSubtitlesDialog {
     /// The dark band: the title and ✕, then the Target, Origin and context fields.
     fn band(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let close = IconButton::new("add-subtitles-close", icons::CLOSE, "Close")
+        let close = IconButton::new("add-subtitles-close", icons::CLOSE, tr!("Close"))
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.cancel(cx)));
         let title = div()
             .h(px(TITLE_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(PADDING + 2.))
-            .pr(px(PADDING - 6.))
-            .text_size(px(metrics::TEXT - 1.))
+            .ps(px(PADDING + 2.))
+            .pe(px(PADDING - 6.))
+            .text_size(text_px(metrics::TEXT - 1.))
             .text_color(p.text_muted)
-            .child("Add Subtitles")
+            .child(tr!("Add Subtitles"))
             .child(close);
         div()
             .flex_none()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .pb(px(HEADER_INSET))
             .bg(p.sunken)
@@ -100,7 +102,7 @@ impl AddSubtitlesDialog {
     /// The list for the target and origin.
     fn body(&self, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         match &self.body {
-            Body::Loading => note("Reading the folder…", p).into_any_element(),
+            Body::Loading => note(tr!("Reading the folder…"), p).into_any_element(),
             Body::Files(files) => Self::render_files(files, p, cx),
             Body::Pairs(pairs) => Self::render_pairs(pairs, p, cx),
             Body::Search(search) => Self::render_search(search, p, cx),
@@ -114,7 +116,7 @@ pub(super) fn note(text: impl Into<SharedString>, p: &Palette) -> Div {
     div()
         .px(px(PADDING + 6.))
         .py(px(8.))
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .text_color(p.text_muted)
         .child(text.into())
 }
@@ -123,11 +125,11 @@ pub(super) fn note(text: impl Into<SharedString>, p: &Palette) -> Div {
 pub(super) fn icon_and_name(path: &'static str, name: SharedString, p: &Palette) -> Div {
     div()
         .min_w_0()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(ROW_ICON_GAP))
         .child(div().flex_none().child(icon(path, ROW_ICON, p.icon)))
-        .child(div().min_w_0().truncate().text_size(px(metrics::TEXT + 1.)).child(name))
+        .child(div().min_w_0().truncate().text_size(text_px(metrics::TEXT + 1.)).child(name))
 }
 
 /// A path's file name, for a row.

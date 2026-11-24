@@ -171,5 +171,5 @@ impl MainWindow {
 }
 
 fn mute_label(player: &Entity<Player>, cx: &App) -> &'static str {
-    if player.read(cx).is_muted() { "Unmute" } else { "Mute" }
+    if player.read(cx).is_muted() { tr!("Unmute") } else { tr!("Mute") }
 }

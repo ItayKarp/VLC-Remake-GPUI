@@ -19,8 +19,10 @@ use super::listing::{Body, Item, Items, card_key};
 use super::row::{self, ROW_TEXT, Row};
 use crate::db::media::MediaId;
 use crate::db::thumbnails::SizeClass;
+use crate::i18n::DirectionalStyle;
 use crate::library::folder_view::Card;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::icon::icon;
 use crate::ui::list::row_items;
 use crate::ui::metrics;
@@ -74,7 +76,12 @@ impl MainWindow {
             })
         });
         let cells: Vec<_> = cells.collect();
-        div().h(px(shape.line_height)).flex().gap(px(shape.gap)).children(cells).into_any_element()
+        div()
+            .h(px(shape.line_height))
+            .flex_row_start()
+            .gap(px(shape.gap))
+            .children(cells)
+            .into_any_element()
     }
 
     /// Item `index` as a list row in its column (full library mode's list, `player_04`).
@@ -110,7 +117,7 @@ impl MainWindow {
         let picture = card::thumbnail_stack(card, SizeClass::Grid, tile.picture, p, cx);
         // `•••` sits on the picture's corner, over the hover's scrim, leaving the name the
         // tile's width.
-        let more = div().absolute().top(px(CELL_PAD)).right_0().child(card::more_button(
+        let more = div().absolute().top(px(CELL_PAD)).inset_end(px(0.)).child(card::more_button(
             index,
             gpui::white(),
             cx,
@@ -145,13 +152,13 @@ impl MainWindow {
             .h(px(tile_height))
             .rounded(px(metrics::RADIUS))
             .bg(p.control)
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .child(icon(row.icon(), ROW_TILE_ICON, p.icon));
         let picture = picture.relative().when(row.menu().is_some(), |picture| {
             let more = card::more_button(index, p.icon, cx);
-            picture.child(div().absolute().top(px(CELL_PAD)).right_0().child(more))
+            picture.child(div().absolute().top(px(CELL_PAD)).inset_end(px(0.)).child(more))
         });
         let frame = cell(("library-row-tile", index), tile.width(), selected, p);
         let cell = drag::drop_target(frame, row, p, cx);
@@ -198,16 +205,16 @@ fn cell(id: impl Into<gpui::ElementId>, width: f32, selected: bool, p: &Palette)
         .flex_none()
         .w(px(width))
         .p(px(CELL_PAD))
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(NAME_GAP))
         .rounded(px(metrics::RADIUS))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text)
         .when(selected, |cell| cell.bg(p.selected))
 }
 
 /// The line under a tile's picture that holds its name.
 fn name_line() -> Div {
-    div().h(px(NAME_HEIGHT)).flex().items_center()
+    div().h(px(NAME_HEIGHT)).flex_row_start().items_center()
 }

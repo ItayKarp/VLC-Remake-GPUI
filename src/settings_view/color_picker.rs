@@ -1,20 +1,23 @@
 //! A color field's square and the palette it opens (S5.8.3; the picker isn't designed). The
 //! square shows the saved color; clicking it, or Enter or Space on it, opens sixteen colors that
 //! read well as subtitles under it, the saved one ringed. Picking one saves it and closes the
-//! palette, as does Escape or a click outside. Any other color can still be typed in the field.
+//! palette, as does Escape or a click outside. While it's open the arrow keys, Home and End move
+//! a focus ring over the colors and Enter or Space picks the ringed one (S9.1.1). Any other color can still be typed in the field.
 
 use gpui::{
     Context, FocusHandle, Hsla, IntoElement, KeyDownEvent, MouseDownEvent, Render, SharedString,
     Window, div, prelude::*, px, rgb,
 };
 
+use crate::i18n::DirectionalStyle;
 use crate::settings::{
     self,
     registry::{self, SettingDef, Value},
 };
 use crate::theme::{self, Palette};
+use crate::ui::focus::{self, Axis, Layout};
+use crate::ui::metrics;
 use crate::ui::popover::{self, BoundsTracker, Side};
-use crate::ui::{focus, metrics};
 
 /// The palette, white to black, then the colors.
 const COLORS: [u32; 16] = [
@@ -32,6 +35,8 @@ const GAP: f32 = 8.;
 pub(super) struct ColorPicker {
     def: &'static SettingDef,
     open: bool,
+    /// The palette color the arrow keys are on, while it's open.
+    highlighted: Option<usize>,
     trigger: BoundsTracker,
     focus_handle: FocusHandle,
 }
@@ -39,7 +44,13 @@ pub(super) struct ColorPicker {
 impl ColorPicker {
     /// The square of the color row `def`.
     pub(super) fn new(def: &'static SettingDef, cx: &mut Context<Self>) -> Self {
-        Self { def, open: false, trigger: BoundsTracker::new(), focus_handle: cx.focus_handle() }
+        Self {
+            def,
+            open: false,
+            highlighted: None,
+            trigger: BoundsTracker::new(),
+            focus_handle: cx.focus_handle(),
+        }
     }
 
     /// The saved color, if it is one.
@@ -53,6 +64,8 @@ impl ColorPicker {
     fn set_open(&mut self, open: bool, cx: &mut Context<Self>) {
         let enabled = self.def.is_enabled(settings::get(cx));
         self.open = open && enabled;
+        let saved = self.saved(cx);
+        self.highlighted = COLORS.iter().position(|&color| Some(color) == saved);
         cx.notify();
     }
 
@@ -65,8 +78,21 @@ impl ColorPicker {
     }
 
     fn on_key(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
+        if self.open
+            && let Some(movement) = focus::group_key(event, Axis::Grid)
+        {
+            let layout = Layout::grid(PER_ROW, COLORS.len() / PER_ROW);
+            self.highlighted =
+                focus::step(self.highlighted, COLORS.len(), movement, layout, |_| true);
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
         match event.keystroke.key.as_str() {
-            "enter" | "space" => self.set_open(!self.open, cx),
+            "enter" | "space" => match self.highlighted.filter(|_| self.open) {
+                Some(index) => self.pick(COLORS[index], cx),
+                None => self.set_open(!self.open, cx),
+            },
             "escape" if self.open => {
                 self.set_open(false, cx);
                 cx.stop_propagation();
@@ -86,7 +112,7 @@ impl Render for ColorPicker {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = theme::palette(window, cx);
         let saved = self.saved(cx);
-        let label = SharedString::from(format!("Choose {}", self.def.label.to_lowercase()));
+        let label = SharedString::from(choose_label(self.def.label));
         let square = div()
             .id("color-square")
             .relative()
@@ -106,40 +132,53 @@ impl Render for ColorPicker {
             .child(self.trigger.element())
             .child(color_box(saved, SQUARE, p.divider));
         let opened = self.open.then(|| self.trigger.bounds()).flatten().map(|bounds| {
-            popover::attached(bounds, Side::Below, 4., 1, palette(saved, &p, window, cx))
+            let marks = Marks { saved, highlighted: self.highlighted.map(|index| COLORS[index]) };
+            popover::attached(bounds, Side::Below, 4., 1, palette(marks, &p, window, cx))
         });
         div().child(focus::ring(square, &p)).children(opened)
     }
 }
 
+/// Which palette colors are marked: the saved one, and the one the arrow keys are on.
+#[derive(Clone, Copy)]
+struct Marks {
+    saved: Option<u32>,
+    highlighted: Option<u32>,
+}
+
 /// The sixteen colors under the square.
 fn palette(
-    saved: Option<u32>,
+    marks: Marks,
     p: &Palette,
     window: &Window,
     cx: &Context<ColorPicker>,
 ) -> impl IntoElement {
     let rows = COLORS.chunks(PER_ROW).map(|row| {
-        div().flex().gap(px(GAP)).children(row.iter().map(|&color| swatch(color, saved, p, cx)))
+        div()
+            .flex_row_start()
+            .gap(px(GAP))
+            .children(row.iter().map(|&color| swatch(color, marks, p, cx)))
     });
     popover::surface(p, window)
         .id("color-palette")
         .p(px(12.))
-        .flex()
+        .flex_row_start()
         .flex_col()
         .gap(px(GAP))
         .on_mouse_down_out(cx.listener(ColorPicker::close_outside))
         .children(rows)
 }
 
-/// One palette color; the saved one is ringed in the accent.
-fn swatch(
-    color: u32,
-    saved: Option<u32>,
-    p: &Palette,
-    cx: &Context<ColorPicker>,
-) -> impl IntoElement {
-    let ring = if saved == Some(color) { p.accent } else { gpui::transparent_black() };
+/// One palette color; the arrow keys' one is ringed in the focus color, else the saved one in
+/// the accent.
+fn swatch(color: u32, marks: Marks, p: &Palette, cx: &Context<ColorPicker>) -> impl IntoElement {
+    let ring = if marks.highlighted == Some(color) {
+        p.focus_ring
+    } else if marks.saved == Some(color) {
+        p.accent
+    } else {
+        gpui::transparent_black()
+    };
     div()
         .id(SharedString::from(format!("swatch-{color:06X}")))
         .p(px(2.))
@@ -160,4 +199,12 @@ fn color_box(color: Option<u32>, size: f32, outline: Hsla) -> impl IntoElement {
         .border_1()
         .border_color(outline)
         .when_some(color, |square, color| square.bg(rgb(color)))
+}
+
+/// The square's accessible name, "Choose text color". English lowercases the label to fit
+/// it mid-sentence; a translation keeps the label as its translator wrote it.
+fn choose_label(label: &'static str) -> String {
+    let shown = crate::i18n::text(label);
+    let setting = if shown == label { shown.to_lowercase() } else { shown.to_owned() };
+    tr!("Choose {setting}", setting)
 }

@@ -19,6 +19,7 @@ use super::control_bar::clock;
 use super::flash::Flash;
 use crate::assets::icons;
 use crate::theme::Palette;
+use crate::theme::text_px;
 
 /// How long a message stays.
 const SHOWN_FOR: Duration = Duration::from_millis(1500);
@@ -86,7 +87,7 @@ fn bubble(p: &Palette) -> Div {
         .rounded(px(8.))
         .bg(p.panel)
         .shadow_lg()
-        .text_size(px(TEXT_SIZE))
+        .text_size(text_px(TEXT_SIZE))
         .text_color(p.text_strong)
         .font_features(clock::tabular_digits())
 }
@@ -104,5 +105,5 @@ fn stepping(p: &Palette, reduce_motion: bool) -> Div {
             })
             .into_any_element()
     };
-    div().flex().items_center().gap(px(10.)).child(spinner).child("Stepping…")
+    div().flex().items_center().gap(px(10.)).child(spinner).child(tr!("Stepping…"))
 }

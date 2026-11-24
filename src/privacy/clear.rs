@@ -29,20 +29,21 @@ impl Counts {
 
     /// What the confirmation says will be forgotten.
     pub fn describe(self) -> String {
-        let parts = [
-            (u64::from(self.media), "played item", "played items"),
-            (self.recent as u64, "item in Open Recent", "items in Open Recent"),
-            (self.streams as u64, "recent stream", "recent streams"),
-        ];
-        let listed: Vec<String> = parts
-            .iter()
-            .filter(|(count, ..)| *count > 0)
-            .map(|&(count, one, many)| format!("{count} {}", if count == 1 { one } else { many }))
-            .collect();
+        let mut listed = Vec::new();
+        if self.media > 0 {
+            listed.push(trn!("{count} played item", "{count} played items", self.media));
+        }
+        if self.recent > 0 {
+            let items = self.recent;
+            listed.push(trn!("{count} item in Open Recent", "{count} items in Open Recent", items));
+        }
+        if self.streams > 0 {
+            listed.push(trn!("{count} recent stream", "{count} recent streams", self.streams));
+        }
         match listed.as_slice() {
             [] => String::new(),
             [only] => only.clone(),
-            [first @ .., last] => format!("{} and {last}", first.join(", ")),
+            [first @ .., last] => tr!("{list} and {last}", list = first.join(tr!(", ")), last),
         }
     }
 }
@@ -82,20 +83,22 @@ pub fn ask_to_clear(window: &mut Window, cx: &mut App) {
 /// Shows the confirmation for `counts`, and clears on Clear History.
 fn confirm(counts: Counts, window: &mut Window, cx: &mut App) {
     if counts.is_empty() {
-        let detail = "Nothing has been played or opened since the history was last cleared.";
+        let detail = tr!("Nothing has been played or opened since the history was last cleared.");
+        let title = tr!("No history to clear");
         // Nothing waits for the answer: OK only closes the alert.
-        drop(window.prompt(PromptLevel::Info, "No history to clear", Some(detail), &["OK"], cx));
+        drop(window.prompt(PromptLevel::Info, title, Some(detail), &[tr!("OK")], cx));
         return;
     }
-    let detail = format!(
-        "VLC forgets {}. Your library, playlists and favorites stay. This can't be undone.",
-        counts.describe()
+    let detail = tr!(
+        "VLC forgets {forgotten}. Your library, playlists and favorites stay. This can't be \
+         undone.",
+        forgotten = counts.describe()
     );
     let answer = window.prompt(
         PromptLevel::Warning,
-        "Clear your history?",
+        tr!("Clear your history?"),
         Some(&detail),
-        &["Clear History", "Cancel"],
+        &[tr!("Clear History"), tr!("Cancel")],
         cx,
     );
     window

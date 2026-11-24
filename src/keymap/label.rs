@@ -56,16 +56,21 @@ pub fn caps(keystroke: &Keystroke, mac: bool) -> Vec<KeyCap> {
 fn modifier_names(modifiers: Modifiers, mac: bool) -> Vec<&'static str> {
     // macOS orders them ⌃⌥⇧⌘; Windows and Linux Ctrl, Alt, Shift, Win.
     let order: [(bool, &str, &str); 4] = [
-        (modifiers.control, "⌃", "Ctrl"),
-        (modifiers.alt, "⌥", "Alt"),
-        (modifiers.shift, "⇧", "Shift"),
-        (modifiers.platform, "⌘", if cfg!(target_os = "linux") { "Super" } else { "Win" }),
+        (modifiers.control, "⌃", tr!("Ctrl")),
+        (modifiers.alt, "⌥", tr!("Alt")),
+        (modifiers.shift, "⇧", tr!("Shift")),
+        (modifiers.platform, "⌘", platform_key_name()),
     ];
     order
         .into_iter()
         .filter(|(held, ..)| *held)
         .map(|(_, symbol, name)| if mac { symbol } else { name })
         .collect()
+}
+
+/// The Windows or Super key's name.
+fn platform_key_name() -> &'static str {
+    if cfg!(target_os = "linux") { tr!("Super") } else { tr!("Win") }
 }
 
 fn arrow(key: &str) -> Option<Arrow> {
@@ -81,22 +86,22 @@ fn arrow(key: &str) -> Option<Arrow> {
 /// A key's printed name: "Space", "Esc", "F1", "←", "O", "<".
 fn key_name(key: &str, mac: bool) -> String {
     let named = match key {
-        "space" => "Space",
-        "escape" => "Esc",
+        "space" => trc!("key", "Space"),
+        "escape" => trc!("key", "Esc"),
         "enter" if mac => "↩",
-        "enter" => "Enter",
+        "enter" => trc!("key", "Enter"),
         "backspace" if mac => "⌫",
-        "backspace" => "Backspace",
-        "delete" => "Delete",
-        "tab" => "Tab",
+        "backspace" => trc!("key", "Backspace"),
+        "delete" => trc!("key", "Delete"),
+        "tab" => trc!("key", "Tab"),
         "left" => "←",
         "right" => "→",
         "up" => "↑",
         "down" => "↓",
-        "pageup" => "Page Up",
-        "pagedown" => "Page Down",
-        "home" => "Home",
-        "end" => "End",
+        "pageup" => trc!("key", "Page Up"),
+        "pagedown" => trc!("key", "Page Down"),
+        "home" => trc!("key", "Home"),
+        "end" => trc!("key", "End"),
         _ => return key.to_uppercase(),
     };
     named.to_owned()

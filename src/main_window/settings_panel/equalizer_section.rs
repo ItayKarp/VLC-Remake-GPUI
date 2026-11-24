@@ -25,10 +25,12 @@ use crate::effects::{self, AUDIO_EQUALIZER};
 use crate::engine::audio::equalizer::{
     BANDS, Equalizer, FREQUENCIES, GAIN_RANGE, format_gain, parse_gain,
 };
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::Value;
 use crate::settings::{self, EqualizerPick, MAX_SAVED_NAME};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::slider::SliderModel;
@@ -40,7 +42,7 @@ const GAINS: &str = "audio.equalizer_bands";
 const PRESET: &str = "audio.equalizer_preset";
 const TWO_PASS: &str = "audio.equalizer_two_pass";
 /// The label of the gain before the bands.
-const PREAMP: &str = "Preamp";
+const PREAMP: &str = tr_noop!("Preamp");
 /// The sliders' step, in dB.
 const STEP: f64 = 0.1;
 /// Past this much boost (the preamp plus the highest band), loud passages may distort.
@@ -68,7 +70,7 @@ impl EqualizerControls {
         let labels = picks.iter().map(|pick| SharedString::from(pick.label())).collect();
         let glyphs = picks.iter().map(glyph).collect();
         let presets = cx.new(|cx| {
-            let mut dropdown = Dropdown::new("Equalizer preset", labels, 0, window, cx);
+            let mut dropdown = Dropdown::new(tr!("Equalizer preset"), labels, 0, window, cx);
             dropdown.set_glyphs(glyphs, cx);
             dropdown
         });
@@ -114,7 +116,7 @@ impl EqualizerControls {
     pub(super) fn render(&self, p: &Palette, cx: &mut Context<MainWindow>) -> Div {
         let content = effect_section::is_expanded(cx, &AUDIO_EQUALIZER).then(|| {
             div()
-                .flex()
+                .flex_row_start()
                 .flex_col()
                 .px(px(BOX_PADDING))
                 .pb(px(BOX_PADDING))
@@ -132,14 +134,14 @@ impl EqualizerControls {
     /// The name field "Save as preset…" opened, with Save and Cancel; `None` while closed.
     fn naming_row(&self, p: &Palette, cx: &mut Context<MainWindow>) -> Option<Div> {
         let (field, _) = self.naming.as_ref()?;
-        let save = Button::new("save-equalizer-preset", "Save")
+        let save = Button::new("save-equalizer-preset", tr!("Save"))
             .style(ButtonStyle::Subtle)
             .on_click(cx.listener(|this, _, _, cx| this.save_preset(cx)));
-        let cancel = Button::new("cancel-equalizer-preset", "Cancel")
+        let cancel = Button::new("cancel-equalizer-preset", tr!("Cancel"))
             .style(ButtonStyle::Ghost)
             .on_click(cx.listener(|this, _, _, cx| this.close_naming(cx)));
-        let buttons = div().flex().justify_end().gap(px(GAP)).child(cancel).child(save);
-        let fields = div().flex().flex_col().gap(px(GAP)).pt(px(GAP)).text_color(p.text);
+        let buttons = div().flex_row_start().justify_end().gap(px(GAP)).child(cancel).child(save);
+        let fields = div().flex_row_start().flex_col().gap(px(GAP)).pt(px(GAP)).text_color(p.text);
         Some(fields.child(field.clone()).child(buttons))
     }
 }
@@ -149,8 +151,8 @@ impl MainWindow {
     fn open_naming(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let field = cx.new(|cx| {
             TextInput::new(window, cx)
-                .with_placeholder("Preset name")
-                .with_label("Preset name")
+                .with_placeholder(tr!("Preset name"))
+                .with_label(tr!("Preset name"))
                 .with_max_len(MAX_SAVED_NAME)
         });
         field.read(cx).focus_handle(cx).focus(window, cx);
@@ -181,7 +183,7 @@ impl MainWindow {
         settings::update(cx, |s| saved = s.prefs.save_equalizer(&name, gains));
         let Some(saved) = saved else {
             field.update(cx, |field, cx| {
-                field.set_validation(Validation::Error("Give the preset a name".into()), cx);
+                field.set_validation(Validation::Error(tr!("Give the preset a name").into()), cx);
             });
             return;
         };
@@ -192,32 +194,32 @@ impl MainWindow {
 
 /// "Preset", and "Save as preset…" at the right.
 fn preset_row(p: &Palette, cx: &mut Context<MainWindow>) -> Div {
-    let save = Button::new("save-as-equalizer-preset", "Save as preset…")
+    let save = Button::new("save-as-equalizer-preset", tr!("Save as preset…"))
         .style(ButtonStyle::Ghost)
-        .tooltip("Keeps the gains in use as a preset of your own", None::<&str>)
+        .tooltip(tr!("Keeps the gains in use as a preset of your own"), None::<&str>)
         .on_click(cx.listener(|this, _, window, cx| this.open_naming(window, cx)));
-    labelled("Preset", p).child(save)
+    labelled(tr!("Preset"), p).child(save)
 }
 
 /// The 2 Pass switch's row.
 fn two_pass_row(p: &Palette, cx: &App) -> Div {
     let on = effects::value(cx, TWO_PASS) == Some(Value::Bool(true));
-    let switch = Toggle::new("equalizer-two-pass", on, "2 Pass").on_change(|on, _, cx| {
+    let switch = Toggle::new("equalizer-two-pass", on, tr!("2 Pass")).on_change(|on, _, cx| {
         effects::change(cx, &AUDIO_EQUALIZER, TWO_PASS, Value::Bool(*on));
     });
-    labelled("2 Pass", p).child(switch)
+    labelled(tr!("2 Pass"), p).child(switch)
 }
 
 /// A row with `label` at the left.
 fn labelled(label: &'static str, p: &Palette) -> Div {
     div()
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .gap(px(GAP))
-        .pl(px(4.))
-        .text_size(px(TEXT))
+        .ps(px(4.))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(label)
 }
@@ -227,11 +229,11 @@ fn clip_warning(p: &Palette, cx: &App) -> Option<Div> {
     let gains = effects::effective(cx).prefs.audio.equalizer_gains();
     may_clip(&gains).then(|| {
         div()
-            .pl(px(4.))
+            .ps(px(4.))
             .pb(px(GAP))
-            .text_size(px(TEXT))
+            .text_size(text_px(TEXT))
             .text_color(p.danger)
-            .child("Loud passages may distort: lower the Preamp.")
+            .child(tr!("Loud passages may distort: lower the Preamp."))
     })
 }
 
@@ -261,7 +263,7 @@ fn set_gain(index: usize, gain: f64, cx: &mut App) {
 
 /// Gain `index`'s row: its label, a box taking a typed gain, and a slider from −20 to +20 dB.
 fn gain_spec(index: usize) -> Spec {
-    let label = index.checked_sub(1).map_or(PREAMP, |band| FREQUENCIES[band]);
+    let label = index.checked_sub(1).map_or(crate::i18n::text(PREAMP), |band| FREQUENCIES[band]);
     let (min, max) = (f64::from(GAIN_RANGE.0), f64::from(GAIN_RANGE.1));
     Spec {
         label,

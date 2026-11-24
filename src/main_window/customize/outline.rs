@@ -11,6 +11,7 @@ use super::units;
 use crate::main_window::MainWindow;
 use crate::main_window::control_bar::{CONTROL_BAR_HEIGHT, Place, divider};
 use crate::player_layout::{Item, MAX_ROWS, Piece, Spot, Target, Unit, Zone};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::icon::icon;
 use crate::ui::metrics;
@@ -60,7 +61,7 @@ impl Render for UnitPreview {
             .rounded(px(metrics::RADIUS))
             .bg(p.popover)
             .text_color(p.text)
-            .text_size(px(13.))
+            .text_size(text_px(13.))
             .shadow_md()
             .children(units::icon(self.unit).map(|path| icon(path, PREVIEW_ICON, p.icon)))
             .child(units::label(self.unit))
@@ -152,7 +153,7 @@ impl MainWindow {
         let grows = matches!(unit, Unit::Spacer | Unit::Item(Item::CurrentTime));
         let handle = div()
             .id(piece_id(spot))
-            .debug_selector(move || format!("customize-{}", units::label(unit)))
+            .debug_selector(move || format!("customize-{}", units::english(unit)))
             .absolute()
             .inset_0()
             .border_1()
@@ -245,9 +246,9 @@ impl MainWindow {
             .border_dashed()
             .border_color(if lit { p.accent } else { p.text_muted })
             .rounded(px(metrics::RADIUS))
-            .text_size(px(13.))
+            .text_size(text_px(13.))
             .text_color(p.text_muted)
-            .child("Drop here for a second row")
+            .child(tr!("Drop here for a second row"))
             .on_drag_move(cx.listener(|this, event: &DragMoveEvent<DraggedUnit>, _, cx| {
                 let over = event.bounds.contains(&event.event.position);
                 this.track_drop_area(Some(Target::NewRow), over, cx);
@@ -278,7 +279,7 @@ pub(in crate::main_window) fn placeholder(name: SharedString, p: &Palette) -> An
         .flex_none()
         .px(px(4.))
         .whitespace_nowrap()
-        .text_size(px(13.))
+        .text_size(text_px(13.))
         .text_color(p.text_muted)
         .child(name)
         .into_any_element()

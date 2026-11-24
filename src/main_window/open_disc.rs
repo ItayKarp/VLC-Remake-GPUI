@@ -77,17 +77,18 @@ impl OpenDiscDialog {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let disc_list = cx.new(|cx| Dropdown::new("Disc", vec!["Looking…".into()], 0, window, cx));
+        let disc_list =
+            cx.new(|cx| Dropdown::new(tr!("Disc"), vec![tr!("Looking…").into()], 0, window, cx));
         let number = |label: &'static str, window: &mut Window, cx: &mut Context<Self>| {
             cx.new(|cx| {
                 TextInput::new(window, cx)
-                    .with_placeholder("Any")
+                    .with_placeholder(tr!("Any"))
                     .with_label(label)
                     .with_max_len(NUMBER_DIGITS)
             })
         };
-        let title = number("Title", window, cx);
-        let chapter = number("Chapter", window, cx);
+        let title = number(tr!("Title"), window, cx);
+        let chapter = number(tr!("Chapter"), window, cx);
         let subscriptions = [
             cx.subscribe_in(&disc_list, window, |this, _, picked: &dropdown::Changed, _, cx| {
                 this.pick_disc(picked.0, cx);
@@ -134,7 +135,7 @@ impl OpenDiscDialog {
     /// Shows the discs in the list, `selected` picked.
     fn refresh_list(&mut self, selected: usize, cx: &mut Context<Self>) {
         let options: Vec<SharedString> = if self.discs.is_empty() {
-            vec!["No disc found".into()]
+            vec![tr!("No disc found").into()]
         } else {
             self.discs.iter().map(|disc| list_name(disc).into()).collect()
         };
@@ -195,7 +196,7 @@ impl OpenDiscDialog {
             files: true,
             directories: true,
             multiple: false,
-            prompt: Some("Choose".into()),
+            prompt: Some(tr!("Choose").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(mut paths))) = picked.await else { return };

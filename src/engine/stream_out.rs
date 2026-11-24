@@ -96,9 +96,9 @@ impl StreamQuality {
     /// Its name in the dialog.
     pub fn name(self) -> &'static str {
         match self {
-            Self::High => "High – up to 1080p, 6 Mb/s",
-            Self::Medium => "Medium – up to 720p, 3 Mb/s",
-            Self::Low => "Low – up to 480p, 1 Mb/s",
+            Self::High => tr!("High – up to 1080p, 6 Mb/s"),
+            Self::Medium => tr!("Medium – up to 720p, 3 Mb/s"),
+            Self::Low => tr!("Low – up to 480p, 1 Mb/s"),
         }
     }
 

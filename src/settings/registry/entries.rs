@@ -62,7 +62,7 @@ pub(super) static PAGES: [&[SettingDef]; 23] = [
 fn languages(value: &Value) -> Result<(), String> {
     let Value::List(codes) = value else { return Ok(()) };
     match codes.iter().find(|code| Language::parse(code).is_none()) {
-        Some(code) => Err(format!("\"{code}\" isn't a language code")),
+        Some(code) => Err(tr!("\"{code}\" isn't a language code", code)),
         None => Ok(()),
     }
 }

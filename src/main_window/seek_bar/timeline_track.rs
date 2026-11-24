@@ -16,6 +16,7 @@ use crate::engine::player::CueSpan;
 use crate::main_window::MainWindow;
 use crate::theme::{Palette, blend};
 use crate::ui::icon::icon;
+use crate::ui::metrics::{self, MIN_TARGET};
 use crate::ui::{focus, tooltip};
 
 /// How much of the accent a played line mixes into the track, and how much of the text an
@@ -93,10 +94,11 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let can = self.timeline_moves(cx);
-        let earlier = button("timeline-earlier", icons::CHEVRON_LEFT, "Show earlier", can.earlier);
-        let zoom_out = button("timeline-zoom-out", icons::REMOVE, "Zoom out", can.zoom_out);
-        let zoom_in = button("timeline-zoom-in", icons::ADD, "Zoom in", can.zoom_in);
-        let later = button("timeline-later", icons::CHEVRON_RIGHT, "Show later", can.later);
+        let earlier =
+            button("timeline-earlier", icons::CHEVRON_LEFT, tr!("Show earlier"), can.earlier);
+        let zoom_out = button("timeline-zoom-out", icons::REMOVE, tr!("Zoom out"), can.zoom_out);
+        let zoom_in = button("timeline-zoom-in", icons::ADD, tr!("Zoom in"), can.zoom_in);
+        let later = button("timeline-later", icons::CHEVRON_RIGHT, tr!("Show later"), can.later);
         bar.gap(px(BUTTON_GAP))
             .px(px(BUTTON_GAP))
             .child(
@@ -130,9 +132,7 @@ impl EndButton {
         p: &Palette,
         on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Stateful<Div> {
-        let button = div()
-            .id(self.id)
-            .flex_none()
+        let face = div()
             .w(px(BUTTON_WIDTH))
             .h(px(BUTTON_HEIGHT))
             .flex()
@@ -141,14 +141,28 @@ impl EndButton {
             .rounded(px(3.))
             .border_1()
             .border_color(p.accent)
+            .child(icon(self.icon, BUTTON_ICON, p.accent));
+        // The drawn face is smaller than a finger or a shaky hand needs, so the button around
+        // it takes [`MIN_TARGET`] each way, overhanging the track's height rather than
+        // growing it (S9.1.4).
+        let overhang = (MIN_TARGET - BUTTON_HEIGHT) / 2.;
+        let button = div()
+            .id(self.id)
+            .flex_none()
+            .size(px(MIN_TARGET))
+            .my(px(-overhang))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(metrics::RADIUS))
             .role(accesskit::Role::Button)
             .aria_label(self.label)
             .tooltip(tooltip::text(self.label, None::<&str>))
-            .child(icon(self.icon, BUTTON_ICON, p.accent));
+            .child(face);
         if !self.enabled {
             return button.opacity(DISABLED_OPACITY);
         }
-        focus::ring(button.tab_index(0).key_context(focus::CONTROL).cursor_pointer(), p)
+        focus::outline_ring(button.tab_index(0).key_context(focus::CONTROL).cursor_pointer(), p)
             .on_click(on_click)
     }
 }

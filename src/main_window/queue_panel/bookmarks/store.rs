@@ -148,12 +148,14 @@ impl MainWindow {
         let title = player.metadata().title.clone();
         let Some(loaded) = &mut self.queue_panel.saved_bookmarks.loaded else { return };
         let (index, message) = match slot(&loaded.list, position) {
-            Ok(index) => (index, format!("Already bookmarked · {}", loaded.list[index].name)),
+            Ok(index) => {
+                (index, tr!("Already bookmarked · {name}", name = loaded.list[index].name))
+            }
             Err(index) => {
                 let name = next_name(&media_title(title.as_deref(), &loaded.media), &loaded.list);
                 let bookmark = Bookmark { position, name };
                 loaded.list.insert(index, bookmark.clone());
-                let message = format!("Bookmark added · {}", bookmark.name);
+                let message = tr!("Bookmark added · {name}", name = bookmark.name);
                 self.store_bookmarks(move |c, identity| bookmarks::add(c, identity, &bookmark), cx);
                 (index, message)
             }
@@ -197,7 +199,8 @@ impl MainWindow {
         let Some(player) = self.seekable_player(cx) else { return };
         let duration = player.read(cx).duration();
         if past_the_end(bookmark.position, duration) {
-            self.show_osd(format!("{} is past the end of this media", bookmark.name), cx);
+            let name = &bookmark.name;
+            self.show_osd(tr!("{name} is past the end of this media", name), cx);
             return;
         }
         self.seek_player(SeekTarget::Absolute(bookmark.position), cx);

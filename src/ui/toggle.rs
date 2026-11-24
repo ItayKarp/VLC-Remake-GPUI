@@ -12,6 +12,8 @@ use gpui::{App, Div, ElementId, SharedString, Window, accesskit, div, prelude::*
 use super::icon::icon;
 use super::{focus, metrics};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Called with the control's new state.
@@ -57,11 +59,11 @@ fn half() -> Div {
     div()
         .flex_1()
         .h_full()
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .rounded(px(3.))
-        .text_size(px(12.))
+        .text_size(text_px(12.))
 }
 
 impl RenderOnce for Toggle {
@@ -74,15 +76,14 @@ impl RenderOnce for Toggle {
         let text = half()
             .bg(if on { p.accent_tint } else { p.control })
             .text_color(if on { p.accent_on_tint } else { p.text_muted })
-            .child(if on { "ON" } else { "OFF" });
+            .child(if on { tr!("ON") } else { tr!("OFF") });
 
         let toggle = div()
             .id(self.id)
             .w(px(TOGGLE_WIDTH))
             .h(px(TOGGLE_HEIGHT))
             .flex_none()
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .gap(px(2.))
             .p(px(1.))
             .rounded(px(metrics::RADIUS + 2.))
@@ -141,7 +142,7 @@ fn check_box(checked: bool, p: &Palette) -> Div {
     div()
         .size(px(20.))
         .flex_none()
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .rounded(px(4.))
@@ -159,8 +160,7 @@ impl RenderOnce for Checkbox {
 
         let row = div()
             .id(self.id)
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_center()
             .gap(px(10.))
             .min_w_0()
@@ -180,7 +180,7 @@ impl RenderOnce for Checkbox {
                 div()
                     .min_w_0()
                     .truncate()
-                    .text_size(px(metrics::TEXT))
+                    .text_size(text_px(metrics::TEXT))
                     .text_color(p.text)
                     .child(self.label),
             )

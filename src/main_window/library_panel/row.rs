@@ -18,9 +18,11 @@ use crate::app::media::Media;
 use crate::app::request::OpenRequest;
 use crate::assets::icons;
 use crate::db::podcasts::EpisodeId;
+use crate::i18n::DirectionalStyle;
 use crate::navigation::route::{MusicRoute, NetworkCategory, Route};
 use crate::network::{self, links};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::{icon, metrics};
 
 /// A row's height, its icon box and the gap before its text (`player_02`).
@@ -35,6 +37,8 @@ pub(super) struct Row {
     label: SharedString,
     icon: &'static str,
     target: Target,
+    /// Dim text after the name: an episode's date.
+    detail: Option<SharedString>,
 }
 
 /// What clicking a row does.
@@ -59,7 +63,12 @@ pub(super) enum Target {
 impl Row {
     /// A row named `label` with `icon`, doing `target`.
     pub(super) fn new(label: impl Into<SharedString>, icon: &'static str, target: Target) -> Self {
-        Self { label: label.into(), icon, target }
+        Self { label: label.into(), icon, target, detail: None }
+    }
+
+    /// The row with `detail` shown dim after its name.
+    pub(super) fn with_detail(self, detail: Option<impl Into<SharedString>>) -> Self {
+        Self { detail: detail.map(Into::into), ..self }
     }
 
     /// A recently played media, which plays when clicked.
@@ -81,7 +90,7 @@ impl Row {
             Route::Music(MusicRoute::Songs(_)) => Shelf::Music,
             _ => return None,
         };
-        Some(Self::new("Add", icons::ADD, Target::Add(shelf)))
+        Some(Self::new(tr!("Add"), icons::ADD, Target::Add(shelf)))
     }
 
     /// The row's name.
@@ -152,13 +161,16 @@ impl Row {
             .child(
                 div()
                     .size(px(ROW_ICON_BOX))
-                    .flex()
+                    .flex_row_start()
                     .flex_none()
                     .items_center()
                     .justify_center()
                     .child(icon::icon(self.icon, metrics::ICON, p.icon)),
             )
             .child(div().flex_1().min_w_0().truncate().child(self.label.clone()))
+            .when_some(self.detail.clone(), |row, detail| {
+                row.child(div().flex_none().text_color(p.text_muted).child(detail))
+            })
             .when(self.menu().is_some(), |row| row.child(more_button(index, p.icon, cx)))
     }
 }
@@ -189,11 +201,11 @@ pub(super) fn row_frame(id: impl Into<gpui::ElementId>, p: &Palette) -> Stateful
         .h(px(ROW_HEIGHT))
         .w_full()
         .px(px(2.))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(ROW_GAP))
         .rounded(px(metrics::RADIUS))
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .text_color(p.text)
 }
 

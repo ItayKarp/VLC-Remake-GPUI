@@ -120,15 +120,15 @@ pub fn kind_of(mrl: &str) -> Option<DeviceKind> {
     SCHEMES.iter().find(|(name, _)| scheme.eq_ignore_ascii_case(name)).map(|&(_, kind)| kind)
 }
 
-/// What a device of `kind` is called when it has no title.
+/// What a device of `kind` is called when it has no title, in the interface language.
 pub fn kind_name(kind: DeviceKind) -> &'static str {
     match kind {
         DeviceKind::Dvd => "DVD",
         DeviceKind::BluRay => "Blu-ray",
-        DeviceKind::AudioCd => "Audio CD",
-        DeviceKind::Vcd => "Video CD",
-        DeviceKind::Camera => "Camera",
-        DeviceKind::Screen => "Screen",
+        DeviceKind::AudioCd => tr!("Audio CD"),
+        DeviceKind::Vcd => tr!("Video CD"),
+        DeviceKind::Camera => tr!("Camera"),
+        DeviceKind::Screen => tr!("Screen"),
     }
 }
 

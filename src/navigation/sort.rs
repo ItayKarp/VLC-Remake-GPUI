@@ -73,7 +73,7 @@ impl Sort {
 
     /// What the menu calls it.
     pub fn label(self) -> &'static str {
-        self.names().0
+        crate::i18n::text(self.names().0)
     }
 
     /// Its name in the settings file.
@@ -83,22 +83,22 @@ impl Sort {
 
     fn names(self) -> (&'static str, &'static str) {
         match self {
-            Self::UnwatchedFirst => ("Unwatched First", "unwatched-first"),
-            Self::WatchedFirst => ("Watched First", "watched-first"),
-            Self::NewestFirst => ("Newest First", "newest-first"),
-            Self::OldestFirst => ("Oldest First", "oldest-first"),
-            Self::TitleAscending => ("Title A-Z", "title"),
-            Self::TitleDescending => ("Title Z-A", "title-descending"),
-            Self::ArtistAscending => ("Artist A-Z", "artist"),
-            Self::ArtistDescending => ("Artist Z-A", "artist-descending"),
-            Self::AlbumAscending => ("Album A-Z", "album"),
-            Self::AlbumDescending => ("Album Z-A", "album-descending"),
-            Self::TrackAscending => ("Track Number Ascending", "track"),
-            Self::TrackDescending => ("Track Number Descending", "track-descending"),
-            Self::UriAscending => ("URI Ascending", "uri"),
-            Self::UriDescending => ("URI Descending", "uri-descending"),
-            Self::DiscAscending => ("Disc Number Ascending", "disc"),
-            Self::DiscDescending => ("Disc Number Descending", "disc-descending"),
+            Self::UnwatchedFirst => (tr_noop!("Unwatched First"), "unwatched-first"),
+            Self::WatchedFirst => (tr_noop!("Watched First"), "watched-first"),
+            Self::NewestFirst => (tr_noop!("Newest First"), "newest-first"),
+            Self::OldestFirst => (tr_noop!("Oldest First"), "oldest-first"),
+            Self::TitleAscending => (tr_noop!("Title A-Z"), "title"),
+            Self::TitleDescending => (tr_noop!("Title Z-A"), "title-descending"),
+            Self::ArtistAscending => (tr_noop!("Artist A-Z"), "artist"),
+            Self::ArtistDescending => (tr_noop!("Artist Z-A"), "artist-descending"),
+            Self::AlbumAscending => (tr_noop!("Album A-Z"), "album"),
+            Self::AlbumDescending => (tr_noop!("Album Z-A"), "album-descending"),
+            Self::TrackAscending => (tr_noop!("Track Number Ascending"), "track"),
+            Self::TrackDescending => (tr_noop!("Track Number Descending"), "track-descending"),
+            Self::UriAscending => (tr_noop!("URI Ascending"), "uri"),
+            Self::UriDescending => (tr_noop!("URI Descending"), "uri-descending"),
+            Self::DiscAscending => (tr_noop!("Disc Number Ascending"), "disc"),
+            Self::DiscDescending => (tr_noop!("Disc Number Descending"), "disc-descending"),
         }
     }
 
@@ -106,7 +106,7 @@ impl Sort {
     /// library, not the file's date (S4.7 edge case).
     pub fn hint(self) -> Option<&'static str> {
         match self {
-            Self::NewestFirst | Self::OldestFirst => Some("By the date added to the library"),
+            Self::NewestFirst | Self::OldestFirst => Some(tr!("By the date added to the library")),
             _ => None,
         }
     }

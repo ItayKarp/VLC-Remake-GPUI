@@ -47,17 +47,17 @@ impl Failure {
     /// What the dialog says about it.
     pub fn message(&self) -> String {
         match self {
-            Self::NotALink => "Enter a link that starts with http:// or https://.".to_owned(),
+            Self::NotALink => tr!("Enter a link that starts with http:// or https://.").to_owned(),
             Self::NotSubtitleName => {
-                "The link doesn't name a subtitle file (.srt, .ass, .vtt, …).".to_owned()
+                tr!("The link doesn't name a subtitle file (.srt, .ass, .vtt, …).").to_owned()
             }
-            Self::Status(404) => "Nothing was found at that link.".to_owned(),
-            Self::Status(code) => format!("The server refused the download (HTTP {code})."),
-            Self::TooBig => "That file is too big to be subtitles.".to_owned(),
-            Self::NotSubtitles => "That file isn't subtitles.".to_owned(),
-            Self::Empty => "That subtitle file is empty.".to_owned(),
-            Self::Network(why) => format!("Couldn't download it: {why}."),
-            Self::Disk(why) => format!("Couldn't save it: {why}."),
+            Self::Status(404) => tr!("Nothing was found at that link.").to_owned(),
+            Self::Status(code) => tr!("The server refused the download (HTTP {code}).", code),
+            Self::TooBig => tr!("That file is too big to be subtitles.").to_owned(),
+            Self::NotSubtitles => tr!("That file isn't subtitles.").to_owned(),
+            Self::Empty => tr!("That subtitle file is empty.").to_owned(),
+            Self::Network(why) => tr!("Couldn't download it: {why}.", why),
+            Self::Disk(why) => tr!("Couldn't save it: {why}.", why),
         }
     }
 }

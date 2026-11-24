@@ -1,6 +1,9 @@
 //! The VLC desktop app: hands the launch to a running instance if there is one,
 //! otherwise starts GPUI, initializes each service, and opens the first window.
 
+#[macro_use]
+mod i18n;
+
 mod app;
 mod assets;
 mod capture;
@@ -70,6 +73,7 @@ fn main() {
     application.on_open_urls(move |urls| inbox.post_urls(&urls));
     application.run(move |cx: &mut App| {
         settings::init(cx);
+        i18n::init(cx);
         history::init(cx);
         library::init(cx);
         playlists::init(cx);

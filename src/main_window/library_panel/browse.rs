@@ -25,6 +25,7 @@ use super::row::ROW_TEXT;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
 use crate::db::media::MediaId;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::ShowContextMenu;
 use crate::library::thumbnails;
 use crate::main_window::opening::Target;
@@ -32,6 +33,7 @@ use crate::navigation::history::Step;
 use crate::navigation::route::{Route, Section};
 use crate::opening::Resolved;
 use crate::settings;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::Button;
 use crate::ui::focus::{self, Axis, Move};
@@ -42,8 +44,7 @@ const LIST_TOP: f32 = 15.;
 impl MainWindow {
     /// The rows under the header, or why there are none.
     pub(super) fn render_listing(&self, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
-        let body = div()
-            .id("library-listing")
+        let body = focus::outline_ring(div().id("library-listing"), p)
             .flex_1()
             .min_h_0()
             .track_focus(&self.library_panel.list_focus)
@@ -253,12 +254,12 @@ impl MainWindow {
     }
 
     fn render_gone(&self, message: &'static str, p: &Palette, cx: &mut Context<Self>) -> Div {
-        let back = Button::new("library-gone-back", "Back")
+        let back = Button::new("library-gone-back", tr!("Back"))
             .disabled(!self.can_step_library(Step::Back, cx))
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                 this.step_library(Step::Back, cx);
             }));
-        note(message, p).flex().flex_col().items_start().gap(px(12.)).child(back)
+        note(message, p).flex_row_start().flex_col().items_start().gap(px(12.)).child(back)
     }
 }
 
@@ -298,5 +299,5 @@ fn movement(event: &KeyDownEvent, shape: &Shape) -> Option<(Move, bool)> {
 
 /// A muted line of text in the panel.
 fn note(text: &'static str, p: &Palette) -> Div {
-    div().p(px(super::INSET)).text_size(px(ROW_TEXT)).text_color(p.text_muted).child(text)
+    div().p(px(super::INSET)).text_size(text_px(ROW_TEXT)).text_color(p.text_muted).child(text)
 }

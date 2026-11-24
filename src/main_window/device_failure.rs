@@ -17,25 +17,28 @@ use crate::ui::toast::{Level, Toast};
 pub(super) fn reason(device: &Device, kind: ErrorKind) -> &'static str {
     match (device.kind(), kind) {
         (_, ErrorKind::NoPlayableStreams) if device.is_disc() => {
-            "the disc has nothing VLC can play."
+            tr!("the disc has nothing VLC can play.")
         }
         (_, ErrorKind::SourceLost) if device.is_disc() => {
-            "the disc was ejected, or a damaged part of it can't be read."
+            tr!("the disc was ejected, or a damaged part of it can't be read.")
         }
         (DeviceKind::Dvd, _) => {
-            "the DVD can't be read. It may be damaged, made for another region, or protected in \
-             a way VLC can't read."
+            tr!("the DVD can't be read. It may be damaged, made for another region, or \
+                 protected in a way VLC can't read.")
         }
         (DeviceKind::BluRay, _) => {
-            "the Blu-ray can't be read. An encrypted one plays only with libaacs and decryption \
-             keys installed by you; VLC includes neither."
+            tr!("the Blu-ray can't be read. An encrypted one plays only with libaacs and \
+                 decryption keys installed by you; VLC includes neither.")
         }
-        (DeviceKind::AudioCd | DeviceKind::Vcd, _) => "the disc can't be read. It may be damaged.",
-        (DeviceKind::Camera, ErrorKind::SourceLost) => "the camera was unplugged or stopped.",
+        (DeviceKind::AudioCd | DeviceKind::Vcd, _) => {
+            tr!("the disc can't be read. It may be damaged.")
+        }
+        (DeviceKind::Camera, ErrorKind::SourceLost) => tr!("the camera was unplugged or stopped."),
         (DeviceKind::Camera, _) => {
-            "the camera can't be opened. Another app may be using it, or VLC isn't allowed to."
+            tr!("the camera can't be opened. Another app may be using it, or VLC isn't allowed to.")
         }
-        (DeviceKind::Screen, _) => "the screen can't be recorded. VLC may not be allowed to.",
+
+        (DeviceKind::Screen, _) => tr!("the screen can't be recorded. VLC may not be allowed to."),
     }
 }
 
@@ -47,10 +50,11 @@ impl MainWindow {
         let Some(device) = player.read(cx).media().and_then(Media::as_device).cloned() else {
             return;
         };
-        let text = format!("Couldn't play {}: {}", device.display_name(), reason(&device, kind));
+        let (name, reason) = (device.display_name(), reason(&device, kind));
+        let text = tr!("Couldn't play {name}: {reason}", name, reason);
         let toast = Toast::new(Level::Error, text);
         let toast = match settings_page(&device) {
-            Some(url) => toast.action("Open Privacy Settings", move |_, cx| cx.open_url(url)),
+            Some(url) => toast.action(tr!("Open Privacy Settings"), move |_, cx| cx.open_url(url)),
             None => toast,
         };
         self.show_toast(toast, cx);

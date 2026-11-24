@@ -30,10 +30,10 @@ pub(super) fn menu_items(picker: &WeakEntity<PresetPicker>, name: &SharedString)
         }
     };
     vec![
-        MenuItem::action("Rename…", on(MenuAction::Rename)).icon(icons::EDIT),
-        MenuItem::action("Duplicate", on(MenuAction::Duplicate)).icon(icons::ADD),
-        MenuItem::action("Export…", on(MenuAction::Export)).icon(icons::FILE),
-        MenuItem::action("Delete…", on(MenuAction::Delete)).icon(icons::CLOSE),
+        MenuItem::action(tr!("Rename…"), on(MenuAction::Rename)).icon(icons::EDIT),
+        MenuItem::action(tr!("Duplicate"), on(MenuAction::Duplicate)).icon(icons::ADD),
+        MenuItem::action(tr!("Export…"), on(MenuAction::Export)).icon(icons::FILE),
+        MenuItem::action(tr!("Delete…"), on(MenuAction::Delete)).icon(icons::CLOSE),
     ]
 }
 
@@ -51,7 +51,7 @@ impl PresetPicker {
             MenuAction::Rename => self.start_renaming(name, window, cx),
             MenuAction::Duplicate => {
                 if let Some(copy) = presets::duplicate(cx, &name) {
-                    self.report(format!("Made a copy named “{copy}”."), false, cx);
+                    self.report(tr!("Made a copy named “{copy}”.", copy), false, cx);
                 }
             }
             MenuAction::Export => Self::export(name, cx),
@@ -67,13 +67,13 @@ impl PresetPicker {
             return;
         }
         let detail = if presets::active(cx) == Some(&*name) {
-            "It's in use, so the settings go back to Default Preset."
+            tr!("It's in use, so the settings go back to Default Preset.")
         } else {
-            "The settings it changes go with it."
+            tr!("The settings it changes go with it.")
         };
-        let title = format!("Delete the preset “{name}”?");
-        let answer =
-            window.prompt(PromptLevel::Warning, &title, Some(detail), &["Delete", "Cancel"], cx);
+        let title = tr!("Delete the preset “{name}”?", name);
+        let buttons = [tr!("Delete"), tr!("Cancel")];
+        let answer = window.prompt(PromptLevel::Warning, &title, Some(detail), &buttons, cx);
         cx.spawn(async move |_, cx| {
             if answer.await == Ok(0) {
                 cx.update(|cx| presets::delete(cx, &name));
@@ -94,10 +94,10 @@ impl PresetPicker {
                 .background_spawn(async move { std::fs::write(&path, text).map(|()| path) })
                 .await;
             let (status, failed) = match written {
-                Ok(path) => (format!("Exported to “{}”.", file_name(&path)), false),
+                Ok(path) => (tr!("Exported to “{file}”.", file = file_name(&path)), false),
                 Err(err) => {
                     tracing::warn!("settings: couldn't export preset “{name}”: {err}");
-                    (format!("Couldn't export “{name}”: {err}."), true)
+                    (tr!("Couldn't export “{name}”: {err}.", name, err), true)
                 }
             };
             this.update(cx, |this, cx| this.report(status, failed, cx)).ok();
@@ -111,7 +111,7 @@ impl PresetPicker {
             files: true,
             directories: false,
             multiple: false,
-            prompt: Some("Import".into()),
+            prompt: Some(tr!("Import").into()),
         });
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(paths))) = picked.await else { return };
@@ -126,14 +126,11 @@ impl PresetPicker {
             this.update(cx, |this, cx| match parsed {
                 Ok(preset) => {
                     let name = presets::add(cx, preset);
-                    this.report(format!("Imported “{name}” and put it in use."), false, cx);
+                    this.report(tr!("Imported “{name}” and put it in use.", name), false, cx);
                 }
                 Err(error) => {
-                    this.report(
-                        format!("Couldn't import “{}”: {error}", file_name(&path)),
-                        true,
-                        cx,
-                    );
+                    let file = file_name(&path);
+                    this.report(tr!("Couldn't import “{file}”: {error}", file, error), true, cx);
                 }
             })
             .ok();

@@ -54,12 +54,12 @@ impl Failure {
     /// What the queue says about it.
     pub fn message(&self) -> String {
         match self {
-            Self::SameAsSource => "It would replace the file it converts".into(),
-            Self::Unwritable(why) => format!("The folder can't be written to: {why}"),
-            Self::DiskFull => "The disk is full".into(),
-            Self::NothingToConvert { audio_only: true } => "It has no sound to convert".into(),
+            Self::SameAsSource => tr!("It would replace the file it converts").into(),
+            Self::Unwritable(why) => tr!("The folder can't be written to: {why}", why),
+            Self::DiskFull => tr!("The disk is full").into(),
+            Self::NothingToConvert { audio_only: true } => tr!("It has no sound to convert").into(),
             Self::NothingToConvert { audio_only: false } => {
-                "It has no sound or picture that can be converted".into()
+                tr!("It has no sound or picture that can be converted").into()
             }
             Self::Failed(why) => why.clone(),
         }
@@ -97,7 +97,7 @@ impl ConversionJob {
             .name("conversion".into())
             .spawn(move || _ = sender.unbounded_send(run(&request, &flag, &sender)));
         if let Err(error) = started {
-            let failure = Failure::Failed(format!("couldn't start: {error}"));
+            let failure = Failure::Failed(tr!("couldn't start: {error}", error));
             _ = failed.unbounded_send(ConversionEvent::Finished(Err(failure)));
         }
         (Self { cancelled }, receiver)
@@ -157,9 +157,12 @@ fn claim(request: &Request) -> Result<(), Failure> {
     }
     let made = fs::OpenOptions::new().write(true).create_new(true).open(&request.output);
     made.map(drop).map_err(|error| match error.kind() {
-        io::ErrorKind::AlreadyExists => Failure::Unwritable(format!(
-            "{} appeared there meanwhile",
-            request.output.file_name().map_or_default(|name| name.to_string_lossy().into_owned())
+        io::ErrorKind::AlreadyExists => Failure::Unwritable(tr!(
+            "{name} appeared there meanwhile",
+            name = request
+                .output
+                .file_name()
+                .map_or_default(|name| name.to_string_lossy().into_owned())
         )),
         _ => Failure::Unwritable(error.to_string()),
     })

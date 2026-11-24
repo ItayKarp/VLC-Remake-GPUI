@@ -106,16 +106,22 @@ fn media_options(settings: &Settings) -> MediaOptions {
 
 /// What the message says after cycling `kind`: "Audio: English — AC3 5.1", "Subtitles: Off".
 fn announcement(kind: TrackKind, cycled: Cycled, tracks: &Tracks) -> String {
-    let what = match kind {
-        TrackKind::Audio => "Audio",
-        TrackKind::Video => "Video",
-        TrackKind::Subtitle => "Subtitles",
+    let track = match cycled {
+        Cycled::NoTracks => {
+            let text = match kind {
+                TrackKind::Audio => tr!("No audio tracks"),
+                TrackKind::Video => tr!("No video tracks"),
+                TrackKind::Subtitle => tr!("No subtitles"),
+            };
+            return text.to_owned();
+        }
+        Cycled::Off => tr!("Off").to_owned(),
+        Cycled::Track(id) => tracks.label(id).unwrap_or_default(),
     };
-    match cycled {
-        Cycled::NoTracks if kind == TrackKind::Subtitle => "No subtitles".to_owned(),
-        Cycled::NoTracks => format!("No {} tracks", what.to_lowercase()),
-        Cycled::Off => format!("{what}: Off"),
-        Cycled::Track(id) => format!("{what}: {}", tracks.label(id).unwrap_or_default()),
+    match kind {
+        TrackKind::Audio => tr!("Audio: {track}", track),
+        TrackKind::Video => tr!("Video: {track}", track),
+        TrackKind::Subtitle => tr!("Subtitles: {track}", track),
     }
 }
 

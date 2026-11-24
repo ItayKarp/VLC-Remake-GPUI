@@ -49,7 +49,7 @@ impl FileSlot {
             Err(err) => {
                 tracing::warn!("settings: couldn't read {}: {err}", path.display());
                 notices.push(Notice::NotPersisted {
-                    reason: format!("Couldn't read {}: {err}", path.display()),
+                    reason: tr!("Couldn't read {path}: {err}", path = path.display(), err),
                 });
                 FileSlot { path, doc: DocumentMut::new(), writable: false }
             }
@@ -111,7 +111,7 @@ impl SaveJob {
         }
         for (path, contents) in &self.writes {
             storage::save(path, contents)
-                .map_err(|err| format!("couldn't save {}: {err}", path.display()))?;
+                .map_err(|err| tr!("couldn't save {path}: {err}", path = path.display(), err))?;
         }
         *written = self.generation;
         Ok(())
@@ -126,7 +126,7 @@ impl SettingsState {
         let Some(locations) = locations else {
             tracing::warn!("settings: no config directory; changes won't be saved");
             notices.push(Notice::NotPersisted {
-                reason: "No settings folder is available on this system.".into(),
+                reason: tr!("No settings folder is available on this system.").into(),
             });
             return Self::new(Settings::default(), None, false, notices);
         };

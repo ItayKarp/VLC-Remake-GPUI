@@ -54,7 +54,7 @@ fn parse_set(
     chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
     pattern: &str,
 ) -> Result<Token, GlobError> {
-    let unclosed = || GlobError(format!("\"{pattern}\" has an unfinished [ ] set"));
+    let unclosed = || GlobError(tr!("\"{pattern}\" has an unfinished [ ] set", pattern));
     let negated = chars.next_if(|c| *c == '!' || *c == '^').is_some();
     let mut ranges = Vec::new();
     loop {

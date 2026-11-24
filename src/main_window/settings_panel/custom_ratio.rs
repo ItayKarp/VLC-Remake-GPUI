@@ -27,7 +27,7 @@ impl CustomRatioField {
             TextInput::new(window, cx)
                 .with_text(in_effect(cx))
                 .with_placeholder("2.4:1")
-                .with_label("Custom Ratio")
+                .with_label(tr!("Custom Ratio"))
         });
         let events = cx.subscribe(&field, |_, field, event, cx| on_event(&field, event, cx));
         Self { field, _events: events }
@@ -60,7 +60,7 @@ fn on_event(field: &Entity<TextInput>, event: &text_input::Event, cx: &mut Conte
             effects::set(cx, KEY, Value::Text(typed));
         }
         (text_input::Event::Submitted, false) => field.update(cx, |field, cx| {
-            field.set_validation(Validation::Error(RATIO_HELP.into()), cx);
+            field.set_validation(Validation::Error(crate::i18n::text(RATIO_HELP).into()), cx);
         }),
         (text_input::Event::Blurred, false) => {
             let text = in_effect(cx);

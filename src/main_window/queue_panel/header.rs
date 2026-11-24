@@ -6,10 +6,12 @@ use gpui::{AnyElement, ClickEvent, Context, DismissEvent, Div, Window, div, prel
 
 use super::MainWindow;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions as act;
 use crate::main_window::play_order::repeat_button_look;
 use crate::queue::SortKey;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::menu::{ContextMenu, MenuItem};
 use crate::ui::popover::{self, Side};
@@ -32,19 +34,19 @@ impl MainWindow {
     pub(super) fn render_queue_header(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let total = self.queue_panel.lengths.total(self.queue.entries()).label();
         let sort = self.sort_button(cx);
-        let remove = IconButton::new("queue-remove", icons::REMOVE, "Remove selected")
+        let remove = IconButton::new("queue-remove", icons::REMOVE, tr!("Remove selected"))
             .size(BUTTON, ICON)
             .disabled(self.queue_panel.selection.is_empty())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                 this.remove_selected(window, cx);
             }));
-        let add = IconButton::new("queue-add", icons::ADD, "Add files")
+        let add = IconButton::new("queue-add", icons::ADD, tr!("Add files"))
             .size(BUTTON, ICON)
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
                 Self::prompt_to_enqueue(window, cx);
             }));
         let buttons = div()
-            .flex()
+            .flex_row_start()
             .flex_none()
             .gap(px(BUTTON_GAP))
             .child(sort)
@@ -53,12 +55,12 @@ impl MainWindow {
         div()
             .flex_none()
             .h(px(HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(PADDING_LEFT))
-            .pr(px(PADDING_RIGHT))
-            .text_size(px(TEXT))
+            .ps(px(PADDING_LEFT))
+            .pe(px(PADDING_RIGHT))
+            .text_size(text_px(TEXT))
             .text_color(p.text_muted)
             .child(div().min_w_0().truncate().child(total))
             .child(buttons.child(add))
@@ -66,7 +68,7 @@ impl MainWindow {
 
     /// Sort, which opens the sort menu; there's nothing to sort below two entries.
     fn sort_button(&self, cx: &mut Context<Self>) -> Div {
-        let sort = IconButton::new("queue-sort", icons::SORT, "Sort")
+        let sort = IconButton::new("queue-sort", icons::SORT, tr!("Sort"))
             .size(BUTTON, ICON)
             .selected(self.queue_panel.sort_menu.is_some())
             .disabled(self.queue.len() < 2)
@@ -86,7 +88,7 @@ impl MainWindow {
                 this.perform(&act::CycleRepeat, window, cx);
             }));
         let shuffled = self.queue.is_shuffled();
-        let shuffle_label = if shuffled { "Shuffle: On" } else { "Shuffle: Off" };
+        let shuffle_label = if shuffled { tr!("Shuffle: On") } else { tr!("Shuffle: Off") };
         let shuffle = IconButton::new("queue-shuffle", icons::SHUFFLE, shuffle_label)
             .size(BUTTON, ICON)
             .selected(shuffled)

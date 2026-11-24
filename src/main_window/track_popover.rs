@@ -214,7 +214,7 @@ impl MainWindow {
 /// The footer: Show Preferences, which opens the settings panel on the tab of `kind`.
 fn footer(kind: TrackKind, width: f32, cx: &mut Context<MainWindow>) -> Div {
     let tab = PanelTab::of(kind);
-    let button = Button::new("show-preferences", "Show Preferences")
+    let button = Button::new("show-preferences", tr!("Show Preferences"))
         .width(width - 2. * FOOTER_PADDING)
         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
             this.open_settings_panel(tab, window, cx);
@@ -244,9 +244,9 @@ pub(super) fn tab_icon(kind: TrackKind) -> &'static str {
 
 fn tab_label(kind: TrackKind) -> &'static str {
     match kind {
-        TrackKind::Video => "Video",
-        TrackKind::Audio => "Audio",
-        TrackKind::Subtitle => "Subtitles",
+        TrackKind::Video => tr!("Video"),
+        TrackKind::Audio => tr!("Audio"),
+        TrackKind::Subtitle => tr!("Subtitles"),
     }
 }
 

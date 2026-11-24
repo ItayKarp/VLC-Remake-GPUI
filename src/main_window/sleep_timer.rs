@@ -130,7 +130,7 @@ impl MainWindow {
             player.update(cx, Player::stop);
         }
         self.cancel_sleep_timer(cx);
-        self.show_osd("Sleep timer: playback stopped", cx);
+        self.show_osd(tr!("Sleep timer: playback stopped"), cx);
     }
 
     fn set_sleep_fade(&self, loudness: f32, cx: &mut Context<Self>) {

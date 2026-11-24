@@ -4,9 +4,9 @@
 use crate::settings::Preset;
 
 /// Default Preset's name, which no custom preset may take.
-pub const DEFAULT: &str = "Default Preset";
+pub const DEFAULT: &str = tr_noop!("Default Preset");
 /// The name a new preset starts with.
-pub const NEW: &str = "New Preset";
+pub const NEW: &str = tr_noop!("New Preset");
 /// The longest name kept, in characters; the list truncates long ones on screen.
 pub const MAX_CHARS: usize = 60;
 
@@ -16,9 +16,11 @@ pub fn unique(list: &[Preset], wanted: &str, except: Option<usize>) -> String {
     let others = list.iter().enumerate().filter(|(index, _)| Some(*index) != except);
     let others: Vec<&str> = others.map(|(_, preset)| preset.name.as_str()).collect();
     let taken = |name: &str| {
-        name.eq_ignore_ascii_case(DEFAULT) || others.iter().any(|other| same(other, name))
+        name.eq_ignore_ascii_case(DEFAULT)
+            || same(name, crate::i18n::text(DEFAULT))
+            || others.iter().any(|other| same(other, name))
     };
-    free(wanted, NEW, others.len(), taken)
+    free(wanted, crate::i18n::text(NEW), others.len(), taken)
 }
 
 /// `wanted` trimmed and shortened to [`MAX_CHARS`] (`fallback` when that leaves nothing), or

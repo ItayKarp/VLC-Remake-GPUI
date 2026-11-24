@@ -87,7 +87,7 @@ pub fn subscribe(typed: &str, cx: &mut App) -> Task<Result<FeedId, fetch::Failur
             })
         });
         stored.await;
-        answer.await.map_err(|_| fetch::Failure::Network("the library isn't available".into()))
+        answer.await.map_err(|_| fetch::Failure::Network(tr!("the library isn't available").into()))
     })
 }
 

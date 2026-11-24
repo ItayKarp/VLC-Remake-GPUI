@@ -40,7 +40,7 @@ pub fn render(preset: &Preset) -> String {
 /// The preset in a file's `text`; `path` names it when the file has no name. Fails with what to
 /// tell the user.
 pub fn parse(text: &str, path: &Path) -> Result<Preset, String> {
-    let not_a_preset = || "This file isn't a VLC settings preset.".to_owned();
+    let not_a_preset = || tr!("This file isn't a VLC settings preset.").to_owned();
     let table: toml::Table = toml::from_str(text).map_err(|_| not_a_preset())?;
     if !table.contains_key(MARKER) {
         return Err(not_a_preset());

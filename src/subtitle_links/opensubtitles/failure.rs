@@ -45,28 +45,33 @@ impl Failure {
     pub fn message(&self) -> String {
         match self {
             Self::NotSetUp => {
-                "This copy of VLC has no OpenSubtitles key, so it can't search there.".to_owned()
+                tr!("This copy of VLC has no OpenSubtitles key, so it can't search there.")
+                    .to_owned()
             }
-            Self::KeyRejected => "Update VLC to continue using OpenSubtitles.".to_owned(),
-            Self::Unauthorized => "OpenSubtitles wants an account to download: add yours in \
-                                   Settings → Privacy."
-                .to_owned(),
+            Self::KeyRejected => tr!("Update VLC to continue using OpenSubtitles.").to_owned(),
+            Self::Unauthorized => tr!("OpenSubtitles wants an account to download: add yours in \
+                     Settings → Privacy.")
+            .to_owned(),
             Self::Offline(_) => {
-                "Couldn't reach OpenSubtitles. Check your internet connection.".to_owned()
+                tr!("Couldn't reach OpenSubtitles. Check your internet connection.").to_owned()
             }
             Self::Outage(code) => {
-                format!("OpenSubtitles isn't answering right now (HTTP {code}). Try again later.")
+                tr!("OpenSubtitles isn't answering right now (HTTP {code}). Try again later.", code)
             }
             Self::RateLimited(Some(seconds)) => {
-                format!("OpenSubtitles is busy. Try again in {seconds} s.")
+                tr!("OpenSubtitles is busy. Try again in {seconds} s.", seconds)
             }
-            Self::RateLimited(None) => "OpenSubtitles is busy. Try again in a moment.".to_owned(),
+            Self::RateLimited(None) => {
+                tr!("OpenSubtitles is busy. Try again in a moment.").to_owned()
+            }
             Self::QuotaUsed(quota) => quota.message(),
-            Self::LoginRejected => "OpenSubtitles didn't accept the username and password in \
-                                    Settings → Privacy."
-                .to_owned(),
-            Self::Status(code) => format!("OpenSubtitles refused it (HTTP {code})."),
-            Self::Unreadable => "OpenSubtitles answered with something VLC can't read.".to_owned(),
+            Self::LoginRejected => tr!("OpenSubtitles didn't accept the username and password in \
+                     Settings → Privacy.")
+            .to_owned(),
+            Self::Status(code) => tr!("OpenSubtitles refused it (HTTP {code}).", code),
+            Self::Unreadable => {
+                tr!("OpenSubtitles answered with something VLC can't read.").to_owned()
+            }
             Self::File(failure) => failure.message(),
         }
     }
@@ -75,15 +80,17 @@ impl Failure {
 impl Quota {
     fn message(&self) -> String {
         let when = self.resets_in.as_ref().map_or_else(
-            || "Try again tomorrow.".to_owned(),
-            |resets_in| format!("More are allowed in {resets_in}."),
+            || tr!("Try again tomorrow.").to_owned(),
+            |resets_in| tr!("More are allowed in {resets_in}.", resets_in),
         );
-        let account = if self.signed_in {
-            ""
-        } else {
-            " An OpenSubtitles account in Settings → Privacy allows more."
-        };
-        format!("Today's OpenSubtitles downloads are used up. {when}{account}")
+        let mut sentences =
+            vec![tr!("Today's OpenSubtitles downloads are used up.").to_owned(), when];
+        if !self.signed_in {
+            sentences.push(
+                tr!("An OpenSubtitles account in Settings → Privacy allows more.").to_owned(),
+            );
+        }
+        sentences.join(" ")
     }
 }
 

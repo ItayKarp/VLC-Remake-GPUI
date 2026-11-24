@@ -178,9 +178,9 @@ impl MainWindow {
 
     /// "VLC closed unexpectedly while playing X": the restored item waits for Play.
     fn tell_about_crash(&mut self, media: &Media, cx: &mut Context<Self>) {
-        let text = format!(
-            "VLC closed unexpectedly while playing “{}”, so it wasn't opened again.",
-            media.display_name()
+        let text = tr!(
+            "VLC closed unexpectedly while playing “{name}”, so it wasn't opened again.",
+            name = media.display_name()
         );
         self.show_toast(Toast::new(Level::Warning, text), cx);
     }

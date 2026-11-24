@@ -11,9 +11,11 @@ use crate::settings::presets::{Layer, names};
 use crate::settings::{Automatic, Preferences, Profile};
 
 /// The profiles a user starts with, in menu order: the designed four, the first in use.
-pub const DESIGNED: [&str; 4] = ["Movies", "Shows", "Music", "Work"];
+/// They are stored in English and shown translated.
+pub const DESIGNED: [&str; 4] =
+    [tr_noop!("Movies"), tr_noop!("Shows"), tr_noop!("Music"), tr_noop!("Work")];
 /// The name a new profile is offered.
-pub const NEW: &str = "New Profile";
+pub const NEW: &str = tr_noop!("New Profile");
 
 /// The profiles: the designed four while none was changed.
 pub fn list(prefs: &Preferences) -> Cow<'_, [Profile]> {
@@ -160,5 +162,7 @@ fn designed() -> Vec<Profile> {
 fn unique(list: &[Profile], wanted: &str, except: Option<usize>) -> String {
     let others = list.iter().enumerate().filter(|(index, _)| Some(*index) != except);
     let others: Vec<&str> = others.map(|(_, profile)| profile.name.as_str()).collect();
-    names::free(wanted, NEW, others.len(), |name| others.iter().any(|o| names::same(o, name)))
+    names::free(wanted, crate::i18n::text(NEW), others.len(), |name| {
+        others.iter().any(|o| names::same(o, name))
+    })
 }

@@ -27,16 +27,21 @@ pub struct Imported {
 impl Imported {
     /// What the user is told once it is saved as `title`.
     pub fn message(&self, title: &str) -> String {
-        let count = match self.items.len() {
-            1 => "1 item".to_owned(),
-            n => format!("{n} items"),
-        };
-        let missing = match self.missing {
-            0 => String::new(),
-            1 => " 1 file is missing.".to_owned(),
-            n => format!(" {n} files are missing."),
-        };
-        format!("Imported “{title}” ({count}).{missing}")
+        let imported = trn!(
+            "Imported “{title}” ({count} item).",
+            "Imported “{title}” ({count} items).",
+            self.items.len(),
+            title
+        );
+        match self.missing {
+            0 => imported,
+            n => trn!(
+                "{imported} {count} file is missing.",
+                "{imported} {count} files are missing.",
+                n,
+                imported
+            ),
+        }
     }
 }
 
@@ -54,7 +59,9 @@ impl ImportError {
     pub fn message(self, path: &Path) -> String {
         let media = Media::File(path.to_path_buf());
         match self {
-            ImportError::NotAPlaylist => format!("“{}” isn't a playlist.", media.display_name()),
+            ImportError::NotAPlaylist => {
+                tr!("“{name}” isn't a playlist.", name = media.display_name())
+            }
             ImportError::Unreadable(problem) => problem.message(&media),
         }
     }

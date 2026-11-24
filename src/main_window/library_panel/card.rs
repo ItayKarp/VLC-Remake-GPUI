@@ -17,6 +17,7 @@ use super::row::row_frame;
 use crate::assets::icons;
 use crate::db::metadata::MediaKind;
 use crate::db::thumbnails::SizeClass;
+use crate::i18n::DirectionalStyle;
 use crate::library::folder_view::Card;
 use crate::library::thumbnails::{self, Status};
 use crate::library::watch_state::WatchState;
@@ -110,7 +111,7 @@ pub(super) fn thumbnail_stack(
     let play = div()
         .absolute()
         .inset_0()
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .bg(gpui::black().opacity(PLAY_SCRIM))
@@ -126,7 +127,7 @@ pub(super) fn thumbnail_stack(
         .children(progress(card.watch).map(|fraction| {
             div()
                 .absolute()
-                .left_0()
+                .inset_start(px(0.))
                 .bottom_0()
                 .h(px(BAR_HEIGHT))
                 .w(relative(fraction))

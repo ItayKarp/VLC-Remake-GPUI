@@ -45,7 +45,7 @@ impl DraggedMedia {
     fn label(&self, cx: &App) -> SharedString {
         match self.paths(cx) {
             [path] => path.file_name().unwrap_or_default().to_string_lossy().into_owned().into(),
-            paths => format!("{} items", paths.len()).into(),
+            paths => trn!("{count} item", "{count} items", paths.len()).into(),
         }
     }
 }

@@ -45,21 +45,24 @@ impl Language {
         &self.code
     }
 
-    /// The language's English name ("English"); an unknown code shows in capitals ("TLH"), and
-    /// unknown text as written.
+    /// The language's name in the interface language ("English"); an unknown code shows in
+    /// capitals ("TLH"), and unknown text as written.
     pub fn name(&self) -> String {
         match table::find(&self.code) {
-            Some(entry) => entry.name.to_owned(),
+            Some(entry) => crate::i18n::text(entry.name).to_owned(),
             None if self.code.len() <= 3 => self.code.to_ascii_uppercase(),
             None => self.code.clone(),
         }
     }
 }
 
-/// Every language with a name, sorted by it: what a language picker offers.
+/// Every language with a name, sorted by its name in the interface language: what a language
+/// picker offers.
 pub fn known() -> Vec<Language> {
     let mut languages: Vec<(&str, Language)> = table::all()
-        .map(|entry| (entry.name, Language { code: entry.canonical().to_owned() }))
+        .map(|entry| {
+            (crate::i18n::text(entry.name), Language { code: entry.canonical().to_owned() })
+        })
         .collect();
     languages.sort_by_key(|(name, _)| *name);
     languages.into_iter().map(|(_, language)| language).collect()

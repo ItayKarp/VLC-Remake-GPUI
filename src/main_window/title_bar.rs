@@ -29,6 +29,7 @@ use crate::library::{self, folder_view::kind_by_extension};
 use crate::player_layout::{Item, Layout, Piece, Zone};
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::popover::{self, Side};
 use crate::window_chrome::{self, TRAFFIC_LIGHTS_WIDTH};
@@ -173,7 +174,7 @@ impl MainWindow {
 
     /// The `…` menu button, in the bar `place`.
     pub(super) fn render_menu_button(&self, place: Place, cx: &mut Context<Self>) -> Div {
-        let button = IconButton::new("menu", icons::MORE, "Menu")
+        let button = IconButton::new("menu", icons::MORE, tr!("Menu"))
             .size(BAR_BUTTON, icon_size(place))
             .selected(self.menu.is_some())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -185,7 +186,7 @@ impl MainWindow {
 
     /// Shows and hides the library sidebar (S4.5), lit while it shows.
     pub(super) fn sidebar_toggle(&self, place: Place, cx: &mut Context<Self>) -> IconButton {
-        let button = IconButton::new("sidebar", icons::SIDEBAR, "Show / hide file browser")
+        let button = IconButton::new("sidebar", icons::SIDEBAR, tr!("Show / hide file browser"))
             .size(BAR_BUTTON, icon_size(place))
             .selected(self.library_panel.is_open())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -298,7 +299,7 @@ fn centered_title(p: &Palette, title: SharedString, max_width: f32) -> Div {
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
-                .text_size(px(TEXT_SIZE))
+                .text_size(text_px(TEXT_SIZE))
                 .text_color(p.text_strong)
                 .child(title),
         )

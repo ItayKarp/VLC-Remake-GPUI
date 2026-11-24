@@ -58,9 +58,8 @@ impl MainWindow {
         }
         let message = match linked.len() {
             0 if saved.removed.is_empty() => return,
-            0 => "Removed the subtitles.".to_owned(),
-            1 => "Added 1 subtitle.".to_owned(),
-            n => format!("Added {n} subtitles."),
+            0 => tr!("Removed the subtitles.").to_owned(),
+            n => trn!("Added {count} subtitle.", "Added {count} subtitles.", n),
         };
         self.show_toast(Toast::new(Level::Success, message), cx);
     }

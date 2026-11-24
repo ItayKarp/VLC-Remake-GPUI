@@ -182,8 +182,8 @@ impl WhenFinished {
     /// The choice's name in menus.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Stop => "Stop",
-            Self::Quit => "Quit VLC",
+            Self::Stop => tr!("Stop"),
+            Self::Quit => tr!("Quit VLC"),
         }
     }
 }

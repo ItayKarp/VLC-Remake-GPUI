@@ -25,7 +25,7 @@ use windows as platform;
 
 /// Who asks, and why, where the OS shows it (Activity Monitor, `systemd-inhibit --list`).
 const APP_NAME: &str = "VLC";
-const REASON: &str = "Playing video";
+const REASON: &str = tr_noop!("Playing video");
 
 /// What decides whether the display should stay awake.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,7 +52,7 @@ pub struct KeepAwake {
 impl KeepAwake {
     /// Asks the OS to keep the display awake. `None` if it refused; playback goes on anyway.
     pub fn acquire() -> Option<Self> {
-        match platform::Request::new(APP_NAME, REASON) {
+        match platform::Request::new(APP_NAME, crate::i18n::text(REASON)) {
             Ok(request) => Some(Self { _request: request }),
             Err(error) => {
                 tracing::warn!("power: couldn't keep the display awake: {error:#}");

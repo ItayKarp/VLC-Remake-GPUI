@@ -151,8 +151,9 @@ impl MainWindow {
             let enabled = library::is_enabled(cx);
             if std::mem::replace(&mut was_enabled, enabled) && !enabled {
                 this.show_library(None, window, cx);
-                let toast = Toast::new(Level::Info, "The library is off. Keep what it indexed?")
-                    .action("Delete Index", |_, cx| library::delete_index(cx));
+                let toast =
+                    Toast::new(Level::Info, tr!("The library is off. Keep what it indexed?"))
+                        .action(tr!("Delete Index"), |_, cx| library::delete_index(cx));
                 this.show_toast(toast, cx);
             }
         })

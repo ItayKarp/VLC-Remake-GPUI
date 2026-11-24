@@ -40,20 +40,20 @@ impl MainWindow {
             Item::Favorite => {
                 let marked = self.playing_id(cx).map(Favorite::Media);
                 let on = marked.is_some_and(|marked| favorites::all(&[marked], cx));
-                let label = if on { "Remove from Favorites" } else { "Add to Favorites" };
+                let label = if on { tr!("Remove from Favorites") } else { tr!("Add to Favorites") };
                 button(icons::FAVORITE, label, Press::Favorite, marked.is_some(), on)
             }
             Item::Hdr => {
                 let mapped = video.as_ref().is_some_and(|v| v.read(cx).hdr().tone_map.is_some());
-                button(icons::HDR, "HDR", Press::Hdr, video.is_some(), mapped)
+                button(icons::HDR, tr!("HDR"), Press::Hdr, video.is_some(), mapped)
             }
             Item::Zoom => {
                 let zoomed = choice(ZOOM, cx).is_some_and(|(index, _)| index > 0);
-                button(icons::ZOOM, "Zoom", Press::Zoom, video.is_some(), zoomed)
+                button(icons::ZOOM, tr!("Zoom"), Press::Zoom, video.is_some(), zoomed)
             }
             Item::RightSidebar => {
                 let open = self.queue_panel.is_open();
-                button(icons::SIDEBAR_RIGHT, "Right sidebar", Press::RightSidebar, true, open)
+                button(icons::SIDEBAR_RIGHT, tr!("Right sidebar"), Press::RightSidebar, true, open)
             }
             _ => None,
         }
@@ -74,7 +74,7 @@ impl MainWindow {
         let to = if off { HDR_AUTO } else { HDR_OFF };
         effects::set(cx, HDR, Value::Choice(to));
         if let Some((_, chosen)) = choice(HDR, cx) {
-            self.show_osd(format!("HDR: {}", chosen.label), cx);
+            self.show_osd(tr!("HDR: {choice}", choice = crate::i18n::text(chosen.label)), cx);
         }
     }
 
@@ -83,7 +83,7 @@ impl MainWindow {
         let (Some(choices), Some((index, _))) = (choices(ZOOM), choice(ZOOM, cx)) else { return };
         let next = &choices[(index + 1) % choices.len()];
         effects::set(cx, ZOOM, Value::Choice(next.id));
-        self.show_osd(format!("Zoom: {}", next.label), cx);
+        self.show_osd(tr!("Zoom: {choice}", choice = crate::i18n::text(next.label)), cx);
     }
 }
 
