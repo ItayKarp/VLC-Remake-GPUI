@@ -50,7 +50,7 @@ pub(in crate::main_window) fn with_mock_player(
             *out.borrow_mut() = Some(handle);
             Box::new(mock) as Box<dyn crate::engine::backend::Backend>
         };
-        main.install_player(Output::new(), backend, window, cx);
+        main.attach_player(Output::new(), backend, window, cx);
     });
     slot.borrow_mut().take().expect("the player made its backend")
 }

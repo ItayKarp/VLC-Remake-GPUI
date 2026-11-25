@@ -191,6 +191,14 @@ impl Toasts {
     }
 }
 
+#[cfg(test)]
+impl Toasts {
+    /// The toasts showing, oldest first: each level and message, for tests of what says what.
+    pub fn shown(&self) -> Vec<(Level, String)> {
+        self.toasts.iter().map(|toast| (toast.level, toast.message.to_string())).collect()
+    }
+}
+
 impl Toasts {
     /// Frees what GPUI keeps for the thumbnails of toasts that are gone.
     fn free_thumbnails(&mut self, window: &mut Window) {

@@ -300,3 +300,6 @@ fn with_file_actions(toast: Toast, file: &Path) -> Toast {
         .lasting_action(tr!("Open"), move |_, cx| cx.open_with_system(&open))
         .lasting_action(show_in_folder_label(), move |_, cx| cx.reveal_path(&reveal))
 }
+
+#[cfg(test)]
+mod tests;

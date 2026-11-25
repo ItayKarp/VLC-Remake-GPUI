@@ -144,3 +144,6 @@ fn copy_image(path: PathBuf, cx: &mut App) {
     })
     .detach();
 }
+
+#[cfg(test)]
+mod tests;

@@ -267,3 +267,6 @@ fn listen_for_drag(main: Entity<MainWindow>, window: &mut Window) {
         }
     });
 }
+
+#[cfg(test)]
+mod tests;

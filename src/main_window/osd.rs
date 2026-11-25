@@ -53,6 +53,12 @@ impl MainWindow {
         self.flash(|this| &mut this.osd.flash, SHOWN_FOR, cx);
     }
 
+    /// The last message shown, for tests of what says what.
+    #[cfg(test)]
+    pub(super) fn osd_text(&self) -> &str {
+        &self.osd.text
+    }
+
     /// The message, or the frame step spinner, while either shows.
     pub(super) fn render_osd(&self, p: &Palette, cx: &App) -> Option<AnyElement> {
         let reduce_motion = cx.reduce_motion();

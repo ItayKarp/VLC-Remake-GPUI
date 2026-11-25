@@ -134,6 +134,18 @@ impl NumberRow {
         self.field.update(cx, |field, cx| field.set_disabled(disabled, cx));
     }
 
+    /// The field, for tests that type into it.
+    #[cfg(test)]
+    pub(in crate::main_window) fn field(&self) -> &Entity<TextInput> {
+        &self.field
+    }
+
+    /// The slider, for tests that move the keyboard from it.
+    #[cfg(test)]
+    pub(in crate::main_window) fn slider(&self) -> &Entity<Slider> {
+        &self.slider
+    }
+
     /// Asks the owner for `value`.
     fn ask(&mut self, value: f64, cx: &mut Context<Self>) {
         self.shown = None;

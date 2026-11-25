@@ -43,6 +43,8 @@ mod render_row;
 mod sleep_timer_row;
 mod subtitles;
 mod sync_rules;
+#[cfg(test)]
+mod tests;
 mod track_defaults;
 mod video;
 mod video_defaults;

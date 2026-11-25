@@ -160,3 +160,6 @@ impl MainWindow {
         ButtonItem { icon, label, press: Press::Run(&act::CycleRepeat), enabled: true, selected }
     }
 }
+
+#[cfg(test)]
+mod tests;

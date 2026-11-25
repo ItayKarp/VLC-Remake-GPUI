@@ -59,12 +59,12 @@ impl MainWindow {
         let output = Output::new();
         let subtitles = subtitle_style::style(&settings::get(cx).prefs.subtitles);
         let backend = engine::default_backend(output.sink(), Self::audio_config(cx), subtitles);
-        self.install_player(output, backend, window, cx)
+        self.attach_player(output, backend, window, cx)
     }
 
-    /// Makes the player on the backend `make_backend` builds, its video drawn from `output`,
-    /// and wires it to the window: what [`Self::player`] does on first use, with any backend.
-    pub(super) fn install_player(
+    /// Makes the player on the backend `make_backend` builds, its pictures shown from `output`,
+    /// and wires it to the window: its events, the video area, audio, tracks and picture.
+    pub(super) fn attach_player(
         &mut self,
         output: Output,
         make_backend: impl FnOnce(EventSender) -> Box<dyn Backend>,
@@ -271,3 +271,6 @@ fn error_message(kind: ErrorKind) -> &'static str {
         ErrorKind::SourceLost => tr!("the file or its drive went away."),
     }
 }
+
+#[cfg(test)]
+pub(super) mod tests;

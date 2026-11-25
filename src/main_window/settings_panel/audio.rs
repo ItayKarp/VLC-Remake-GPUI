@@ -245,15 +245,4 @@ fn stereo_index(cx: &App) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stereo_mode_offers_the_designed_choices() {
-        let labels: Vec<_> = stereo_choices().iter().map(|choice| choice.label).collect();
-        assert_eq!(
-            labels,
-            ["Stereo", "Mono", "Left", "Right", "Reverse stereo", "Dolby Surround", "Headphones"]
-        );
-    }
-}
+mod tests;

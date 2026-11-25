@@ -126,3 +126,6 @@ fn row(label: &'static str, height: f32, p: &Palette) -> Div {
 fn sized(control: impl IntoElement) -> Div {
     div().w(px(CONTROL_WIDTH)).flex_none().child(control)
 }
+
+#[cfg(test)]
+mod tests;
