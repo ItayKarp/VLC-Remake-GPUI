@@ -304,3 +304,6 @@ fn forget_positions(cx: &mut App) {
 fn history_on(cx: &App) -> bool {
     settings::get(cx).prefs.privacy.save_recently_played
 }
+
+#[cfg(test)]
+mod tests;

@@ -117,3 +117,66 @@ fn create_folder(path: PathBuf, cx: &mut Context<MainWindow>) {
     })
     .detach();
 }
+
+#[cfg(test)]
+mod tests {
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::*;
+    use crate::main_window::tests::{main_view, open};
+    use crate::opening::scratch::scratch_dir;
+
+    fn toasts(cx: &mut VisualTestContext) -> Vec<String> {
+        let main = main_view(cx);
+        cx.update(|_, cx| main.read(cx).toasts.read(cx).messages())
+    }
+
+    #[gpui::test]
+    fn create_this_folder_makes_the_missing_folder(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let missing = scratch_dir().join("Movies").join("New");
+        let path = missing.clone();
+        main_view(cx).update(cx, |_, cx| create_folder(path, cx));
+        cx.run_until_parked();
+        assert!(missing.is_dir());
+        assert_eq!(toasts(cx), Vec::<String>::new());
+    }
+
+    #[gpui::test]
+    fn a_folder_that_cant_be_made_says_so(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let file = scratch_dir().join("taken");
+        std::fs::write(&file, b"x").expect("file");
+        let inside = file.join("Movies");
+        main_view(cx).update(cx, |_, cx| create_folder(inside, cx));
+        cx.run_until_parked();
+        let said = toasts(cx);
+        assert!(said.len() == 1 && said[0].starts_with("Couldn't create"), "{said:?}");
+    }
+
+    #[gpui::test]
+    fn choose_another_folder_replaces_the_missing_one(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let (old, new) = (scratch_dir().join("gone"), scratch_dir());
+        cx.update(|_, cx| settings::update(cx, |s| s.local.media_folders = vec![old.clone()]));
+        let main = main_view(cx);
+        main.update_in(cx, |_, window, cx| choose_folder(old, window, cx));
+        let picked = new.clone();
+        cx.simulate_path_prompt_response(move |_| Some(vec![picked]));
+        cx.run_until_parked();
+        let folders = cx.update(|_, cx| settings::get(cx).local.media_folders.clone());
+        assert_eq!(folders, [new]);
+    }
+
+    #[gpui::test]
+    fn without_media_folders_no_rows_show(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let main = main_view(cx);
+        let (shown, rows) = main.update_in(cx, |main, window, cx| {
+            let p = crate::theme::palette(window, cx);
+            (main.shows_library_folders(cx), render(&p, cx).is_some())
+        });
+        assert!(shown, "nothing plays, so the empty state may show them");
+        assert!(!rows);
+    }
+}

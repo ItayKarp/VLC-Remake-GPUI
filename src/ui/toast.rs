@@ -137,6 +137,20 @@ pub struct Toasts {
     drawn: Vec<Arc<RenderImage>>,
 }
 
+#[cfg(test)]
+impl Toasts {
+    /// The messages showing, oldest first.
+    pub fn messages(&self) -> Vec<String> {
+        self.toasts.iter().map(|toast| toast.message.to_string()).collect()
+    }
+
+    /// What the button labelled `label` on the newest toast that has one runs.
+    pub fn action(&self, label: &str) -> Option<Action> {
+        let actions = self.toasts.iter().rev().flat_map(|toast| &toast.actions);
+        actions.into_iter().find(|action| action.label == label).map(|action| action.run.clone())
+    }
+}
+
 impl Toasts {
     /// An empty stack.
     pub fn new() -> Self {

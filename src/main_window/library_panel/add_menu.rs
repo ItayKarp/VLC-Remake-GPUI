@@ -33,7 +33,8 @@ impl MainWindow {
     }
 }
 
-fn items(main: &WeakEntity<MainWindow>, cx: &App) -> Vec<MenuItem> {
+/// The "+" menu's items: add a folder to the library, or open something to play.
+pub(super) fn items(main: &WeakEntity<MainWindow>, cx: &App) -> Vec<MenuItem> {
     let main = main.clone();
     vec![
         MenuItem::action(tr!("Add Folder to Library…"), move |_, cx| {

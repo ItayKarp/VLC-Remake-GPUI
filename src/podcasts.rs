@@ -47,7 +47,7 @@ pub fn init(cx: &mut App) {
 }
 
 /// Reads the subscriptions from the database, then refreshes every feed from `source`.
-fn init_with(source: Arc<dyn FeedSource>, cx: &mut App) {
+pub(crate) fn init_with(source: Arc<dyn FeedSource>, cx: &mut App) {
     cx.set_global(Source(source));
     cx.set_global(Podcasts::default());
     let read = run(cx, |_, _| Ok(()));

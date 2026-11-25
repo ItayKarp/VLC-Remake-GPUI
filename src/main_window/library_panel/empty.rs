@@ -210,5 +210,32 @@ mod tests {
         assert_eq!(title(&Route::Music(MusicRoute::Albums(None))), "No music yet");
         assert_eq!(title(&Route::Home), "Nothing here yet");
         assert_eq!(title(&Route::HomeSection(HomeSection::Favorites)), "No favorites yet");
+        let songs = Route::Music(MusicRoute::Songs(Some(PathBuf::from("/m"))));
+        assert_eq!(EmptyState::of(&songs).hint, "It holds no songs or folders.");
+        assert_eq!(title(&Route::Playlists(None)), "No playlists yet");
+        assert_eq!(title(&Route::Podcast(crate::db::podcasts::FeedId(1))), "No episodes");
+    }
+
+    #[test]
+    fn every_home_section_and_network_category_says_what_fills_it() {
+        let titles: Vec<String> = HomeSection::ALL
+            .into_iter()
+            .map(|section| EmptyState::of(&Route::HomeSection(section)).title)
+            .collect();
+        let distinct: std::collections::HashSet<_> = titles.iter().collect();
+        assert_eq!(distinct.len(), HomeSection::ALL.len(), "{titles:?}");
+        let network: Vec<EmptyState> = NetworkCategory::ALL
+            .into_iter()
+            .map(|category| EmptyState::of(&Route::Network(Some(category))))
+            .collect();
+        let titles: Vec<&str> = network.iter().map(|state| state.title.as_str()).collect();
+        assert_eq!(titles, ["No recent streams", "No podcasts yet", "No radio stations yet"]);
+        assert!(network.iter().all(|state| state.icon == icons::STREAMING && !state.everywhere));
+    }
+
+    #[test]
+    fn a_search_everywhere_suggests_other_words() {
+        let search = Route::Search(Search { query: "x".into(), scope: Section::Home });
+        assert_eq!(EmptyState::of(&search).hint, "Check the spelling, or try fewer words.");
     }
 }
