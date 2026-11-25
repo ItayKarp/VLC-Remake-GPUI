@@ -2,7 +2,7 @@
 //! crash, or the hardware decoding it made fall back (S5.10.2), and copying debug info. A crash
 //! report leaves the computer only if the user files it on GitHub themselves (S9.6.1).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use gpui::{App, ClipboardItem, Context, Window};
 
@@ -23,6 +23,11 @@ impl MainWindow {
             }
             return;
         };
+        self.tell_crash(report, cx);
+    }
+
+    /// Offers to show the crash report saved at `report`, or to file it on GitHub.
+    fn tell_crash(&mut self, report: PathBuf, cx: &mut Context<Self>) {
         let toast = Toast::new(
             Level::Warning,
             tr!("VLC closed unexpectedly last time. A crash report was saved on this computer; \
@@ -52,3 +57,6 @@ fn report_on_github(report: &Path, cx: &mut App) {
         Err(error) => tracing::warn!("crash: couldn't read the report to file it: {error}"),
     }
 }
+
+#[cfg(test)]
+mod tests;

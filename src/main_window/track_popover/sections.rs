@@ -199,9 +199,10 @@ pub(super) fn note(text: &'static str, p: &Palette) -> Div {
         .child(text)
 }
 
-/// One choice: a ✓ when it is the selected one, then its name.
+/// One choice: a ✓ when it is the selected one, then its name. `id` is its section and its
+/// place there.
 fn choice_row(
-    id: impl Into<ElementId>,
+    id: (&'static str, usize),
     label: SharedString,
     checked: bool,
     p: &Palette,
@@ -212,8 +213,10 @@ fn choice_row(
     } else {
         div().size(px(CHECK)).flex_none().into_any_element()
     };
+    let (section, index) = id;
     let row = div()
-        .id(id.into())
+        .id(ElementId::from(id))
+        .debug_selector(move || format!("track-{section}-{index}"))
         .h(px(ROW_HEIGHT))
         .flex_none()
         .mx(px(8.))
@@ -235,3 +238,6 @@ fn choice_row(
         .child(div().flex_1().min_w_0().truncate().child(label));
     focus::ring(row, p)
 }
+
+#[cfg(test)]
+mod tests;

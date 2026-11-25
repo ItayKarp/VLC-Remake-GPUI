@@ -120,6 +120,7 @@ fn chapter_row(
     let title_color = if look.current { p.accent_fg } else { p.text };
     let row = div()
         .id(("chapter-row", index))
+        .debug_selector(move || format!("chapter-row-{index}"))
         .relative()
         .w_full()
         .h(px(ROW_HEIGHT))
@@ -165,3 +166,6 @@ fn cells(chapter: &Listed, title_color: Hsla, p: &Palette) -> [Div; 3] {
             .child(clock::format(chapter.start)),
     ]
 }
+
+#[cfg(test)]
+mod tests;

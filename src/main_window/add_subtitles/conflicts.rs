@@ -22,8 +22,10 @@ use crate::ui::metrics;
 
 /// The "Name taken: …" chip for `pair`, a tab stop that opens the choices.
 fn conflict_chip(pair: &Pair, label: SharedString, p: &Palette) -> Stateful<Div> {
+    let id = format!("conflict-{}", pair.1.display());
     div()
-        .id(SharedString::from(format!("conflict-{}", pair.1.display())))
+        .id(SharedString::from(id.clone()))
+        .debug_selector(move || id)
         .tab_index(0)
         .key_context(focus::CONTROL)
         .role(accesskit::Role::Button)

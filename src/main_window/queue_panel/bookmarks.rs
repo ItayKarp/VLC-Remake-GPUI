@@ -199,6 +199,7 @@ impl MainWindow {
         };
         div()
             .id(("bookmark-row", index))
+            .debug_selector(move || format!("bookmark-row-{index}"))
             .w_full()
             .h(px(ROW_HEIGHT))
             .flex_row_start()
@@ -304,3 +305,6 @@ struct Look {
     /// It lies at or past the media's end.
     past_the_end: bool,
 }
+
+#[cfg(test)]
+mod tests;
