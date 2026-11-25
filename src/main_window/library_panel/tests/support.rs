@@ -4,6 +4,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui::{TestAppContext, VisualTestContext};
 use url::Url;
@@ -19,14 +20,21 @@ use crate::ui::menu::MenuItem;
 
 /// The feed address the stand-in serves.
 pub(super) const FEED: &str = "https://e.com/rss";
+/// A feed address the stand-in serves once: the show is gone when it is read again.
+pub(super) const FEED_THEN_GONE: &str = "https://e.com/gone";
 
-/// Serves one show at [`FEED`], whose episodes are the files it was given; any other address
-/// is missing.
-struct Show(Vec<PathBuf>);
+/// Serves one show at [`FEED`], and at [`FEED_THEN_GONE`] the first time, whose episodes are
+/// the files it was given; any other address is missing.
+struct Show {
+    episodes: Vec<PathBuf>,
+    gone: AtomicBool,
+}
 
 impl FeedSource for Show {
     fn fetch(&self, url: &str, _: Option<&Url>) -> Result<Feed, Failure> {
-        if url != FEED {
+        let served =
+            url == FEED || (url == FEED_THEN_GONE && !self.gone.swap(true, Ordering::SeqCst));
+        if !served {
             return Err(Failure::Status(404));
         }
         let episode = |(at, file): (usize, &PathBuf)| Episode {
@@ -36,13 +44,13 @@ impl FeedSource for Show {
             published_s: Some(1_700_000_000 - at as i64 * 86_400),
             ..Episode::default()
         };
-        let episodes = self.0.iter().enumerate().map(episode).collect();
+        let episodes = self.episodes.iter().enumerate().map(episode).collect();
         Ok(Feed { title: "The Show".into(), episodes })
     }
 }
 
 /// The main window with the library open on Home, saved playlists, favorites, Network's streams,
-/// and podcasts whose feed at [`FEED`] lists `episodes` (files, so nothing goes on the network).
+/// and podcasts whose feeds at [`FEED`] and [`FEED_THEN_GONE`] list `episodes` (files, so nothing goes on the network).
 /// Played media opens paused, so nothing is heard.
 pub(super) fn with_library(
     cx: &mut TestAppContext,
@@ -55,7 +63,8 @@ pub(super) fn with_library(
         crate::playlists::init(cx);
         crate::library::favorites::init(cx);
         crate::network::init(cx);
-        crate::podcasts::init_with(Arc::new(Show(episodes)), cx);
+        let show = Show { episodes, gone: AtomicBool::new(false) };
+        crate::podcasts::init_with(Arc::new(show), cx);
     });
     main_view(cx).update_in(cx, MainWindow::toggle_library_panel);
     history.settle(cx);

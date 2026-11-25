@@ -9,6 +9,8 @@
 //! collected" unless "Collect playback statistics" (opt-in, S9.6.1) was on when VLC started.
 
 pub(super) mod rows;
+#[cfg(test)]
+mod tests;
 
 use std::time::Duration;
 
@@ -95,7 +97,10 @@ impl MainWindow {
             .font_features(clock::tabular_digits())
             .child(table);
         let top = osd::MARGIN + osd::HEIGHT + BELOW_MESSAGE;
-        Some(div().absolute().top(px(top)).left(px(osd::MARGIN)).child(bubble).into_any_element())
+        let overlay = div().absolute().top(px(top)).left(px(osd::MARGIN));
+        Some(
+            overlay.debug_selector(|| "statistics-overlay".into()).child(bubble).into_any_element(),
+        )
     }
 }
 
