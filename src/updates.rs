@@ -11,6 +11,7 @@
 pub mod check;
 pub mod install;
 pub mod installation;
+pub mod launcher;
 pub mod manifest;
 pub mod rollback;
 pub mod signing;
@@ -211,7 +212,7 @@ fn install_at_quit(cx: &mut App) {
         return;
     };
     let running = running_version();
-    match install::install(staged, &running, dir) {
+    match install::install(staged, &running, dir, &launcher::System) {
         Ok(backup) => {
             tracing::info!("updates: installed {version}; it runs from the next start");
             let mut state = UpdateState::load(dir);
