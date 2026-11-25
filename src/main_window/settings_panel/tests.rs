@@ -2,6 +2,8 @@
 //! as a person does, by typing, keys and the values they change. The helpers here serve the
 //! tests of each tab's file.
 
+mod leaving_fields;
+
 use gpui::{Entity, FocusHandle, Focusable as _, TestAppContext, VisualTestContext};
 
 use super::PanelTab;

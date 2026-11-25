@@ -37,8 +37,6 @@ mod custom_ratio;
 mod effect_section;
 mod equalizer_section;
 mod footer;
-#[cfg(test)]
-mod leaving_fields;
 mod number_row;
 mod playback;
 mod render_row;

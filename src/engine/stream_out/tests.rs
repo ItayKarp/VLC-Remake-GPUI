@@ -12,6 +12,7 @@ fn target(protocol: Protocol, ip: Ipv4Addr) -> StreamTarget {
         contents: Contents::Everything { subtitles: true },
         encoding: Encoding::default(),
         local: Local::PlaysHere,
+        access: None,
     }
 }
 
@@ -90,4 +91,22 @@ fn links_name_where_viewers_go() {
     let udp = target(Protocol::Udp, Ipv4Addr::new(10, 0, 0, 2));
     assert_eq!(udp.url(), "udp://@:1234");
     assert!(!udp.is_open_to_network());
+}
+
+#[test]
+fn a_stream_shared_with_the_network_asks_for_its_code() {
+    let code = AccessCode::new();
+    for (protocol, prefix, scheme) in
+        [(Protocol::Http, "sout-http", "http"), (Protocol::Rtsp, "sout-rtsp", "rtsp")]
+    {
+        let stream = StreamTarget { access: code, ..target(protocol, Ipv4Addr::UNSPECIFIED) };
+        let code = code.unwrap();
+        let vars = stream.sign_in_vars();
+        assert!(vars.contains(&(&format!("{prefix}-user"), "vlc")), "{vars:?}");
+        assert!(vars.contains(&(&format!("{prefix}-pwd"), code.as_str())), "{vars:?}");
+        assert!(stream.url().starts_with(&format!("{scheme}://vlc:{}@0.0.0.0:", code.as_str())));
+    }
+    let local = target(Protocol::Http, Ipv4Addr::LOCALHOST);
+    assert!(local.sign_in_vars().iter().all(|(_, value)| value.is_empty()));
+    assert_eq!(local.url(), "http://127.0.0.1:8080/stream");
 }

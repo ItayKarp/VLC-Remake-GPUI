@@ -79,9 +79,9 @@ impl Streaming {
         *self = Self { target, from };
     }
 
-    /// The media options that stream new media; `None` while not streaming.
-    pub(crate) fn media_options(&self) -> Option<Vec<String>> {
-        self.target.map(|target| target.media_options())
+    /// Where new media streams to; `None` while not streaming.
+    pub(crate) fn target(&self) -> Option<&StreamTarget> {
+        self.target.as_ref()
     }
 
     /// Whether the open media streams.

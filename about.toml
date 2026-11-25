@@ -1,0 +1,23 @@
+# cargo-about (S9.9.2): the licenses `tools/licenses/generate.sh` may list for the crates the
+# app is built from, in the order one is picked when a crate offers a choice. Anything else
+# stops the generation until it is reviewed (docs/legal.md).
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "MIT-0",
+    "Unlicense",
+    "CC0-1.0",
+    "BSL-1.0",
+    "Unicode-3.0",
+    "NCSA",
+    "CDLA-Permissive-2.0",
+    "MPL-2.0",
+]
+# Every package in Cargo.lock is listed, on every OS (no `targets`), so the list matches the
+# lock file exactly (a test checks it), whichever OS made it.

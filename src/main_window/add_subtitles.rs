@@ -15,6 +15,7 @@
 
 mod body;
 mod conflicts;
+mod credit;
 mod files;
 mod footer;
 mod header;

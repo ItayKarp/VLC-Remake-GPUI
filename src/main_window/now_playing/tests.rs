@@ -26,9 +26,9 @@ pub(in crate::main_window) struct Playing {
 }
 
 /// Gives the window a player on a mock backend pretending to play `media`, and plays
-/// `mock://clip` from the queue, as opening it does.
+/// `https://e.com/clip` from the queue, as opening it does.
 pub(in crate::main_window) fn play_mock(cx: &mut VisualTestContext, media: MockMedia) -> Playing {
-    play_media(cx, media, Media::Url("mock://clip".into()))
+    play_media(cx, media, Media::Url("https://e.com/clip".into()))
 }
 
 /// Gives the window a player on a mock backend pretending to play `mock`, and plays `media`
@@ -105,16 +105,16 @@ fn status(cx: &mut VisualTestContext) -> Option<(String, bool)> {
 #[gpui::test]
 fn the_status_line_follows_playback(cx: &mut TestAppContext) {
     let (cx, playing) = open_playing(cx);
-    assert_eq!(status(cx), Some(("Playing mock://clip".into(), false)));
+    assert_eq!(status(cx), Some(("Playing https://e.com/clip".into(), false)));
     playing.player.update(cx, Player::pause);
     cx.run_until_parked();
-    assert_eq!(status(cx), Some(("Paused: mock://clip".into(), false)));
+    assert_eq!(status(cx), Some(("Paused: https://e.com/clip".into(), false)));
     playing.mock.emit(BackendEvent::State(PlaybackState::Buffering));
     cx.run_until_parked();
-    assert_eq!(status(cx), Some(("Buffering mock://clip…".into(), false)));
+    assert_eq!(status(cx), Some(("Buffering https://e.com/clip…".into(), false)));
     playing.player.update(cx, Player::stop);
     cx.run_until_parked();
-    assert_eq!(status(cx), Some(("Stopped mock://clip".into(), false)));
+    assert_eq!(status(cx), Some(("Stopped https://e.com/clip".into(), false)));
 }
 
 #[gpui::test]
@@ -123,7 +123,7 @@ fn a_failed_open_says_why(cx: &mut TestAppContext) {
     playing.mock.emit(BackendEvent::State(PlaybackState::Error(ErrorKind::Corrupt)));
     cx.run_until_parked();
     let (text, cancel) = status(cx).expect("a status line");
-    assert_eq!(text, "Couldn't play mock://clip: the file is damaged.");
+    assert_eq!(text, "Couldn't play https://e.com/clip: the file is damaged.");
     assert!(!cancel);
 }
 
@@ -133,7 +133,7 @@ fn opening_offers_cancel_which_stops_it(cx: &mut TestAppContext) {
     let playing = play_mock(cx, MockMedia::manual());
     playing.mock.emit(BackendEvent::State(PlaybackState::Opening));
     draw(cx);
-    assert_eq!(status(cx), Some(("Opening mock://clip…".into(), true)));
+    assert_eq!(status(cx), Some(("Opening https://e.com/clip…".into(), true)));
     playing.mock.take_commands();
     main_view(cx).update(cx, MainWindow::cancel);
     assert!(playing.mock.take_commands().contains(&Command::Stop));

@@ -62,5 +62,5 @@ pub(in crate::main_window) fn play_mock(
 
 /// The clip the mock player opens.
 pub(in crate::main_window) fn mock_clip() -> Media {
-    Media::Url("mock://clip".into())
+    Media::Url("https://e.com/clip".into())
 }

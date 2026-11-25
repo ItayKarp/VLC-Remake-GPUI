@@ -32,6 +32,7 @@ pub mod playlists;
 pub mod podcasts;
 pub mod roots;
 pub mod scrobbles;
+mod scrub;
 pub mod search;
 pub mod songs;
 pub mod subtitle_links;
@@ -117,6 +118,7 @@ fn open_file(path: &Path) -> Result<Connection, Unusable> {
     connection.pragma_update(None, "synchronous", "NORMAL").map_err(|error| classify(&error))?;
     enforce_foreign_keys(&connection)?;
     check_integrity(&connection)?;
+    scrub::register(&connection).map_err(|error| classify(&error))?;
     migrations::run(&mut connection)?;
     Ok(connection)
 }
@@ -124,6 +126,7 @@ fn open_file(path: &Path) -> Result<Connection, Unusable> {
 fn open_in_memory() -> Result<Connection, Unusable> {
     let mut connection = Connection::open_in_memory().map_err(|error| classify(&error))?;
     enforce_foreign_keys(&connection)?;
+    scrub::register(&connection).map_err(|error| classify(&error))?;
     migrations::run(&mut connection)?;
     Ok(connection)
 }

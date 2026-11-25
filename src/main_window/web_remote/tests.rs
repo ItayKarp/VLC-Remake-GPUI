@@ -138,13 +138,13 @@ fn what_plays_and_the_queue_are_published(cx: &mut TestAppContext) {
     play_mock(cx);
     let main = main_view(cx);
     main.update_in(cx, |main, window, cx| {
-        main.queue.insert_next(vec![Media::Url("mock://first".into())]);
+        main.queue.insert_next(vec![Media::Url("https://e.com/first".into())]);
         main.play(0, window, cx);
     });
     draw(cx);
     let (state, queue) = published(cx);
     assert!(state.contains("\"playing\":true"), "{state}");
-    assert!(queue.contains("mock://first") && queue.contains("\"current\":true"), "{queue}");
+    assert!(queue.contains("https://e.com/first") && queue.contains("\"current\":true"), "{queue}");
 }
 
 #[gpui::test]
@@ -153,16 +153,19 @@ fn a_phones_commands_work_as_the_windows_buttons(cx: &mut TestAppContext) {
     let (player, _) = play_mock(cx);
     let main = main_view(cx);
     let ids = main.update_in(cx, |main, window, cx| {
-        let both = vec![Media::Url("mock://first".into()), Media::Url("mock://second".into())];
+        let both = vec![
+            Media::Url("https://e.com/first".into()),
+            Media::Url("https://e.com/second".into()),
+        ];
         main.queue.replace(both);
         main.play(0, window, cx);
         main.queue.entries().iter().map(|entry| entry.id.number()).collect::<Vec<_>>()
     });
     draw(cx);
     answer(RemoteCommand::Next, cx);
-    assert_eq!(playing_title(cx).as_deref(), Some("mock://second"));
+    assert_eq!(playing_title(cx).as_deref(), Some("https://e.com/second"));
     answer(RemoteCommand::Play { id: ids[0] }, cx);
-    assert_eq!(playing_title(cx).as_deref(), Some("mock://first"));
+    assert_eq!(playing_title(cx).as_deref(), Some("https://e.com/first"));
     answer(RemoteCommand::Volume { percent: 50 }, cx);
     assert_eq!(player.read_with(cx, |player, _| player.volume().as_percent()), 50);
     answer(RemoteCommand::ToggleMute, cx);

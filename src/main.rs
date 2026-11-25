@@ -12,6 +12,8 @@ mod app;
 mod assets;
 mod capture;
 mod convert;
+#[cfg(test)]
+mod corpus;
 mod cursor;
 mod db;
 mod diagnostics;
@@ -19,9 +21,12 @@ mod discs;
 mod effects;
 #[allow(dead_code, reason = "the S1.2 engine; the player screen (S2) is its first caller")]
 mod engine;
+#[cfg(test)]
+mod fuzz;
 mod history;
 mod keymap;
 mod library;
+mod licenses;
 mod logging;
 mod main_window;
 mod native_window;

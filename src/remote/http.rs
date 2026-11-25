@@ -239,6 +239,21 @@ mod tests {
     }
 
     #[test]
+    fn fuzzed_requests_never_panic() {
+        let seeds: [&[u8]; 2] = [
+            b"POST /api/login HTTP/1.1\r\nHost: 10.0.0.2:8081\r\nOrigin: http://10.0.0.2:8081\r\n\
+              Content-Type: application/json\r\nContent-Length: 18\r\n\r\n{\"password\":\"x\"}",
+            b"GET /api/state HTTP/1.1\r\nHost: [::1]:8081\r\nCookie: a=1; vlc_remote=abc\r\n\r\n",
+        ];
+        crate::fuzz::run("remote-requests", &seeds, |input| {
+            if let Ok(request) = read_request(input) {
+                request.cookie("vlc_remote");
+                request.header("host");
+            }
+        });
+    }
+
+    #[test]
     fn reads_a_post_with_its_body_and_cookies() {
         let request = read(
             "POST /api/command?x=1 HTTP/1.1\r\nHost: 10.0.0.2:8080\r\nCookie: a=1; vlc=abc\r\n\

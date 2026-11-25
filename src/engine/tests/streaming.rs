@@ -24,6 +24,7 @@ fn stream() -> StreamTarget {
         contents: Contents::Everything { subtitles: true },
         encoding: Encoding::default(),
         local: Local::PlaysHere,
+        access: None,
     }
 }
 
@@ -60,7 +61,7 @@ fn the_media_open_streams_until_stopped(cx: &mut TestAppContext) {
 fn other_media_ends_the_stream_unless_it_opens_streaming(cx: &mut TestAppContext) {
     let rig = Rig::new(cx, MockMedia::default());
     let start = Start { stream: Some(stream()), ..Start::default() };
-    let media = || Media::Url("mock://clip".into());
+    let media = || Media::Url("https://mock/clip".into());
     rig.run(cx, |player, cx| player.open_at(media(), start, cx));
     assert_eq!(streaming(&rig, cx), Some(stream()));
     rig.open(cx);

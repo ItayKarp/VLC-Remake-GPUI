@@ -11,10 +11,12 @@
 
 mod state;
 
+use std::ffi::CString;
 use std::time::Duration;
 
 use self::state::{MediaState, Retarget};
 use super::api::Media;
+use super::core_vars::Var;
 use super::reopen::Output;
 use super::worker::Worker;
 use crate::engine::backend::BackendEvent;
@@ -41,9 +43,15 @@ impl Worker {
 
     /// Adds the stream's options to `media`, while streaming.
     pub(super) fn add_stream_options(&self, media: *mut Media) {
-        let Some(options) = self.streaming.media_options() else { return };
+        let Some(target) = self.streaming.target() else { return };
+        let options = target.media_options();
         let options: Vec<&str> = options.iter().map(String::as_str).collect();
         self.add_option(media, &options);
+        for (name, value) in target.sign_in_vars() {
+            let (Ok(name), Ok(value)) = (CString::new(name), CString::new(value)) else { continue };
+            // SAFETY: the player is live.
+            unsafe { self.vlc.set_player_var(self.handles.player, &name, Var::String(&value)) };
+        }
     }
 
     /// Whether the open media streams.

@@ -13,7 +13,9 @@ use crate::engine::audio::AudioConfig;
 use crate::engine::backend::{self, Backend, BackendEvent, EventReceiver};
 use crate::engine::shutdown::{SHUTDOWN_TIMEOUT, Shutdown, shut_down};
 use crate::engine::state::PlaybackState;
-use crate::engine::stream_out::{Contents, Encoding, Local, Protocol, StreamQuality, StreamTarget};
+use crate::engine::stream_out::{
+    AccessCode, Contents, Encoding, Local, Protocol, StreamQuality, StreamTarget,
+};
 use crate::engine::subtitle_style::SubtitleStyle;
 use crate::engine::values::{Generation, Start, Volume};
 use crate::settings::{EncodingPreset, Tuning};
@@ -52,6 +54,7 @@ fn target(protocol: Protocol, address: SocketAddr) -> StreamTarget {
         contents: Contents::Everything { subtitles: true },
         encoding: Encoding { preset: EncodingPreset::Ultrafast, tuning: Tuning::ZeroLatency },
         local: Local::StreamOnly,
+        access: None,
     }
 }
 
@@ -228,5 +231,71 @@ fn http_streams_while_playing_here() {
     let (status, body) = fetch_http(address);
     assert!(status.contains("200"), "{status}");
     assert!(body.contains(&TS_SYNC), "no transport stream packet");
+    assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn a_stream_with_an_access_code_turns_strangers_away() {
+    let (mut backend, mut receiver, media) = backend("1080p60-h264.mp4");
+    let address = free_address();
+    let code = AccessCode::new().expect("randomness");
+    let stream = StreamTarget { access: Some(code), ..target(Protocol::Http, address) };
+    open_streaming(&mut backend, &mut receiver, &media, stream);
+    let stranger = http_status(address, None);
+    assert!(stranger.contains("401"), "{stranger}");
+    assert!(http_status(address, Some(&format!("vlc:{}", "wrong"))).contains("401"));
+    let signed_in = http_status(address, Some(&format!("vlc:{}", code.as_str())));
+    assert!(signed_in.contains("200"), "{signed_in}");
+    assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
+}
+
+/// The status line the HTTP stream at `address` answers with, signing in as `user:password`.
+fn http_status(address: SocketAddr, sign_in: Option<&str>) -> String {
+    let mut connection = connect(address);
+    connection.set_read_timeout(Some(PATIENCE)).unwrap();
+    let authorization = sign_in
+        .map_or_else(String::new, |text| format!("Authorization: Basic {}\r\n", base64(text)));
+    let request = format!("GET /stream HTTP/1.0\r\n{authorization}\r\n");
+    connection.write_all(request.as_bytes()).unwrap();
+    let mut reply = Vec::new();
+    let mut chunk = [0; 1024];
+    while !reply.windows(2).any(|pair| pair == b"\r\n") {
+        let read = connection.read(&mut chunk).expect("the stream answers");
+        if read == 0 {
+            break;
+        }
+        reply.extend_from_slice(&chunk[..read]);
+    }
+    String::from_utf8_lossy(&reply).lines().next().unwrap_or_default().to_owned()
+}
+
+/// `text` in base64, as Basic authentication sends it.
+fn base64(text: &str) -> String {
+    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::new();
+    for group in text.as_bytes().chunks(3) {
+        let bits = group
+            .iter()
+            .enumerate()
+            .fold(0_u32, |bits, (at, &byte)| bits | u32::from(byte) << (16 - 8 * at));
+        for at in 0..4 {
+            let digit = DIGITS[(bits >> (18 - 6 * at) & 63) as usize];
+            encoded.push(if at <= group.len() { char::from(digit) } else { '=' });
+        }
+    }
+    encoded
+}
+
+#[test]
+#[ignore = "needs libVLC and the S1.1 test media"]
+fn rtsp_with_an_access_code_turns_strangers_away() {
+    let (mut backend, mut receiver, media) = backend("1080p60-h264.mp4");
+    let address = free_address();
+    let code = AccessCode::new();
+    let stream = StreamTarget { access: code, ..target(Protocol::Rtsp, address) };
+    open_streaming(&mut backend, &mut receiver, &media, stream);
+    let reply = describe(address);
+    assert!(reply.starts_with("RTSP/1.0 401"), "{reply}");
     assert_eq!(shut_down(backend, SHUTDOWN_TIMEOUT), Shutdown::Clean);
 }

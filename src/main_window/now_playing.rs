@@ -269,6 +269,7 @@ fn error_message(kind: ErrorKind) -> &'static str {
         ErrorKind::Protected => tr!("protected content can't be played."),
         ErrorKind::BackendUnavailable => tr!("VLC's playback engine couldn't be loaded."),
         ErrorKind::SourceLost => tr!("the file or its drive went away."),
+        ErrorKind::RefusedLink => tr!("VLC doesn't open this kind of link."),
     }
 }
 

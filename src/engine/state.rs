@@ -48,6 +48,9 @@ pub enum ErrorKind {
     /// The source went away while playing: the file was deleted, its drive unplugged or the
     /// network share dropped.
     SourceLost,
+    /// A link whose scheme isn't media's (`javascript:`, `data:`, …), refused before libVLC
+    /// sees it (S9.7.2).
+    RefusedLink,
 }
 
 /// Where playback is. See the module comment for the allowed transitions.

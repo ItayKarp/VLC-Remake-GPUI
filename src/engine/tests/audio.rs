@@ -120,7 +120,7 @@ fn the_policy_can_keep_playing(cx: &mut TestAppContext) {
     let policy = AudioPolicy { pause_on_device_loss: false, pause_when_corked: false };
     rig.run(cx, |player, _| player.set_audio_policy(policy));
     rig.emit(cx, BackendEvent::AudioDevices(vec![device("1")]));
-    rig.run(cx, |player, cx| player.open(Media::Url("mock://clip".into()), cx));
+    rig.run(cx, |player, cx| player.open(Media::Url("https://mock/clip".into()), cx));
     rig.emit(cx, BackendEvent::Corked(true));
     rig.emit(cx, BackendEvent::AudioDevices(Vec::new()));
     assert_eq!(rig.state(cx), PlaybackState::Playing);

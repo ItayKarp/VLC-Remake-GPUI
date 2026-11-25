@@ -79,7 +79,7 @@ fn remembered_syncs_come_back_without_undoing_a_newer_one(cx: &mut TestAppContex
     open_with(&rig, cx, movie());
     show(&rig, cx, 5);
     rig.player.update(cx, |player, cx| player.set_subtitle_sync(delayed(100), cx));
-    let media = Media::Url("mock://clip".into());
+    let media = Media::Url("https://mock/clip".into());
     let saved =
         vec![(SubtitleKey::Stream(3), delayed(-700)), (SubtitleKey::Stream(5), delayed(900))];
     rig.run(cx, |player, cx| player.restore_subtitle_syncs(&media, saved, cx));
@@ -87,7 +87,7 @@ fn remembered_syncs_come_back_without_undoing_a_newer_one(cx: &mut TestAppContex
     show(&rig, cx, 3);
     assert_eq!(sync(&rig, cx), delayed(-700));
 
-    let other = Media::Url("mock://other".into());
+    let other = Media::Url("https://mock/other".into());
     let late = vec![(SubtitleKey::Stream(5), delayed(1))];
     rig.run(cx, |player, cx| player.restore_subtitle_syncs(&other, late, cx));
     show(&rig, cx, 5);

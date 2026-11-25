@@ -11,6 +11,7 @@ const ENDED: c_int = 6;
 fn target(local: Local) -> StreamTarget {
     let address = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080));
     StreamTarget {
+        access: None,
         protocol: Protocol::Http,
         address,
         viewer_host: address.ip(),
@@ -75,14 +76,14 @@ fn stopping_a_stream_reopens_the_media_without_it() {
     let mut streaming = streaming_from(secs(3));
     assert_eq!(streaming.retarget(None, secs(9), MediaState::Going), Retarget::Reopen);
     assert!(!streaming.is_streaming());
-    assert_eq!(streaming.media_options(), None);
+    assert_eq!(streaming.target(), None);
 }
 
 #[test]
 fn new_media_gets_the_streams_options_while_streaming() {
-    assert_eq!(Streaming::default().media_options(), None);
+    assert_eq!(Streaming::default().target(), None);
     let stream = target(Local::PlaysHere);
-    assert_eq!(streaming_from(secs(0)).media_options(), Some(stream.media_options()));
+    assert_eq!(streaming_from(secs(0)).target(), Some(&stream));
 }
 
 #[test]

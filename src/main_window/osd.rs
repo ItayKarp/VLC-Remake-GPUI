@@ -18,6 +18,7 @@ use super::MainWindow;
 use super::control_bar::clock;
 use super::flash::Flash;
 use crate::assets::icons;
+use crate::engine::display_text;
 use crate::theme::Palette;
 use crate::theme::text_px;
 
@@ -46,9 +47,11 @@ pub struct Osd {
 }
 
 impl MainWindow {
-    /// Shows `text` over the video for a moment.
+    /// Shows `text` over the video for a moment, as one line without control characters, since
+    /// it often holds a title from the media (S9.7.2).
     pub(super) fn show_osd(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
-        self.osd.text = text.into();
+        let text = text.into();
+        self.osd.text = display_text::clean(&text).map_or(text, SharedString::from);
         self.osd.shown += 1;
         self.flash(|this| &mut this.osd.flash, SHOWN_FOR, cx);
     }

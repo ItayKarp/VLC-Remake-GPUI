@@ -4,12 +4,12 @@
 
 use gpui::{Entity, Focusable as _, TestAppContext, VisualTestContext};
 
-use super::PanelTab;
 use crate::app::media::Media;
 use crate::effects::{self, VIDEO_COLORS, VIDEO_CROP};
 use crate::engine::backend::Backend;
 use crate::engine::mock::{MockBackend, MockMedia};
 use crate::engine::transform::Rotation;
+use crate::main_window::settings_panel::PanelTab;
 use crate::main_window::tests::{main_view, open};
 use crate::settings;
 use crate::settings::registry::Value;
@@ -31,7 +31,7 @@ fn open_video_tab(cx: &mut TestAppContext) -> &mut VisualTestContext {
             Box::new(backend) as Box<dyn Backend>
         };
         main.attach_player(Output::new(), make, window, cx);
-        main.queue.replace(vec![Media::Url("mock://clip".into())]);
+        main.queue.replace(vec![Media::Url("https://e.com/clip".into())]);
         main.play(0, window, cx);
         main.open_settings_panel(PanelTab::Video, window, cx);
     });
