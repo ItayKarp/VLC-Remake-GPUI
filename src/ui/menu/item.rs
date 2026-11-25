@@ -50,7 +50,9 @@ pub enum MenuItem {
         icon: Option<&'static str>,
         /// The nested menu's items; an empty submenu is disabled.
         items: Vec<MenuItem>,
-        /// Why it is disabled (empty), shown on hover.
+        /// Greyed out, not openable and skipped by the keyboard, even with items.
+        disabled: bool,
+        /// Why it is disabled (or empty), shown on hover.
         reason: Option<SharedString>,
     },
     /// A thin line between groups.
@@ -109,7 +111,7 @@ impl MenuItem {
 
     /// An item that opens `items` in a nested menu.
     pub fn submenu(label: impl Into<SharedString>, items: Vec<MenuItem>) -> Self {
-        MenuItem::Submenu { label: label.into(), icon: None, items, reason: None }
+        MenuItem::Submenu { label: label.into(), icon: None, items, disabled: false, reason: None }
     }
 
     /// Adds an icon to an action, a check item or a submenu; a separator ignores it.
@@ -142,7 +144,7 @@ impl MenuItem {
     }
 
     /// Says why the item is disabled, on hover ("No media playing"). It shows only while the
-    /// item is disabled, or for a submenu, while it is empty.
+    /// item is disabled, or for a submenu, while it is disabled or empty.
     pub fn why_disabled(mut self, why: impl Into<SharedString>) -> Self {
         match &mut self {
             MenuItem::Action { reason, .. }
@@ -184,13 +186,14 @@ impl MenuItem {
         }
     }
 
-    /// Disables an action or check item; other items ignore it.
+    /// Disables an action, a check item or a submenu (which then doesn't open); a separator
+    /// ignores it.
     pub fn disabled(mut self, value: bool) -> Self {
         match &mut self {
-            MenuItem::Action { disabled, .. } | MenuItem::Check { disabled, .. } => {
-                *disabled = value;
-            }
-            _ => {}
+            MenuItem::Action { disabled, .. }
+            | MenuItem::Check { disabled, .. }
+            | MenuItem::Submenu { disabled, .. } => *disabled = value,
+            MenuItem::Separator => {}
         }
         self
     }
@@ -209,7 +212,7 @@ impl MenuItem {
     pub(super) fn selectable(&self) -> bool {
         match self {
             MenuItem::Action { disabled, .. } | MenuItem::Check { disabled, .. } => !disabled,
-            MenuItem::Submenu { items, .. } => !items.is_empty(),
+            MenuItem::Submenu { items, disabled, .. } => !disabled && !items.is_empty(),
             MenuItem::Separator => false,
         }
     }
@@ -253,5 +256,16 @@ mod tests {
         let full = MenuItem::submenu("Open Recent", vec![MenuItem::action("a.mkv", |_, _| {})])
             .why_disabled("Nothing recent");
         assert_eq!(reason(&full), None);
+    }
+
+    #[test]
+    fn a_disabled_submenu_with_items_says_why() {
+        let items = || vec![MenuItem::action("Yadif", |_, _| {})];
+        let off = MenuItem::submenu("Method", items()).disabled(true).why_disabled("Off");
+        assert!(!off.selectable(), "skipped by the keyboard and not opened");
+        assert_eq!(reason(&off), Some("Off"));
+        let on = MenuItem::submenu("Method", items()).disabled(false).why_disabled("Off");
+        assert!(on.selectable());
+        assert_eq!(reason(&on), None);
     }
 }
