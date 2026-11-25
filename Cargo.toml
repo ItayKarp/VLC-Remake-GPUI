@@ -46,7 +46,7 @@ interprocess = "2"
 futures = "0.3"
 # The engine loads libVLC at run time (S1.2, ADR 0001), so builds don't need it installed.
 libloading = "0.8"
-url = "2"
+url = { version = "2", features = ["serde"] }
 # Reading XSPF and ASX playlists (S1.3.4).
 quick-xml = "0.41"
 # `log` is on everywhere because a Linux-only dependency turns it on there, and it adds
@@ -86,6 +86,11 @@ getrandom = "0.3"
 # Signing last.fm API calls (S8.17.1), which take an MD5 of their parameters. Already built for
 # the Secret Service on Linux.
 md-5 = "0.10"
+# Updates (S9.5): the update manifest's Ed25519 signature and the packages' SHA-256, with the
+# crypto rustls already builds for HTTPS; and comparing versions (already built for other
+# crates).
+ring = "0.17"
+semver = { version = "1", features = ["serde"] }
 
 # The last.fm password (S5.5.3) lives in the OS keychain, never in a settings file: Keychain
 # Services on macOS, Credential Manager on Windows, the Secret Service (over zbus, pure Rust)
@@ -159,6 +164,11 @@ yuvutils-rs = "0.8.3"
 # The S1.1 spike: run its unit tests with `cargo test` like the app's.
 [[example]]
 name = "video_spike"
+test = true
+
+# Signing update manifests (S9.5.1): its tests check it reads the packages' names.
+[[example]]
+name = "update_manifest"
 test = true
 
 # Screenshot tests build the text system themselves: the platform that would own it must be

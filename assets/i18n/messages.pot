@@ -5926,6 +5926,10 @@ msgstr ""
 msgid "Skip Amounts"
 msgstr ""
 
+#: src/main_window/updates.rs
+msgid "Skip This Version"
+msgstr ""
+
 #: src/settings/registry/entries/performance.rs
 msgid "Skip the H.264 loop filter"
 msgstr ""
@@ -7445,6 +7449,18 @@ msgstr ""
 msgid "VLC will accept any certificate, so anyone between you and a server could pretend to be it and see or change what you stream."
 msgstr ""
 
+#: src/main_window/updates.rs
+msgid "VLC {version} didn't start, so this version was put back."
+msgstr ""
+
+#: src/main_window/updates.rs
+msgid "VLC {version} is available."
+msgstr ""
+
+#: src/main_window/updates.rs
+msgid "VLC {version} is ready. It installs when you quit."
+msgstr ""
+
 #: src/main_window/now_playing.rs
 msgid "VLC's playback engine couldn't be loaded."
 msgstr ""
@@ -7681,6 +7697,10 @@ msgstr ""
 
 #: src/main_window/library_panel/home/welcome.rs
 msgid "What you watch and listen to shows up here. Open a file to start, or add a folder to your library."
+msgstr ""
+
+#: src/main_window/updates.rs
+msgid "What's New"
 msgstr ""
 
 #: src/main_window/play_order.rs

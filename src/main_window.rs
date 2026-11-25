@@ -86,6 +86,7 @@ mod track_popover;
 mod tracks;
 mod transport;
 mod tray;
+mod updates;
 mod video_menu;
 mod video_mouse;
 mod video_window;
@@ -215,6 +216,8 @@ pub struct MainWindow {
     scrobbling: scrobbling::Scrobbling,
     /// What a screen reader was last told about playback (S9.1.2).
     announcer: Announcer,
+    /// Shows the updater's news (S9.5).
+    update_news: updates::UpdateNews,
 }
 
 impl MainWindow {
@@ -269,6 +272,7 @@ impl MainWindow {
             web_remote: web_remote::WebRemote::default(),
             scrobbling: scrobbling::Scrobbling::default(),
             announcer: Announcer::default(),
+            update_news: updates::UpdateNews::default(),
         };
         this.start(request, window, cx);
         this
@@ -276,7 +280,7 @@ impl MainWindow {
 
     /// Gives the Open button the keyboard, starts recording history and the session, brings the
     /// last session back, opens `request`, and starts the web remote if it's on. Problems
-    /// submitting to last.fm show here.
+    /// submitting to last.fm, and news of updates, show here.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
         self.control_bar.sync_layout(cx);
@@ -284,6 +288,7 @@ impl MainWindow {
         self.set_up_history(cx);
         self.set_up_session(cx);
         self.set_up_scrobbling(cx);
+        self.set_up_updates(cx);
         self.restore_session(&request, window, cx);
         self.open(request, window, cx);
         self.show_pending_crash(cx);

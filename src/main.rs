@@ -51,6 +51,7 @@ mod subtitle_links;
 mod theme;
 mod tray;
 mod ui;
+mod updates;
 mod video;
 mod video_window;
 mod window_chrome;
@@ -73,6 +74,9 @@ fn main() {
     if matches!(role, Role::Forwarded) {
         return;
     }
+    // An update that failed to start twice is rolled back here, and the previous version
+    // started in this one's place (S9.5.2).
+    let Some(role) = updates::launched(role) else { return };
     let application =
         application().with_assets(assets::Assets).with_quit_mode(QuitMode::LastWindowClosed);
     application.on_reopen(app::reopen);
@@ -87,6 +91,7 @@ fn main() {
         network::init(cx);
         podcasts::init(cx);
         scrobble::init(cx);
+        updates::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);
         perf::init(cx);
