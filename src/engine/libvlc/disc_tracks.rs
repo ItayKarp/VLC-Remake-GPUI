@@ -8,6 +8,7 @@ use std::time::Duration;
 use super::api::{LibVlc, Media};
 use super::prepare::parse_with;
 use crate::engine::discs::CdTrack;
+use crate::engine::display_text::clean_tag;
 
 /// The reader's instance never plays, so it needs no outputs.
 const ARGUMENTS: [&str; 2] = ["--no-audio", "--no-video"];
@@ -99,7 +100,8 @@ unsafe fn subitems(vlc: &LibVlc, media: *mut Media) -> Vec<CdTrack> {
 /// `item` is a live media.
 unsafe fn track(vlc: &LibVlc, item: *mut Media) -> CdTrack {
     // SAFETY: the caller's promise; `get_meta` returns a string we own, or NULL.
-    let tag = |kind| unsafe { vlc.take_string((vlc.api.libvlc_media_get_meta)(item, kind)) };
+    let tag =
+        |kind| unsafe { clean_tag(vlc.take_string((vlc.api.libvlc_media_get_meta)(item, kind))) };
     // SAFETY: the caller's promise.
     let millis = unsafe { (vlc.api.libvlc_media_get_duration)(item) };
     CdTrack {

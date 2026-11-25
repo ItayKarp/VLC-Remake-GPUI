@@ -14,6 +14,7 @@ pub use self::device::{Device, DeviceKind};
 use crate::settings::stored_path;
 
 pub mod device;
+pub mod scheme;
 
 /// One item to open.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -65,14 +66,14 @@ impl Media {
         }
     }
 
-    /// The text settings and the session file keep this as (S1.3.5, S3.4): a URL as written,
-    /// a path in [`stored_path`]'s lossless form, a device as [`Device::to_stored`] says. A
+    /// The text settings and the session file keep this as (S1.3.5, S3.4): a URL as written
+    /// but without a user name or password (S9.7.3), a path in [`stored_path`]'s lossless form, a device as [`Device::to_stored`] says. A
     /// stored path never looks like a URL: it is absolute, and an encoded one starts with
     /// `os-path:`, which has no `//`.
     pub fn to_stored(&self) -> String {
         match self {
             Media::File(path) => stored_path::encode(path),
-            Media::Url(url) => url.clone(),
+            Media::Url(url) => crate::network::links::without_user_info(url),
             Media::Device(device) => device.to_stored(),
         }
     }
@@ -238,6 +239,8 @@ mod tests {
         for media in [file, Media::Url("rtsp://cam/1".into())] {
             assert_eq!(Media::from_stored(&media.to_stored()), Some(media));
         }
+        let with_password = Media::Url("https://me:secret@host/live.m3u8".into());
+        assert_eq!(with_password.to_stored(), "https://host/live.m3u8");
         let plain = Media::from_stored("/abs/path.mkv");
         assert_eq!(plain, Some(Media::File(PathBuf::from("/abs/path.mkv"))));
     }

@@ -15,7 +15,8 @@ use crate::engine::values::{BackendSeek, Rate, SeekTarget, Start, StepDirection}
 
 impl Player {
     /// Opens `media` and starts playing it, cancelling whatever was open. A local path that
-    /// can't be media (missing, empty, a folder or device) fails at once with an error state.
+    /// can't be media (missing, empty, a folder or device) or a link that isn't media's fails
+    /// at once with an error state.
     pub fn open(&mut self, media: Media, cx: &mut Context<Self>) {
         self.open_at(media, Start::default(), cx);
     }
@@ -34,7 +35,7 @@ impl Player {
         self.position.reset();
         self.seeks.reset();
         self.steps.reset();
-        let preflight = media.as_path().map(preflight::check);
+        let preflight = preflight::check_media(&media);
         self.media = Some(media);
         // Media that can't open doesn't stream.
         let stream = start.stream.filter(|_| !matches!(preflight, Some(Err(_))));

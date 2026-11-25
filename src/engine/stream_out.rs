@@ -12,14 +12,17 @@
 //! could play however the user set them. Its picture trails the media by half a second, which
 //! keeps it from going black while the encoder starts.
 //!
-//! HTTP and RTSP wait for viewers on a port of this computer; UDP sends to one address.
+//! HTTP and RTSP wait for viewers on a port of this computer; UDP sends to one address. Shared
+//! with the network, they ask for an [`AccessCode`] that the stream's link carries (S9.7.4).
 
+mod access;
 mod host;
 
 use std::net::{IpAddr, SocketAddr};
 
 use crate::settings::{EncodingPreset, RecordingSettings, Tuning};
 
+pub use access::AccessCode;
 pub use host::{is_port_free, network_address};
 
 /// The path HTTP and RTSP viewers ask for.
@@ -214,6 +217,9 @@ pub struct StreamTarget {
     pub encoding: Encoding,
     /// Whether the media plays here too.
     pub local: Local,
+    /// The code HTTP and RTSP viewers sign in with; `None` lets anyone who can reach the port
+    /// watch, which only a stream for this computer alone should do.
+    pub access: Option<AccessCode>,
 }
 
 impl StreamTarget {
@@ -222,9 +228,12 @@ impl StreamTarget {
     pub fn url(&self) -> String {
         let port = self.address.port();
         let host = SocketAddr::new(self.viewer_host, port);
+        let sign_in = self
+            .access
+            .map_or_else(String::new, |code| format!("{}:{}@", access::VIEWER, code.as_str()));
         match self.protocol {
-            Protocol::Http => format!("http://{host}{PATH}"),
-            Protocol::Rtsp => format!("rtsp://{host}{PATH}"),
+            Protocol::Http => format!("http://{sign_in}{host}{PATH}"),
+            Protocol::Rtsp => format!("rtsp://{sign_in}{host}{PATH}"),
             Protocol::Udp => format!("udp://@:{port}"),
         }
     }
@@ -245,6 +254,26 @@ impl StreamTarget {
         options
             .extend(tune_name(self.encoding.tuning).map(|tune| format!(":sout-x264-tune={tune}")));
         options
+    }
+
+    /// The libVLC variables that make HTTP and RTSP viewers sign in with the access code, as
+    /// `(name, value)`. libVLC's stream output belongs to the player, not the media, so they are
+    /// the player's, not media options; each is empty without a code, so no earlier stream's
+    /// code stays.
+    pub fn sign_in_vars(&self) -> [(&'static str, &str); 4] {
+        let (user, password) =
+            self.access.as_ref().map_or(("", ""), |code| (access::VIEWER, code.as_str()));
+        let (http, rtsp) = match self.protocol {
+            Protocol::Http => ((user, password), ("", "")),
+            Protocol::Rtsp => (("", ""), (user, password)),
+            Protocol::Udp => (("", ""), ("", "")),
+        };
+        [
+            ("sout-http-user", http.0),
+            ("sout-http-pwd", http.1),
+            ("sout-rtsp-user", rtsp.0),
+            ("sout-rtsp-pwd", rtsp.1),
+        ]
     }
 
     /// The `sout` chain: the screen when it plays here, and the stream's own copy.

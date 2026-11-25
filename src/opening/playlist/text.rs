@@ -118,6 +118,19 @@ fn native(text: &str) -> PathBuf {
 mod tests {
     use super::*;
 
+    #[test]
+    fn fuzzed_bytes_decode_and_resolve_without_panicking() {
+        let seeds: [&[u8]; 3] =
+            [b"\xff\xfea\x00/\x00b\x00", b"\xef\xbb\xbfmusic/\xc3\xa9.mp3", b"caf\xe9\\x.mp3"];
+        crate::fuzz::run("playlist-text", &seeds, |input| {
+            let text = decode(input);
+            for line in text.lines() {
+                resolve(&Entry::Location(line.to_owned()), Path::new("/lists/a.m3u"));
+                resolve(&Entry::Uri(line.to_owned()), Path::new("/lists/a.xspf"));
+            }
+        });
+    }
+
     fn playlist() -> PathBuf {
         std::env::temp_dir().join("lists").join("mix.m3u")
     }

@@ -43,6 +43,7 @@ pub mod colors;
 pub mod convert;
 pub mod cues;
 pub mod discs;
+pub mod display_text;
 pub mod hdr;
 pub mod language;
 pub mod lengths;

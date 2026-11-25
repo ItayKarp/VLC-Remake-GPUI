@@ -7409,12 +7409,20 @@ msgstr ""
 msgid "VLC couldn't check whether real-time priority is allowed, so it runs as usual."
 msgstr ""
 
+#: src/main_window/stream_dialog.rs
+msgid "VLC couldn't make an access code for the stream."
+msgstr ""
+
 #: src/engine/libvlc/transcode.rs
 msgid "VLC couldn't read or encode it"
 msgstr ""
 
 #: src/engine/libvlc/options.rs
 msgid "VLC doesn't know one of these options, or a value is wrong"
+msgstr ""
+
+#: src/main_window/now_playing.rs
+msgid "VLC doesn't open this kind of link."
 msgstr ""
 
 #: src/privacy/clear.rs

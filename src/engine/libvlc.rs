@@ -15,6 +15,7 @@
 //!   video geometry before it plays. Without a sink, libVLC's dummy output decodes and discards
 //!   pictures, so libVLC never opens a window of its own.
 
+mod advisories;
 mod api;
 mod audio;
 mod audio_effects;
@@ -133,6 +134,7 @@ fn load() -> std::result::Result<Arc<LibVlc>, String> {
     warn_without_plugin_path(runtime);
     let vlc = LibVlc::load(runtime).map_err(|error| format!("{error:#}"))?;
     tracing::info!("libvlc: loaded {} from {:?}", vlc.version(), runtime.lib_dir);
+    advisories::warn_if_outdated(&vlc.version());
     Ok(Arc::new(vlc))
 }
 

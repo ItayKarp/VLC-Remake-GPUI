@@ -2,14 +2,11 @@
 //! line or several on a line, cleaned of what pasting drags along (surrounding quotes or angle
 //! brackets, trailing commas), checked to be media links, and de-duplicated.
 //!
-//! A media link names a scheme libVLC streams from. `javascript:`, `data:` and any other
-//! scheme are refused, and so are magnet links: libVLC can't play torrents.
+//! A media link names a scheme libVLC streams from ([`crate::app::media::scheme`]).
+//! `javascript:`, `data:` and any other scheme are refused, and so are magnet links: libVLC
+//! can't play torrents.
 
-/// The schemes a stream may use.
-const MEDIA_SCHEMES: &[&str] = &[
-    "http", "https", "rtsp", "rtsps", "rtmp", "rtmps", "mms", "mmsh", "udp", "rtp", "smb", "ftp",
-    "ftps", "sftp", "file",
-];
+use crate::app::media::scheme::is_media_link;
 
 /// What pasting drags along around a link. Brackets aren't among them: a link may end in one.
 const WRAPPERS: &[char] = &['"', '\'', '“', '”', '‘', '’', '<', '>'];
@@ -74,13 +71,6 @@ fn clean(word: &str) -> &str {
     word.trim_matches(WRAPPERS).trim_end_matches(TRAILERS).trim_matches(WRAPPERS)
 }
 
-/// Whether `link` is `scheme://…` with a scheme a stream may use.
-fn is_media_link(link: &str) -> bool {
-    let Some((scheme, rest)) = link.split_once("://") else { return false };
-    let scheme = scheme.to_ascii_lowercase();
-    !rest.is_empty() && MEDIA_SCHEMES.contains(&scheme.as_str())
-}
-
 /// `link` as compared for repeats: schemes and hosts ignore case.
 fn comparable(link: &str) -> String {
     let (scheme, rest) = link.split_once("://").unwrap_or(("", link));
@@ -93,10 +83,17 @@ fn comparable(link: &str) -> String {
     )
 }
 
+/// Schemes where what comes before `@` is an address, not an account: `udp://@:1234` listens,
+/// `udp://source@group:1234` takes one source's multicast.
+const ADDRESS_BEFORE_AT: &[&str] = &["udp", "rtp"];
+
 /// The user name and password part of `link` (`user:pass` in `https://user:pass@host/`), and
 /// where the host starts.
 fn user_info(link: &str) -> Option<(&str, usize)> {
     let (scheme, rest) = link.split_once("://")?;
+    if ADDRESS_BEFORE_AT.iter().any(|known| known.eq_ignore_ascii_case(scheme)) {
+        return None;
+    }
     let authority = &rest[..rest.find(['/', '?', '#']).unwrap_or(rest.len())];
     let at = authority.rfind('@')?;
     Some((&authority[..at], scheme.len() + 3 + at + 1))
@@ -105,6 +102,18 @@ fn user_info(link: &str) -> Option<(&str, usize)> {
 /// Whether `link` carries a password or a user name.
 pub fn has_credentials(link: &str) -> bool {
     user_info(link).is_some_and(|(info, _)| !info.is_empty())
+}
+
+/// `link` without its user name and password, as it may be written to disk (S9.7.3): a
+/// password belongs in the keychain, never in the history, the session or a log.
+pub fn without_user_info(link: &str) -> String {
+    match user_info(link) {
+        Some((info, host)) if !info.is_empty() => {
+            let scheme_end = link.find("://").map_or(0, |at| at + 3);
+            format!("{}{}", &link[..scheme_end], &link[host..])
+        }
+        _ => link.to_owned(),
+    }
 }
 
 /// `link` as shown on screen: a password in it masked.
@@ -160,5 +169,18 @@ mod tests {
         assert_eq!(masked("https://me:secret@host/x"), "https://me:•••@host/x");
         assert_eq!(masked("ftp://me@host/"), "ftp://me@host/");
         assert_eq!(masked("https://host/a"), "https://host/a");
+    }
+
+    #[test]
+    fn user_info_is_left_out_of_what_is_stored() {
+        assert_eq!(without_user_info("https://me:secret@host/a@b"), "https://host/a@b");
+        assert_eq!(without_user_info("rtsp://token@cam:554/1"), "rtsp://cam:554/1");
+        assert_eq!(without_user_info("udp://@:1234"), "udp://@:1234");
+        assert_eq!(
+            without_user_info("udp://10.0.0.1@239.0.0.1:1234"),
+            "udp://10.0.0.1@239.0.0.1:1234"
+        );
+        assert_eq!(without_user_info("ftp://@host/"), "ftp://@host/");
+        assert_eq!(without_user_info("https://host/a@b"), "https://host/a@b");
     }
 }

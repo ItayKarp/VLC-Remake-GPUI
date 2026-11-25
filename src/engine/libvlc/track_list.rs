@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use super::api::{MediaTrack, borrowed_string};
 use super::query::display_size;
+use crate::engine::display_text::clean_tag;
 use crate::engine::language::Language;
 use crate::engine::media_info::VideoSize;
 use crate::engine::tracks::{Track, TrackId, TrackKind, Tracks, codec};
@@ -57,7 +58,7 @@ pub(super) unsafe fn stream(track: &MediaTrack) -> Stream {
         // SAFETY: libVLC's strings are NULL or NUL-terminated.
         language: unsafe { borrowed_string(track.language) },
         // SAFETY: as above.
-        title: unsafe { borrowed_string(track.description) },
+        title: clean_tag(unsafe { borrowed_string(track.description) }),
         codec: codec::name(track.codec),
         channels: audio.map(|audio| audio.channels).filter(|channels| *channels > 0),
         size: video.and_then(display_size),

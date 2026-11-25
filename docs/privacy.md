@@ -16,6 +16,12 @@ computer, all of which you turn on or start yourself (PRD S9.6).
 
 In logs and crash reports your home folder is always written as `~`.
 
+Passwords are kept only in the OS keychain (the last.fm, OpenSubtitles, proxy and web remote
+passwords and the OpenSubtitles sign-in). A stream link with a user name or password in it
+(`https://me:secret@host/…`) plays as typed, but the history, the session and saved playlists
+keep it without them (`https://host/…`), and Open Recent and Recent Streams leave it out;
+databases written by earlier builds have them taken out once (PRD S9.7.3).
+
 ### Crash reports
 
 A crash report holds the app's version, the OS, the GPU, the libVLC version, whether developer
@@ -45,6 +51,7 @@ you turn it on, and applies when VLC restarts.
 | Podcasts (Network) | requests for the feeds you subscribed to | none until you subscribe |
 | Network streams | requests for the addresses you open | — |
 | Web remote | serves a page to your local network only, behind a password | Off |
+| **Stream** (main menu, File on macOS) | the media playing, to this computer only, or to your network behind an access code in the link | Only this computer |
 
 **Copy Debug Info** (the `…` menu, Help on macOS) puts the versions, the OS, the GPU and your
 preferences on the clipboard: no paths, and nothing is sent.
