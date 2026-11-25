@@ -3,12 +3,11 @@
 
 use gpui::{TestAppContext, VisualTestContext};
 
-use super::InTray;
 use crate::app::media::Media;
 use crate::app::request::{OpenRequest, Placement};
 use crate::engine::mock::MockMedia;
 use crate::main_window::MainWindow;
-use crate::main_window::tests::{main_view, open};
+use crate::main_window::tests::{hide_in_tray, main_view, open};
 use crate::main_window::video_menu::tests::support::{player, playing};
 use crate::opening::scratch::scratch_dir;
 use crate::tray::TrayCommand;
@@ -51,7 +50,7 @@ fn play_pause_previous_and_next_drive_the_queue(cx: &mut TestAppContext) {
 fn show_vlc_brings_back_a_hidden_window(cx: &mut TestAppContext) {
     let cx = open(cx);
     let main = main_view(cx);
-    main.update(cx, |main, _| main.windowing.tray = InTray::Hidden);
+    hide_in_tray(cx);
     assert!(main.read_with(cx, |main, _| main.is_hidden_in_tray()));
     run(cx, TrayCommand::ShowVlc);
     assert!(!main.read_with(cx, |main, _| main.is_hidden_in_tray()));

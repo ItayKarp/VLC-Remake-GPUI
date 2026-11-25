@@ -4,6 +4,8 @@
 //! opens one and the others do nothing. Quit asks about unfinished conversions first, as the app
 //! menu's Quit does.
 
+use std::any::Any;
+
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
 use gpui::{App, Global, Task};
@@ -14,25 +16,57 @@ use crate::main_window::MainWindow;
 use crate::settings;
 use crate::tray::{CommandSender, TrayCommand, TrayIcon};
 
-/// The icon, while it shows, the language its menu is in, and the task running its commands.
+/// The OS's tray as the app uses it: whether there is one, and an icon in it. [`OsTray`] in the
+/// app; tests put a stand-in in its place.
+pub trait Tray {
+    /// Whether the desktop has a tray to show an icon in.
+    fn is_available(&self) -> bool;
+
+    /// Shows the icon, sending what its menu asks to `sender`. Dropping what it returns takes the
+    /// icon away.
+    fn show(&self, sender: CommandSender) -> anyhow::Result<Box<dyn Any>>;
+}
+
+/// The tray the OS has ([`crate::tray`]).
+pub struct OsTray;
+
+impl Tray for OsTray {
+    fn is_available(&self) -> bool {
+        crate::tray::is_available()
+    }
+
+    fn show(&self, sender: CommandSender) -> anyhow::Result<Box<dyn Any>> {
+        Ok(Box::new(TrayIcon::show(sender)?))
+    }
+}
+
+/// The tray, the icon while it shows, the language its menu is in, and the task running its
+/// commands.
 struct SystemTray {
+    tray: Box<dyn Tray>,
     sender: CommandSender,
-    icon: Option<TrayIcon>,
+    icon: Option<Box<dyn Any>>,
     language: Option<Language>,
     _commands: Task<()>,
 }
 
 impl Global for SystemTray {}
 
-/// Shows the icon if Settings asks for it, and follows Settings from now on.
+/// Shows the OS's tray icon if Settings asks for it, and follows Settings from now on.
 pub fn init(cx: &mut App) {
+    init_with_tray(OsTray, cx);
+}
+
+/// Shows an icon in `tray` if Settings asks for it, and follows Settings from now on.
+pub fn init_with_tray(tray: impl Tray + 'static, cx: &mut App) {
     let (sender, mut receiver) = unbounded();
     let commands = cx.spawn(async move |cx| {
         while let Some(command) = receiver.next().await {
             cx.update(|cx| run(command, cx));
         }
     });
-    cx.set_global(SystemTray { sender, icon: None, language: None, _commands: commands });
+    let tray = Box::new(tray);
+    cx.set_global(SystemTray { tray, sender, icon: None, language: None, _commands: commands });
     sync(cx);
     cx.observe_global::<settings::SettingsStore>(sync).detach();
 }
@@ -58,9 +92,10 @@ pub fn show_hidden_main_window(cx: &mut App) -> bool {
 /// language changes so its menu (built once on macOS) speaks the new one.
 fn sync(cx: &mut App) {
     let prefs = &settings::get(cx).prefs;
-    let wanted = prefs.interface.system_tray && crate::tray::is_available();
+    let asked = prefs.interface.system_tray;
     let language = Language::resolve(prefs.language);
     let tray = cx.global_mut::<SystemTray>();
+    let wanted = asked && tray.tray.is_available();
     if wanted && tray.language != Some(language) {
         tray.icon = None;
         tray.language = Some(language);
@@ -69,7 +104,7 @@ fn sync(cx: &mut App) {
     if wanted == tray.icon.is_some() {
         return;
     }
-    let icon = wanted.then(|| TrayIcon::show(tray.sender.clone())).and_then(|shown| {
+    let icon = wanted.then(|| tray.tray.show(tray.sender.clone())).and_then(|shown| {
         shown.inspect_err(|err| tracing::warn!("couldn't show the tray icon: {err:#}")).ok()
     });
     let hidden_main =
@@ -99,3 +134,6 @@ fn run(command: TrayCommand, cx: &mut App) {
 fn main_window(cx: &App) -> Option<gpui::WindowHandle<MainWindow>> {
     cx.windows().into_iter().find_map(|window| window.downcast::<MainWindow>())
 }
+
+#[cfg(test)]
+mod tests;

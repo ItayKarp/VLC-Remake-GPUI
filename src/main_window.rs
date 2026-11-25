@@ -80,7 +80,7 @@ mod stream_dialog;
 pub(crate) mod subtitle_style;
 mod subtitle_sync;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod title_bar;
 mod track_popover;
 mod tracks;
