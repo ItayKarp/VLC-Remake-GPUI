@@ -12,7 +12,7 @@ use crate::main_window::settings_panel::tests::{
 use crate::main_window::tests::main_view;
 
 fn rotate_field(cx: &mut VisualTestContext) -> Entity<TextInput> {
-    main_view(cx).read_with(cx, |main, _| main.settings_panel.video_defaults.rotate.clone())
+    main_view(cx).read_with(cx, |main, _| main.settings_panel.video_defaults.rotate.field().clone())
 }
 
 fn rotation(cx: &mut VisualTestContext) -> Rotation {

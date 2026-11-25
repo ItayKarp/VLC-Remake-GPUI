@@ -18,6 +18,7 @@ use gpui::{
 
 use super::custom_ratio::CustomRatioField;
 use super::render_row::RenderControl;
+use super::synced_field::SyncedField;
 use crate::effects::{self, VIDEO_DEFAULTS};
 use crate::engine::transform::Rotation;
 use crate::i18n;
@@ -66,8 +67,10 @@ struct DropdownRow {
 
 /// The Defaults rows' controls that keep state.
 pub(super) struct DefaultsControls {
-    rotate: Entity<TextInput>,
-    custom_ratio: CustomRatioField,
+    /// The Rotate field.
+    pub(super) rotate: SyncedField,
+    /// The Custom Ratio field, shown while Aspect Ratio is Custom.
+    pub(super) custom_ratio: CustomRatioField,
     dropdowns: Vec<DropdownRow>,
     /// The Render row (S8.11).
     pub(super) render: RenderControl,
@@ -100,21 +103,17 @@ impl DefaultsControls {
         }
         let custom_ratio = CustomRatioField::new(window, cx);
         let render = RenderControl::new(window, cx);
-        Self { rotate, custom_ratio, dropdowns, render, _events: events }
+        Self { rotate: SyncedField::new(rotate), custom_ratio, dropdowns, render, _events: events }
     }
 
     /// Shows the values in effect, changed here or in Settings.
-    pub(super) fn sync(&self, window: &Window, cx: &mut Context<MainWindow>) {
+    pub(super) fn sync(&mut self, window: &Window, cx: &mut Context<MainWindow>) {
         for row in &self.dropdowns {
             let index = chosen(cx, row.key, row.choices);
             row.dropdown.update(cx, |dropdown, cx| dropdown.set_selected(index, cx));
         }
         self.custom_ratio.sync(window, cx);
-        let text = rotate_text(cx);
-        let field = self.rotate.read(cx);
-        if !field.is_focused(window) && field.text() != text {
-            self.rotate.update(cx, |field, cx| field.set_text(text, cx));
-        }
+        self.rotate.sync(rotate_text(cx), window, cx);
     }
 }
 
@@ -131,7 +130,7 @@ impl MainWindow {
         let rotate = div()
             .w(px(ROTATE_WIDTH))
             .on_key_down(cx.listener(Self::on_rotate_key))
-            .child(controls.rotate.clone());
+            .child(controls.rotate.field().clone());
         let custom = effects::effective(cx).prefs.video.aspect_ratio == AspectRatio::Custom;
         let dropdowns = controls.dropdowns.iter().flat_map(|row| {
             let control = div().w(px(CONTROL_WIDTH)).child(row.dropdown.clone());
@@ -183,7 +182,7 @@ impl MainWindow {
             return;
         }
         let text = rotate_text(cx);
-        let field = self.settings_panel.video_defaults.rotate.clone();
+        let field = self.settings_panel.video_defaults.rotate.field().clone();
         if field.read(cx).text() != text || field.read(cx).is_invalid() {
             field.update(cx, |field, cx| {
                 field.set_text(text, cx);

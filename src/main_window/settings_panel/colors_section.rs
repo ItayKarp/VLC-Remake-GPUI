@@ -19,6 +19,7 @@ use gpui::{
 };
 
 use super::effect_section::{self, BOX_PADDING, DISABLED_OPACITY, EffectControls, TEXT};
+use super::synced_field::SyncedField;
 use crate::effects::{self, VIDEO_COLORS};
 use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
@@ -62,7 +63,8 @@ const COLOR_HELP: &str = tr_noop!("#RRGGBB, #RGB or a color name");
 /// The section's controls that keep state.
 pub(super) struct ColorsControls {
     sliders: EffectControls,
-    colors: [Entity<TextInput>; 2],
+    /// The color fields, in [`COLOR_FIELDS`]' order.
+    pub(super) colors: [SyncedField; 2],
     mode: Entity<Dropdown>,
     _events: Vec<Subscription>,
 }
@@ -96,19 +98,15 @@ impl ColorsControls {
                 effects::change(cx, &VIDEO_COLORS, MODE, Value::Choice(choice.id));
             }
         }));
-        Self { sliders, colors, mode, _events: events }
+        Self { sliders, colors: colors.map(SyncedField::new), mode, _events: events }
     }
 
     /// Shows the values in effect, changed here or in Settings, and disables the controls whose
     /// switch is off.
-    pub(super) fn sync(&self, window: &mut Window, cx: &mut Context<MainWindow>) {
+    pub(super) fn sync(&mut self, window: &mut Window, cx: &mut Context<MainWindow>) {
         self.sliders.sync(window, cx);
-        for (&(key, _), field) in COLOR_FIELDS.iter().zip(&self.colors) {
-            let text = in_effect(cx, key);
-            let input = field.read(cx);
-            if !input.is_focused(window) && !input.is_invalid() && input.text() != text {
-                field.update(cx, |field, cx| field.set_text(text, cx));
-            }
+        for (&(key, _), field) in COLOR_FIELDS.iter().zip(&mut self.colors) {
+            field.sync(in_effect(cx, key), window, cx);
         }
         let mode = match effects::value(cx, MODE) {
             Some(Value::Choice(id)) => modes().iter().position(|choice| choice.id == id),
@@ -162,7 +160,7 @@ impl ColorsControls {
     /// switch; with what the field takes under it while it holds something else.
     fn color_row(&self, index: usize, p: &Palette, cx: &App) -> Div {
         let (key, filter) = COLOR_FIELDS[index];
-        let field = &self.colors[index];
+        let field = self.colors[index].field();
         let shown = hex_color(field.read(cx).text()).or_else(|| hex_color(&in_effect(cx, key)));
         let square = div()
             .flex_none()

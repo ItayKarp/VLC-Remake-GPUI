@@ -20,7 +20,7 @@ fn open_colors(cx: &mut TestAppContext) -> &mut VisualTestContext {
 }
 
 fn color_field(cx: &mut VisualTestContext, index: usize) -> Entity<TextInput> {
-    main_view(cx).read_with(cx, |main, _| main.settings_panel.colors.colors[index].clone())
+    main_view(cx).read_with(cx, |main, _| main.settings_panel.colors.colors[index].field().clone())
 }
 
 #[test]
