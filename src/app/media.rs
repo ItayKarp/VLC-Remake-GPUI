@@ -90,11 +90,13 @@ impl Media {
     }
 
     /// A short name for the window title and lists: the file name, the URL with any password
-    /// in it masked, or the device's title or kind.
+    /// in it masked, or the device's title or kind. A file name is shown as one line, without
+    /// control characters or bidirectional overrides (S9.7.2), which a name may hold too.
     pub fn display_name(&self) -> String {
         match self {
             Media::File(path) => {
-                path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
+                let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy();
+                crate::engine::display_text::clean(&name).unwrap_or_else(|| name.into_owned())
             }
             Media::Url(url) => crate::network::links::masked(url),
             Media::Device(device) => device.display_name(),
@@ -248,6 +250,8 @@ mod tests {
     #[test]
     fn display_names() {
         assert_eq!(Media::File(PathBuf::from("dir").join("a.mkv")).display_name(), "a.mkv");
+        let spoofed = Media::File(PathBuf::from("tab\there \u{202e}4pm.exe.mp4"));
+        assert_eq!(spoofed.display_name(), "tab here 4pm.exe.mp4");
         assert_eq!(Media::Url("https://x/y".into()).display_name(), "https://x/y");
     }
 }

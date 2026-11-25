@@ -28,6 +28,8 @@ mod color_filters;
 mod color_tests;
 mod control;
 mod core_vars;
+#[cfg(test)]
+mod corpus_tests;
 mod cpu_filters;
 mod decoding;
 pub mod disc_tracks;

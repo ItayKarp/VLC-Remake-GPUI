@@ -12,6 +12,8 @@ mod app;
 mod assets;
 mod capture;
 mod convert;
+#[cfg(test)]
+mod corpus;
 mod cursor;
 mod db;
 mod diagnostics;

@@ -47,6 +47,11 @@ Codex, JetBrains AI, …).
   commit the private key) and `… -- sign dist` signs. To try them, debug builds also take
   `RVLC_UPDATE_PUBLIC_KEY` at run time and `RVLC_UPDATE_URL` pointing at an
   `http://localhost` server holding the manifest.
+- The test media corpus (S9.8.1, `docs/qa.md`) stays out of the repository:
+  `tools/corpus/make.sh` makes it in `target/corpus` (or `tools/corpus/fetch.sh` downloads the
+  pinned archive), then
+  `cargo test --features runtime_shaders corpus -- --ignored --test-threads 1` runs the corpus
+  tests, silently.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.
