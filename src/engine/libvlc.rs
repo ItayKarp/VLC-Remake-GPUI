@@ -59,6 +59,7 @@ mod recording_tests;
 mod reopen;
 #[cfg(test)]
 mod reopen_tests;
+mod repeats;
 pub mod runtime;
 mod size_watch;
 mod statistics;

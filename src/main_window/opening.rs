@@ -94,6 +94,7 @@ impl MainWindow {
         if request.items.is_empty() {
             return;
         }
+        crate::perf::opening();
         if request.placement == Placement::Replace {
             self.cancel_opening(cx);
         }

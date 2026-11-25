@@ -223,6 +223,7 @@ impl MainWindow {
     #[allow(clippy::too_many_lines, reason = "one struct literal, a line per field")]
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::follow_window(window, cx);
+        crate::perf::main_window_opened(window);
         let mut this = Self {
             queue: Queue::default(),
             skips: Skips::default(),
@@ -323,7 +324,13 @@ impl MainWindow {
             cx.notify();
         })
         .detach();
-        cx.observe_global::<crate::library::Library>(|_, cx| cx.notify()).detach();
+        // The indexer reports progress often; only the folder rows show it (S9.3.2).
+        cx.observe_global::<crate::library::Library>(|this, cx| {
+            if this.shows_library_folders(cx) {
+                cx.notify();
+            }
+        })
+        .detach();
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
     }
 
