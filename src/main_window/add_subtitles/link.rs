@@ -29,21 +29,13 @@ pub(super) fn field(
 impl AddSubtitlesDialog {
     /// What From Link does, and what the link typed names.
     pub(super) fn render_link(&self, p: &Palette, cx: &Context<Self>) -> AnyElement {
-        let text = self.controls.link_field.read(cx).text().trim().to_owned();
-        let named = match download::parse_link(&text).map(|url| download::name_of(&url)) {
-            _ if text.is_empty() => None,
-            Ok(Some(name)) => {
-                Some((tr!("Save downloads “{name}” and adds it to this video.", name), false))
-            }
-            Ok(None) => Some((download::Failure::NotSubtitleName.message(), true)),
-            Err(failure) => Some((failure.message(), true)),
-        };
+        let named = link_note(self.controls.link_field.read(cx).text());
         let explanation = note(
             "Paste a link to a subtitle file (.srt, .ass, .vtt, …). VLC keeps a copy, so the \
              subtitles stay with the video if the link stops working.",
             p,
         );
-        let named = named.map(|(text, problem)| {
+        let named = named.map(|LinkNote { text, problem }| {
             div()
                 .px(px(PADDING + 6.))
                 .text_size(text_px(metrics::TEXT_SMALL + 1.))
@@ -63,5 +55,60 @@ impl AddSubtitlesDialog {
     pub(super) fn link_changed(&mut self, cx: &mut Context<Self>) {
         self.status = None;
         cx.notify();
+    }
+}
+
+/// What the dialog says under the link field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct LinkNote {
+    text: String,
+    /// Whether it says what's wrong with the link, in the warning color.
+    problem: bool,
+}
+
+/// What the link `typed` names: the file Save downloads, or why it can't; nothing while the
+/// field is blank.
+fn link_note(typed: &str) -> Option<LinkNote> {
+    let typed = typed.trim();
+    if typed.is_empty() {
+        return None;
+    }
+    let note = match download::parse_link(typed).map(|url| download::name_of(&url)) {
+        Ok(Some(name)) => LinkNote {
+            text: tr!("Save downloads “{name}” and adds it to this video.", name),
+            problem: false,
+        },
+        Ok(None) => LinkNote { text: download::Failure::NotSubtitleName.message(), problem: true },
+        Err(failure) => LinkNote { text: failure.message(), problem: true },
+    };
+    Some(note)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LinkNote, link_note};
+
+    fn problem(text: &str) -> LinkNote {
+        LinkNote { text: text.to_owned(), problem: true }
+    }
+
+    #[test]
+    fn a_blank_field_says_nothing() {
+        assert_eq!(link_note("  "), None);
+    }
+
+    #[test]
+    fn a_subtitle_link_names_the_file_save_downloads() {
+        let note = link_note(" https://example.com/subs/The.Wand.en.srt ");
+        let text = "Save downloads “The.Wand.en.srt” and adds it to this video.";
+        assert_eq!(note, Some(LinkNote { text: text.to_owned(), problem: false }));
+    }
+
+    #[test]
+    fn other_links_say_what_is_wrong() {
+        let not_subtitles = "The link doesn't name a subtitle file (.srt, .ass, .vtt, …).";
+        assert_eq!(link_note("https://example.com/page"), Some(problem(not_subtitles)));
+        let not_a_link = "Enter a link that starts with http:// or https://.";
+        assert_eq!(link_note("ftp://example.com/a.srt"), Some(problem(not_a_link)));
     }
 }

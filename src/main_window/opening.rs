@@ -276,3 +276,6 @@ fn job_label(items: &[Media]) -> SharedString {
         items => trn!("{count} item", "{count} items", items.len()).into(),
     }
 }
+
+#[cfg(test)]
+mod tests;

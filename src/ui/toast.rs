@@ -381,6 +381,32 @@ fn message(text: SharedString, color: Hsla) -> Div {
 mod tests {
     use super::*;
 
+    /// What other modules' tests read and press of a window's toasts.
+    impl Toasts {
+        /// Each toast showing, oldest first: its message and its buttons' labels.
+        pub(crate) fn shown(&self) -> Vec<(String, Vec<String>)> {
+            let buttons =
+                |toast: &Toast| toast.actions.iter().map(|a| a.label.to_string()).collect();
+            self.toasts.iter().map(|toast| (toast.message.to_string(), buttons(toast))).collect()
+        }
+
+        /// Presses the button labelled `label` on the newest toast that has one, as a click does.
+        pub(crate) fn press_button(
+            &mut self,
+            label: &str,
+            window: &mut Window,
+            cx: &mut Context<Self>,
+        ) {
+            let pressed = self.toasts.iter().rev().find_map(|toast| {
+                let action = toast.actions.iter().find(|action| action.label == label)?;
+                Some((toast.id, action.dismisses, action.run.clone()))
+            });
+            let (id, dismisses, run) = pressed.expect("a toast has the button");
+            self.press(id, dismisses, cx);
+            run(window, cx);
+        }
+    }
+
     fn toast(level: Level, id: u64) -> Toast {
         Toast { id, ..Toast::new(level, "") }
     }
