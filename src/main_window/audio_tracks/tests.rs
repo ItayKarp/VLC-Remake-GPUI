@@ -38,7 +38,7 @@ fn audio_files_join_what_plays_and_others_are_named(cx: &mut TestAppContext) {
     std::fs::write(&song, "audio").expect("a scratch file");
     let notes: PathBuf = folder.join("notes.txt");
     playing.mock.take_commands();
-    let media = Media::Url("mock://clip".into());
+    let media = Media::Url("https://e.com/clip".into());
     main_view(cx).update_in(cx, |main, window, cx| {
         main.add_audio_tracks(media, vec![song.clone(), notes], window, cx);
     });
@@ -53,7 +53,7 @@ fn audio_files_join_what_plays_and_others_are_named(cx: &mut TestAppContext) {
 fn files_with_no_audio_add_nothing(cx: &mut TestAppContext) {
     let (cx, playing) = open_playing(cx);
     playing.mock.take_commands();
-    let media = Media::Url("mock://clip".into());
+    let media = Media::Url("https://e.com/clip".into());
     main_view(cx).update_in(cx, |main, window, cx| {
         main.add_audio_tracks(media, vec![PathBuf::from("/tmp/a.txt")], window, cx);
     });

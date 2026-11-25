@@ -18,6 +18,7 @@ use crate::main_window::tests::{main_view, open};
 fn target() -> StreamTarget {
     let address = SocketAddr::from((Ipv4Addr::LOCALHOST, 8080));
     StreamTarget {
+        access: None,
         protocol: Protocol::Http,
         address,
         viewer_host: address.ip(),
@@ -87,7 +88,7 @@ fn the_media_open_streams_from_where_it_is_until_stopped(cx: &mut TestAppContext
 #[gpui::test]
 fn other_media_is_played_next_streaming(cx: &mut TestAppContext) {
     let (cx, player, _) = playing(cx);
-    let other = Media::Url("mock://other".into());
+    let other = Media::Url("https://e.com/other".into());
     choose(other.clone(), Some(target()), cx);
     player.read_with(cx, |player, _| {
         assert_eq!(player.media(), Some(&other));

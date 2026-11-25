@@ -8,7 +8,9 @@ use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use super::super::listing::Body;
 use super::super::podcast_menu::{self, EpisodeTarget};
-use super::support::{FEED, choose, dialog_open, labels, queued, show, with_library};
+use super::support::{
+    FEED, FEED_THEN_GONE, choose, dialog_open, labels, queued, show, with_library,
+};
 use crate::db::podcasts::FeedId;
 use crate::history::tests::support::TestHistory;
 use crate::main_window::MainWindow;
@@ -31,8 +33,16 @@ fn episode_files() -> Vec<PathBuf> {
 
 /// The library with the show at [`FEED`] subscribed to.
 fn subscribed(cx: &mut TestAppContext) -> (&mut VisualTestContext, TestHistory, FeedId) {
+    subscribed_to(cx, FEED)
+}
+
+/// The library with the show at `address` subscribed to.
+fn subscribed_to<'a>(
+    cx: &'a mut TestAppContext,
+    address: &str,
+) -> (&'a mut VisualTestContext, TestHistory, FeedId) {
     let (cx, mut history) = with_library(cx, episode_files());
-    let task = cx.update(|_, cx| podcasts::subscribe(FEED, cx));
+    let task = cx.update(|_, cx| podcasts::subscribe(address, cx));
     history.settle(cx);
     let id = futures::FutureExt::now_or_never(task).expect("finished").expect("subscribed");
     (cx, history, id)
@@ -130,6 +140,20 @@ fn a_shows_menu_copies_marks_and_unsubscribes(cx: &mut TestAppContext) {
 
     choose(cx, &mut history, &items, &["Unsubscribe"]);
     assert_eq!(rows(cx), ["Subscribe to Podcast"]);
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string("kept".into()));
+    choose(cx, &mut history, &items, &["Copy Feed Link"]);
+    let kept = cx.read_from_clipboard().and_then(|item| item.text());
+    assert_eq!(kept.as_deref(), Some("kept"), "a show no longer subscribed copies nothing");
+}
+
+#[gpui::test]
+fn refreshing_a_show_that_is_gone_says_why(cx: &mut TestAppContext) {
+    let (cx, mut history, id) = subscribed_to(cx, FEED_THEN_GONE);
+    show(cx, &mut history, PODCASTS);
+    let items = podcast_menu::feed_items(&main_view(cx).downgrade(), &[id]);
+    choose(cx, &mut history, &items, &["Refresh"]);
+    assert_eq!(toast_messages(cx), ["Nothing was found at that address."]);
+    assert_eq!(rows(cx), ["Subscribe to Podcast", "The Show"], "the show stays subscribed");
 }
 
 /// The menu of the episodes listed at `indices` of show `id`.

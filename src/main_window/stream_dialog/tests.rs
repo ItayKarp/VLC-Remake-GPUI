@@ -58,6 +58,7 @@ fn problem(dialog: &Entity<StreamDialog>, cx: &mut VisualTestContext) -> Option<
 /// A stream running as `protocol` to `address`.
 fn running(protocol: Protocol, address: SocketAddr) -> StreamTarget {
     StreamTarget {
+        access: None,
         protocol,
         address,
         viewer_host: address.ip(),

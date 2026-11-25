@@ -16,6 +16,7 @@ use crate::engine::tracks::{Track, TrackId, TrackKind};
 use crate::engine::values::Offset;
 use crate::main_window::tests::main_view;
 use crate::settings;
+use crate::ui::menu::MenuItem;
 
 /// The window playing the movie's tracks.
 fn movie_playing(cx: &mut TestAppContext) -> (&mut VisualTestContext, MockHandle) {
@@ -107,6 +108,9 @@ fn the_deinterlacing_method_waits_for_deinterlacing(cx: &mut TestAppContext) {
         let method = find(&menu, &["Video", "Deinterlacing Method"]);
         let why = (choice == "Off").then(|| "Deinterlacing is off".to_owned());
         assert_eq!(reason(method), why, "{choice}");
+        let MenuItem::Submenu { disabled, items, .. } = method else { panic!("a submenu") };
+        assert_eq!(*disabled, why.is_some(), "{choice}");
+        assert!(!items.is_empty(), "its methods are listed even while it is off");
     }
 }
 
@@ -198,4 +202,38 @@ fn a_text_subtitle_file_can_be_read_in_another_encoding(cx: &mut TestAppContext)
     choose(cx, find(&menu, &["Subtitle", "Text Encoding", &other]));
     let reread = mock.take_commands();
     assert!(reread.contains(&Command::AddSubtitle(file)), "{reread:?}");
+}
+
+/// Lists the movie's tracks with subtitle tracks `added` as well, the last one showing, as the
+/// backend does once it has loaded a file.
+fn list_subtitle_tracks(cx: &mut VisualTestContext, mock: &MockHandle, added: &[i32]) {
+    let mut tracks = movie();
+    let mut ids = added.iter().map(|id| TrackId(*id));
+    tracks.all.extend(ids.clone().map(|id| Track::new(id, TrackKind::Subtitle)));
+    tracks.subtitle = ids.next_back();
+    emit(cx, mock, BackendEvent::Tracks(tracks));
+    mock.take_commands();
+}
+
+#[gpui::test]
+fn automatic_names_the_encoding_found_and_a_chosen_one_is_checked(cx: &mut TestAppContext) {
+    let (cx, mock) = movie_playing_manually(cx);
+    let file = crate::opening::scratch::scratch_dir().join("Clip.fr.srt");
+    std::fs::write(&file, "1\n00:00:01,000 --> 00:00:02,000\nCafé\n").unwrap();
+    let main = main_view(cx);
+    main.update(cx, |main, cx| main.attach_subtitles(std::slice::from_ref(&file), cx));
+    cx.run_until_parked();
+    list_subtitle_tracks(cx, &mock, &[7]);
+    let menu = items(cx);
+    let encodings = submenu(find(&menu, &["Subtitle", "Text Encoding"]));
+    assert_eq!(checked(encodings), ["Automatic: Unicode (UTF-8)"]);
+
+    choose(cx, find(&menu, &["Subtitle", "Text Encoding", "Unicode (UTF-8)"]));
+    let reread = mock.take_commands();
+    assert!(reread.iter().any(|command| matches!(command, Command::AddSubtitle(_))), "{reread:?}");
+    list_subtitle_tracks(cx, &mock, &[7, 8]);
+    let menu = items(cx);
+    let encodings = submenu(find(&menu, &["Subtitle", "Text Encoding"]));
+    assert_eq!(checked(encodings), ["Unicode (UTF-8)"]);
+    assert_eq!(labels(encodings)[0], "Automatic", "the chosen encoding isn't named as found");
 }

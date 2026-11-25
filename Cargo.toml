@@ -183,6 +183,9 @@ gpui_apple = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
+# The tray icon's tests serve it over a private socket, a D-Bus peer-to-peer connection, since a
+# test can't count on a session bus (S8.16.1).
+zbus = { version = "5", default-features = false, features = ["p2p"] }
 gpui_wgpu = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3" }
 
 # Build profiles. Debug builds keep file and line numbers for panics and backtraces, not the

@@ -17,6 +17,7 @@ use zbus::interface;
 use zbus::names::BusName;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 
+use super::status_notifier::{self, Entry, Pixmap, ROOT_ID};
 use super::{CommandSender, ICON_PNG, TrayCommand};
 
 const ITEM_PATH: &str = "/StatusNotifierItem";
@@ -25,13 +26,9 @@ const WATCHER: &str = "org.kde.StatusNotifierWatcher";
 const WATCHER_PATH: &str = "/StatusNotifierWatcher";
 /// The dbusmenu protocol version spoken.
 const DBUSMENU_VERSION: u32 = 3;
-/// The menu's root item's id.
-const ROOT_ID: i32 = 0;
-/// Separators' ids start here, past every command's.
-const SEPARATOR_IDS: i32 = 100;
+/// The menu's revision: it never changes.
+const MENU_REVISION: u32 = 1;
 
-/// An icon image: width, height and ARGB32 pixels in network byte order.
-type Pixmap = (i32, i32, Vec<u8>);
 /// A menu item's properties.
 type Properties = HashMap<String, OwnedValue>;
 /// A menu item: its id, properties and children (each one a variant holding a `Layout`).
@@ -44,21 +41,9 @@ pub struct Icon {
 
 impl Icon {
     pub fn show(sender: CommandSender) -> anyhow::Result<Self> {
-        let item = Item { sender: sender.clone(), pixmaps: vec![pixmap()?] };
-        let connection = Builder::session()?
-            .serve_at(ITEM_PATH, item)?
-            .serve_at(MENU_PATH, Menu { sender })?
-            .build()?;
+        let connection = serve(Builder::session()?, sender)?;
         let name = connection.unique_name().context("no name on the session bus")?.to_string();
-        connection
-            .call_method(
-                Some(WATCHER),
-                WATCHER_PATH,
-                Some(WATCHER),
-                "RegisterStatusNotifierItem",
-                &(name.as_str()),
-            )
-            .context("the desktop's tray refused the icon")?;
+        register(&connection, &name).context("the desktop's tray refused the icon")?;
         Ok(Self { _connection: connection })
     }
 }
@@ -79,15 +64,19 @@ pub fn is_available() -> bool {
     })
 }
 
-/// The cone, as the protocol wants it.
-fn pixmap() -> anyhow::Result<Pixmap> {
-    let image = image::load_from_memory_with_format(ICON_PNG, image::ImageFormat::Png)?.to_rgba8();
-    let (width, height) = image.dimensions();
-    let argb = image.pixels().flat_map(|pixel| {
-        let [red, green, blue, alpha] = pixel.0;
-        [alpha, red, green, blue]
-    });
-    Ok((width as i32, height as i32, argb.collect()))
+/// Serves the item and its menu, sending what is chosen to `sender`, on the connection
+/// `builder` makes.
+fn serve(builder: Builder<'_>, sender: CommandSender) -> anyhow::Result<Connection> {
+    let item = Item { sender: sender.clone(), pixmaps: vec![status_notifier::pixmap(ICON_PNG)?] };
+    Ok(builder.serve_at(ITEM_PATH, item)?.serve_at(MENU_PATH, Menu { sender })?.build()?)
+}
+
+/// Asks the desktop's StatusNotifierWatcher to show the item that `name` on `connection`
+/// serves.
+fn register(connection: &Connection, name: &str) -> zbus::Result<()> {
+    let method = "RegisterStatusNotifierItem";
+    connection.call_method(Some(WATCHER), WATCHER_PATH, Some(WATCHER), method, &name)?;
+    Ok(())
 }
 
 /// The StatusNotifierItem.
@@ -120,22 +109,22 @@ impl Item {
 
     #[zbus(property)]
     fn category(&self) -> &str {
-        "ApplicationStatus"
+        status_notifier::CATEGORY
     }
 
     #[zbus(property)]
     fn id(&self) -> &str {
-        "vlc"
+        status_notifier::ID
     }
 
     #[zbus(property)]
     fn title(&self) -> &str {
-        "VLC"
+        status_notifier::TITLE
     }
 
     #[zbus(property)]
     fn status(&self) -> &str {
-        "Active"
+        status_notifier::STATUS
     }
 
     #[zbus(property)]
@@ -150,7 +139,7 @@ impl Item {
 
     #[zbus(property)]
     fn tool_tip(&self) -> (String, Vec<Pixmap>, String, String) {
-        (String::new(), Vec::new(), "VLC".to_owned(), String::new())
+        (String::new(), Vec::new(), status_notifier::TITLE.to_owned(), String::new())
     }
 
     #[zbus(property)]
@@ -171,9 +160,7 @@ struct Menu {
 
 impl Menu {
     fn clicked(&self, id: i32, event: &str) {
-        if event == "clicked"
-            && let Some(command) = TrayCommand::from_id(i64::from(id))
-        {
+        if let Some(command) = status_notifier::chosen(id, event) {
             self.sender.unbounded_send(command).ok();
         }
     }
@@ -190,7 +177,7 @@ impl Menu {
 #[interface(name = "com.canonical.dbusmenu")]
 impl Menu {
     fn get_layout(&self, parent: i32, depth: i32, names: Vec<String>) -> (u32, Layout) {
-        (1, layout())
+        (MENU_REVISION, layout())
     }
 
     fn get_group_properties(&self, ids: Vec<i32>, names: Vec<String>) -> Vec<(i32, Properties)> {
@@ -244,14 +231,7 @@ impl Menu {
 
 /// The whole menu: the root, holding the commands with separators between their groups.
 fn layout() -> Layout {
-    let mut ids = Vec::new();
-    for (index, group) in TrayCommand::MENU.iter().enumerate() {
-        if index > 0 {
-            ids.push(SEPARATOR_IDS + index as i32);
-        }
-        ids.extend(group.iter().map(|command| command.id()));
-    }
-    let children = ids.into_iter().filter_map(|id| {
+    let children = status_notifier::menu_ids().into_iter().filter_map(|id| {
         let child: Layout = (id, properties(id)?, Vec::new());
         OwnedValue::try_from(Value::from(child)).ok()
     });
@@ -260,14 +240,10 @@ fn layout() -> Layout {
 
 /// Item `id`'s properties; `None` for an id the menu doesn't have.
 fn properties(id: i32) -> Option<Properties> {
-    let text = |text: &str| OwnedValue::try_from(Value::from(text)).ok();
-    let property = |name: &str, value: &str| Some((name.to_owned(), text(value)?));
-    let pairs = if id == ROOT_ID {
-        vec![property("children-display", "submenu")]
-    } else if id > SEPARATOR_IDS {
-        vec![property("type", "separator")]
-    } else {
-        vec![property("label", TrayCommand::from_id(i64::from(id))?.label())]
-    };
-    Some(pairs.into_iter().flatten().collect())
+    let (name, value) = Entry::from_id(id)?.property();
+    let value = OwnedValue::try_from(Value::from(value)).ok()?;
+    Some(HashMap::from([(name.to_owned(), value)]))
 }
+
+#[cfg(test)]
+mod tests;

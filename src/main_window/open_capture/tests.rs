@@ -92,7 +92,7 @@ fn a_refused_device_says_how_to_allow_it_until_another_is_picked(cx: &mut TestAp
 fn play_plays_the_screen_picked(cx: &mut TestAppContext) {
     let (dialog, handed, cx) = open(cx, Vec::new());
     dialog.update(cx, |dialog, cx| dialog.set_kind(Kind::Screen, cx));
-    dialog.update_in(cx, |dialog, window, cx| dialog.play(window, cx));
+    dialog.update_in(cx, CaptureDialog::play);
     draw(cx);
     assert_eq!(handed.borrow().len(), 1);
 }
