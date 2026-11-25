@@ -7,10 +7,10 @@ use std::path::PathBuf;
 use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use super::super::{add_menu, folder_menu};
-use super::support::{choose, dialog_open, entries, show, toasts, with_library};
+use super::support::{choose, dialog_open, entries, show, with_library};
 use crate::history::tests::support::TestHistory;
 use crate::main_window::MainWindow;
-use crate::main_window::tests::{main_view, tap};
+use crate::main_window::tests::{main_view, tap, toast_messages};
 use crate::navigation::route::{MusicRoute, Route};
 use crate::opening::scratch::scratch_dir;
 use crate::settings;
@@ -52,7 +52,7 @@ fn add_file_copies_the_picked_files_into_the_folder(cx: &mut TestAppContext) {
     choose(cx, &mut history, &items, &["Add File"]);
     pick(cx, &mut history, vec![source]);
     assert!(season.join("Pilot.mkv").exists());
-    assert_eq!(toasts(cx), ["Copied 1 file into “Season 1”."]);
+    assert_eq!(toast_messages(cx), ["Copied 1 file into “Season 1”."]);
 }
 
 #[gpui::test]
@@ -66,7 +66,7 @@ fn add_folder_copies_a_folder_and_says_what_failed(cx: &mut TestAppContext) {
     assert!(season.join("Extras").is_dir());
     choose(cx, &mut history, &items, &["Add File"]);
     pick(cx, &mut history, vec![scratch_dir().join("gone.mkv")]);
-    let said = toasts(cx);
+    let said = toast_messages(cx);
     assert!(said.last().is_some_and(|toast| toast.starts_with("Couldn't copy")), "{said:?}");
 }
 

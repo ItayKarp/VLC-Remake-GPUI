@@ -8,7 +8,7 @@ use gpui::{TestAppContext, VisualTestContext};
 
 use crate::db::media::{self, Entry, Progress};
 use crate::history::tests::support::TestHistory;
-use crate::main_window::tests::{main_view, open};
+use crate::main_window::tests::{open, press_toast, toast_messages};
 use crate::settings;
 
 /// The main window with history on and `positions` media left partway.
@@ -38,11 +38,6 @@ fn with_positions(
     (cx, history)
 }
 
-fn toasts(cx: &mut VisualTestContext) -> Vec<String> {
-    let main = main_view(cx);
-    cx.update(|_, cx| main.read(cx).toasts.read(cx).messages())
-}
-
 fn saved_positions(history: &mut TestHistory) -> u32 {
     history.read(|connection| media::count_positions(connection).expect("counted"))
 }
@@ -52,7 +47,7 @@ fn turning_history_off_offers_to_clear_it(cx: &mut TestAppContext) {
     let (cx, mut history) = with_positions(cx, 0);
     cx.update(|_, cx| settings::update(cx, |s| s.prefs.privacy.save_recently_played = false));
     history.settle(cx);
-    assert_eq!(toasts(cx), ["History is off. Clear what was already saved?"]);
+    assert_eq!(toast_messages(cx), ["History is off. Clear what was already saved?"]);
 }
 
 #[gpui::test]
@@ -62,11 +57,11 @@ fn turning_positions_off_offers_to_forget_the_saved_one(cx: &mut TestAppContext)
         settings::update(cx, |s| s.prefs.privacy.remember_playback_position = false);
     });
     history.settle(cx);
-    assert_eq!(toasts(cx), ["Positions are no longer saved. Forget the one already saved?"]);
-    let main = main_view(cx);
-    let forget = cx.update(|_, cx| main.read(cx).toasts.read(cx).action("Forget Positions"));
-    let forget = forget.expect("the toast offers it");
-    cx.update(|window, cx| forget(window, cx));
+    assert_eq!(
+        toast_messages(cx),
+        ["Positions are no longer saved. Forget the one already saved?"]
+    );
+    press_toast(cx, "Forget Positions");
     history.settle(cx);
     assert_eq!(saved_positions(&mut history), 0);
 }
@@ -78,7 +73,7 @@ fn several_saved_positions_are_counted(cx: &mut TestAppContext) {
         settings::update(cx, |s| s.prefs.privacy.remember_playback_position = false);
     });
     history.settle(cx);
-    assert_eq!(toasts(cx), ["Positions are no longer saved. Forget the 2 already saved?"]);
+    assert_eq!(toast_messages(cx), ["Positions are no longer saved. Forget the 2 already saved?"]);
 }
 
 #[gpui::test]
@@ -88,5 +83,5 @@ fn with_no_saved_position_nothing_is_offered(cx: &mut TestAppContext) {
         settings::update(cx, |s| s.prefs.privacy.remember_playback_position = false);
     });
     history.settle(cx);
-    assert_eq!(toasts(cx), Vec::<String>::new());
+    assert_eq!(toast_messages(cx), Vec::<String>::new());
 }

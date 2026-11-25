@@ -179,22 +179,3 @@ pub(in crate::main_window) fn choose(cx: &mut VisualTestContext, item: &MenuItem
     cx.update(|window, cx| on_select(window, cx));
     cx.run_until_parked();
 }
-
-/// The window's toasts, oldest first: each message and its buttons.
-pub(in crate::main_window) fn toasts(cx: &mut VisualTestContext) -> Vec<(String, Vec<String>)> {
-    let main = main_view(cx);
-    main.read_with(cx, |main, cx| main.toasts.read(cx).shown())
-}
-
-/// The messages of the window's toasts, oldest first.
-pub(in crate::main_window) fn toast_messages(cx: &mut VisualTestContext) -> Vec<String> {
-    toasts(cx).into_iter().map(|(message, _)| message).collect()
-}
-
-/// Presses the newest toast's button labelled `label`, and settles the app.
-pub(in crate::main_window) fn press_toast(cx: &mut VisualTestContext, label: &str) {
-    let main = main_view(cx);
-    let toasts = main.read_with(cx, |main, _| main.toasts.clone());
-    cx.update(|window, cx| toasts.update(cx, |toasts, cx| toasts.press_button(label, window, cx)));
-    cx.run_until_parked();
-}

@@ -6,6 +6,8 @@ use super::MainWindow;
 use crate::app::request::OpenRequest;
 use crate::keymap;
 use crate::ui::menu::MenuItem;
+use crate::ui::toast::Level;
+use crate::ui::toast::tests::Shown;
 
 /// The main window with the real keymap, its player keys focused.
 pub(super) fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
@@ -29,6 +31,34 @@ pub(super) fn main_view(cx: &mut VisualTestContext) -> gpui::Entity<MainWindow> 
 
 fn is_fullscreen(cx: &mut VisualTestContext) -> bool {
     cx.update(|window, _| window.is_fullscreen())
+}
+
+/// The window's toasts, oldest first: each message and its buttons' labels.
+pub(super) fn toasts(cx: &mut VisualTestContext) -> Vec<(String, Vec<String>)> {
+    shown(cx).into_iter().map(|toast| (toast.message, toast.buttons)).collect()
+}
+
+/// The messages of the window's toasts, oldest first.
+pub(super) fn toast_messages(cx: &mut VisualTestContext) -> Vec<String> {
+    shown(cx).into_iter().map(|toast| toast.message).collect()
+}
+
+/// The window's toasts, oldest first: each level and message.
+pub(super) fn toast_levels(cx: &mut VisualTestContext) -> Vec<(Level, String)> {
+    shown(cx).into_iter().map(|toast| (toast.level, toast.message)).collect()
+}
+
+fn shown(cx: &mut VisualTestContext) -> Vec<Shown> {
+    let main = main_view(cx);
+    main.read_with(cx, |main, cx| main.toasts.read(cx).shown())
+}
+
+/// Presses the newest toast's button labelled `label`, as a click does, and settles the app.
+pub(super) fn press_toast(cx: &mut VisualTestContext, label: &str) {
+    let main = main_view(cx);
+    let toasts = main.read_with(cx, |main, _| main.toasts.clone());
+    cx.update(|window, cx| toasts.update(cx, |toasts, cx| toasts.press_button(label, window, cx)));
+    cx.run_until_parked();
 }
 
 /// Presses `key` and releases it, as a person does.

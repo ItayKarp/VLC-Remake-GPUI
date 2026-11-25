@@ -7,10 +7,9 @@ use gpui::TestAppContext;
 
 use super::*;
 use crate::engine::backend::Command;
-use crate::main_window::now_playing::tests::{
-    draw, open_playing, osd, play_mock, toasts, with_tracks,
-};
+use crate::main_window::now_playing::tests::{draw, open_playing, osd, play_mock, with_tracks};
 use crate::main_window::tests::{main_view, open, tap};
+use crate::main_window::tests::{toast_levels, toast_messages};
 use crate::opening::scratch::scratch_dir;
 
 #[test]
@@ -45,7 +44,7 @@ fn audio_files_join_what_plays_and_others_are_named(cx: &mut TestAppContext) {
     });
     draw(cx);
     assert!(playing.mock.take_commands().contains(&Command::AddAudio(song)));
-    let shown: Vec<String> = toasts(cx).into_iter().map(|(_, text)| text).collect();
+    let shown: Vec<String> = toast_messages(cx);
     assert!(shown.iter().any(|text| text == "notes.txt has no audio to add."), "{shown:?}");
     assert!(shown.iter().any(|text| text.starts_with("Added “dub.mp3” as an audio track.")));
 }
@@ -60,7 +59,7 @@ fn files_with_no_audio_add_nothing(cx: &mut TestAppContext) {
     });
     draw(cx);
     assert_eq!(playing.mock.take_commands(), [] as [Command; 0]);
-    assert_eq!(toasts(cx).len(), 1);
+    assert_eq!(toast_levels(cx).len(), 1);
 }
 
 #[gpui::test]

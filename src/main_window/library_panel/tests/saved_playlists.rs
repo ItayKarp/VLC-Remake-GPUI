@@ -6,13 +6,13 @@ use gpui::{TestAppContext, VisualTestContext};
 
 use super::playlists::{rows, save, two_files};
 use super::support::{
-    choose, dialog_open, entries, press_toast, queued, show, toasts, with_library,
+    choose, dialog_open, entries, press_toast_and_settle, queued, show, with_library,
 };
 use crate::app::media::Media;
 use crate::db::playlists::Summary;
 use crate::history::tests::support::TestHistory;
 use crate::keymap::actions::{NewPlaylist, SaveQueueAsPlaylist};
-use crate::main_window::tests::{main_view, tap};
+use crate::main_window::tests::{main_view, tap, toast_messages};
 use crate::navigation::route::Route;
 use crate::playlists;
 use crate::settings;
@@ -66,7 +66,7 @@ fn a_saved_playlist_plays_and_queues(cx: &mut TestAppContext) {
     // Something plays now, so it can be added to a playlist.
     let items = menu(cx);
     choose(cx, &mut history, &items, &["Add to Playlist", "Mix"]);
-    assert_eq!(toasts(cx).last().map(String::as_str), Some("Added to “Mix”."));
+    assert_eq!(toast_messages(cx).last().map(String::as_str), Some("Added to “Mix”."));
     let len = cx.update(|_, cx| playlists::summaries(cx)[0].len);
     assert_eq!(len, 3);
 }
@@ -77,7 +77,7 @@ fn duplicate_copies_under_a_numbered_title(cx: &mut TestAppContext) {
     let items = menu(cx);
     choose(cx, &mut history, &items, &["Saved Playlists", MIX, "Duplicate"]);
     assert_eq!(titles(cx).len(), 2);
-    let said = toasts(cx);
+    let said = toast_messages(cx);
     assert!(said.last().is_some_and(|toast| toast.starts_with("Made a copy named")), "{said:?}");
 }
 
@@ -91,7 +91,7 @@ fn rename_takes_the_typed_title(cx: &mut TestAppContext) {
     tap(cx, "enter");
     history.settle(cx);
     assert_eq!(titles(cx), ["Road Trip"]);
-    assert_eq!(toasts(cx).last().map(String::as_str), Some("Renamed to “Road Trip”."));
+    assert_eq!(toast_messages(cx).last().map(String::as_str), Some("Renamed to “Road Trip”."));
 }
 
 #[gpui::test]
@@ -104,7 +104,7 @@ fn a_blank_title_is_not_saved(cx: &mut TestAppContext) {
     history.settle(cx);
     assert_eq!(titles(cx), ["Mix"]);
     let failed = "Couldn't save the change to your playlists.";
-    assert_eq!(toasts(cx).last().map(String::as_str), Some(failed));
+    assert_eq!(toast_messages(cx).last().map(String::as_str), Some(failed));
 }
 
 #[gpui::test]
@@ -118,8 +118,8 @@ fn delete_asks_first_and_undo_puts_it_back(cx: &mut TestAppContext) {
     tap(cx, "enter");
     history.settle(cx);
     assert_eq!(titles(cx), Vec::<String>::new());
-    assert_eq!(toasts(cx).last().map(String::as_str), Some("Deleted “Mix”."));
-    press_toast(cx, &mut history, "Undo");
+    assert_eq!(toast_messages(cx).last().map(String::as_str), Some("Deleted “Mix”."));
+    press_toast_and_settle(cx, &mut history, "Undo");
     assert_eq!(titles(cx), ["Mix"]);
 }
 
@@ -154,7 +154,10 @@ fn new_playlist_saves_what_is_typed(cx: &mut TestAppContext) {
     tap(cx, "enter");
     history.settle(cx);
     assert_eq!(titles(cx), ["Evening"]);
-    assert_eq!(toasts(cx).last().map(String::as_str), Some("Saved the playlist “Evening”."));
+    assert_eq!(
+        toast_messages(cx).last().map(String::as_str),
+        Some("Saved the playlist “Evening”.")
+    );
 }
 
 #[gpui::test]

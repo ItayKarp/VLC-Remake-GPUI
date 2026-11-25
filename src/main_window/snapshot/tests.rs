@@ -7,7 +7,8 @@ use image::RgbaImage;
 use super::*;
 use crate::engine::backend::BackendEvent;
 use crate::engine::media_info::VideoSize;
-use crate::main_window::now_playing::tests::{draw, open_playing, osd, toasts};
+use crate::main_window::now_playing::tests::{draw, open_playing, osd};
+use crate::main_window::tests::toast_levels;
 use crate::main_window::tests::{main_view, open};
 use crate::opening::scratch::scratch_dir;
 use crate::ui::toast::Level;
@@ -53,7 +54,7 @@ fn the_toast_says_where_the_snapshot_went(cx: &mut TestAppContext) {
         let unwritable = Failure::Unwritable(anyhow::anyhow!("read-only"));
         main.snapshot_done(Err(unwritable), cx);
     });
-    let shown = toasts(cx);
+    let shown = toast_levels(cx);
     assert_eq!(shown[0], (Level::Success, "Snapshot saved in /pictures".into()));
     assert_eq!(
         shown[1],

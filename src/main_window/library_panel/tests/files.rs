@@ -9,10 +9,10 @@ use super::super::file_menu;
 use super::super::item_menu::FileTarget;
 use super::playlists::{save, two_files};
 use super::selected;
-use super::support::{choose, dialog_open, queued, show, toasts, with_library};
+use super::support::{choose, dialog_open, queued, show, with_library};
 use crate::db::metadata::MediaKind;
 use crate::history::tests::support::TestHistory;
-use crate::main_window::tests::main_view;
+use crate::main_window::tests::{main_view, toast_messages};
 use crate::navigation::route::Route;
 use crate::settings;
 use crate::ui::menu::MenuItem;
@@ -45,7 +45,7 @@ fn menu(cx: &mut VisualTestContext, files: &[PathBuf]) -> Vec<MenuItem> {
 }
 
 fn last_toast(cx: &mut VisualTestContext) -> Option<String> {
-    toasts(cx).pop()
+    toast_messages(cx).pop()
 }
 
 #[gpui::test]
@@ -89,10 +89,10 @@ fn a_vanished_file_says_it_is_not_found(cx: &mut TestAppContext) {
     choose(cx, &mut history, &items, &[file_menu::show_in_folder_label()]);
     assert_eq!(last_toast(cx).as_deref(), Some("File not found"));
     choose(cx, &mut history, &items, &["Properties & Metadata"]);
-    assert_eq!(toasts(cx), ["File not found", "File not found"]);
+    assert_eq!(toast_messages(cx), ["File not found", "File not found"]);
     // Outside every media folder, Go to Source shows the file where it is, which is gone.
     choose(cx, &mut history, &items, &["Go to Source"]);
-    assert_eq!(toasts(cx).len(), 3);
+    assert_eq!(toast_messages(cx).len(), 3);
 }
 
 #[gpui::test]

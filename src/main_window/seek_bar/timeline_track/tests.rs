@@ -10,7 +10,8 @@ use super::super::timeline::{Pan, Zoom};
 use crate::engine::backend::BackendEvent;
 use crate::engine::tracks::{Track, TrackId, TrackKind};
 use crate::main_window::MainWindow;
-use crate::main_window::now_playing::tests::{Playing, draw, play_mock, toasts, with_tracks};
+use crate::main_window::now_playing::tests::{Playing, draw, play_mock, with_tracks};
+use crate::main_window::tests::toast_messages;
 use crate::main_window::tests::{main_view, open, tap};
 use crate::opening::scratch::scratch_dir;
 use crate::settings;
@@ -75,7 +76,7 @@ fn its_buttons_zoom_and_pan_the_window(cx: &mut TestAppContext) {
 fn subtitles_wait_for_a_video(cx: &mut TestAppContext) {
     let cx = open(cx);
     main_view(cx).update(cx, |main, cx| main.attach_subtitles(&[scratch_dir().join("a.srt")], cx));
-    let shown: Vec<String> = toasts(cx).into_iter().map(|(_, text)| text).collect();
+    let shown: Vec<String> = toast_messages(cx);
     assert_eq!(shown, ["Open a video first, then add subtitles."]);
 }
 

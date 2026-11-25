@@ -5,17 +5,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui::{
-    App, AppContext as _, Context, Entity, Render, Subscription, TestAppContext, VisualTestContext,
-    Window,
-};
+use gpui::{App, Context, Entity, Render, TestAppContext, VisualTestContext, Window};
 
 use crate::app::media::Media;
-use crate::engine::backend::Backend;
-use crate::engine::mock::{MockBackend, MockHandle, MockMedia};
-use crate::engine::player::{Player, PlayerEvent};
-use crate::main_window::MainWindow;
-use crate::main_window::tests::main_view;
+use crate::engine::mock::{MockHandle, MockMedia};
+use crate::engine::player::Player;
+use crate::main_window::now_playing::tests::play_media;
 
 /// Sets up what every dialog draws with: settings in memory, the theme and the UI kit.
 fn init(cx: &mut TestAppContext) {
@@ -55,35 +50,14 @@ pub(in crate::main_window) fn recorder<T: 'static>()
     (handed, move |item, _: &mut Window, _: &mut App| log.borrow_mut().push(item))
 }
 
-/// Gives the main window a player on the mock backend, which plays nothing and is silent,
-/// with `on_event` hearing its events, and opens a mock clip in it.
+/// Gives the main window a player on the mock backend, which plays nothing and is silent, and
+/// plays a mock clip in it, wired to the window as a real player is.
 pub(in crate::main_window) fn play_mock(
     cx: &mut VisualTestContext,
-    on_event: impl Fn(&mut MainWindow, &PlayerEvent, &mut Context<MainWindow>) + 'static,
 ) -> (Entity<Player>, MockHandle) {
-    let main = main_view(cx);
-    let slot: Rc<RefCell<Option<MockHandle>>> = Rc::default();
-    let out = slot.clone();
-    let player = main.update_in(cx, |main, window, cx| {
-        let player = cx.new(|cx| {
-            let backend = move |events| {
-                let (mock, handle) = MockBackend::new(events, MockMedia::default());
-                *out.borrow_mut() = Some(handle);
-                Box::new(mock) as Box<dyn Backend>
-            };
-            Player::new(backend, cx)
-        });
-        let events: Subscription =
-            cx.subscribe_in(&player, window, move |main, _, event, _, cx| {
-                on_event(main, event, cx);
-            });
-        main.player = Some((player.clone(), events));
-        player
-    });
-    player.update(cx, |player, cx| player.open(mock_clip(), cx));
+    let playing = play_media(cx, MockMedia::default(), mock_clip());
     draw(cx);
-    let handle = slot.borrow_mut().take().expect("the player made its backend");
-    (player, handle)
+    (playing.player, playing.mock)
 }
 
 /// The clip the mock player opens.

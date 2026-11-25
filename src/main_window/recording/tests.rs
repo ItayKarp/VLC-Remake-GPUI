@@ -9,8 +9,9 @@ use gpui::{TestAppContext, VisualTestContext};
 use super::*;
 use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::values::SeekTarget;
-use crate::main_window::now_playing::tests::{Playing, draw, open_playing, osd, toasts};
+use crate::main_window::now_playing::tests::{Playing, draw, open_playing, osd};
 use crate::main_window::tests::{main_view, open};
+use crate::main_window::tests::{toast_levels, toast_messages};
 use crate::opening::scratch::scratch_dir;
 
 /// The window playing the mock's clip, recordings going to a folder of the test's own.
@@ -35,7 +36,7 @@ fn start(cx: &mut VisualTestContext, playing: &Playing, folder: &Path) {
 }
 
 fn messages(cx: &mut VisualTestContext) -> Vec<String> {
-    toasts(cx).into_iter().map(|(_, text)| text).collect()
+    toast_messages(cx)
 }
 
 #[gpui::test]
@@ -116,7 +117,7 @@ fn the_stopped_toast_says_where_the_file_is(cx: &mut TestAppContext) {
         main.show_toast(stopped_toast(file, &here, true), cx);
         main.show_toast(stopped_toast(None, &here, false), cx);
     });
-    let shown = toasts(cx);
+    let shown = toast_levels(cx);
     assert_eq!(
         shown[0],
         (Level::Warning, "Couldn't record in /wanted, so the recording is in /rec".into())

@@ -10,7 +10,7 @@ use url::Url;
 
 use crate::history::tests::support::TestHistory;
 use crate::main_window::MainWindow;
-use crate::main_window::tests::{main_view, open};
+use crate::main_window::tests::{main_view, open, press_toast};
 use crate::navigation::route::Route;
 use crate::podcasts::feed::{Episode, Feed};
 use crate::podcasts::fetch::{Failure, FeedSource};
@@ -118,18 +118,13 @@ pub(super) fn choose(
     history.settle(cx);
 }
 
-/// The messages of the toasts showing, oldest first.
-pub(super) fn toasts(cx: &mut VisualTestContext) -> Vec<String> {
-    let main = main_view(cx);
-    cx.update(|_, cx| main.read(cx).toasts.read(cx).messages())
-}
-
-/// Presses the newest toast button labelled `label`.
-pub(super) fn press_toast(cx: &mut VisualTestContext, history: &mut TestHistory, label: &str) {
-    let main = main_view(cx);
-    let action = cx.update(|_, cx| main.read(cx).toasts.read(cx).action(label));
-    let action = action.unwrap_or_else(|| panic!("no toast offers {label}"));
-    cx.update(|window, cx| action(window, cx));
+/// Presses the newest toast button labelled `label`, then runs the database work it started.
+pub(super) fn press_toast_and_settle(
+    cx: &mut VisualTestContext,
+    history: &mut TestHistory,
+    label: &str,
+) {
+    press_toast(cx, label);
     history.settle(cx);
 }
 

@@ -8,11 +8,11 @@ use gpui::{Modifiers, TestAppContext, VisualTestContext};
 
 use super::super::listing::Body;
 use super::super::podcast_menu::{self, EpisodeTarget};
-use super::support::{FEED, choose, dialog_open, labels, queued, show, toasts, with_library};
+use super::support::{FEED, choose, dialog_open, labels, queued, show, with_library};
 use crate::db::podcasts::FeedId;
 use crate::history::tests::support::TestHistory;
 use crate::main_window::MainWindow;
-use crate::main_window::tests::{main_view, tap};
+use crate::main_window::tests::{main_view, tap, toast_messages};
 use crate::navigation::route::{NetworkCategory, Route};
 use crate::opening::scratch::scratch_dir;
 use crate::podcasts;
@@ -106,7 +106,7 @@ fn a_feed_that_cant_be_read_says_why(cx: &mut TestAppContext) {
     show(cx, &mut history, PODCASTS);
     subscribe_by_hand(cx, &mut history, "https://e.com/missing");
     assert_eq!(route(cx), PODCASTS, "nothing was subscribed to");
-    let failed = toasts(cx);
+    let failed = toast_messages(cx);
     assert_eq!(failed.len(), 1, "only the failure is left: {failed:?}");
 }
 

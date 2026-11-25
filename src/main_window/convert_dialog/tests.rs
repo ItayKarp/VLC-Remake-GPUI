@@ -134,7 +134,7 @@ fn has_dialog(cx: &mut VisualTestContext) -> bool {
 #[gpui::test]
 fn convert_opens_the_dialog(cx: &mut TestAppContext) {
     let cx = main_with_conversions(cx);
-    play_mock(cx, |_, _, _| {});
+    play_mock(cx);
     cx.dispatch_action(Convert);
     draw(cx);
     assert!(has_dialog(cx));

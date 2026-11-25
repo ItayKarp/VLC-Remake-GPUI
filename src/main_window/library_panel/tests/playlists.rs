@@ -9,15 +9,13 @@ use gpui::{TestAppContext, VisualTestContext};
 
 use super::super::listing::Body;
 use super::super::playlist_menu;
-use super::support::{
-    choose, dialog_open, entries, find, labels, queued, show, toasts, with_library,
-};
+use super::support::{choose, dialog_open, entries, find, labels, queued, show, with_library};
 use crate::app::media::Media;
 use crate::db::activity::Favorite;
 use crate::db::playlists::Summary;
 use crate::history::tests::support::TestHistory;
 use crate::library::favorites;
-use crate::main_window::tests::{main_view, tap};
+use crate::main_window::tests::{main_view, tap, toast_messages};
 use crate::navigation::route::Route;
 use crate::opening::scratch::scratch_dir;
 use crate::playlists::{self, Draft};
@@ -151,7 +149,7 @@ fn export_writes_the_playlist_where_it_is_saved(cx: &mut TestAppContext) {
     history.settle(cx);
     let written = std::fs::read_to_string(&target).expect("exported");
     assert!(written.contains("a.mkv") && written.contains("b.mkv"), "{written}");
-    assert_eq!(toasts(cx).last().map(String::as_str), Some("Exported to “Mix.m3u8”."));
+    assert_eq!(toast_messages(cx).last().map(String::as_str), Some("Exported to “Mix.m3u8”."));
 }
 
 #[gpui::test]
@@ -163,5 +161,5 @@ fn an_export_that_cant_be_written_says_why(cx: &mut TestAppContext) {
     let nowhere = scratch_dir().join("missing").join("Mix.m3u8");
     cx.simulate_new_path_selection(move |_| Some(nowhere));
     history.settle(cx);
-    assert_eq!(toasts(cx).len(), 1, "the failure is shown");
+    assert_eq!(toast_messages(cx).len(), 1, "the failure is shown");
 }

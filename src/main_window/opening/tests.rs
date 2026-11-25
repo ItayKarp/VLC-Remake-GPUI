@@ -9,8 +9,9 @@ use crate::app::media::Media;
 use crate::app::request::OpenRequest;
 use crate::engine::mock::MockMedia;
 use crate::keymap::actions::{OpenFile, OpenFolder, OpenFromClipboard};
+use crate::main_window::tests::toast_messages;
 use crate::main_window::tests::{main_view, open};
-use crate::main_window::video_menu::tests::support::{toast_messages, with_mock_player};
+use crate::main_window::video_menu::tests::support::with_mock_player;
 use crate::opening::scratch::scratch_dir;
 
 /// The window with a player on the mock backend, nothing opened yet.

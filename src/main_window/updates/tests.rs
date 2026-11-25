@@ -5,7 +5,7 @@ use semver::Version;
 use url::Url;
 
 use crate::main_window::tests::{main_view, open};
-use crate::main_window::video_menu::tests::support::{press_toast, toasts};
+use crate::main_window::tests::{press_toast, toasts};
 use crate::updates::{News, Offer};
 
 fn offer(version: &str) -> Offer {

@@ -2,8 +2,9 @@
 
 use gpui::TestAppContext;
 
+use crate::main_window::tests::toast_messages;
 use crate::main_window::tests::{main_view, open, tap};
-use crate::main_window::video_menu::tests::support::{self, choose, find, toast_messages};
+use crate::main_window::video_menu::tests::support::{self, choose, find};
 use crate::player_layout::Item;
 use crate::settings::{self, StoredLayout, profiles};
 use crate::ui::menu::MenuItem;

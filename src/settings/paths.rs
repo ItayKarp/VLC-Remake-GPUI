@@ -66,7 +66,7 @@ impl Locations {
     /// neither is available (some services and sandboxes): settings then live in
     /// memory only.
     pub fn resolve() -> Option<Self> {
-        Self::resolve_with(std::env::var_os(CONFIG_DIR_ENV))
+        Self::resolve_with(config_dir_override())
     }
 
     /// Like [`Self::resolve`], with the override directory passed in (for tests).
@@ -91,13 +91,26 @@ impl Locations {
 /// settings when `RVLC_CONFIG_DIR` overrides them, otherwise in the platform's cache folder.
 /// `None` when neither is available: nothing is cached then.
 pub fn cache_dir() -> Option<PathBuf> {
-    match std::env::var_os(CONFIG_DIR_ENV).filter(|dir| !dir.is_empty()) {
+    match config_dir_override().filter(|dir| !dir.is_empty()) {
         Some(dir) => {
             let dir = PathBuf::from(dir).join(CACHE_DIR_NAME);
             Some(std::path::absolute(&dir).unwrap_or(dir))
         }
         None => Some(dirs::cache_dir()?.join(APP_DIR_NAME)),
     }
+}
+
+/// The folder `RVLC_CONFIG_DIR` names. Tests that don't name one get a folder of the test
+/// process's own, so no test reads or writes the user's real settings, logs, crash reports or
+/// caches.
+fn config_dir_override() -> Option<OsString> {
+    let named = std::env::var_os(CONFIG_DIR_ENV).filter(|dir| !dir.is_empty());
+    if cfg!(test) { named.or_else(|| Some(test_config_dir())) } else { named }
+}
+
+/// The settings folder of this test process, under the system's temporary folder.
+fn test_config_dir() -> OsString {
+    std::env::temp_dir().join(format!("rvlc-test-config-{}", std::process::id())).into_os_string()
 }
 
 /// The OS's video folder. Uses the Known Folder API on Windows, so OneDrive folder

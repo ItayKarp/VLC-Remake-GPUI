@@ -120,16 +120,11 @@ fn create_folder(path: PathBuf, cx: &mut Context<MainWindow>) {
 
 #[cfg(test)]
 mod tests {
-    use gpui::{TestAppContext, VisualTestContext};
+    use gpui::TestAppContext;
 
     use super::*;
-    use crate::main_window::tests::{main_view, open};
+    use crate::main_window::tests::{main_view, open, toast_messages};
     use crate::opening::scratch::scratch_dir;
-
-    fn toasts(cx: &mut VisualTestContext) -> Vec<String> {
-        let main = main_view(cx);
-        cx.update(|_, cx| main.read(cx).toasts.read(cx).messages())
-    }
 
     #[gpui::test]
     fn create_this_folder_makes_the_missing_folder(cx: &mut TestAppContext) {
@@ -139,7 +134,7 @@ mod tests {
         main_view(cx).update(cx, |_, cx| create_folder(path, cx));
         cx.run_until_parked();
         assert!(missing.is_dir());
-        assert_eq!(toasts(cx), Vec::<String>::new());
+        assert_eq!(toast_messages(cx), Vec::<String>::new());
     }
 
     #[gpui::test]
@@ -150,7 +145,7 @@ mod tests {
         let inside = file.join("Movies");
         main_view(cx).update(cx, |_, cx| create_folder(inside, cx));
         cx.run_until_parked();
-        let said = toasts(cx);
+        let said = toast_messages(cx);
         assert!(said.len() == 1 && said[0].starts_with("Couldn't create"), "{said:?}");
     }
 

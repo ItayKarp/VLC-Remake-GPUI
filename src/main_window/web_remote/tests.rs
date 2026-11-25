@@ -17,6 +17,23 @@ fn free_port() -> u16 {
     listener.local_addr().expect("a bound address").port()
 }
 
+/// How many free ports a test tries before giving up.
+const PORT_TRIES: usize = 5;
+
+/// Turns the web remote on at a free port and answers it. A port found free may be taken by
+/// another test before the remote binds it, so a few are tried.
+fn start_remote(cx: &mut VisualTestContext) -> u16 {
+    for _ in 0..PORT_TRIES {
+        let port = free_port();
+        set_remote(Some(port), cx);
+        if is_running(cx) {
+            return port;
+        }
+        set_remote(None, cx);
+    }
+    panic!("the web remote didn't start on any of {PORT_TRIES} free ports");
+}
+
 /// Turns the web remote on at `port`, or off with `None`, as Settings does.
 fn set_remote(port: Option<u16>, cx: &mut VisualTestContext) {
     cx.update(|_, cx| {
@@ -93,9 +110,7 @@ fn the_hint_says_why_it_isnt_running() {
 fn the_remote_runs_while_settings_ask_for_it(cx: &mut TestAppContext) {
     let cx = open(cx);
     assert_eq!(hint(cx), None);
-    let port = free_port();
-    set_remote(Some(port), cx);
-    assert!(is_running(cx));
+    let port = start_remote(cx);
     assert_eq!(hint(cx), Some(listening_message(network_address(), port)));
     set_remote(None, cx);
     assert!(!is_running(cx));
@@ -116,11 +131,11 @@ fn a_taken_port_says_why_the_remote_isnt_running(cx: &mut TestAppContext) {
 #[gpui::test]
 fn what_plays_and_the_queue_are_published(cx: &mut TestAppContext) {
     let cx = open(cx);
-    set_remote(Some(free_port()), cx);
+    start_remote(cx);
     let (state, queue) = published(cx);
     assert!(state.contains("\"playing\":false"), "{state}");
     assert!(queue.contains("\"items\":[]"), "{queue}");
-    play_mock(cx, |_, _, _| {});
+    play_mock(cx);
     let main = main_view(cx);
     main.update_in(cx, |main, window, cx| {
         main.queue.insert_next(vec![Media::Url("mock://first".into())]);
@@ -135,11 +150,11 @@ fn what_plays_and_the_queue_are_published(cx: &mut TestAppContext) {
 #[gpui::test]
 fn a_phones_commands_work_as_the_windows_buttons(cx: &mut TestAppContext) {
     let cx = open(cx);
-    let (player, _) = play_mock(cx, |_, _, _| {});
+    let (player, _) = play_mock(cx);
     let main = main_view(cx);
     let ids = main.update_in(cx, |main, window, cx| {
         let both = vec![Media::Url("mock://first".into()), Media::Url("mock://second".into())];
-        main.queue.insert_next(both);
+        main.queue.replace(both);
         main.play(0, window, cx);
         main.queue.entries().iter().map(|entry| entry.id.number()).collect::<Vec<_>>()
     });

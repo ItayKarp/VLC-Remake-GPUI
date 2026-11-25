@@ -16,7 +16,7 @@ fn properties_show_the_file_open(cx: &mut TestAppContext) {
     let cx = open(cx);
     let main = main_view(cx);
     assert!(!main.read_with(cx, super::super::MainWindow::has_properties), "nothing is open");
-    let (player, _) = play_mock(cx, |_, _, _| {});
+    let (player, _) = play_mock(cx);
     assert!(!main.read_with(cx, super::super::MainWindow::has_properties), "a stream isn't a file");
     let file = scratch_dir().join("film.mkv");
     player.update(cx, |player, cx| player.open(Media::File(file), cx));

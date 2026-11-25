@@ -137,20 +137,6 @@ pub struct Toasts {
     drawn: Vec<Arc<RenderImage>>,
 }
 
-#[cfg(test)]
-impl Toasts {
-    /// The messages showing, oldest first.
-    pub fn messages(&self) -> Vec<String> {
-        self.toasts.iter().map(|toast| toast.message.to_string()).collect()
-    }
-
-    /// What the button labelled `label` on the newest toast that has one runs.
-    pub fn action(&self, label: &str) -> Option<Action> {
-        let actions = self.toasts.iter().rev().flat_map(|toast| &toast.actions);
-        actions.into_iter().find(|action| action.label == label).map(|action| action.run.clone())
-    }
-}
-
 impl Toasts {
     /// An empty stack.
     pub fn new() -> Self {
@@ -188,14 +174,6 @@ impl Toasts {
     pub fn dismiss(&mut self, id: u64, cx: &mut Context<Self>) {
         self.toasts.retain(|t| t.id != id);
         cx.notify();
-    }
-}
-
-#[cfg(test)]
-impl Toasts {
-    /// The toasts showing, oldest first: each level and message, for tests of what says what.
-    pub fn shown(&self) -> Vec<(Level, String)> {
-        self.toasts.iter().map(|toast| (toast.level, toast.message.to_string())).collect()
     }
 }
 
@@ -400,16 +378,30 @@ fn message(text: SharedString, color: Hsla) -> Div {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+
+    /// A toast as other modules' tests see it.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub(crate) struct Shown {
+        /// How serious it is.
+        pub(crate) level: Level,
+        /// What it says.
+        pub(crate) message: String,
+        /// Its buttons' labels.
+        pub(crate) buttons: Vec<String>,
+    }
 
     /// What other modules' tests read and press of a window's toasts.
     impl Toasts {
-        /// Each toast showing, oldest first: its message and its buttons' labels.
-        pub(crate) fn shown(&self) -> Vec<(String, Vec<String>)> {
-            let buttons =
-                |toast: &Toast| toast.actions.iter().map(|a| a.label.to_string()).collect();
-            self.toasts.iter().map(|toast| (toast.message.to_string(), buttons(toast))).collect()
+        /// Each toast showing, oldest first.
+        pub(crate) fn shown(&self) -> Vec<Shown> {
+            let shown = |toast: &Toast| Shown {
+                level: toast.level,
+                message: toast.message.to_string(),
+                buttons: toast.actions.iter().map(|action| action.label.to_string()).collect(),
+            };
+            self.toasts.iter().map(shown).collect()
         }
 
         /// Presses the button labelled `label` on the newest toast that has one, as a click does.

@@ -31,7 +31,7 @@ fn target() -> StreamTarget {
 /// The main window playing the mock clip, its stream events heard as the window hears them.
 fn playing(cx: &mut TestAppContext) -> (&mut VisualTestContext, Entity<Player>, MockHandle) {
     let cx = open(cx);
-    let (player, mock) = play_mock(cx, crate::main_window::MainWindow::on_stream_event);
+    let (player, mock) = play_mock(cx);
     (cx, player, mock)
 }
 
@@ -94,8 +94,9 @@ fn other_media_is_played_next_streaming(cx: &mut TestAppContext) {
         assert_eq!(player.stream_target(), Some(&target()));
     });
     let main = main_view(cx);
-    let queued = main.read_with(cx, |main, _| main.queue.entries().len());
-    assert_eq!(queued, 1, "it went in the queue");
+    let queued =
+        main.read_with(cx, |main, _| main.queue.entries().iter().any(|entry| entry.media == other));
+    assert!(queued, "it went in the queue");
 }
 
 #[gpui::test]

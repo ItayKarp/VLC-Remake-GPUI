@@ -15,7 +15,6 @@ use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::engine::tracks::{Track, TrackId, TrackKind, Tracks};
 use crate::main_window::MainWindow;
 use crate::main_window::tests::{main_view, open};
-use crate::ui::toast::Level;
 use crate::video::Output;
 
 /// What a test plays: the window's player and the mock behind it.
@@ -90,12 +89,6 @@ pub(in crate::main_window) fn draw(cx: &mut VisualTestContext) {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear(cx));
     cx.run_until_parked();
-}
-
-/// The toasts showing: each level and message.
-pub(in crate::main_window) fn toasts(cx: &mut VisualTestContext) -> Vec<(Level, String)> {
-    let main = main_view(cx);
-    main.read_with(cx, |main, cx| main.toasts.read(cx).shown())
 }
 
 /// The last on-screen message.

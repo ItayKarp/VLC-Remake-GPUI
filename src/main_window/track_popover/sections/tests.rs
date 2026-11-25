@@ -8,10 +8,8 @@ use crate::engine::backend::{BackendEvent, Command};
 use crate::engine::mock::{MockHandle, MockMedia};
 use crate::engine::tracks::{Track, TrackId, TrackKind};
 use crate::main_window::MainWindow;
-use crate::main_window::tests::{main_view, open};
-use crate::main_window::video_menu::tests::support::{
-    emit, movie, player, playing, toast_messages,
-};
+use crate::main_window::tests::{main_view, open, toast_messages};
+use crate::main_window::video_menu::tests::support::{emit, movie, player, playing};
 use crate::opening::scratch::scratch_dir;
 use crate::settings;
 

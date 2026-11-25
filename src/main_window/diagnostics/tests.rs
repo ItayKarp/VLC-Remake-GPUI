@@ -4,7 +4,7 @@ use gpui::TestAppContext;
 
 use crate::main_window::MainWindow;
 use crate::main_window::tests::{main_view, open};
-use crate::main_window::video_menu::tests::support::{press_toast, toast_messages, toasts};
+use crate::main_window::tests::{press_toast, toast_messages, toasts};
 use crate::opening::scratch::scratch_dir;
 
 const REPORT: &str = "thread 'main' panicked at src/main.rs:1:1:\nboom\n";
