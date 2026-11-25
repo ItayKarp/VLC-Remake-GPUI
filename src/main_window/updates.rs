@@ -23,7 +23,13 @@ impl MainWindow {
     }
 
     fn show_update_news(&mut self, cx: &mut Context<Self>) {
-        let Some(news) = updates::take_news(cx) else { return };
+        if let Some(news) = updates::take_news(cx) {
+            self.tell_update_news(news, cx);
+        }
+    }
+
+    /// Tells the user `news` in a toast.
+    fn tell_update_news(&mut self, news: News, cx: &mut Context<Self>) {
         let toast = match news {
             News::Ready(offer) => offer_toast(
                 tr!("VLC {version} is ready. It installs when you quit.", version = offer.version),
@@ -49,3 +55,6 @@ fn offer_toast(message: String, offer: Offer) -> Toast {
         .action(tr!("What's New"), move |_, cx| cx.open_url(notes_url.as_str()))
         .action(tr!("Skip This Version"), move |_, cx| updates::skip(&version, cx))
 }
+
+#[cfg(test)]
+mod tests;

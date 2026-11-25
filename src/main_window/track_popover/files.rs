@@ -147,6 +147,7 @@ fn file_row(index: usize, name: SharedString, state: FileState, p: &Palette) -> 
     };
     let row = div()
         .id(("file", index))
+        .debug_selector(move || format!("subtitle-file-{index}"))
         .group(group)
         .h(px(ROW_HEIGHT))
         .flex_none()

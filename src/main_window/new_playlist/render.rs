@@ -211,7 +211,7 @@ impl NewPlaylistDialog {
     }
 
     /// What the drop zone says: how to add files, how many are in, or that some are coming.
-    fn drop_zone_text(&self) -> SharedString {
+    pub(super) fn drop_zone_text(&self) -> SharedString {
         if !self.adding.is_idle() {
             return tr!("Adding files…").into();
         }

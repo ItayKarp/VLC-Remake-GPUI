@@ -46,6 +46,8 @@ mod sleep_timer_row;
 mod subtitles;
 mod sync_rules;
 mod synced_field;
+#[cfg(test)]
+mod tests;
 mod track_defaults;
 mod video;
 mod video_defaults;

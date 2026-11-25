@@ -5,6 +5,9 @@
 //! The manifest is `update-manifest.json` of the latest GitHub release, its signature beside it
 //! in `update-manifest.json.sig`. `RVLC_UPDATE_URL`, when the app is built or runs, names
 //! another manifest; its signature is always the same address with `.sig` added.
+//!
+//! The check depends on [`UpdateSource`], not on HTTPS: [`Https`] is the source the app uses, and
+//! tests stand in one that serves a manifest and packages without a network.
 
 use std::fs::File;
 use std::io::{self, BufWriter};
@@ -60,6 +63,45 @@ impl std::fmt::Display for Failure {
     }
 }
 
+/// Where updates come from: the newest version's manifest, and the packages it lists.
+pub trait UpdateSource: Send {
+    /// Where the manifest is read from, for the log.
+    fn location(&self) -> &str;
+    /// The manifest, once its signature is trusted. Blocks.
+    fn manifest(&self) -> Result<Manifest, Failure>;
+    /// Downloads `package` to `path`; the file is left only if it is the package the manifest
+    /// describes. Blocks.
+    fn download(&self, package: &Package, path: &Path) -> Result<(), Failure>;
+}
+
+/// The release's manifest and packages over HTTPS, through the proxy in Settings → Network (the
+/// environment's when `None`).
+pub struct Https {
+    url: String,
+    proxy: Option<Url>,
+}
+
+impl Https {
+    /// The source at [`manifest_url`], reached through `proxy`.
+    pub fn new(proxy: Option<Url>) -> Self {
+        Self { url: manifest_url(), proxy }
+    }
+}
+
+impl UpdateSource for Https {
+    fn location(&self) -> &str {
+        &self.url
+    }
+
+    fn manifest(&self) -> Result<Manifest, Failure> {
+        fetch_manifest(&self.url, self.proxy.as_ref())
+    }
+
+    fn download(&self, package: &Package, path: &Path) -> Result<(), Failure> {
+        download(package, path, self.proxy.as_ref())
+    }
+}
+
 /// The manifest's address: the running app's `RVLC_UPDATE_URL`, else the one it was built
 /// with, else the latest GitHub release's.
 pub fn manifest_url() -> String {
@@ -74,7 +116,7 @@ pub fn manifest_url() -> String {
 
 /// Downloads the manifest at `url` and its signature, and reads it once the signature is
 /// trusted. Blocks.
-pub fn fetch_manifest(url: &str, proxy: Option<&Url>) -> Result<Manifest, Failure> {
+fn fetch_manifest(url: &str, proxy: Option<&Url>) -> Result<Manifest, Failure> {
     let parsed = Url::parse(url).map_err(|error| Failure::Network(error.to_string()))?;
     if !manifest::is_secure(&parsed) {
         return Err(Failure::Invalid(Invalid::Insecure(parsed)));
@@ -90,7 +132,7 @@ pub fn fetch_manifest(url: &str, proxy: Option<&Url>) -> Result<Manifest, Failur
 
 /// Downloads `package` to `path`, checking its size and hash as it arrives; the file is removed
 /// unless it is the package. Blocks.
-pub fn download(package: &Package, path: &Path, proxy: Option<&Url>) -> Result<(), Failure> {
+fn download(package: &Package, path: &Path, proxy: Option<&Url>) -> Result<(), Failure> {
     let saved = download_unchecked(package, path, proxy);
     if saved.is_err() {
         // Nothing to keep: a part, or the wrong file.

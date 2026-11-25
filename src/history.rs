@@ -18,7 +18,7 @@ pub mod identity;
 pub mod policy;
 pub mod resolve;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod worker;
 
 use std::cell::Cell;

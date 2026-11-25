@@ -2,6 +2,9 @@
 //! episodes' subtitles, Save copies a checked file next to the video when asked, and
 //! OpenSubtitles asks before a search leaves the machine.
 
+mod link;
+mod pairs;
+
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -13,15 +16,15 @@ use super::search::Search;
 use super::{AddSubtitlesDialog, Body, Saved};
 use crate::opening::scratch::scratch_dir;
 
-const SRT: &str = "1\n00:00:01,000 --> 00:00:02,000\nHello\n";
+pub(super) const SRT: &str = "1\n00:00:01,000 --> 00:00:02,000\nHello\n";
 
-fn write(path: &Path, contents: &str) {
+pub(super) fn write(path: &Path, contents: &str) {
     std::fs::create_dir_all(path.parent().expect("a folder")).unwrap();
     std::fs::write(path, contents).unwrap();
 }
 
 /// Opens the dialog on `target`, collecting what Save hands over.
-fn open(
+pub(super) fn open(
     cx: &mut TestAppContext,
     target: Target,
 ) -> (Entity<AddSubtitlesDialog>, Rc<RefCell<Vec<Saved>>>, &mut VisualTestContext) {
@@ -41,7 +44,7 @@ fn open(
 }
 
 /// Settles the dialog's tasks and paints a frame, as the window would.
-fn draw(cx: &mut VisualTestContext) {
+pub(super) fn draw(cx: &mut VisualTestContext) {
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear(cx));
     cx.run_until_parked();

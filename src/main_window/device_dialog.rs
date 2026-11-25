@@ -3,6 +3,9 @@
 //! title and ✕, sections with a heading and a line about them, and Cancel at the left with Play
 //! at the right.
 
+#[cfg(test)]
+pub(super) mod tests;
+
 use gpui::{
     AnyElement, App, ClickEvent, DismissEvent, Div, EventEmitter, FontWeight, SharedString, Window,
     accesskit, div, prelude::*, px,

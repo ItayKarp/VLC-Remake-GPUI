@@ -283,30 +283,4 @@ fn parse_pixels(text: &str) -> Option<u32> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pixels_read_with_or_without_the_unit() {
-        assert_eq!(parse_pixels("12"), Some(12));
-        assert_eq!(parse_pixels(" 12 PX "), Some(12));
-        assert_eq!(parse_pixels(""), Some(0));
-        assert_eq!(parse_pixels("-3"), None);
-        assert_eq!(parse_pixels("a lot"), None);
-    }
-
-    #[test]
-    fn an_edge_takes_what_its_opposite_leaves() {
-        assert_eq!(most_for(1064, 64, false), 1000);
-        assert_eq!(most_for(1064, 2000, false), 0);
-        assert_eq!(most_for(1064, 64, true), 532, "linked, both take it");
-    }
-
-    #[test]
-    fn edges_follow_the_sections_order() {
-        assert_eq!(Edge::Top.key(), "video.crop_edges.top");
-        assert_eq!(Edge::Right.key(), "video.crop_edges.right");
-        assert_eq!(Edge::Left.opposite(), Edge::Right);
-        assert_eq!(Edge::Bottom.pair(), 0);
-    }
-}
+mod tests;

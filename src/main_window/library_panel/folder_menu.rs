@@ -132,3 +132,33 @@ fn copied_toast(copied: &copy_in::Copied, folder: &Path) -> Toast {
         ),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::opening::scratch::scratch_dir;
+
+    fn row<'a>(rows: &'a [(&'static str, SharedString)], name: &str) -> Option<&'a str> {
+        rows.iter().find(|(label, _)| *label == name).map(|(_, value)| value.as_ref())
+    }
+
+    #[test]
+    fn info_counts_what_the_folder_holds() {
+        let folder = scratch_dir();
+        std::fs::create_dir(folder.join("Season 1")).expect("subfolder");
+        std::fs::write(folder.join("Pilot.mkv"), b"12345").expect("file");
+        std::fs::write(folder.join("notes.txt"), b"not media").expect("file");
+        let rows = folder_rows(&folder, false);
+        assert_eq!(row(&rows, "Subfolders"), Some("1"));
+        assert_eq!(row(&rows, "Media files"), Some("1"));
+        assert!(row(&rows, "Size").is_some());
+    }
+
+    #[test]
+    fn info_on_a_folder_that_is_gone_says_so() {
+        let gone = scratch_dir().join("gone");
+        let rows = folder_rows(&gone, false);
+        assert_eq!(row(&rows, "Name"), Some("gone"));
+        assert_eq!(row(&rows, "Status"), Some("This folder is no longer available."));
+    }
+}

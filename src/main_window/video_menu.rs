@@ -208,3 +208,6 @@ fn open_media_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem {
     ];
     MenuItem::submenu(tr!("Open Media"), items).icon(icons::FILE)
 }
+
+#[cfg(test)]
+pub(super) mod tests;

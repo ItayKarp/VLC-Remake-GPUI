@@ -126,6 +126,7 @@ impl AddSubtitlesDialog {
         });
         let cell = div()
             .id(("add-subtitles-pick", index))
+            .debug_selector(move || format!("add-subtitles-pick-{index}"))
             .tab_index(0)
             .key_context(focus::CONTROL)
             .flex_1()

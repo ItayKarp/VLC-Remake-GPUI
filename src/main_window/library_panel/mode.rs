@@ -66,7 +66,11 @@ impl MainWindow {
     }
 
     /// Switches to full library mode (the panel's pop-out).
-    pub(super) fn open_full_library(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(in crate::main_window) fn open_full_library(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.close_popovers(window, cx);
         self.close_queue_panel(window, cx);
         self.show_library(Some(Presentation::Full), window, cx);

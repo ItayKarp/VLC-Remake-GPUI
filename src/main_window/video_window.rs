@@ -289,3 +289,6 @@ impl MainWindow {
         self.windowing.prefs.fit_video(window, video, around, cx);
     }
 }
+
+#[cfg(test)]
+mod tests;

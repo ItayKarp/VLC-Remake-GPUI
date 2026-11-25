@@ -133,6 +133,14 @@ impl StreamDialog {
 
 /// What Settings → Recording's Streaming rows send, and where to change them.
 fn contents_section(recording: &RecordingSettings, p: &Palette) -> Div {
+    let description = tr!("Set in Settings → Recording → Streaming, with how it's encoded.");
+    section(tr!("Sent"), description, p).child(controls(
+        div().text_size(text_px(metrics::TEXT_SMALL + 1.)).child(sent_summary(recording)),
+    ))
+}
+
+/// What a stream sends, as Settings → Recording's Streaming rows say, and whether it plays here.
+fn sent_summary(recording: &RecordingSettings) -> SharedString {
     let sent = match Contents::from_settings(recording) {
         Some(Contents::Everything { subtitles: true }) => {
             tr!("Sound and picture, subtitles burned in.")
@@ -149,10 +157,7 @@ fn contents_section(recording: &RecordingSettings, p: &Palette) -> Div {
         Local::PlaysHere => tr!("Its picture shows here too, without sound."),
         Local::StreamOnly => tr!("It doesn't play here meanwhile."),
     };
-    let summary: SharedString = format!("{sent} {here}").into();
-    let description = tr!("Set in Settings → Recording → Streaming, with how it's encoded.");
-    section(tr!("Sent"), description, p)
-        .child(controls(div().text_size(text_px(metrics::TEXT_SMALL + 1.)).child(summary)))
+    format!("{sent} {here}").into()
 }
 
 /// The warning about letting the network watch.
@@ -173,4 +178,36 @@ fn labelled(label: &'static str, field: &Entity<TextInput>, width: f32) -> Div {
         .text_size(text_px(metrics::TEXT_SMALL + 1.))
         .child(label)
         .child(div().w(px(width)).child(field.clone()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_summary_says_what_is_sent_and_whether_it_plays_here() {
+        let streaming = |stream_audio, stream_video, stream_subtitles| RecordingSettings {
+            stream_audio,
+            stream_video,
+            stream_subtitles,
+            ..RecordingSettings::default()
+        };
+        let cases = [
+            (streaming(true, true, true), "Sound and picture, subtitles burned in."),
+            (streaming(true, true, false), "Sound and picture, no subtitles."),
+            (streaming(false, true, true), "Picture only, subtitles burned in."),
+            (streaming(false, true, false), "Picture only."),
+            (streaming(true, false, true), "Sound only."),
+            (streaming(false, false, true), "Nothing: neither audio nor video is included."),
+        ];
+        for (recording, sent) in cases {
+            let summary = sent_summary(&recording);
+            assert_eq!(summary, format!("{sent} Its picture shows here too, without sound."));
+        }
+        let elsewhere = RecordingSettings {
+            play_locally_while_streaming: false,
+            ..streaming(true, false, false)
+        };
+        assert_eq!(sent_summary(&elsewhere), "Sound only. It doesn't play here meanwhile.");
+    }
 }

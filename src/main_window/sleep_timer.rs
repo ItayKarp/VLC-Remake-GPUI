@@ -156,3 +156,6 @@ async fn keep_ticking(this: WeakEntity<MainWindow>, cx: &mut AsyncApp) {
         cx.background_executor().timer(wait).await;
     }
 }
+
+#[cfg(test)]
+mod tests;

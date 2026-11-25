@@ -378,8 +378,48 @@ fn message(text: SharedString, color: Hsla) -> Div {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+
+    /// A toast as other modules' tests see it.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub(crate) struct Shown {
+        /// How serious it is.
+        pub(crate) level: Level,
+        /// What it says.
+        pub(crate) message: String,
+        /// Its buttons' labels.
+        pub(crate) buttons: Vec<String>,
+    }
+
+    /// What other modules' tests read and press of a window's toasts.
+    impl Toasts {
+        /// Each toast showing, oldest first.
+        pub(crate) fn shown(&self) -> Vec<Shown> {
+            let shown = |toast: &Toast| Shown {
+                level: toast.level,
+                message: toast.message.to_string(),
+                buttons: toast.actions.iter().map(|action| action.label.to_string()).collect(),
+            };
+            self.toasts.iter().map(shown).collect()
+        }
+
+        /// Presses the button labelled `label` on the newest toast that has one, as a click does.
+        pub(crate) fn press_button(
+            &mut self,
+            label: &str,
+            window: &mut Window,
+            cx: &mut Context<Self>,
+        ) {
+            let pressed = self.toasts.iter().rev().find_map(|toast| {
+                let action = toast.actions.iter().find(|action| action.label == label)?;
+                Some((toast.id, action.dismisses, action.run.clone()))
+            });
+            let (id, dismisses, run) = pressed.expect("a toast has the button");
+            self.press(id, dismisses, cx);
+            run(window, cx);
+        }
+    }
 
     fn toast(level: Level, id: u64) -> Toast {
         Toast { id, ..Toast::new(level, "") }

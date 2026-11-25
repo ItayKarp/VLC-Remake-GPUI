@@ -276,24 +276,4 @@ fn modes() -> &'static [Choice] {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::settings::registry::Control;
-
-    #[test]
-    fn every_control_is_a_setting_of_its_kind() {
-        for key in [EXTRACT, THRESHOLD, NEGATE, POSTERIZE, GRADIENT, GRADIENT_COLOR, CARTOON] {
-            let def = registry::find(key).expect("a switch is a setting");
-            assert!(matches!(def.control, Control::Toggle), "{key}");
-        }
-        for (key, _) in COLOR_FIELDS {
-            let def = registry::find(key).expect("a color is a setting");
-            assert!(matches!(def.control, Control::HexColor), "{key}");
-        }
-        for key in [SATURATION, SIMILARITY, LEVELS, SEPIA] {
-            let def = registry::find(key).expect("a slider is a setting");
-            assert!(matches!(def.control, Control::Slider { .. }), "{key}");
-        }
-        assert_eq!(modes().len(), 3);
-    }
-}
+mod tests;

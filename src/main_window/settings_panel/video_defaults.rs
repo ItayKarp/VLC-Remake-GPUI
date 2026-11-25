@@ -296,28 +296,4 @@ fn parse_angle(text: &str) -> Option<Rotation> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn angles_read_with_or_without_a_unit_and_snap() {
-        assert_eq!(parse_angle("90"), Some(Rotation::Quarter));
-        assert_eq!(parse_angle(" -90 deg "), Some(Rotation::ThreeQuarters));
-        assert_eq!(parse_angle("180°"), Some(Rotation::Half));
-        assert_eq!(parse_angle("100 Degrees"), Some(Rotation::Quarter));
-        assert_eq!(parse_angle("sideways"), None);
-        assert_eq!(parse_angle("inf"), None);
-        assert_eq!(format_angle(Rotation::ThreeQuarters), "270 deg");
-    }
-
-    #[test]
-    fn every_row_is_a_setting_of_its_kind() {
-        for (key, _) in DROPDOWNS {
-            let control = registry::find(key).map(|def| def.control);
-            assert!(matches!(control, Some(Control::Dropdown(_))), "{key}");
-        }
-        let flip = registry::find(FLIP).map(|def| def.control);
-        assert!(matches!(flip, Some(Control::Segmented(_))));
-        assert!(registry::find(ROTATION).is_some());
-    }
-}
+mod tests;

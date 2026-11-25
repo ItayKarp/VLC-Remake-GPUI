@@ -1,6 +1,8 @@
 //! Recognizing media across moves, copies and edits (S1.7.2), and sessions saving through the
 //! history thread's jobs (S1.7.3).
 
+pub(crate) mod support;
+
 use std::fs::{self, File};
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver};

@@ -10,6 +10,8 @@ mod files;
 mod render;
 #[cfg(test)]
 mod screenshots;
+#[cfg(test)]
+mod tests;
 
 use std::path::PathBuf;
 use std::rc::Rc;

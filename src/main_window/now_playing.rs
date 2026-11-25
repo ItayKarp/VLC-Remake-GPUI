@@ -271,3 +271,6 @@ fn error_message(kind: ErrorKind) -> &'static str {
         ErrorKind::SourceLost => tr!("the file or its drive went away."),
     }
 }
+
+#[cfg(test)]
+pub(super) mod tests;

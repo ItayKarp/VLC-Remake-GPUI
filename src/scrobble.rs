@@ -8,18 +8,23 @@
 //! account or the app's key is refused they stay queued until the account changes. What went
 //! wrong is shown once ([`take_problem`]), not again until a submission works or something else
 //! goes wrong.
+//!
+//! Each batch goes through the [`Submit`] function [`init_with`] was given: [`submit`] (last.fm
+//! and the keychain) in the app, a stand-in in tests.
 
 pub mod api;
 pub mod listening;
 mod session;
+mod submit;
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{App, AsyncApp, Global};
-use url::Url;
 
-use self::api::{Client, Failure, MAX_BATCH};
-use self::session::{Account, NoSession};
+use self::api::MAX_BATCH;
+use self::session::Account;
+use self::submit::{Config, Verdict, submit};
 use crate::db::scrobbles::{self, Play, Queued};
 use crate::history::History;
 use crate::settings::{self, SettingsStore};
@@ -70,9 +75,13 @@ impl Problem {
     }
 }
 
+/// Submits one batch of plays as the settings say, and says how it went. Blocks.
+type Submit = Arc<dyn Fn(&Config, &[Play]) -> Verdict + Send + Sync>;
+
 /// The submission state.
-#[derive(Default)]
 pub struct Scrobbler {
+    /// How a batch is submitted.
+    submit: Submit,
     /// Whether a submission is running.
     sending: bool,
     /// Why the last submission stopped, until a later one works.
@@ -85,9 +94,16 @@ pub struct Scrobbler {
 
 impl Global for Scrobbler {}
 
-/// Starts submitting: what was queued last time goes now, and changing the account tries again.
+/// Starts submitting to last.fm: what was queued last time goes now, and changing the account
+/// tries again.
 pub fn init(cx: &mut App) {
-    cx.set_global(Scrobbler { account: account_settings(cx), ..Scrobbler::default() });
+    init_with(Arc::new(submit), cx);
+}
+
+/// Starts submitting through `submit`.
+fn init_with(submit: Submit, cx: &mut App) {
+    let account = account_settings(cx);
+    cx.set_global(Scrobbler { submit, sending: false, problem: None, shown: false, account });
     cx.observe_global::<SettingsStore>(|cx| {
         let now = account_settings(cx);
         let changed = cx.global::<Scrobbler>().account != now;
@@ -144,13 +160,6 @@ fn unblock(cx: &mut App) {
     flush(cx);
 }
 
-/// What a submission needs from the settings.
-#[derive(Clone)]
-struct Config {
-    account: Account,
-    proxy: Option<Url>,
-}
-
 /// The username and submission URL, while scrobbling is on.
 fn account_settings(cx: &App) -> Option<(String, String)> {
     let lastfm = &settings::get(cx).prefs.privacy.lastfm;
@@ -166,10 +175,11 @@ fn flush(cx: &mut App) {
     if scrobbler.sending || scrobbler.problem.is_some_and(|problem| !problem.retries()) {
         return;
     }
+    let submit = scrobbler.submit.clone();
     cx.global_mut::<Scrobbler>().sending = true;
     let config = Config { account: Account { username, url }, proxy };
     cx.spawn(async move |cx| {
-        let outcome = send_all(&config, cx).await;
+        let outcome = send_all(&config, &submit, cx).await;
         cx.update(|cx| finished(outcome, cx));
     })
     .detach();
@@ -198,7 +208,7 @@ fn finished(outcome: Result<(), Problem>, cx: &mut App) {
 }
 
 /// Submits the queue a batch at a time until it is empty or a submission fails.
-async fn send_all(config: &Config, cx: &mut AsyncApp) -> Result<(), Problem> {
+async fn send_all(config: &Config, submit: &Submit, cx: &mut AsyncApp) -> Result<(), Problem> {
     loop {
         let batch = next_batch(cx).await;
         if batch.is_empty() {
@@ -206,7 +216,7 @@ async fn send_all(config: &Config, cx: &mut AsyncApp) -> Result<(), Problem> {
         }
         let ids: Vec<i64> = batch.iter().map(|queued| queued.id).collect();
         let plays: Vec<Play> = batch.into_iter().map(|queued| queued.play).collect();
-        let sending = config.clone();
+        let (sending, submit) = (config.clone(), submit.clone());
         let verdict = cx.background_executor().spawn(async move { submit(&sending, &plays) });
         match verdict.await {
             Verdict::Sent | Verdict::Refused => remove(ids, cx),
@@ -243,52 +253,5 @@ fn remove(ids: Vec<i64>, cx: &mut AsyncApp) {
     });
 }
 
-/// How submitting one batch went.
-enum Verdict {
-    /// last.fm took it.
-    Sent,
-    /// last.fm refused these plays for good: they are dropped.
-    Refused,
-    /// Nothing more can be sent now.
-    Stopped(Problem),
-}
-
-/// Submits `plays`, signing in first when there is no session or it expired. Blocks.
-fn submit(config: &Config, plays: &[Play]) -> Verdict {
-    let attempt = || -> Result<(), NoSession> {
-        let client =
-            Client::new(&config.account.url, config.proxy.as_ref()).map_err(NoSession::Failed)?;
-        let key = session::key(&client, &config.account)?;
-        match client.scrobble(&key, plays) {
-            Err(Failure::SessionExpired) => {
-                session::forget();
-                let key = session::key(&client, &config.account)?;
-                client.scrobble(&key, plays).map_err(NoSession::Failed)
-            }
-            other => other.map_err(NoSession::Failed),
-        }
-    };
-    match attempt() {
-        Ok(()) => Verdict::Sent,
-        Err(NoSession::NoAccount) => Verdict::Stopped(Problem::NoAccount),
-        Err(NoSession::Failed(failure)) => verdict(failure),
-    }
-}
-
-/// What a failed submission means for the queue.
-fn verdict(failure: Failure) -> Verdict {
-    match failure {
-        Failure::Refused(why) => {
-            tracing::warn!("lastfm: plays refused, dropped: {why}");
-            Verdict::Refused
-        }
-        Failure::NotSetUp => Verdict::Stopped(Problem::NotSetUp),
-        Failure::LoginRejected | Failure::SessionExpired => {
-            Verdict::Stopped(Problem::LoginRejected)
-        }
-        Failure::KeyRejected => Verdict::Stopped(Problem::KeyRejected),
-        Failure::Offline(_) | Failure::Unavailable | Failure::Unreadable => {
-            Verdict::Stopped(Problem::Offline)
-        }
-    }
-}
+#[cfg(test)]
+mod tests;

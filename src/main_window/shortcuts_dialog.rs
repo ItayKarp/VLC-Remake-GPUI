@@ -11,6 +11,8 @@ mod filter;
 mod rows;
 #[cfg(test)]
 mod screenshots;
+#[cfg(test)]
+mod tests;
 
 use gpui::{
     AnyElement, App, Context, DismissEvent, Div, Entity, PromptLevel, SharedString, WeakEntity,
