@@ -74,7 +74,8 @@ pub struct DiagnosticsSettings {
     /// "Log format": plain text or one JSON object per line.
     #[serde(deserialize_with = "lenient")]
     pub log_format: LogFormat,
-    /// "Collect playback statistics": libVLC counts bitrates and lost pictures while playing.
+    /// "Collect playback statistics": libVLC counts bitrates and lost pictures while playing, for
+    /// Show Statistics. Opt-in (S9.6.1); the counts never leave the computer.
     #[serde(deserialize_with = "lenient")]
     pub collect_statistics: bool,
 }
@@ -88,7 +89,7 @@ impl Default for DiagnosticsSettings {
             show_minor_warnings: false,
             extra_options: String::new(),
             log_format: LogFormat::default(),
-            collect_statistics: true,
+            collect_statistics: false,
         }
     }
 }

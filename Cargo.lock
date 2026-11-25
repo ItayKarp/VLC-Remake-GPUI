@@ -45,7 +45,9 @@ dependencies = [
  "quick-xml",
  "raw-window-handle",
  "resvg",
+ "ring",
  "rusqlite",
+ "semver",
  "serde",
  "serde_json",
  "sys-locale",
@@ -6422,6 +6424,7 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]

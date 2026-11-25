@@ -42,6 +42,11 @@ Codex, JetBrains AI, …).
   `--notarize`). Windows: `packaging/windows/build-msi.ps1`; Linux: `ci/package-linux.sh`
   (.deb, .rpm), `packaging/linux/build-appimage.sh` and `packaging/linux/flatpak/`. Plugins
   left out of every package are in `packaging/libvlc/excluded-plugins.txt`.
+- Updates (S9.5, `docs/adr/0005-updates.md`) trust only manifests signed for the key the app
+  is built with: `cargo run --example update_manifest -- keygen <file>` makes a pair (never
+  commit the private key) and `… -- sign dist` signs. To try them, debug builds also take
+  `RVLC_UPDATE_PUBLIC_KEY` at run time and `RVLC_UPDATE_URL` pointing at an
+  `http://localhost` server holding the manifest.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.

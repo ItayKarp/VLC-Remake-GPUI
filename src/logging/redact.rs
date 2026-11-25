@@ -19,10 +19,15 @@ pub fn set_redact_file_names(on: bool) {
     REDACT_FILE_NAMES.store(on, Ordering::Relaxed);
 }
 
+/// Whether file names are hidden: in the log, and in crash reports (S9.6.2).
+pub fn redacts_file_names() -> bool {
+    REDACT_FILE_NAMES.load(Ordering::Relaxed)
+}
+
 /// A path for a log message: `<redacted>.mkv` when file names are redacted,
 /// otherwise the path itself (the log file still replaces the home directory).
 pub fn path(path: &Path) -> LoggedPath<'_> {
-    LoggedPath { path, redact: REDACT_FILE_NAMES.load(Ordering::Relaxed) }
+    LoggedPath { path, redact: redacts_file_names() }
 }
 
 /// Displays a path as [`path`] decided.

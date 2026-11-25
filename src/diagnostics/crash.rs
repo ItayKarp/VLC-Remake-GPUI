@@ -1,6 +1,8 @@
 //! Crash reports (S0.7.2). A panic anywhere writes `crash-<time>.txt` to the logs
 //! folder (backtrace, version, OS, GPU) and ends the app; the next launch offers to
-//! show the report. Reports are never uploaded.
+//! show the report. Reports are never uploaded: the user may file one on GitHub themselves
+//! ([`super::report_issue`], S9.6.1). Unless they allowed file names, a report holds no paths but
+//! source locations ([`super::scrub`], S9.6.2).
 //!
 //! Every panic ends the process, background threads included: a dead worker could
 //! otherwise leave the UI waiting forever on work that will never finish.
@@ -13,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::system;
+use super::{scrub, system};
 use crate::logging;
 
 /// Names the report the next launch hasn't shown yet.
@@ -77,7 +79,8 @@ pub fn take_pending(logs: &Path) -> Option<PathBuf> {
     report.is_file().then_some(report)
 }
 
-/// The report's text. The home directory is replaced by `~`.
+/// The report's text. The home directory is replaced by `~`, and other paths go too while file
+/// names are hidden.
 fn report(info: &PanicHookInfo<'_>, backtrace: &Backtrace) -> String {
     let thread = std::thread::current();
     let location = info.location().map_or_else(|| "unknown".into(), ToString::to_string);
@@ -94,7 +97,8 @@ fn report(info: &PanicHookInfo<'_>, backtrace: &Backtrace) -> String {
         thread.name().unwrap_or("unnamed"),
         message(info),
     );
-    logging::redact_home(&text)
+    let text = logging::redact_home(&text);
+    if logging::redacts_file_names() { scrub::paths(&text) } else { text }
 }
 
 fn message(info: &PanicHookInfo<'_>) -> String {

@@ -23,7 +23,7 @@ fn round_trip() {
 
     let reloaded = dir.load();
     assert_eq!(reloaded.settings, state.settings);
-    assert!(dir.read("settings.toml").starts_with("schema_version = 1\n"));
+    assert!(dir.read("settings.toml").starts_with("schema_version = 2\n"));
     assert!(dir.read("local.toml").contains("onboarding_complete = true"));
     // Machine-specific data stays out of the roaming file.
     assert!(!dir.read("settings.toml").contains("media_folders"));

@@ -85,15 +85,15 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "privacy.redact_file_names_in_logs",
         HISTORY,
-        tr_noop!("Hide file names in the log"),
+        tr_noop!("Hide file names in logs and crash reports"),
         Control::Toggle,
         toggle!(prefs.privacy.redact_file_names_in_logs),
     )
     .info(tr_noop!(
-        "Writes only the extension of each media file to the log, so a shared log doesn't show \
-         what you watch."
+        "Writes only the extension of each media file to the log, and leaves file names and \
+         folders out of crash reports, so a shared log or report doesn't show what you watch."
     ))
-    .keywords(&["privacy", "redact", "anonymize", "diagnostics"])
+    .keywords(&["privacy", "redact", "anonymize", "diagnostics", "crash report"])
     .advanced(),
     SettingDef::new(
         "privacy.fetch_online_metadata",

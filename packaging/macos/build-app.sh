@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the macOS app (S9.4.2): VLC.app with libVLC inside, signed, in a DMG, notarized when
-# asked. Run it on a Mac from anywhere in the repository; the results land in dist/.
+# asked, and the app zipped for the updater (S9.5). Run it on a Mac from anywhere in the
+# repository; the results land in dist/.
 #
 # Usage: packaging/macos/build-app.sh [options]
 #   --arch universal|arm64|x86_64  What to build for (default: universal, arm64 and x86_64 in
@@ -212,6 +213,13 @@ notarize() {
     spctl --assess --type open --context context:primary-signature --verbose "$dmg"
 }
 
+# The app zipped for the updater (S9.5.1), which unzips it with ditto beside the installed app.
+# A notarized build staples the app's own ticket first, so the update opens offline too.
+make_update_zip() {
+    [[ -z "$notary_profile" ]] || xcrun stapler staple "$app"
+    ditto -c -k --keepParent "$app" "$out/$name-$(version)-macos-$arch.app.zip"
+}
+
 keep_debug_symbols() {
     for a in "${architectures[@]}"; do
         local dsym
@@ -229,6 +237,7 @@ main() {
     sign_app
     make_dmg
     notarize
+    make_update_zip
     keep_debug_symbols
     ls -l "$out"
 }

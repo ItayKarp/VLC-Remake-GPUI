@@ -47,6 +47,12 @@ pub fn set_startup(extra: &str, collect_statistics: bool) {
     STARTUP.set(options).ok();
 }
 
+/// Whether the player counts playback statistics: "Collect playback statistics" as it was when
+/// VLC started, since it applies at the next launch.
+pub fn collects_statistics() -> bool {
+    !startup().iter().any(|option| option == NO_STATS)
+}
+
 /// The options [`set_startup`] set.
 pub(super) fn startup() -> &'static [String] {
     STARTUP.get().map_or(&[], Vec::as_slice)

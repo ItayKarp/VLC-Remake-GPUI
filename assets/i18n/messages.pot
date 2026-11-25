@@ -1452,7 +1452,7 @@ msgid "Couldn't take a snapshot: this video can't be captured."
 msgstr ""
 
 #: src/settings/registry/entries/diagnostics.rs
-msgid "Counts bitrates and dropped or lost pictures while playing. Turning it off saves a little work. Takes effect when VLC restarts."
+msgid "Counts bitrates and dropped or lost pictures while playing, for Show Statistics. The counts stay on this computer. Takes effect when VLC restarts."
 msgstr ""
 
 #: src/library/properties.rs
@@ -2609,7 +2609,7 @@ msgid "Hide after"
 msgstr ""
 
 #: src/settings/registry/entries/privacy.rs
-msgid "Hide file names in the log"
+msgid "Hide file names in logs and crash reports"
 msgstr ""
 
 #: src/keymap/commands.rs
@@ -4039,6 +4039,10 @@ msgstr ""
 msgid "Not available here"
 msgstr ""
 
+#: src/main_window/statistics/rows.rs
+msgid "Not collected"
+msgstr ""
+
 #: src/main_window/library_panel/file_menu.rs
 msgid "Not in the library yet"
 msgstr ""
@@ -5208,6 +5212,10 @@ msgstr ""
 msgid "Replay gain preamp"
 msgstr ""
 
+#: src/main_window/diagnostics.rs
+msgid "Report on GitHub"
+msgstr ""
+
 #: src/settings/registry/entries/performance.rs
 #: src/settings_view/media_folders.rs
 msgid "Rescan"
@@ -5924,6 +5932,10 @@ msgstr ""
 
 #: src/settings/registry/entries/controls.rs
 msgid "Skip Amounts"
+msgstr ""
+
+#: src/main_window/updates.rs
+msgid "Skip This Version"
 msgstr ""
 
 #: src/settings/registry/entries/performance.rs
@@ -7445,6 +7457,18 @@ msgstr ""
 msgid "VLC will accept any certificate, so anyone between you and a server could pretend to be it and see or change what you stream."
 msgstr ""
 
+#: src/main_window/updates.rs
+msgid "VLC {version} didn't start, so this version was put back."
+msgstr ""
+
+#: src/main_window/updates.rs
+msgid "VLC {version} is available."
+msgstr ""
+
+#: src/main_window/updates.rs
+msgid "VLC {version} is ready. It installs when you quit."
+msgstr ""
+
 #: src/main_window/now_playing.rs
 msgid "VLC's playback engine couldn't be loaded."
 msgstr ""
@@ -7683,6 +7707,10 @@ msgstr ""
 msgid "What you watch and listen to shows up here. Open a file to start, or add a folder to your library."
 msgstr ""
 
+#: src/main_window/updates.rs
+msgid "What's New"
+msgstr ""
+
 #: src/main_window/play_order.rs
 msgid "When Playback Finishes"
 msgstr ""
@@ -7785,7 +7813,7 @@ msgid "Works on one item at a time"
 msgstr ""
 
 #: src/settings/registry/entries/privacy.rs
-msgid "Writes only the extension of each media file to the log, so a shared log doesn't show what you watch."
+msgid "Writes only the extension of each media file to the log, and leaves file names and folders out of crash reports, so a shared log or report doesn't show what you watch."
 msgstr ""
 
 #: src/settings/registry/entries/video.rs
