@@ -3,6 +3,9 @@
 //! file from the video menu and Cmd/Ctrl+I, and for a library file from its menu (S4.8.1). The
 //! database is read on the history thread, so opening it never waits on the disk.
 
+#[cfg(test)]
+mod tests;
+
 use std::path::{Path, PathBuf};
 
 use futures::channel::oneshot;

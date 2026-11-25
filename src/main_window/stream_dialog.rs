@@ -10,6 +10,8 @@
 
 mod open;
 mod render;
+#[cfg(test)]
+mod tests;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::rc::Rc;
@@ -225,25 +227,4 @@ fn parse_port(text: &str) -> Result<u16, String> {
         .ok()
         .filter(|&port| port > 0)
         .ok_or_else(|| tr!("“{text}” isn't a port: use a number from 1 to 65535", text))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ports_are_numbers_in_range() {
-        assert_eq!(parse_port(" 8080 "), Ok(8080));
-        assert!(parse_port("0").is_err());
-        assert!(parse_port("70000").is_err());
-        assert!(parse_port("http").is_err());
-    }
-
-    #[test]
-    fn streams_play_here_as_settings_say() {
-        let mut recording = RecordingSettings::default();
-        assert_eq!(local(&recording), Local::PlaysHere);
-        recording.play_locally_while_streaming = false;
-        assert_eq!(local(&recording), Local::StreamOnly);
-    }
 }
