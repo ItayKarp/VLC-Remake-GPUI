@@ -1,5 +1,7 @@
 //! Downloading a podcast feed (S8.17.2): a blocking GET, run off the UI thread, through the
 //! HTTP proxy in Settings → Network when one is set, read as a [`Feed`].
+//!
+//! Podcasts download through a [`FeedSource`]: [`Web`] in the app, a stand-in in tests.
 
 use std::time::Duration;
 
@@ -45,6 +47,22 @@ impl Failure {
     }
 }
 
+/// Where feeds come from.
+pub trait FeedSource: Send + Sync {
+    /// Downloads and reads the feed at `url`, through `proxy` (the environment's when `None`).
+    /// Blocks.
+    fn fetch(&self, url: &str, proxy: Option<&Url>) -> Result<Feed, Failure>;
+}
+
+/// Feeds downloaded from the web.
+pub struct Web;
+
+impl FeedSource for Web {
+    fn fetch(&self, url: &str, proxy: Option<&Url>) -> Result<Feed, Failure> {
+        fetch(url, proxy)
+    }
+}
+
 /// The feed address `typed` means: a web link as it is, `feed://` and `podcast://` links and
 /// bare host names as `https`.
 pub fn address(typed: &str) -> Result<String, Failure> {
@@ -62,7 +80,7 @@ pub fn address(typed: &str) -> Result<String, Failure> {
 
 /// Downloads and reads the feed at `url`, through `proxy` (the environment's when `None`).
 /// Blocks.
-pub fn fetch(url: &str, proxy: Option<&Url>) -> Result<Feed, Failure> {
+fn fetch(url: &str, proxy: Option<&Url>) -> Result<Feed, Failure> {
     let network = |error: ureq::Error| Failure::Network(error.to_string());
     let proxy = match proxy {
         Some(proxy) => Some(ureq::Proxy::new(proxy.as_str()).map_err(network)?),

@@ -222,3 +222,6 @@ fn install_at_quit(cx: &mut App) {
         Err(error) => tracing::error!("updates: couldn't install {version}: {error}"),
     }
 }
+
+#[cfg(test)]
+mod tests;

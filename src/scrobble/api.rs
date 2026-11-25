@@ -6,6 +6,9 @@
 //! The API key and secret ship with the app, read when it is built from `RVLC_LASTFM_API_KEY`
 //! and `RVLC_LASTFM_API_SECRET`; the same variables set when the app runs replace them. A build
 //! without them says scrobbling isn't set up.
+//!
+//! The [`Client`] signs calls and reads answers; how a call travels is a [`Transport`]: [`Http`]
+//! over the network, or a stand-in in tests.
 
 use std::fmt::Write as _;
 use std::time::Duration;
@@ -71,12 +74,67 @@ pub enum Failure {
     Unreadable,
 }
 
-/// A client for one submission URL, holding the app's key and secret.
-pub struct Client {
+/// How a call reaches the service: one form POST, answering the HTTP status and the body.
+pub trait Transport: Send {
+    /// Posts `form` to `url`. Blocks.
+    fn post(&self, url: &str, form: &[(String, String)]) -> Result<(u16, String), Failure>;
+}
+
+/// Posts over HTTPS with a timeout, through a proxy.
+pub struct Http {
     agent: ureq::Agent,
-    url: String,
+}
+
+impl Http {
+    /// A transport through `proxy` (the environment's when `None`).
+    pub fn new(proxy: Option<&Url>) -> Result<Self, Failure> {
+        let proxy = match proxy {
+            Some(proxy) => Some(ureq::Proxy::new(proxy.as_str()).map_err(|e| offline(&e))?),
+            None => ureq::Proxy::try_from_env(),
+        };
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(TIMEOUT))
+            .proxy(proxy)
+            .http_status_as_error(false)
+            .build()
+            .into();
+        Ok(Self { agent })
+    }
+}
+
+impl Transport for Http {
+    fn post(&self, url: &str, form: &[(String, String)]) -> Result<(u16, String), Failure> {
+        let answer = self
+            .agent
+            .post(url)
+            .header("User-Agent", USER_AGENT)
+            .send_form(form.iter().map(|(name, value)| (name, value)));
+        let mut response = answer.map_err(|error| offline(&error))?;
+        let status = response.status().as_u16();
+        let text = response.body_mut().with_config().limit(MAX_ANSWER).read_to_string();
+        Ok((status, text.map_err(|error| offline(&error))?))
+    }
+}
+
+/// The app's API key and the secret calls are signed with.
+pub struct Keys {
     key: String,
     secret: String,
+}
+
+impl Keys {
+    /// The keys this app runs with, if it has them: the running app's variables, else the
+    /// ones it was built with.
+    pub fn of_this_build() -> Option<Self> {
+        credentials().map(|(key, secret)| Self { key, secret })
+    }
+}
+
+/// A client for one submission URL, holding the app's key and secret.
+pub struct Client {
+    transport: Box<dyn Transport>,
+    url: String,
+    keys: Keys,
 }
 
 #[derive(Deserialize)]
@@ -94,18 +152,13 @@ struct Session {
 impl Client {
     /// A client for `url`, going through `proxy` (the environment's when `None`).
     pub fn new(url: &str, proxy: Option<&Url>) -> Result<Self, Failure> {
-        let (key, secret) = credentials().ok_or(Failure::NotSetUp)?;
-        let proxy = match proxy {
-            Some(proxy) => Some(ureq::Proxy::new(proxy.as_str()).map_err(|e| offline(&e))?),
-            None => ureq::Proxy::try_from_env(),
-        };
-        let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(TIMEOUT))
-            .proxy(proxy)
-            .http_status_as_error(false)
-            .build()
-            .into();
-        Ok(Self { agent, url: url.to_owned(), key, secret })
+        let keys = Keys::of_this_build().ok_or(Failure::NotSetUp)?;
+        Ok(Self::with(Box::new(Http::new(proxy)?), url, keys))
+    }
+
+    /// A client for `url` that calls through `transport`, signing with `keys`.
+    pub fn with(transport: Box<dyn Transport>, url: &str, keys: Keys) -> Self {
+        Self { transport, url: url.to_owned(), keys }
     }
 
     /// Signs `username` in, answering the session key to scrobble with.
@@ -133,19 +186,11 @@ impl Client {
 
     /// Makes the call `parameters` describe, signed.
     fn call(&self, mut parameters: Vec<(String, String)>) -> Result<Answer, Failure> {
-        parameters.push(("api_key".to_owned(), self.key.clone()));
-        let signature = signature(&parameters, &self.secret);
+        parameters.push(("api_key".to_owned(), self.keys.key.clone()));
+        let signature = signature(&parameters, &self.keys.secret);
         parameters.push(("api_sig".to_owned(), signature));
         parameters.push(("format".to_owned(), "json".to_owned()));
-        let answer = self
-            .agent
-            .post(&self.url)
-            .header("User-Agent", USER_AGENT)
-            .send_form(parameters.iter().map(|(name, value)| (name, value)));
-        let mut response = answer.map_err(|error| offline(&error))?;
-        let status = response.status().as_u16();
-        let text = response.body_mut().with_config().limit(MAX_ANSWER).read_to_string();
-        let text = text.map_err(|error| offline(&error))?;
+        let (status, text) = self.transport.post(&self.url, &parameters)?;
         read(status, &text)
     }
 }

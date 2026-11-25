@@ -6,22 +6,25 @@
 //! Everything slow runs off the UI thread, and nothing here touches playback: an update is only
 //! ever installed when the app quits. Failures (no internet, a proxy refusing, a bad download)
 //! are logged and left to the next check.
+//!
+//! The check reads from an [`UpdateSource`], so each of its outcomes is tested against a
+//! stand-in source; the app's own is [`Https`].
 
 use std::path::{Path, PathBuf};
 
 use gpui::AsyncApp;
 use semver::Version;
-use url::Url;
 
 use super::install::{self, Staged};
 use super::installation::{self, Installation};
 use super::manifest::{Manifest, Package, running_version};
-use super::source::{self, Failure};
+use super::source::{Failure, Https, UpdateSource};
 use super::state::{self, UpdateState};
 use super::{News, Offer, Status, Updater};
 use crate::settings;
 
 /// What a check found.
+#[derive(Debug, PartialEq)]
 enum Found {
     /// Nothing newer, or nothing not skipped.
     Nothing,
@@ -31,22 +34,26 @@ enum Found {
     Ready(Offer, Staged),
 }
 
-/// Checks for an update, unless one is being checked for or is ready already.
+/// Checks for an update over HTTPS, unless one is being checked for or is ready already.
 pub async fn run(cx: &mut AsyncApp) {
+    let proxy = cx.update(|cx| settings::proxy_url(&settings::get(cx).prefs.network.http_proxy));
+    run_with(Https::new(proxy), cx).await;
+}
+
+/// Checks `source` for an update, unless one is being checked for or is ready already, and
+/// tells the [`Updater`] what it found.
+async fn run_with(source: impl UpdateSource + 'static, cx: &mut AsyncApp) {
     let started = cx.update(|cx| {
         let updater = cx.try_global::<Updater>()?;
         let idle = matches!(updater.status, Status::Idle);
         let dir = updater.data_dir.clone().filter(|_| idle)?;
-        let proxy = settings::proxy_url(&settings::get(cx).prefs.network.http_proxy);
         let installation = updater.installation.clone();
         cx.global_mut::<Updater>().status = Status::Busy;
-        Some((dir, proxy, installation))
+        Some((dir, installation))
     });
-    let Some((dir, proxy, installation)) = started else { return };
-    let found = cx
-        .background_executor()
-        .spawn(async move { find(&dir, proxy.as_ref(), &installation) })
-        .await;
+    let Some((dir, installation)) = started else { return };
+    let found =
+        cx.background_executor().spawn(async move { find(&source, &dir, &installation) }).await;
     cx.update(|cx| {
         let updater = cx.global_mut::<Updater>();
         updater.last_check_s = Some(state::now_s());
@@ -64,11 +71,15 @@ pub async fn run(cx: &mut AsyncApp) {
     });
 }
 
-/// The check itself, blocking: reads the manifest, then downloads and readies its package.
-fn find(dir: &Path, proxy: Option<&Url>, installation: &Installation) -> Result<Found, Failure> {
-    let url = source::manifest_url();
-    tracing::info!("updates: checking {url}");
-    let fetched = source::fetch_manifest(&url, proxy);
+/// The check itself, blocking: reads the manifest, then downloads and readies its package. The
+/// check's time is saved even when it fails, so a failing server is tried again a day later.
+fn find(
+    source: &dyn UpdateSource,
+    dir: &Path,
+    installation: &Installation,
+) -> Result<Found, Failure> {
+    tracing::info!("updates: checking {}", source.location());
+    let fetched = source.manifest();
     let mut state = UpdateState::load(dir);
     state.last_check_s = Some(state::now_s());
     state.save(dir);
@@ -79,7 +90,7 @@ fn find(dir: &Path, proxy: Option<&Url>, installation: &Installation) -> Result<
     let offer = Offer { version: manifest.version.clone(), notes_url: manifest.notes_url.clone() };
     match installable(&manifest, installation) {
         Some(package) => {
-            let staged = ready(package, &manifest.version, dir, proxy, installation)?;
+            let staged = ready(source, package, &manifest.version, dir, installation)?;
             Ok(Found::Ready(offer, staged))
         }
         None => Ok(Found::Available(offer)),
@@ -88,16 +99,16 @@ fn find(dir: &Path, proxy: Option<&Url>, installation: &Installation) -> Result<
 
 /// Downloads `package` of `version` into `dir` (or beside the app), checks it and readies it.
 fn ready(
+    source: &dyn UpdateSource,
     package: &Package,
     version: &Version,
     dir: &Path,
-    proxy: Option<&Url>,
     installation: &Installation,
 ) -> Result<Staged, Failure> {
     let download = install::download_path(installation, package, version, dir);
     std::fs::create_dir_all(dir).map_err(Failure::Disk)?;
     tracing::info!("updates: downloading {version} from {}", package.url);
-    source::download(package, &download, proxy)?;
+    source.download(package, &download)?;
     let staged = install::stage(installation, &download).map_err(Failure::Disk)?;
     forget_older_downloads(dir, &download, version);
     Ok(staged)
@@ -132,3 +143,6 @@ fn forget_older_downloads(dir: &Path, kept: &Path, newest: &Version) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

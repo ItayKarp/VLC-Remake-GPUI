@@ -6,16 +6,22 @@
 //! database ([`crate::db::podcasts`]), which only the history thread touches, so every change
 //! runs there and reads the lists again, like Network's streams. Every feed is refreshed once
 //! when the app starts.
+//!
+//! Feeds come from the [`FeedSource`] [`init_with`] was given: the web in the app, a stand-in in
+//! tests.
 
 pub mod dates;
 pub mod feed;
 pub mod fetch;
+
+use std::sync::Arc;
 
 use futures::channel::oneshot;
 use gpui::{App, AsyncApp, Global, Task};
 use rusqlite::Connection;
 
 use self::feed::Feed;
+use self::fetch::{FeedSource, Web};
 use crate::db::now_ms;
 use crate::db::podcasts::{self, Episode, EpisodeId, FeedId, Subscription};
 use crate::history::History;
@@ -30,8 +36,19 @@ pub struct Podcasts {
 
 impl Global for Podcasts {}
 
-/// Reads the subscriptions from the database, then refreshes every feed.
+/// Where feeds are downloaded from.
+struct Source(Arc<dyn FeedSource>);
+
+impl Global for Source {}
+
+/// Reads the subscriptions from the database, then refreshes every feed from the web.
 pub fn init(cx: &mut App) {
+    init_with(Arc::new(Web), cx);
+}
+
+/// Reads the subscriptions from the database, then refreshes every feed from `source`.
+fn init_with(source: Arc<dyn FeedSource>, cx: &mut App) {
+    cx.set_global(Source(source));
     cx.set_global(Podcasts::default());
     let read = run(cx, |_, _| Ok(()));
     cx.spawn(async move |cx| {
@@ -128,10 +145,12 @@ async fn refresh_now(id: FeedId, cx: &mut AsyncApp) -> Result<(), fetch::Failure
     Ok(())
 }
 
-/// Downloads and reads the feed at `url`, off the UI thread.
+/// Downloads and reads the feed at `url`, off the UI thread, from the source [`init_with`] was
+/// given (the web before it runs).
 fn download(url: String, cx: &App) -> Task<Result<Feed, fetch::Failure>> {
     let proxy = settings::proxy_url(&settings::get(cx).prefs.network.http_proxy);
-    cx.background_executor().spawn(async move { fetch::fetch(&url, proxy.as_ref()) })
+    let source = cx.try_global::<Source>().map_or_else(|| Arc::new(Web) as _, |s| s.0.clone());
+    cx.background_executor().spawn(async move { source.fetch(&url, proxy.as_ref()) })
 }
 
 /// Runs `work` on the history thread's database, then reads the lists into the global.
@@ -156,3 +175,6 @@ fn run(
         Some(())
     })
 }
+
+#[cfg(test)]
+mod tests;
