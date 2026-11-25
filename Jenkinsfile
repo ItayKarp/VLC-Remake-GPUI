@@ -8,9 +8,9 @@
 // - into `staging` (and `staging` itself): everything but the release build. GitHub requires
 //   it to pass, and the pull request to come from `dev`.
 // - into `main` (and `main` itself): everything, plus a release build of both backends together
-//   (the `all` cell) packaged as Linux .deb and .tar.gz artifacts. GitHub requires it to pass, the pull request to come from `staging` and
-//   Cargo.toml's version not to be released yet. A merge into `main` publishes the packages as
-//   the GitHub release `v<version>`.
+//   (the `all` cell) packaged as Linux .deb, .rpm and .tar.gz artifacts. GitHub requires it to
+//   pass, the pull request to come from `staging` and Cargo.toml's version not to be released
+//   yet. A merge into `main` publishes the packages as the GitHub release `v<version>`.
 //
 // Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
 // build agent, triggered by GitHub's push and pull request webhooks. Windows and macOS aren't
@@ -27,7 +27,8 @@
 //
 // The agent needs rustup, Git, pkg-config, cargo-llvm-cov and the GPUI build libraries
 // (Debian: libfontconfig-dev libvulkan1 libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev
-// libzstd-dev), plus a Vulkan driver (mesa-vulkan-drivers) for the screenshot tests. It should
+// libzstd-dev), plus a Vulkan driver (mesa-vulkan-drivers) for the screenshot tests, and `rpm`
+// for the .rpm (without it the release has no .rpm). It should
 // have mold too (Debian: mold): every cargo call links with it when it's there, and linking a
 // GPUI binary takes a Pi far less time with mold than with GNU ld. Without it builds still work,
 // saying the default linker is in use.

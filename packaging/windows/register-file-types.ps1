@@ -9,8 +9,9 @@
     the Capabilities that "Default apps" lists. It doesn't take over any file type: Windows
     asks the user to pick the default. No administrator rights are needed.
 
-    The installer (S9.4.1) should register the same keys. Keep $Extensions and $UrlSchemes in
-    sync with src/app/file_types.rs; its tests check them.
+    For development builds: the installer (RedesignedVLC.wxs, S9.4.1) registers the same keys
+    for every user. Keep $Extensions and $UrlSchemes in sync with src/app/file_types.rs; its
+    tests check them.
 
 .EXAMPLE
     .\register-file-types.ps1 -Exe C:\path\to\RedesignedVLC.exe

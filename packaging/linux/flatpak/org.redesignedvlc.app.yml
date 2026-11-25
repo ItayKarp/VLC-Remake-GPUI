@@ -1,0 +1,103 @@
+# The Flatpak (S9.4.3). Build it from the repository's root:
+#
+#   python3 flatpak-cargo-generator.py Cargo.lock -o packaging/linux/flatpak/cargo-sources.json
+#   flatpak-builder --user --install --force-clean target/flatpak \
+#       packaging/linux/flatpak/org.redesignedvlc.app.yml
+#
+# flatpak-cargo-generator.py is from github.com/flatpak/flatpak-builder-tools (cargo/): builds
+# run offline, so every crate, GPUI's git checkout included, is listed as a source. Generate
+# cargo-sources.json again whenever Cargo.lock changes; it isn't kept in the repository.
+#
+# libVLC is built here from VideoLAN's source, with FFmpeg and the other libraries the
+# freedesktop runtime has, so the Flatpak doesn't depend on the system's VLC. Patented codecs
+# (H.264, HEVC, AAC) come from the runtime's codecs-extra extension, which Flatpak installs
+# with it.
+#
+# The SDK's rust-stable extension must be at least the Rust in rust-toolchain.toml; use the
+# newest runtime-version whose extension is.
+#
+# Files: the Videos, Music and Pictures folders (snapshots and recordings go there), Downloads
+# and removable drives (read only) are open to the app. Anything else, such as a media folder
+# on another disk, is picked in the file dialog, which goes through the FileChooser portal: the
+# app then gets a /run/user/<uid>/doc/… path that stays readable across restarts. The library
+# (S4.2) scans such a folder, but the portal's files raise no change notifications, so it picks
+# up changes at its periodic check rather than at once. Wider access can be granted with
+# `flatpak override --user --filesystem=/path org.redesignedvlc.app` (or Flatseal).
+app-id: org.redesignedvlc.app
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: RedesignedVLC
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  # The GPU, and capture devices and disc drives (S8.9).
+  - --device=all
+  - --filesystem=xdg-videos
+  - --filesystem=xdg-music
+  - --filesystem=xdg-pictures
+  - --filesystem=xdg-download:ro
+  - --filesystem=/media:ro
+  - --filesystem=/run/media:ro
+  - --filesystem=/mnt:ro
+  # Keeping the screen on during video (S1.4.3), the tray icon (S8.16.1) and the last.fm
+  # password in the keyring (S5.5.3).
+  - --talk-name=org.freedesktop.ScreenSaver
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.secrets
+modules:
+  - name: vlc
+    config-opts:
+      - --disable-qt
+      - --disable-skins2
+      - --disable-lua
+      - --disable-ncurses
+      - --disable-a52
+      - --disable-update-check
+      - --disable-addonmanagermodules
+      - BUILDCC=gcc
+    # Stripping after post-install would change the plugins' sizes, which the cache records.
+    build-options:
+      no-debuginfo: true
+    cleanup:
+      - /bin
+      - /include
+      - /lib/pkgconfig
+      - /share/man
+      - '*.la'
+    # The plugins' times are set to the epoch, as they will be once Flatpak installs them, and
+    # the plugin cache is written for them then; otherwise libVLC would find it stale (S9.4.4).
+    post-install:
+      - find /app/lib/vlc/plugins -type f -exec touch -h -d @0 {} +
+      - /app/lib/vlc/vlc-cache-gen /app/lib/vlc/plugins
+    sources:
+      - type: archive
+        url: https://download.videolan.org/pub/videolan/vlc/3.0.23/vlc-3.0.23.tar.xz
+        sha256: e891cae6aa3ccda69bf94173d5105cbc55c7a7d9b1d21b9b21666e69eff3e7e0
+
+  - name: redesigned-vlc
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/redesigned-vlc/cargo
+    build-commands:
+      - cargo --offline build --release
+      - install -Dm755 target/release/RedesignedVLC /app/bin/RedesignedVLC
+      - install -Dm644 packaging/linux/redesigned-vlc.desktop /app/share/applications/org.redesignedvlc.app.desktop
+      - sed -i 's/^Icon=.*/Icon=org.redesignedvlc.app/' /app/share/applications/org.redesignedvlc.app.desktop
+      - install -Dm644 packaging/linux/flatpak/org.redesignedvlc.app.metainfo.xml /app/share/metainfo/org.redesignedvlc.app.metainfo.xml
+      - for size in 32 128 256 512; do install -Dm644 assets/app-icon/icon-$size.png /app/share/icons/hicolor/${size}x${size}/apps/org.redesignedvlc.app.png; done
+    sources:
+      - type: dir
+        path: ../../..
+        skip:
+          - target
+          - vendor
+          - dist
+      - cargo-sources.json

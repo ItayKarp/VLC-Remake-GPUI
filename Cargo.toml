@@ -173,18 +173,6 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gpui_wgpu = { git = "https://github.com/ItayKarp/zed", rev = "3d49bee56ab059f70e578f757e133aa510a934e3" }
 
-# macOS .app bundle (`cargo install cargo-bundle && cargo bundle --release`). Bundle a release on
-# a Mac with Xcode's Metal toolchain and without `runtime_shaders`, so the shaders are compiled
-# into the app instead of on every launch.
-[package.metadata.bundle]
-name = "VLC"
-identifier = "org.redesignedvlc.app"
-icon = ["assets/app-icon/icon-32.png", "assets/app-icon/icon-128.png", "assets/app-icon/icon-256.png", "assets/app-icon/icon-512.png", "assets/app-icon/icon-1024.png"]
-category = "public.app-category.video"
-short_description = "Redesigned VLC media player"
-# File types and URL schemes for Finder's "Open With" (S0.6.3); see src/app/file_types.rs.
-osx_info_plist_exts = ["packaging/macos/Info.plist.ext"]
-
 # Build profiles. Debug builds keep file and line numbers for panics and backtraces, not the
 # full debug info a debugger reads: less to write and link on every rebuild, and a GPUI binary
 # with full debug info outgrows CI's Raspberry Pi's memory while linking. Attach a debugger with

@@ -1,6 +1,10 @@
 //! The VLC desktop app: hands the launch to a running instance if there is one,
 //! otherwise starts GPUI, initializes each service, and opens the first window.
 
+// Shipped Windows builds start without a console window (S9.4.1); debug builds keep theirs for
+// the log.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 #[macro_use]
 mod i18n;
 

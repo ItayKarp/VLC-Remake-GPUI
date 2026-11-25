@@ -2,3 +2,5 @@
 /.idea
 /.claude/worktrees
 /vendor
+/dist
+/packaging/linux/flatpak/cargo-sources.json
