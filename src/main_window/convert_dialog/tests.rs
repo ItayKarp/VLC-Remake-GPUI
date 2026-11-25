@@ -11,7 +11,7 @@ use crate::app::media::Media;
 use crate::convert::{self, Conversions, Destination, Preset, Status};
 use crate::keymap::actions::Convert;
 use crate::main_window::device_dialog::tests::{draw, open_view, play_mock};
-use crate::main_window::tests::{main_view, open};
+use crate::main_window::tests::{has_dialog, main_view, open};
 use crate::opening::scratch::scratch_dir;
 
 /// A file to convert, which needn't exist.
@@ -124,11 +124,6 @@ fn main_with_conversions(cx: &mut TestAppContext) -> &mut VisualTestContext {
     let cx = open(cx);
     cx.update(|_, cx| convert::init(cx));
     cx
-}
-
-fn has_dialog(cx: &mut VisualTestContext) -> bool {
-    let main = main_view(cx);
-    main.read_with(cx, |main, cx| main.modals.read(cx).is_open())
 }
 
 #[gpui::test]

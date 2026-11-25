@@ -3,6 +3,7 @@
 use gpui::{TestAppContext, VisualTestContext};
 
 use super::MainWindow;
+use super::tray::InTray;
 use crate::app::request::OpenRequest;
 use crate::keymap;
 use crate::ui::menu::MenuItem;
@@ -10,7 +11,7 @@ use crate::ui::toast::Level;
 use crate::ui::toast::tests::Shown;
 
 /// The main window with the real keymap, its player keys focused.
-pub(super) fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
+pub(crate) fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
     cx.update(|cx| {
         crate::settings::init_in_memory(cx);
         crate::theme::init(cx);
@@ -25,8 +26,20 @@ pub(super) fn open(cx: &mut TestAppContext) -> &mut VisualTestContext {
 }
 
 /// The window's view.
-pub(super) fn main_view(cx: &mut VisualTestContext) -> gpui::Entity<MainWindow> {
+pub(crate) fn main_view(cx: &mut VisualTestContext) -> gpui::Entity<MainWindow> {
     cx.update(|window, _| window.root::<MainWindow>().flatten().expect("the main window's view"))
+}
+
+/// Hides the window into the tray, as closing it does where the OS can hide windows.
+pub(crate) fn hide_in_tray(cx: &mut VisualTestContext) {
+    let main = main_view(cx);
+    main.update(cx, |main, _| main.windowing.tray = InTray::Hidden);
+}
+
+/// Whether the window shows a dialog.
+pub(crate) fn has_dialog(cx: &mut VisualTestContext) -> bool {
+    let main = main_view(cx);
+    main.read_with(cx, |main, cx| main.modals.read(cx).is_open())
 }
 
 fn is_fullscreen(cx: &mut VisualTestContext) -> bool {
