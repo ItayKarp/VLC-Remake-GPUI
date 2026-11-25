@@ -36,6 +36,7 @@ fn an_appimage_is_swapped_in_and_can_be_restored() {
 
     assert_eq!(restore(&backup, &Recorder::default()).unwrap(), Some(appimage.clone()));
     assert_eq!(fs::read_to_string(&appimage).unwrap(), "old");
+    assert!(!dir.join(".VLC.AppImage.failed").exists(), "the failed update is thrown away");
     fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -168,12 +169,21 @@ fn an_app_without_a_name_cannot_be_swapped() {
 }
 
 #[test]
-fn a_missing_previous_version_cannot_be_restored() {
+fn a_missing_previous_version_cannot_be_restored_and_the_update_stays() {
     let dir = scratch_dir();
     let installed = dir.join("VLC.AppImage");
     fs::write(&installed, "new").unwrap();
-    let backup = Backup::Moved { installed, saved: dir.join("gone") };
+    let backup = Backup::Moved { installed: installed.clone(), saved: dir.join("gone") };
     assert!(restore(&backup, &Recorder::default()).is_err());
+    assert_eq!(fs::read_to_string(&installed).unwrap(), "new", "the app is still there");
+    assert!(!dir.join(".VLC.AppImage.failed").exists());
+}
+
+#[test]
+fn an_app_with_no_name_cannot_be_restored() {
+    let backup = Backup::Moved { installed: "/".into(), saved: scratch_dir().join("saved") };
+    let restored = restore(&backup, &Recorder::default());
+    assert_eq!(restored.unwrap_err().kind(), io::ErrorKind::InvalidInput);
 }
 
 #[test]

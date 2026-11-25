@@ -21,6 +21,8 @@ use super::state::Backup;
 const UPDATE_ROLE: &str = "update";
 /// What a sibling of the app holding the previous version is called.
 const PREVIOUS_ROLE: &str = "previous";
+/// What a sibling of the app holding an update that failed is called, while it is replaced.
+const FAILED_ROLE: &str = "failed";
 
 /// An update downloaded, checked and ready to install at quit.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -142,8 +144,7 @@ fn swap(installed: &Path, ready: &Path) -> io::Result<PathBuf> {
 pub fn restore(backup: &Backup, launcher: &dyn Launcher) -> io::Result<Option<PathBuf>> {
     match backup {
         Backup::Moved { installed, saved } => {
-            remove(installed)?;
-            std::fs::rename(saved, installed)?;
+            put_back(installed, saved)?;
             // An AppImage is its own program; a bundle's is where this one ran from.
             let program =
                 if installed.is_file() { installed.clone() } else { std::env::current_exe()? };
@@ -155,6 +156,23 @@ pub fn restore(backup: &Backup, launcher: &dyn Launcher) -> io::Result<Option<Pa
         }
         Backup::Msi { previous: None, .. } => Err(io::Error::other("no previous package kept")),
     }
+}
+
+/// Moves the update at `installed` aside and `saved` into its place, then throws the update
+/// away. If `saved` can't be moved, the update goes back, so the app is never left missing.
+fn put_back(installed: &Path, saved: &Path) -> io::Result<()> {
+    let failed =
+        installation::sibling(installed, FAILED_ROLE).ok_or(io::ErrorKind::InvalidInput)?;
+    remove(&failed)?;
+    std::fs::rename(installed, &failed)?;
+    if let Err(error) = std::fs::rename(saved, installed) {
+        std::fs::rename(&failed, installed)?;
+        return Err(error);
+    }
+    if let Err(error) = remove(&failed) {
+        tracing::warn!("updates: couldn't remove the update that failed: {error}");
+    }
+    Ok(())
 }
 
 /// The update started: the version kept for going back isn't needed any more.
