@@ -25,6 +25,7 @@ mod navigation;
 mod network;
 mod onboarding;
 mod opening;
+mod perf;
 mod pip_window;
 mod player_layout;
 mod playlists;
@@ -58,6 +59,7 @@ use crate::app::instance::{self, Role};
 use crate::app::request::Launch;
 
 fn main() {
+    perf::start();
     // SAFETY: nothing else runs yet, so no thread can read the environment meanwhile.
     unsafe { engine::prepare_environment() };
     diagnostics::init();
@@ -83,6 +85,7 @@ fn main() {
         scrobble::init(cx);
         session::init(cx);
         diagnostics::follow_settings(cx);
+        perf::init(cx);
         theme::init(cx);
         ui::init(cx);
         keymap::init(cx);

@@ -137,7 +137,10 @@ impl VideoView {
     /// Swaps in the newest delivery, freeing what GPUI kept for the replaced picture.
     fn advance(&mut self, window: &mut Window) {
         let next = match self.slot.take() {
-            Some(Delivery::Frame(frame)) => Some(frame),
+            Some(Delivery::Frame(frame)) => {
+                crate::perf::picture_shown();
+                Some(frame)
+            }
             Some(Delivery::Cleared) => None,
             None => return,
         };

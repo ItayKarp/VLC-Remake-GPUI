@@ -19,6 +19,9 @@ skins = []
 # Settings → Extensions, the Add-ons & Scripts page (S5.10.4, D19). Off until an extension
 # system exists (S8.14, docs/adr/0003-extensions-and-skins.md).
 extensions = []
+# Performance budgets (S9.3.1): GPUI's frame timing, which `RVLC_PERF` reads to report each
+# window's draw times and idle redraws. Off in shipped builds: GPUI records nothing without it.
+perf = ["gpui/profiler"]
 
 [dependencies]
 # GPUI from our Zed fork (github.com/ItayKarp/zed), pinned to one commit (S0.8.2). The fork is

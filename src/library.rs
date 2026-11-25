@@ -111,6 +111,7 @@ pub fn init(cx: &mut App) {
     });
     cx.spawn(async move |cx| {
         while let Some(roots) = received.next().await {
+            crate::perf::library_items(roots.iter().map(|root| root.files as u64).sum());
             cx.update(|cx| cx.update_global::<Library, _>(|library, _| library.roots = roots));
         }
     })

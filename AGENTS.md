@@ -32,6 +32,10 @@ Codex, JetBrains AI, …).
 - OpenSubtitles (S6.5) needs an API key from opensubtitles.com: set `RVLC_OPENSUBTITLES_API_KEY`
   when building (it is compiled in) or when running (it replaces the built-in one). Never
   commit a key.
+- To measure a run against the performance budgets (S9.3), set `RVLC_PERF=1` (or a file path
+  for a JSON report) and build with `--features perf` for frame timing; the report is logged
+  when the app quits. Measure release builds (`--profile release-fast`), which need
+  `RVLC_LIBVLC_DIR` pointed at `vendor/libvlc/<os>-<arch>`.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.

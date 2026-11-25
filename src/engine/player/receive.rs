@@ -82,6 +82,11 @@ impl Player {
             return;
         }
         self.state = next;
+        crate::perf::phase(match next {
+            PlaybackState::Playing => crate::perf::Phase::Playing,
+            PlaybackState::Paused => crate::perf::Phase::Paused,
+            _ => crate::perf::Phase::Other,
+        });
         if next == PlaybackState::Playing {
             self.audio.sounding_since = Some(Instant::now());
         }

@@ -22,6 +22,14 @@ use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
 
+impl MainWindow {
+    /// Whether the media folders' rows may be on screen: in the empty state, or on the library's
+    /// Home when it has nothing yet. Otherwise the indexer's reports change nothing shown.
+    pub(super) fn shows_library_folders(&self, cx: &App) -> bool {
+        self.showing_video(cx).is_none() || self.library_panel.is_open()
+    }
+}
+
 /// One row per media folder; nothing before the library has any.
 pub(super) fn render(p: &Palette, cx: &mut Context<MainWindow>) -> Option<Div> {
     let roots = library::roots(cx).to_vec();
