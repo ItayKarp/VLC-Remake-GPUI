@@ -7,10 +7,10 @@
 // - into `dev` (and `dev` itself): nothing. These pull requests merge without CI.
 // - into `staging` (and `staging` itself): everything but the release build. GitHub requires
 //   it to pass, and the pull request to come from `dev`.
-// - into `main` (and `main` itself): everything, the release build packaged as Linux .deb, .rpm
-//   and .tar.gz artifacts. GitHub requires it to pass, the pull request to come from `staging` and
-//   Cargo.toml's version not to be released yet. A merge into `main` publishes the packages as
-//   the GitHub release `v<version>`.
+// - into `main` (and `main` itself): everything, plus a release build of both backends together
+//   (the `all` cell) packaged as Linux .deb, .rpm and .tar.gz artifacts. GitHub requires it to
+//   pass, the pull request to come from `staging` and Cargo.toml's version not to be released
+//   yet. A merge into `main` publishes the packages as the GitHub release `v<version>`.
 //
 // Runs on one always-on Raspberry Pi (arm64 Linux) that hosts Jenkins, SonarQube and the
 // build agent, triggered by GitHub's push and pull request webhooks. Windows and macOS aren't
@@ -186,19 +186,22 @@ pipeline {
                     }
 
                     stage('Release build') {
+                        // Only the `all` cell: its binary is the one released. The `x11` and
+                        // `wayland` cells' Clippy and tests already compile every line of their
+                        // backend, so a release build of each would only optimize code already
+                        // checked, for 12 minutes a build on the Pi.
                         when {
-                            expression { ciLevel() == 'release' }
+                            allOf {
+                                expression { ciLevel() == 'release' }
+                                expression { env.BACKENDS == 'all' }
+                            }
                         }
                         steps {
                             // The shipping profile, thin LTO and one codegen unit, since this
                             // build is what gets released: far slower to build and link on a Pi
                             // than the others, but it only runs on the way to `main`.
                             runCargo "build --release ${env.FEATURES}"
-                            script {
-                                if (env.BACKENDS == 'all') {
-                                    packageLinux()
-                                }
-                            }
+                            packageLinux()
                         }
                     }
                 }
