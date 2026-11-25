@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Merged into the bundle's Info.plist by cargo-bundle (osx_info_plist_exts in Cargo.toml).
+<!-- Merged into the bundle's Info.plist by packaging/macos/build-app.sh (S9.4.2).
      Keep the lists in sync with src/app/file_types.rs; its tests check them. -->
 <plist version="1.0">
 <dict>

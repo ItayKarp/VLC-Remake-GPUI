@@ -1,0 +1,30 @@
+# libVLC plugins the packages leave out (S9.4.4, docs/adr/0001-playback-backend.md "Shipping the
+# runtime"), by module name: `macosx` stands for libmacosx_plugin.dylib, libmacosx_plugin.dll and
+# libmacosx_plugin.so wherever they sit under plugins/. A name a platform doesn't have is skipped.
+#
+# Only plugins that can't work in this app go here: VLC's own interfaces (the app is the
+# interface), plugins that only fail to load in its process, and scripting with no scripts
+# shipped. Codecs, demuxers, filters and stream outputs stay, since settings and Convert (S8.10)
+# may name any of them.
+
+# VLC's interfaces and control front-ends.
+macosx
+qt
+skins2
+ncurses
+oldrc
+rc
+gestures
+hotkeys
+netsync
+# Add-on manager and VLC's own last.fm client: the app has its own (S8.17).
+addonsfsstorage
+addonsvorepository
+audioscrobbler
+# macOS: notifications through Growl.framework, which isn't there, and the window video outputs
+# the app never asks for (it draws video itself through vmem).
+osx_notifications
+vout_macosx
+caopengllayer
+# Lua: playlist and extension scripts, none of which are shipped.
+lua

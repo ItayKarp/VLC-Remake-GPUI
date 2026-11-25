@@ -36,6 +36,12 @@ Codex, JetBrains AI, …).
   for a JSON report) and build with `--features perf` for frame timing; the report is logged
   when the app quits. Measure release builds (`--profile release-fast`), which need
   `RVLC_LIBVLC_DIR` pointed at `vendor/libvlc/<os>-<arch>`.
+- Packages (S9.4) go to `dist/`. macOS: `packaging/macos/build-app.sh --arch arm64` builds
+  VLC.app and a DMG from `vendor/libvlc` (add `RVLC_FEATURES=runtime_shaders` without the Metal
+  toolchain; a universal build needs `--vlc <universal VLC.app>`, shipping needs `--sign` and
+  `--notarize`). Windows: `packaging/windows/build-msi.ps1`; Linux: `ci/package-linux.sh`
+  (.deb, .rpm), `packaging/linux/build-appimage.sh` and `packaging/linux/flatpak/`. Plugins
+  left out of every package are in `packaging/libvlc/excluded-plugins.txt`.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.

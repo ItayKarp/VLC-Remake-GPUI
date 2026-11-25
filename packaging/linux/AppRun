@@ -1,0 +1,7 @@
+#!/bin/sh
+# Starts the AppImage's app (S9.4.3) with the libVLC inside it: its plugins from the AppImage,
+# not the system's, which may be another version. The libraries themselves load from usr/lib
+# through the binary's RUNPATH, which linuxdeploy sets.
+here="$(dirname "$(readlink -f "$0")")"
+export VLC_PLUGIN_PATH="$here/usr/lib/vlc/plugins"
+exec "$here/usr/bin/RedesignedVLC" "$@"

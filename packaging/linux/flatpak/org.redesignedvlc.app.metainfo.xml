@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- What software centers show for the Flatpak (S9.4.3). -->
+<component type="desktop-application">
+  <id>org.redesignedvlc.app</id>
+  <name>VLC</name>
+  <summary>Play videos, music and network streams</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <launchable type="desktop-id">org.redesignedvlc.app.desktop</launchable>
+  <url type="homepage">https://github.com/ItayKarp/VLC-Remake-GPUI</url>
+  <description>
+    <p>A VLC media player with a redesigned interface, built on GPUI and libVLC.</p>
+  </description>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-11-25" />
+  </releases>
+</component>
