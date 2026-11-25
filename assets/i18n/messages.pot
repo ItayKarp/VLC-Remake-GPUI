@@ -428,6 +428,10 @@ msgstr ""
 msgid "Allow and Search"
 msgstr ""
 
+#: src/settings/registry/entries/privacy.rs
+msgid "Allows looking up titles and cover art online for media without its own. VLC has no online source for them yet, so nothing about your files leaves this computer either way."
+msgstr ""
+
 #: src/main_window/queue_panel/bookmarks/store.rs
 msgid "Already bookmarked · {name}"
 msgstr ""
@@ -3269,6 +3273,10 @@ msgstr ""
 msgid "Library"
 msgstr ""
 
+#: src/main_window/about.rs
+msgid "Licenses"
+msgstr ""
+
 #: src/settings/registry/entries/general.rs
 #: src/theme.rs
 msgid "Light"
@@ -3390,10 +3398,6 @@ msgstr ""
 
 #: src/settings/registry/entries/general.rs
 msgid "Looks for a new version of VLC now and then, and offers to install it."
-msgstr ""
-
-#: src/settings/registry/entries/privacy.rs
-msgid "Looks up cover art online for media without its own. Off, nothing about your files leaves this computer."
 msgstr ""
 
 #: src/main_window/settings_panel/equalizer_section.rs
@@ -6436,6 +6440,10 @@ msgstr ""
 msgid "Subtitles for {video}"
 msgstr ""
 
+#: src/main_window/add_subtitles/credit.rs
+msgid "Subtitles provided by OpenSubtitles.com"
+msgstr ""
+
 #: src/settings/registry/entries/subtitle_style.rs
 msgid "Subtitles will be invisible."
 msgstr ""
@@ -7429,6 +7437,14 @@ msgstr ""
 msgid "VLC forgets {forgotten}. Your library, playlists and favorites stay. This can't be undone."
 msgstr ""
 
+#: src/settings/registry/entries/library.rs
+msgid "VLC has no online source yet, so only the file and its folder are used."
+msgstr ""
+
+#: src/settings/registry/entries/privacy.rs
+msgid "VLC has no online source yet, so titles and art come from the file and its folder."
+msgstr ""
+
 #: src/onboarding/welcome.rs
 msgid "VLC is a free and open source cross-platform multimedia player and framework that plays most multimedia files as well as DVDs, Audio CDs, VCDs, and various streaming protocols."
 msgstr ""
@@ -7748,7 +7764,7 @@ msgid "Where sound plays. System default follows the device chosen in the system
 msgstr ""
 
 #: src/settings/registry/entries/library.rs
-msgid "Where the library finds titles and covers: the file's own tags and pictures, a cover image in its folder, or the internet, while Settings → Privacy allows it."
+msgid "Where the library finds titles and covers: the file's own tags and pictures, or a cover image in its folder. The internet isn't used yet: VLC has no online source for them."
 msgstr ""
 
 #: src/settings/registry/entries/diagnostics.rs

@@ -52,6 +52,9 @@ Codex, JetBrains AI, …).
   pinned archive), then
   `cargo test --features runtime_shaders corpus -- --ignored --test-threads 1` runs the corpus
   tests, silently.
+- The third-party licenses page (S9.9.2, `docs/legal.md`) is generated: after changing
+  dependencies, run `tools/licenses/generate.sh` (needs
+  `cargo install cargo-about --locked --features cli`); `licenses::tests` fails until you do.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.

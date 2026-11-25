@@ -26,6 +26,7 @@ mod fuzz;
 mod history;
 mod keymap;
 mod library;
+mod licenses;
 mod logging;
 mod main_window;
 mod native_window;

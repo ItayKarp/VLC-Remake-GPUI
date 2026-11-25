@@ -45,7 +45,7 @@ you turn it on, and applies when VLC restarts.
 | What | Sends | Default |
 |---|---|---|
 | **Check for updates automatically** (General) | a request for the latest release's manifest on GitHub | Off |
-| **Fetch titles and cover art from the internet** (Privacy) | the title, artist and album of media without cover art, to libVLC's art providers (with Library → artwork from the internet) | Off |
+| **Fetch titles and cover art from the internet** (Privacy) | nothing yet: libVLC 3 looks art up online only through Lua scripts, and none ship (`docs/legal.md`), so art comes from the file and its folder | Off |
 | **Submit played tracks to last.fm** (Privacy) | title, artist and album of the music you play | Off |
 | **Search OpenSubtitles** (Privacy) | the video's file hash and the words searched for | Off |
 | Podcasts (Network) | requests for the feeds you subscribed to | none until you subscribe |

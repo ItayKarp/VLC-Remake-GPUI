@@ -13,6 +13,7 @@ use gpui::{
     accesskit, div, prelude::*, px,
 };
 
+use super::credit::credit;
 use super::files::spaced;
 use super::header::CONTROL_HEIGHT;
 use super::model::Target;
@@ -158,12 +159,23 @@ impl AddSubtitlesDialog {
         cx.notify();
     }
 
-    /// The results, or what is happening instead.
+    /// The results, or what is happening instead, over the OpenSubtitles credit (S9.9.4).
     pub(super) fn render_search(
         search: &Search,
         p: &Palette,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        div()
+            .flex_1()
+            .min_h_0()
+            .flex_row_start()
+            .flex_col()
+            .child(Self::search_results(search, p, cx))
+            .child(credit(p))
+            .into_any_element()
+    }
+
+    fn search_results(search: &Search, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         let (results, checked) = match search {
             Search::Searching => {
                 return note(tr!("Searching OpenSubtitles…"), p).into_any_element();

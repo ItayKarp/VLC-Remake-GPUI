@@ -26,16 +26,19 @@ impl SettingChoice for ArtworkSource {
     ];
 }
 
-/// Says when "Also from the internet" can't use the internet: Privacy's switch is off.
+/// Says what "Also from the internet" uses instead: VLC has no online source yet (S9.9.4,
+/// `docs/legal.md`), and Privacy's switch may be off too.
 fn internet_hint(cx: &gpui::App) -> Option<String> {
     let prefs = &settings::get(cx).prefs;
-    (prefs.library.artwork_source == ArtworkSource::Internet
-        && !prefs.privacy.fetch_online_metadata)
-        .then(|| {
+    (prefs.library.artwork_source == ArtworkSource::Internet).then(|| {
+        if prefs.privacy.fetch_online_metadata {
+            tr!("VLC has no online source yet, so only the file and its folder are used.")
+        } else {
             tr!("The internet is off in Settings → Privacy, so only the file and its folder are \
                  used.")
-            .to_owned()
-        })
+        }
+        .to_owned()
+    })
 }
 
 /// "When opening a folder"'s choices, over the `include_subfolders` switch.
@@ -146,8 +149,8 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         choice!(prefs.library.artwork_source),
     )
     .info(tr_noop!(
-        "Where the library finds titles and covers: the file's own tags and pictures, a cover \
-         image in its folder, or the internet, while Settings → Privacy allows it."
+        "Where the library finds titles and covers: the file's own tags and pictures, or a cover \
+         image in its folder. The internet isn't used yet: VLC has no online source for them."
     ))
     .hint(internet_hint)
     .keywords(&["metadata", "cover art", "album art", "tags", "online"]),
