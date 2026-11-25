@@ -13,6 +13,7 @@ use std::process::Command;
 use semver::Version;
 
 use super::installation::{self, Installation};
+use super::launcher::Launcher;
 use super::manifest::Package;
 use super::state::Backup;
 
@@ -93,8 +94,13 @@ fn stage_bundle(bundle: &Path, zip: &Path) -> io::Result<Staged> {
 }
 
 /// Installs `staged`, which replaces `running`; answers how to go back. `data_dir` holds the
-/// Windows Installer packages kept.
-pub fn install(staged: &Staged, running: &Version, data_dir: &Path) -> io::Result<Backup> {
+/// Windows Installer packages kept; `launcher` starts the installer.
+pub fn install(
+    staged: &Staged,
+    running: &Version,
+    data_dir: &Path,
+    launcher: &dyn Launcher,
+) -> io::Result<Backup> {
     match staged {
         Staged::Moved { installed, ready, scratch } => {
             let saved = swap(installed, ready)?;
@@ -102,7 +108,9 @@ pub fn install(staged: &Staged, running: &Version, data_dir: &Path) -> io::Resul
             Ok(Backup::Moved { installed: installed.clone(), saved })
         }
         Staged::Msi(package) => {
-            Command::new("msiexec").arg("/i").arg(package).arg("/passive").spawn()?;
+            let mut msiexec = Command::new("msiexec");
+            msiexec.arg("/i").arg(package).arg("/passive");
+            launcher.launch(msiexec)?;
             let previous = data_dir.join(msi_name(running));
             let previous = previous.is_file().then_some(previous);
             Ok(Backup::Msi { installed: package.clone(), previous })
@@ -130,8 +138,8 @@ fn swap(installed: &Path, ready: &Path) -> io::Result<PathBuf> {
 }
 
 /// Puts back the version `backup` kept, replacing the update. Answers the program to start it
-/// with, unless it is started already.
-pub fn restore(backup: &Backup) -> io::Result<Option<PathBuf>> {
+/// with, unless it is started already. `launcher` starts the Windows Installer.
+pub fn restore(backup: &Backup, launcher: &dyn Launcher) -> io::Result<Option<PathBuf>> {
     match backup {
         Backup::Moved { installed, saved } => {
             remove(installed)?;
@@ -142,7 +150,7 @@ pub fn restore(backup: &Backup) -> io::Result<Option<PathBuf>> {
             Ok(Some(program))
         }
         Backup::Msi { installed, previous: Some(previous) } => {
-            reinstall_after_exit(installed, previous)?;
+            reinstall_after_exit(installed, previous, launcher)?;
             Ok(None)
         }
         Backup::Msi { previous: None, .. } => Err(io::Error::other("no previous package kept")),
@@ -197,7 +205,11 @@ fn make_executable(_: &Path) -> io::Result<()> {
 /// previous version's, then starts it. `cmd` waits two seconds first, so the update's files are
 /// no longer in use.
 #[cfg(windows)]
-fn reinstall_after_exit(installed: &Path, previous: &Path) -> io::Result<()> {
+fn reinstall_after_exit(
+    installed: &Path,
+    previous: &Path,
+    launcher: &dyn Launcher,
+) -> io::Result<()> {
     use std::os::windows::process::CommandExt;
     let exe = std::env::current_exe()?;
     let commands = format!(
@@ -207,11 +219,13 @@ fn reinstall_after_exit(installed: &Path, previous: &Path) -> io::Result<()> {
         previous.display(),
         exe.display()
     );
-    Command::new("cmd").raw_arg(format!("/C \"{commands}\"")).spawn().map(drop)
+    let mut cmd = Command::new("cmd");
+    cmd.raw_arg(format!("/C \"{commands}\""));
+    launcher.launch(cmd)
 }
 
 #[cfg(not(windows))]
-fn reinstall_after_exit(_: &Path, _: &Path) -> io::Result<()> {
+fn reinstall_after_exit(_: &Path, _: &Path, _: &dyn Launcher) -> io::Result<()> {
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
