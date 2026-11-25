@@ -18,6 +18,7 @@ use super::MainWindow;
 use super::{device_failure, subtitle_style};
 use crate::app::media::Media;
 use crate::engine;
+use crate::engine::backend::{Backend, EventSender};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::library;
@@ -58,7 +59,19 @@ impl MainWindow {
         let output = Output::new();
         let subtitles = subtitle_style::style(&settings::get(cx).prefs.subtitles);
         let backend = engine::default_backend(output.sink(), Self::audio_config(cx), subtitles);
-        let player = cx.new(|cx| Player::new(backend, cx));
+        self.attach_player(output, backend, window, cx)
+    }
+
+    /// Makes the player on the backend `make_backend` builds, its pictures shown from `output`,
+    /// and wires it to the window: its events, the video area, audio, tracks and picture.
+    pub(super) fn attach_player(
+        &mut self,
+        output: Output,
+        make_backend: impl FnOnce(EventSender) -> Box<dyn Backend>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<Player> {
+        let player = cx.new(|cx| Player::new(make_backend, cx));
         Self::start_at_default_speed(&player, cx);
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
         // A player closed while playing mustn't hold the thumbnailer back (S4.4).

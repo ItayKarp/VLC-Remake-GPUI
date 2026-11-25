@@ -14,6 +14,7 @@
 use gpui::{App, AppContext as _, Context, Div, Entity, Subscription, Window, div, prelude::*, px};
 
 use super::effect_section::{self, BOX_PADDING};
+use super::synced_field::SyncedField;
 use crate::assets::icons;
 use crate::effects::{self, VIDEO_CROP};
 use crate::i18n::DirectionalStyle;
@@ -87,7 +88,8 @@ impl Edge {
 
 /// The Crop section's fields and links.
 pub(super) struct CropControls {
-    fields: [Entity<TextInput>; 4],
+    /// Top, Bottom, Left and Right's fields.
+    pub(super) fields: [SyncedField; 4],
     /// Whether top and bottom, and left and right, move together.
     linked: [bool; 2],
     _events: Vec<Subscription>,
@@ -106,22 +108,19 @@ impl CropControls {
                 cx.subscribe(field, move |this, _, event, cx| this.on_crop_field(edge, event, cx))
             })
             .collect();
-        Self { fields, linked: [false; 2], _events: events }
+        Self { fields: fields.map(SyncedField::new), linked: [false; 2], _events: events }
     }
 
     /// Shows the values in effect in the fields not being typed in.
-    pub(super) fn sync(&self, window: &Window, cx: &mut Context<MainWindow>) {
+    pub(super) fn sync(&mut self, window: &Window, cx: &mut Context<MainWindow>) {
         let edges = effects::effective(cx).prefs.video.crop_edges;
-        for (edge, field) in Edge::ALL.iter().zip(&self.fields) {
-            let text = edge.of(&edges).to_string();
-            if !field.read(cx).is_focused(window) && field.read(cx).text() != text {
-                field.update(cx, |field, cx| show(field, text, cx));
-            }
+        for (edge, field) in Edge::ALL.iter().zip(&mut self.fields) {
+            field.sync(edge.of(&edges).to_string(), window, cx);
         }
     }
 
     fn field(&self, edge: Edge) -> &Entity<TextInput> {
-        &self.fields[edge as usize]
+        self.fields[edge as usize].field()
     }
 }
 
@@ -216,7 +215,10 @@ impl MainWindow {
             text_input::Event::Submitted | text_input::Event::Blurred => {
                 let typed = field.read(cx).text().to_owned();
                 match self.crop_value(edge, &typed, cx) {
-                    Ok(value) => self.set_crop_edge(edge, value, cx),
+                    Ok(value) => {
+                        self.set_crop_edge(edge, value, cx);
+                        field.update(cx, |field, cx| field.set_text(value.to_string(), cx));
+                    }
                     Err(why) => field.update(cx, |field, cx| {
                         field.set_validation(Validation::Error(why.into()), cx);
                     }),
@@ -254,12 +256,6 @@ impl MainWindow {
             effects::change(cx, &VIDEO_CROP, edge.opposite().key(), Value::Number(value.into()));
         }
     }
-}
-
-/// Shows `text` in `field`, clearing any error.
-fn show(field: &mut TextInput, text: String, cx: &mut Context<TextInput>) {
-    field.set_text(text, cx);
-    field.set_validation(Validation::None, cx);
 }
 
 /// Why a field's value was refused, if it was.
