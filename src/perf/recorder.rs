@@ -152,13 +152,6 @@ impl Recorder {
     }
 
     /// The main window drew `frame`, starting at `at`.
-    #[cfg_attr(
-        not(feature = "perf"),
-        allow(
-            dead_code,
-            reason = "frames come from GPUI's frame timing, built by the perf feature"
-        )
-    )]
     pub fn frame(&mut self, frame: Frame, at: Instant) {
         match self.phase_at(at) {
             Phase::Playing => self.frames.playing(frame),
@@ -172,14 +165,12 @@ impl Recorder {
         &self.frames
     }
 
-    #[cfg_attr(not(feature = "perf"), allow(dead_code, reason = "used by `frame`"))]
     fn phase_at(&self, at: Instant) -> Phase {
         let index = self.phases.partition_point(|&(since, _)| since <= at);
         self.phases.get(index.saturating_sub(1)).map_or(Phase::Other, |&(_, phase)| phase)
     }
 
     /// Whether `at` is past the settling time of the pause it falls in.
-    #[cfg_attr(not(feature = "perf"), allow(dead_code, reason = "used by `frame`"))]
     fn settled_at(&self, at: Instant) -> bool {
         let index = self.phases.partition_point(|&(since, _)| since <= at);
         self.phases.get(index.saturating_sub(1)).is_some_and(|&(since, _)| at >= since + SETTLE)
