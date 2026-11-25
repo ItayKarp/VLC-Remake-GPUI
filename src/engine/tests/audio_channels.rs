@@ -65,7 +65,7 @@ fn remembered_delays_come_back_unless_set_meanwhile(cx: &mut TestAppContext) {
     let rig = Rig::new(cx, MockMedia::manual());
     open_with(&rig, cx, movie());
     assert!(set_delay(&rig, cx, 100));
-    let media = Media::Url("mock://clip".into());
+    let media = Media::Url("https://mock/clip".into());
     let saved =
         vec![(TrackId(1), Offset::from_millis(-250)), (TrackId(2), Offset::from_millis(900))];
     rig.run(cx, |player, cx| player.restore_audio_delays(&media, saved, cx));
@@ -73,7 +73,7 @@ fn remembered_delays_come_back_unless_set_meanwhile(cx: &mut TestAppContext) {
     hear(&rig, cx, Some(1));
     assert_eq!(delay(&rig, cx), Offset::from_millis(-250));
 
-    let other = Media::Url("mock://other".into());
+    let other = Media::Url("https://mock/other".into());
     let late = vec![(TrackId(1), Offset::from_millis(5))];
     rig.run(cx, |player, cx| player.restore_audio_delays(&other, late, cx));
     assert_eq!(delay(&rig, cx), Offset::from_millis(-250), "another media's are ignored");

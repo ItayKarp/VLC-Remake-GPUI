@@ -23,7 +23,7 @@ use gpui::{
 
 use crate::app::media::Media;
 use crate::engine::stream_out::{
-    self, Contents, Encoding, Local, Protocol, StreamQuality, StreamTarget,
+    self, AccessCode, Contents, Encoding, Local, Protocol, StreamQuality, StreamTarget,
 };
 use crate::main_window::device_dialog::{Then, close_with};
 use crate::settings::{self, RecordingSettings};
@@ -182,7 +182,19 @@ impl StreamDialog {
             contents,
             encoding: Encoding { preset: recording.encoding_preset, tuning: recording.tuning },
             local: local(recording),
+            access: self.access_code(address)?,
         })
+    }
+
+    /// A new access code for a stream that listens on every network, so only those given its
+    /// link can watch (S9.7.4); none for one on this computer alone or sent to one address.
+    fn access_code(&self, address: SocketAddr) -> Result<Option<AccessCode>, String> {
+        if !self.protocol.listens() || address.ip().is_loopback() {
+            return Ok(None);
+        }
+        AccessCode::new()
+            .map(Some)
+            .ok_or_else(|| tr!("VLC couldn't make an access code for the stream.").to_owned())
     }
 
     /// Where the stream listens or sends to, and the address viewers reach it at.

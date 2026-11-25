@@ -60,7 +60,7 @@ impl Rig {
 
     /// Opens a mock URL (no preflight) and lets every event arrive.
     fn open(&self, cx: &mut TestAppContext) {
-        self.run(cx, |player, cx| player.open(Media::Url("mock://clip".into()), cx));
+        self.run(cx, |player, cx| player.open(Media::Url("https://mock/clip".into()), cx));
     }
 
     fn run(
@@ -198,7 +198,7 @@ fn play_after_stop_reopens_the_media(cx: &mut TestAppContext) {
     rig.mock.take_commands();
     rig.run(cx, Player::play);
     let reopen = Command::Open {
-        media: Media::Url("mock://clip".into()),
+        media: Media::Url("https://mock/clip".into()),
         start: Start::default(),
         generation: rig.mock.generation(),
     };
@@ -250,7 +250,7 @@ fn positions_are_clamped_and_shut_down_ignores_later_commands(cx: &mut TestAppCo
 fn open_at_holds_the_media_paused_where_asked_until_play(cx: &mut TestAppContext) {
     let rig = Rig::new(cx, MockMedia::default());
     let start = Start { at: Duration::from_secs(42), paused: true, ..Start::default() };
-    rig.run(cx, |player, cx| player.open_at(Media::Url("mock://clip".into()), start, cx));
+    rig.run(cx, |player, cx| player.open_at(Media::Url("https://mock/clip".into()), start, cx));
     let opened = rig.mock.take_commands();
     assert!(matches!(opened.as_slice(), [Command::Open { start: s, .. }] if *s == start));
     assert_eq!(rig.state(cx), PlaybackState::Paused);

@@ -41,6 +41,25 @@ const SCHEMES: &[(&str, DeviceKind)] = &[
 /// The option that names the media for the title bar and lists, as libVLC reads it too.
 const TITLE_OPTION: &str = ":meta-title=";
 
+/// The options VLC itself opens devices with; stored text (a session file, a saved playlist,
+/// another VLC process) may carry no other, so it can't slip in `:sout` to write files or any
+/// other libVLC option (S9.7.2).
+const STORED_OPTIONS: &[&str] = &[
+    "meta-title",
+    "meta-artist",
+    "cdda-track",
+    "bluray-menu",
+    "no-bluray-menu",
+    "screen-fps",
+    "screen-display-id",
+    "dshow-vdev",
+    "dshow-size",
+    "dshow-fps",
+    "v4l2-width",
+    "v4l2-height",
+    "v4l2-fps",
+];
+
 /// A disc or capture device to open.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Device {
@@ -106,10 +125,12 @@ impl Device {
     }
 
     /// The inverse of [`Self::to_stored`]; `None` unless `text` starts with a device MRL.
+    /// Options VLC doesn't write itself are dropped.
     pub fn from_stored(text: &str) -> Option<Self> {
         let mut parts = text.split(' ');
         let mut device = Self::new(parts.next()?)?;
-        device.options = parts.filter(|part| !part.is_empty()).map(unescape).collect();
+        let options = parts.filter(|part| !part.is_empty()).map(unescape);
+        device.options = options.filter(|option| is_stored_option(option)).collect();
         Some(device)
     }
 }
@@ -135,6 +156,13 @@ pub fn kind_name(kind: DeviceKind) -> &'static str {
 /// `option` with `%` and spaces percent-encoded.
 fn escape(option: &str) -> String {
     option.replace('%', "%25").replace(' ', "%20")
+}
+
+/// Whether `option` (`:name` or `:name=value`) is one VLC opens devices with.
+fn is_stored_option(option: &str) -> bool {
+    let Some(option) = option.strip_prefix(':') else { return false };
+    let name = option.split_once('=').map_or(option, |(name, _)| name);
+    STORED_OPTIONS.contains(&name)
 }
 
 /// The inverse of [`escape`].
@@ -165,6 +193,13 @@ mod tests {
         let stored = device.to_stored();
         assert!(!stored.contains("Film: Part"), "{stored}");
         assert_eq!(Device::from_stored(&stored), Some(device));
+    }
+
+    #[test]
+    fn stored_text_carries_only_vlcs_own_options() {
+        let stored = "dvd:///dev/sr0 :sout=#file{dst=/tmp/x} :meta-title=Film :lua-intf=x :no-x";
+        let device = Device::from_stored(stored).expect("a device MRL");
+        assert_eq!(device.options(), [":meta-title=Film"]);
     }
 
     #[test]

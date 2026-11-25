@@ -13,10 +13,16 @@ const MILLIS_PER_SECOND: u64 = 1_000;
 /// The time `text` gives as `[hours:]minutes:seconds[.fraction]`.
 pub(super) fn parse(text: &str) -> Option<Duration> {
     let text = text.trim();
-    // A negative time (a shifted file) starts at the beginning.
-    if let Some(positive) = text.strip_prefix('-') {
-        return parse(positive).map(|_| Duration::ZERO);
+    // A negative time (a shifted file) starts at the beginning. One sign only: a run of them
+    // isn't a time.
+    match text.strip_prefix('-') {
+        Some(positive) => unsigned(positive.trim_start()).map(|_| Duration::ZERO),
+        None => unsigned(text),
     }
+}
+
+/// [`parse`] for a time without a sign.
+fn unsigned(text: &str) -> Option<Duration> {
     let (whole, fraction) = match text.find([',', '.']) {
         Some(at) => (&text[..at], &text[at + 1..]),
         None => (text, ""),
@@ -27,7 +33,12 @@ pub(super) fn parse(text: &str) -> Option<Duration> {
         [hours, minutes, seconds] => (hours, minutes, seconds),
         _ => return None,
     };
-    let seconds = (hours * MINUTES_PER_HOUR + minutes) * SECONDS_PER_MINUTE + seconds;
+    // Checked: a file can write any number of hours.
+    let seconds = hours
+        .checked_mul(MINUTES_PER_HOUR)?
+        .checked_add(minutes)?
+        .checked_mul(SECONDS_PER_MINUTE)?
+        .checked_add(seconds)?;
     Some(Duration::from_secs(seconds) + Duration::from_millis(millis(fraction)?))
 }
 
@@ -76,5 +87,13 @@ mod tests {
         assert_eq!(parse("1:2:3:4"), None);
         assert_eq!(parse("aa:bb:cc"), None);
         assert_eq!(parse(""), None);
+    }
+
+    #[test]
+    fn hostile_timestamps_are_nothing_rather_than_a_crash() {
+        // Found by fuzzing (S9.7.1): each sign was one more level of recursion.
+        assert_eq!(parse(&format!("{}00:00:01,000", "-".repeat(1_000_000))), None);
+        assert_eq!(parse("18446744073709551615:00:00"), None);
+        assert_eq!(parse("00:18446744073709551615:00"), None);
     }
 }

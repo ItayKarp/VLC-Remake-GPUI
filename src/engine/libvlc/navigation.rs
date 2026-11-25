@@ -9,6 +9,7 @@ use super::api::{TitleDescription, borrowed_string};
 use super::core_vars::{INPUT, Var};
 use super::worker::Worker;
 use crate::engine::backend::BackendEvent;
+use crate::engine::display_text::clean_tag;
 use crate::engine::navigation::{MenuKey, Navigation, Program, Programs, Title, Titles};
 
 /// The input's variable holding the program playing, with every program as a choice.
@@ -77,7 +78,7 @@ impl Worker {
 unsafe fn title(entry: &TitleDescription) -> Title {
     Title {
         // SAFETY: the caller's promise.
-        name: unsafe { borrowed_string(entry.name) },
+        name: clean_tag(unsafe { borrowed_string(entry.name) }),
         duration: u64::try_from(entry.duration)
             .ok()
             .filter(|&millis| millis > 0)

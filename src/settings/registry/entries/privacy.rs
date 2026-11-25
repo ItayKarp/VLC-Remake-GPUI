@@ -103,9 +103,10 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         toggle!(prefs.privacy.fetch_online_metadata),
     )
     .info(tr_noop!(
-        "Looks up cover art online for media without its own. Off, nothing about your files leaves \
-         this computer."
+        "Allows looking up titles and cover art online for media without its own. VLC has no \
+         online source for them yet, so nothing about your files leaves this computer either way."
     ))
+    .hint(no_online_source_hint)
     .keywords(&["artwork", "album art", "metadata", "online"]),
     SettingDef::new(
         "privacy.lastfm.submit",
@@ -209,4 +210,13 @@ fn web_address(value: &Value) -> Result<(), String> {
         Ok(url) if matches!(url.scheme(), "http" | "https") && url.has_host() => Ok(()),
         _ => Err(tr!("Enter an address starting with https://").to_owned()),
     }
+}
+
+/// Says, while the switch is on, that it changes nothing yet: libVLC 3 looks titles and art up
+/// online only through Lua scripts, and none ship (S9.9.4, `docs/legal.md`).
+fn no_online_source_hint(cx: &gpui::App) -> Option<String> {
+    crate::settings::get(cx).prefs.privacy.fetch_online_metadata.then(|| {
+        tr!("VLC has no online source yet, so titles and art come from the file and its folder.")
+            .to_owned()
+    })
 }

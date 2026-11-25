@@ -1,6 +1,6 @@
 //! The About VLC dialog (S2.9.6; not designed): the app's version, the playback engine and its
-//! version, the licenses and the credits, with Copy Debug Info for bug reports. The full list
-//! of third-party licenses comes with S9.9.
+//! version, the licenses and the credits, with Copy Debug Info for bug reports, and Licenses,
+//! which opens every third-party license in the browser (S9.9.2).
 
 use gpui::{AnyElement, App, Context, SharedString, Window, div, prelude::*, px};
 
@@ -8,8 +8,8 @@ use super::MainWindow;
 use crate::diagnostics::system;
 use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::CopyDebugInfo;
-use crate::theme;
 use crate::ui::modal::{Dialog, DialogButton};
+use crate::{licenses, settings, theme};
 
 /// The space between the dialog's paragraphs.
 const PARAGRAPH_GAP: f32 = 12.;
@@ -34,6 +34,7 @@ impl MainWindow {
     pub(super) fn show_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let text = AboutText::now();
         let buttons = vec![
+            DialogButton::new(tr!("Licenses")).on_click(|_, cx| open_licenses(cx)),
             DialogButton::new(tr!("Copy Debug Info")).on_click(|window, cx| {
                 window.dispatch_action(Box::new(CopyDebugInfo), cx);
             }),
@@ -69,6 +70,19 @@ fn body(text: &AboutText, window: &mut Window, cx: &mut App) -> AnyElement {
              interface toolkit (Apache License 2.0)."
         )))
         .into_any_element()
+}
+
+/// Writes the licenses page to the cache folder and opens it in the browser.
+fn open_licenses(cx: &mut App) {
+    match write_licenses() {
+        Ok(page) => cx.open_with_system(&page),
+        Err(error) => tracing::warn!("about: couldn't write the licenses page: {error}"),
+    }
+}
+
+fn write_licenses() -> std::io::Result<std::path::PathBuf> {
+    let dir = settings::cache_dir().ok_or(std::io::ErrorKind::NotFound)?;
+    licenses::write_page(&dir)
 }
 
 /// "Playback engine: libVLC 3.0.23 Vetinari".

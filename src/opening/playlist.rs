@@ -5,7 +5,9 @@
 //! [`MAX_DEPTH`] levels; one that lists itself, directly or through others, is expanded once
 //! (A includes B includes A). Playlists on the network (`http://…/list.m3u`) stay single items:
 //! libVLC fetches and expands them itself. Entries are not checked for existence here; a missing
-//! file fails when its turn comes.
+//! file fails when its turn comes. Links that aren't media and cameras or the screen are left out
+//! (S9.7.2): a downloaded playlist must not reach libVLC's other access modules or start a
+//! capture.
 
 mod lines;
 mod text;
@@ -79,6 +81,15 @@ pub fn expand(
     Ok(expander.items)
 }
 
+/// Whether a playlist file may list `item` (S9.7.2); logs one it may not.
+fn may_be_listed(item: &Media) -> bool {
+    let listed = item.may_be_listed();
+    if !listed {
+        tracing::warn!("playlist: skipped an entry that isn't media or is a capture");
+    }
+    listed
+}
+
 struct Expander<'a> {
     /// The playlists already expanded, by canonical path.
     visited: HashSet<PathBuf>,
@@ -107,7 +118,8 @@ impl Expander<'_> {
             }
             Parsed::Entries(entries) => entries,
         };
-        for item in entries.iter().filter_map(|entry| text::resolve(entry, path)) {
+        let items = entries.iter().filter_map(|entry| text::resolve(entry, path));
+        for item in items.filter(may_be_listed) {
             if self.should_stop() {
                 break;
             }

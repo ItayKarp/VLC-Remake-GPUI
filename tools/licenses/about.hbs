@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VLC: third-party licenses</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; padding: 12px;
+        border: 1px solid #8884; border-radius: 6px; }
+  li { overflow-wrap: anywhere; }
+  .crates { columns: 2 280px; }
+</style>
+</head>
+<body>
+<h1>Third-party licenses</h1>
+<p>This app is released under the MIT License. It plays media with libVLC and is built from
+the open-source Rust crates listed below, each under its own license.</p>
+@LIBVLC_NOTICE@
+<h2>Rust crates</h2>
+<ul>
+{{#each overview}}
+  <li><a href="#{{id}}">{{name}}</a> ({{count}})</li>
+{{/each}}
+</ul>
+{{#each licenses}}
+<h3 id="{{id}}">{{name}}</h3>
+<p>Used by:</p>
+<ul class="crates">
+{{#each used_by}}
+  <li>{{crate.name}} {{crate.version}}</li>
+{{/each}}
+</ul>
+<pre>{{text}}</pre>
+{{/each}}
+</body>
+</html>

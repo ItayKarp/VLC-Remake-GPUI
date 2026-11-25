@@ -17,9 +17,9 @@
     enough people have run it, or from the start with an EV certificate.
 
 .EXAMPLE
-    .\packaging\windows\build-msi.ps1 -Vlc C:\src\vlc-3.0.21
+    .\packaging\windows\build-msi.ps1 -Vlc C:\src\vlc-3.0.23
 .EXAMPLE
-    .\packaging\windows\build-msi.ps1 -Vlc C:\src\vlc-3.0.21 -CertificateThumbprint 0123ABCD...
+    .\packaging\windows\build-msi.ps1 -Vlc C:\src\vlc-3.0.23 -CertificateThumbprint 0123ABCD...
 #>
 param(
     # The unpacked VLC ZIP: the folder holding libvlc.dll and plugins\.
