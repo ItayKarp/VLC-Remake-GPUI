@@ -275,15 +275,4 @@ fn chip(id: &'static str, glyph: &'static str, name: SharedString, p: &Palette) 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn progress_is_a_fraction_of_a_known_length() {
-        let secs = Duration::from_secs;
-        assert!((progress(secs(30), Some(secs(120))) - 0.25).abs() < f32::EPSILON);
-        assert!((progress(secs(200), Some(secs(120))) - 1.).abs() < f32::EPSILON);
-        assert!(progress(secs(30), None).abs() < f32::EPSILON);
-        assert!(progress(secs(30), Some(Duration::ZERO)).abs() < f32::EPSILON);
-    }
-}
+mod tests;

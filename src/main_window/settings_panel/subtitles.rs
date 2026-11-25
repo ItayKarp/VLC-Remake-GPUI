@@ -239,3 +239,6 @@ fn duration_spec() -> Spec {
         parse: sync_rules::parse_duration,
     }
 }
+
+#[cfg(test)]
+mod tests;

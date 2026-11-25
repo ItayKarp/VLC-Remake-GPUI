@@ -153,13 +153,4 @@ fn delay_message(delay: Offset) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_delay_reads_with_its_sign() {
-        assert_eq!(delay_message(Offset::from_millis(0)), "Audio delay: 0 ms");
-        assert_eq!(delay_message(Offset::from_millis(-150)), "Audio delay: −150 ms");
-        assert_eq!(delay_message(Offset::from_millis(50)), "Audio delay: +50 ms");
-    }
-}
+mod tests;

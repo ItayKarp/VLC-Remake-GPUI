@@ -166,3 +166,6 @@ impl EndButton {
             .on_click(on_click)
     }
 }
+
+#[cfg(test)]
+mod tests;

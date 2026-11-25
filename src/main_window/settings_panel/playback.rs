@@ -237,3 +237,6 @@ fn toggle_row(label: &'static str, toggle: Toggle, p: &Palette) -> Div {
         .child(label)
         .child(toggle)
 }
+
+#[cfg(test)]
+mod tests;

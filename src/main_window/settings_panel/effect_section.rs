@@ -272,23 +272,4 @@ fn set_expanded(cx: &mut App, id: &str, expanded: bool) {
 }
 
 #[cfg(test)]
-mod tests {
-    use gpui::TestAppContext;
-
-    use super::*;
-    use crate::effects::VIDEO_ESSENTIAL;
-
-    #[gpui::test]
-    fn a_section_is_remembered_open_by_its_id(cx: &mut TestAppContext) {
-        cx.update(|cx| {
-            settings::init_in_memory(cx);
-            assert!(!is_expanded(cx, &VIDEO_ESSENTIAL));
-            set_expanded(cx, VIDEO_ESSENTIAL.id, true);
-            set_expanded(cx, VIDEO_ESSENTIAL.id, true);
-            assert!(is_expanded(cx, &VIDEO_ESSENTIAL));
-            assert_eq!(settings::get(cx).local.expanded_effects.len(), 1);
-            set_expanded(cx, VIDEO_ESSENTIAL.id, false);
-            assert!(!is_expanded(cx, &VIDEO_ESSENTIAL));
-        });
-    }
-}
+mod tests;
