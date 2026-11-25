@@ -11,6 +11,8 @@ mod open;
 mod render;
 #[cfg(test)]
 mod screenshots;
+#[cfg(test)]
+mod tests;
 
 use std::rc::Rc;
 

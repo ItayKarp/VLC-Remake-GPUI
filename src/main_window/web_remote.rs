@@ -7,6 +7,9 @@
 //! whether VLC may accept connections from the network; until it is allowed, phones can't reach
 //! the remote.
 
+#[cfg(test)]
+mod tests;
+
 use std::io;
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -38,13 +41,15 @@ pub(super) struct WebRemote {
     running: Option<Running>,
 }
 
+/// The remote while it listens. Fields drop in order: the tasks go before the server, so its
+/// threads ending wake no task that is still waiting for commands.
 struct Running {
-    _server: RemoteServer,
+    _commands: Task<()>,
+    _publishing: Task<()>,
     published: Published,
     /// The queue's revision last published.
     queue_revision: Option<u64>,
-    _commands: Task<()>,
-    _publishing: Task<()>,
+    _server: RemoteServer,
 }
 
 /// What the Web remote control row says under its label.
@@ -226,31 +231,5 @@ fn failure_message(error: &io::Error, port: u16) -> String {
             tr!("VLC isn't allowed to listen on port {port}. Pick another port.", port)
         }
         _ => tr!("The web remote couldn't start on port {port}: {error}.", port, error),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_hint_gives_the_address_to_open() {
-        let address = Some("192.168.1.5".parse().unwrap());
-        assert_eq!(
-            listening_message(address, 8081),
-            "Open http://192.168.1.5:8081 on a phone on this network."
-        );
-        assert!(listening_message(None, 8081).contains("http://localhost:8081"));
-    }
-
-    #[test]
-    fn the_hint_says_why_it_isnt_running() {
-        let taken = io::Error::from(io::ErrorKind::AddrInUse);
-        assert_eq!(
-            failure_message(&taken, 8081),
-            "Port 8081 is in use by another program. Pick another port."
-        );
-        let refused = io::Error::from(io::ErrorKind::PermissionDenied);
-        assert!(failure_message(&refused, 80).contains("isn't allowed"));
     }
 }

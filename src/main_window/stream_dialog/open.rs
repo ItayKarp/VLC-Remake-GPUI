@@ -3,6 +3,9 @@
 //! the file next in the queue, streaming; a toast says where to watch. When the stream couldn't
 //! start, or ends with its media, the main window says so.
 
+#[cfg(test)]
+mod tests;
+
 use gpui::{App, AppContext as _, ClipboardItem, Context, Div, Window, prelude::*};
 
 use super::StreamDialog;

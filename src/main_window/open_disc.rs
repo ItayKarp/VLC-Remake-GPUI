@@ -8,6 +8,8 @@
 
 mod open;
 mod render;
+#[cfg(test)]
+mod tests;
 
 use std::path::Path;
 use std::rc::Rc;

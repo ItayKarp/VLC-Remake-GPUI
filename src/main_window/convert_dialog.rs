@@ -9,6 +9,8 @@
 mod open;
 mod queue_rows;
 mod render;
+#[cfg(test)]
+mod tests;
 
 use std::path::PathBuf;
 

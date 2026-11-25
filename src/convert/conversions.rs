@@ -68,6 +68,12 @@ impl Conversions {
         &self.queue
     }
 
+    /// The queue itself, so a test puts conversions in any state without running one.
+    #[cfg(test)]
+    pub fn queue_mut(&mut self) -> &mut Queue {
+        &mut self.queue
+    }
+
     /// Queues converting each of `sources` to `preset` under `destination`, and starts what may
     /// start.
     pub fn add(
