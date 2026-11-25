@@ -2064,8 +2064,8 @@ Design facts the stories rely on (from `docs/ui/settings/**`):
 ### S9.6 — Crash reporting and telemetry (opt-in only)
 
 **Subtasks**
-- [ ] S9.6.1 Local crash reports (S0.7.2) with an **opt-in** upload. "Collect playback statistics" (General → Advanced) is opt-in and documented.
-- [ ] S9.6.2 Never include file names or paths unless the user explicitly allows it.
+- [x] S9.6.1 Local crash reports (S0.7.2) with an **opt-in** upload. "Collect playback statistics" (General → Advanced) is opt-in and documented. *(The crash toast's **Report on GitHub** (`diagnostics/report_issue.rs`) opens a new issue on the project in the browser with the saved report filled in (title from the panic message, the report in a fold, its last backtrace lines cut to keep the address under 7.5 KB); VLC sends nothing itself, the user reads and submits it. **Show Report** now leaves the toast up. Collect playback statistics is off by default; Show Statistics reads "Not collected" for bitrate and dropped frames until it is on. Everything recorded and everything that can leave the computer is in `docs/privacy.md`. Settings schema v2 moves files written before to the new defaults once.)*
+- [x] S9.6.2 Never include file names or paths unless the user explicitly allows it. *(Privacy → **Hide file names in logs and crash reports** is on by default (was off as "Hide file names in the log"). While on, crash reports pass through `diagnostics/scrub.rs`: every path (`/…`, `~/…`, `C:\…`, `\\server`, quoted ones whole with their spaces, unquoted ones to the end of the line) becomes `<path>` and its extension, and only `.rs` source locations stay. Copy Debug Info already held no paths. Not checked by hand: a real crash's report and the GitHub page it opens.)*
 
 ### S9.7 — Security review
 

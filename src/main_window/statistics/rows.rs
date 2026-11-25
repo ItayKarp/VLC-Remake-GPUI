@@ -22,17 +22,24 @@ pub struct Sources<'a> {
     pub buffer: f32,
     /// What the backend counted; `None` until first read.
     pub counts: Option<&'a Statistics>,
+    /// Whether the backend counts at all ("Collect playback statistics", S9.6.1).
+    pub collecting: bool,
 }
 
 /// The overlay's rows, label and value, in order.
 pub fn rows(sources: &Sources) -> Vec<(&'static str, String)> {
     let counts = sources.counts;
+    let counted = |show: fn(&Statistics) -> String| match counts {
+        _ if !sources.collecting => tr!("Not collected").to_owned(),
+        Some(counts) => show(counts),
+        None => unknown(),
+    };
     vec![
         (tr!("Video"), codec(sources.video)),
         (tr!("Audio"), audio(sources.audio)),
         (tr!("Resolution"), sources.size.map_or_else(unknown, resolution)),
-        (tr!("Bitrate"), counts.map_or_else(unknown, bitrate)),
-        (tr!("Dropped frames"), counts.map_or_else(unknown, dropped)),
+        (tr!("Bitrate"), counted(bitrate)),
+        (tr!("Dropped frames"), counted(dropped)),
         (tr!("Buffer"), buffer(sources.buffer)),
         (tr!("Hardware decoding"), decoding(sources.video, counts)),
     ]
@@ -127,6 +134,7 @@ mod tests {
             size: Some(VideoSize { width: 1920, height: 1080 }),
             buffer: 100.0,
             counts: Some(&counts),
+            collecting: true,
         });
         assert_eq!(value(&rows, "Video"), "H264");
         assert_eq!(value(&rows, "Audio"), "AAC · 2 ch");
@@ -146,12 +154,29 @@ mod tests {
             size: None,
             buffer: 42.4,
             counts: None,
+            collecting: true,
         });
         assert_eq!(value(&rows, "Video"), "None");
         assert_eq!(value(&rows, "Audio"), "MP3");
         assert_eq!(value(&rows, "Bitrate"), UNKNOWN);
         assert_eq!(value(&rows, "Buffer"), "42%");
         assert_eq!(value(&rows, "Hardware decoding"), "None");
+    }
+
+    #[test]
+    fn counts_left_uncollected_say_so() {
+        let video = track(TrackKind::Video, "H264", None);
+        let counts = Statistics::default();
+        let rows = rows(&Sources {
+            video: Some(&video),
+            audio: None,
+            size: None,
+            buffer: 0.0,
+            counts: Some(&counts),
+            collecting: false,
+        });
+        assert_eq!(value(&rows, "Bitrate"), "Not collected");
+        assert_eq!(value(&rows, "Dropped frames"), "Not collected");
     }
 
     #[test]

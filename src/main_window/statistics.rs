@@ -5,7 +5,8 @@
 //! session and is never saved.
 //!
 //! The counts are read from the backend once a second while it shows. On a live stream they
-//! keep coming; only what the stream doesn't say shows "—".
+//! keep coming; only what the stream doesn't say shows "—". Bitrate and dropped frames read "Not
+//! collected" unless "Collect playback statistics" (opt-in, S9.6.1) was on when VLC started.
 
 pub(super) mod rows;
 
@@ -16,6 +17,7 @@ use gpui::{AnyElement, App, AsyncApp, Context, Div, Task, WeakEntity, div, prelu
 use super::MainWindow;
 use super::control_bar::clock;
 use super::osd;
+use crate::engine::libvlc::options as libvlc_options;
 use crate::engine::tracks::TrackKind;
 use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
@@ -74,6 +76,7 @@ impl MainWindow {
             size: player.video_size(),
             buffer: player.buffer_fill(),
             counts: player.statistics(),
+            collecting: libvlc_options::collects_statistics(),
         });
         let (labels, values): (Vec<_>, Vec<_>) = rows.into_iter().unzip();
         let table = div()

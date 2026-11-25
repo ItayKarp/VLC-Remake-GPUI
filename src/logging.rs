@@ -29,7 +29,7 @@ use tracing_subscriber::{EnvFilter, Registry, fmt, reload};
 pub use file::{LogFile, check as check_file};
 pub use format::LogFormat;
 pub use level::LogLevel;
-pub use redact::{path, redact_home, set_redact_file_names};
+pub use redact::{path, redact_home, redacts_file_names, set_redact_file_names};
 
 use file::CurrentFile;
 use format::FileFormat;

@@ -232,7 +232,7 @@ fn startup_options_are_checked_and_apply_at_restart() {
     assert!(options.accept(Value::Text("not-an-option".into())).is_err());
     let mut before = Settings::default();
     let now = before.clone();
-    before.prefs.diagnostics.collect_statistics = false;
+    before.prefs.diagnostics.collect_statistics = true;
     assert!(needs_restart(&before, &now));
 }
 

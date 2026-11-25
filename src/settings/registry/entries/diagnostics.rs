@@ -153,11 +153,11 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
         toggle!(prefs.diagnostics.collect_statistics),
     )
     .info(tr_noop!(
-        "Counts bitrates and dropped or lost pictures while playing. Turning it off saves a little \
-         work. Takes effect when VLC restarts."
+        "Counts bitrates and dropped or lost pictures while playing, for Show Statistics. The \
+         counts stay on this computer. Takes effect when VLC restarts."
     ))
     .applies(ApplyMode::Restart)
-    .keywords(&["stats", "bitrate", "dropped frames"])
+    .keywords(&["stats", "bitrate", "dropped frames", "telemetry", "privacy"])
     .advanced(),
     SettingDef::new(
         "component_gallery",
