@@ -1,12 +1,19 @@
 //! The [`Player`] GPUI entity (S1.2.1): owns a backend, runs the playback state machine, and
 //! turns backend events into [`PlayerEvent`]s for the UI.
 
+mod ab_loop;
 mod audio;
 mod audio_delay;
+mod casting;
 mod commands;
 mod drawn;
+mod fade;
+mod navigation;
 mod picture;
 mod receive;
+mod recording;
+mod statistics;
+mod streaming;
 mod subtitle_files;
 mod sync;
 mod test_tone;
@@ -23,17 +30,26 @@ pub use self::subtitle_files::Linked;
 pub use self::timeline::CueSpan;
 
 use self::audio::AudioState;
+use self::casting::CastState;
+use self::fade::Fade;
+use self::recording::RecordClock;
 use self::tracks::TrackChoices;
+use super::ab_loop::AbLoop;
 use super::audio::AudioDevice;
 use super::backend::{self, Backend, EventReceiver, EventSender};
+use super::cast::CastDevice;
 use super::coalesce::{FrameSteps, SeekQueue};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::{Programs, Titles};
 use super::position::PositionTracker;
+use super::recording::Recording;
 use super::shutdown::{self, SHUTDOWN_TIMEOUT, Shutdown};
 use super::state::{ErrorKind, PlaybackState};
+use super::statistics::Statistics;
+use super::stream_out::StreamTarget;
 use super::subtitle_sync::{SubtitleKey, SubtitleSync};
 use super::tracks::{SubtitleFile, TrackId, Tracks};
 use super::values::{Generation, Offset, Rate, Volume};
@@ -80,6 +96,25 @@ pub enum PlayerEvent {
     AudioDeviceLost(AudioDevice),
     /// A frame step finished; see [`Player::is_stepping`] for whether more are on the way.
     FrameStepped,
+    /// Recording started, stopped (its file finished) or was refused; see
+    /// [`Player::recorded`].
+    RecordingChanged(Recording),
+    /// A seek was refused, as libVLC can't seek while recording (S8.6).
+    SeekRefused,
+    /// The programs, or the one playing, changed; see [`Player::programs`].
+    ProgramsChanged,
+    /// The titles, or the one playing, changed; see [`Player::titles`].
+    TitlesChanged,
+    /// The cast devices found changed; see [`Player::cast_devices`].
+    CastDevicesChanged,
+    /// Media started playing on a cast device or here again; see [`Player::cast_target`].
+    CastChanged,
+    /// The cast device media played on went away; it plays here again.
+    CastLost(CastDevice),
+    /// The media started or stopped streaming; see [`Player::stream_target`].
+    StreamChanged,
+    /// The stream couldn't start; the media plays on without it. Sent after `StreamChanged`.
+    StreamFailed,
 }
 
 /// Whether the user wants the media playing or paused, honored once the backend can act on it
@@ -99,6 +134,8 @@ struct Controls {
     muted: bool,
     /// The audio delay the backend was last given, which outlives the media (`audio_delay.rs`).
     backend_audio_delay: Offset,
+    /// How much of the volume is heard while the sleep timer fades it (`fade.rs`).
+    fade: Fade,
 }
 
 /// What the backend reported about the open media.
@@ -127,6 +164,12 @@ struct Info {
     hdr: HdrStatus,
     chapters: Vec<Chapter>,
     metadata: Metadata,
+    /// The stream's programs (S8.9.3).
+    programs: Programs,
+    /// The disc's titles (S8.9.1).
+    titles: Titles,
+    /// What the backend last counted about the media (S8.13.2).
+    statistics: Option<Statistics>,
 }
 
 /// The playback engine as a GPUI entity. Commands are methods; changes arrive as
@@ -161,6 +204,14 @@ pub struct Player {
     file_styles: bool,
     /// The subtitle delay the backend was last given, which outlives the media (`sync.rs`).
     backend_subtitle_delay: Offset,
+    /// How long the running recording has recorded (S8.6); `None` while not recording.
+    recording: Option<RecordClock>,
+    /// The cast devices found and the one media plays on (S8.11).
+    cast: CastState,
+    /// The stream the media open now goes to (S8.12).
+    stream: Option<StreamTarget>,
+    /// The A-B loop on the media open now (S8.13.4).
+    ab_loop: AbLoop,
     _pump: Task<()>,
     _quit: Subscription,
 }
@@ -196,6 +247,10 @@ impl Player {
             subtitle_loads: None,
             file_styles: true,
             backend_subtitle_delay: Offset::default(),
+            recording: None,
+            cast: CastState::default(),
+            stream: None,
+            ab_loop: AbLoop::Off,
             _pump: cx.spawn(async move |this, cx| pump(this, receiver, cx).await),
             _quit: cx.on_app_quit(|this, _| {
                 this.shut_down();

@@ -32,6 +32,29 @@ Codex, JetBrains AI, …).
 - OpenSubtitles (S6.5) needs an API key from opensubtitles.com: set `RVLC_OPENSUBTITLES_API_KEY`
   when building (it is compiled in) or when running (it replaces the built-in one). Never
   commit a key.
+- To measure a run against the performance budgets (S9.3), set `RVLC_PERF=1` (or a file path
+  for a JSON report) and build with `--features perf` for frame timing; the report is logged
+  when the app quits. Measure release builds (`--profile release-fast`), which need
+  `RVLC_LIBVLC_DIR` pointed at `vendor/libvlc/<os>-<arch>`.
+- Packages (S9.4) go to `dist/`. macOS: `packaging/macos/build-app.sh --arch arm64` builds
+  VLC.app and a DMG from `vendor/libvlc` (add `RVLC_FEATURES=runtime_shaders` without the Metal
+  toolchain; a universal build needs `--vlc <universal VLC.app>`, shipping needs `--sign` and
+  `--notarize`). Windows: `packaging/windows/build-msi.ps1`; Linux: `ci/package-linux.sh`
+  (.deb, .rpm), `packaging/linux/build-appimage.sh` and `packaging/linux/flatpak/`. Plugins
+  left out of every package are in `packaging/libvlc/excluded-plugins.txt`.
+- Updates (S9.5, `docs/adr/0005-updates.md`) trust only manifests signed for the key the app
+  is built with: `cargo run --example update_manifest -- keygen <file>` makes a pair (never
+  commit the private key) and `… -- sign dist` signs. To try them, debug builds also take
+  `RVLC_UPDATE_PUBLIC_KEY` at run time and `RVLC_UPDATE_URL` pointing at an
+  `http://localhost` server holding the manifest.
+- The test media corpus (S9.8.1, `docs/qa.md`) stays out of the repository:
+  `tools/corpus/make.sh` makes it in `target/corpus` (or `tools/corpus/fetch.sh` downloads the
+  pinned archive), then
+  `cargo test --features runtime_shaders corpus -- --ignored --test-threads 1` runs the corpus
+  tests, silently.
+- The third-party licenses page (S9.9.2, `docs/legal.md`) is generated: after changing
+  dependencies, run `tools/licenses/generate.sh` (needs
+  `cargo install cargo-about --locked --features cli`); `licenses::tests` fails until you do.
 - The libVLC smoke tests are ignored by default. Make the test media with
   `examples/video_spike/make_test_media.sh`, then run
   `cargo test --features runtime_shaders engine::libvlc -- --ignored --test-threads 1`.

@@ -12,7 +12,7 @@ use futures::StreamExt as _;
 use futures::channel::mpsc::UnboundedReceiver;
 use gpui::{
     App, ClickEvent, ContentMask, Context, Entity, Hsla, Subscription, Task, WeakEntity, Window,
-    WindowVisibility, black, canvas, div, hsla, prelude::*, px,
+    WindowVisibility, black, canvas, div, hsla, prelude::*,
 };
 
 use super::Output;
@@ -23,8 +23,10 @@ use super::still::Still;
 use super::subtitles::{self, Covered, Overlay, Placing};
 use crate::effects::{self, EffectSession};
 use crate::engine::player::{Player, PlayerEvent};
+use crate::engine::stream_out::Local;
 use crate::keymap::actions::ToggleFullscreen;
 use crate::settings::{self, SettingsStore};
+use crate::theme::text_px;
 
 /// What the placeholder for audio-only media says while music mode (S8.1) doesn't show its cover:
 /// a visualizer draws there and hasn't drawn yet, or a stream's tracks aren't known yet.
@@ -33,8 +35,10 @@ const PLACEHOLDER_SIZE: f32 = 64.;
 /// The placeholder's grey: readable on the black video area in both themes.
 const PLACEHOLDER_COLOR: Hsla = hsla(0., 0., 1., 0.35);
 /// Under the placeholder while Settings → Video turned video off, so a black screen has a reason.
-const VIDEO_OFF: &str = "Video is off in Settings → Video";
+const VIDEO_OFF: &str = tr_noop!("Video is off in Settings → Video");
 const VIDEO_OFF_SIZE: f32 = 14.;
+/// The size of what the view says while media plays on a cast device (S8.11).
+const CASTING_SIZE: f32 = 20.;
 
 /// The video area of the player.
 pub struct VideoView {
@@ -73,6 +77,7 @@ impl VideoView {
                     | PlayerEvent::PositionChanged(_)
                     | PlayerEvent::TracksChanged
                     | PlayerEvent::SubtitleSyncChanged
+                    | PlayerEvent::CastChanged
             );
             if redraw {
                 cx.notify();
@@ -132,7 +137,10 @@ impl VideoView {
     /// Swaps in the newest delivery, freeing what GPUI kept for the replaced picture.
     fn advance(&mut self, window: &mut Window) {
         let next = match self.slot.take() {
-            Some(Delivery::Frame(frame)) => Some(frame),
+            Some(Delivery::Frame(frame)) => {
+                crate::perf::picture_shown();
+                Some(frame)
+            }
             Some(Delivery::Cleared) => None,
             None => return,
         };
@@ -175,6 +183,17 @@ impl VideoView {
         Some(Still::new(frame, source, framing))
     }
 
+    /// Where the media plays when not here: "Playing on" a cast device (S8.11), or "Streaming
+    /// to" a link while it streams without playing here (S8.12).
+    fn elsewhere(&self, cx: &App) -> Option<String> {
+        let player = self.player.read(cx);
+        if let Some(device) = player.cast_target() {
+            return Some(tr!("Playing on {device}", device = device.name));
+        }
+        let stream = player.stream_target().filter(|stream| stream.local == Local::StreamOnly)?;
+        Some(tr!("Streaming to {link}", link = stream.url()))
+    }
+
     fn is_audio_only(&self, cx: &App) -> bool {
         let player = self.player.read(cx);
         player.state().is_active() && player.video_size().is_none() && self.shown.is_none()
@@ -186,10 +205,17 @@ impl Render for VideoView {
         self.advance(window);
         let video = &effects::effective(cx).prefs.video;
         let (framing, video_on) = (Framing::of(video), video.enabled);
-        let source = self.shown.as_ref().map(|frame| self.source(frame, cx));
+        // Nothing shows here while a cast device or only a stream gets the media, so the last
+        // picture goes.
+        let away = self.elsewhere(cx);
+        let shown = self.shown.as_ref().filter(|_| away.is_none());
+        let source = shown.map(|frame| self.source(frame, cx));
         let picture =
-            self.shown.clone().zip(source).map(|(frame, source)| picture(frame, source, framing));
-        let placeholder = self.is_audio_only(cx).then(|| placeholder(video_on));
+            shown.cloned().zip(source).map(|(frame, source)| picture(frame, source, framing));
+        let placeholder = match away {
+            Some(where_to) => Some(away_placeholder(where_to).into_any_element()),
+            None => self.is_audio_only(cx).then(|| placeholder(video_on).into_any_element()),
+        };
         let video_height = source.map_or(0, |source| source.aspect.1);
         let subtitles = self.overlay(cx).map(|overlay| {
             let scene = Scene { source, framing, video_height, covered: self.covered };
@@ -262,14 +288,20 @@ fn picture(frame: Frame, source: Source, framing: Framing) -> impl IntoElement {
 
 /// The audio-only placeholder, saying why when Settings turned video off.
 fn placeholder(video_on: bool) -> impl IntoElement {
-    let note = (!video_on).then(|| div().text_size(px(VIDEO_OFF_SIZE)).child(VIDEO_OFF));
+    let note = (!video_on)
+        .then(|| div().text_size(text_px(VIDEO_OFF_SIZE)).child(crate::i18n::text(VIDEO_OFF)));
     div()
         .flex()
         .flex_col()
         .items_center()
         .text_color(PLACEHOLDER_COLOR)
-        .child(div().text_size(px(PLACEHOLDER_SIZE)).child(AUDIO_ONLY))
+        .child(div().text_size(text_px(PLACEHOLDER_SIZE)).child(AUDIO_ONLY))
         .children(note)
+}
+
+/// What shows while the media plays elsewhere: where it plays.
+fn away_placeholder(where_to: String) -> impl IntoElement {
+    div().text_size(text_px(CASTING_SIZE)).text_color(PLACEHOLDER_COLOR).child(where_to)
 }
 
 /// Redraws the view whenever the engine delivers, until the view is gone.

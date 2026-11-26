@@ -10,7 +10,7 @@ use toml_edit::{DocumentMut, Item};
 use super::document::{schema_version, set_schema_version};
 
 /// The schema version this build writes.
-pub const CURRENT_VERSION: i64 = 1;
+pub const CURRENT_VERSION: i64 = 2;
 
 /// The two settings documents, migrated together because migrations may move data
 /// between them.
@@ -25,7 +25,7 @@ pub struct Documents {
 type Migration = fn(&mut Documents);
 
 /// Every migration, in order: index `N` upgrades version `N`.
-const MIGRATIONS: &[Migration] = &[migrate_v0_to_v1];
+const MIGRATIONS: &[Migration] = &[migrate_v0_to_v1, migrate_v1_to_v2];
 
 const _: () = assert!(MIGRATIONS.len() as i64 == CURRENT_VERSION);
 
@@ -104,6 +104,23 @@ fn migrate_v0_to_v1(docs: &mut Documents) {
             folders.push(folder);
         }
         docs.local["media_folders"] = toml_edit::value(folders);
+    }
+}
+
+/// S9.6 made two diagnostics switches opt-in. Every key is saved, so a v1 file holds the old
+/// defaults the user never chose: file names in logs and crash reports, and libVLC's playback
+/// statistics. v2 puts both at the new defaults; the user can turn either back.
+fn migrate_v1_to_v2(docs: &mut Documents) {
+    set_if_present(&mut docs.prefs, "privacy", "redact_file_names_in_logs", true);
+    set_if_present(&mut docs.prefs, "diagnostics", "collect_statistics", false);
+}
+
+/// Sets `key` in `table` to `value` when the table has the key; a missing key takes the
+/// default anyway.
+fn set_if_present(doc: &mut DocumentMut, table: &str, key: &str, value: bool) {
+    let Some(table) = doc.get_mut(table).and_then(Item::as_table_like_mut) else { return };
+    if let Some(item) = table.get_mut(key) {
+        *item = toml_edit::value(value);
     }
 }
 

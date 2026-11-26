@@ -14,11 +14,14 @@
 use gpui::{App, AppContext as _, Context, Div, Entity, Subscription, Window, div, prelude::*, px};
 
 use super::effect_section::{self, BOX_PADDING};
+use super::synced_field::SyncedField;
 use crate::assets::icons;
 use crate::effects::{self, VIDEO_CROP};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::Value;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::text_input::{self, Look, TextInput, Validation};
 use crate::ui::{metrics, tooltip};
@@ -30,7 +33,7 @@ const TEXT: f32 = 14.;
 const GAP: f32 = 8.;
 const LINK_SIZE: f32 = 28.;
 /// What the fields count.
-const PIXELS_TIP: &str = "In the video's own pixels, not the screen's";
+const PIXELS_TIP: &str = tr_noop!("In the video's own pixels, not the screen's");
 
 /// An edge: which side, and how its field and its pair's are found.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,10 +53,10 @@ impl Edge {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Top => "Top",
-            Self::Bottom => "Bottom",
-            Self::Left => "Left",
-            Self::Right => "Right",
+            Self::Top => tr!("Top"),
+            Self::Bottom => tr!("Bottom"),
+            Self::Left => tr!("Left"),
+            Self::Right => tr!("Right"),
         }
     }
 
@@ -85,7 +88,8 @@ impl Edge {
 
 /// The Crop section's fields and links.
 pub(super) struct CropControls {
-    fields: [Entity<TextInput>; 4],
+    /// Top, Bottom, Left and Right's fields.
+    pub(super) fields: [SyncedField; 4],
     /// Whether top and bottom, and left and right, move together.
     linked: [bool; 2],
     _events: Vec<Subscription>,
@@ -104,22 +108,19 @@ impl CropControls {
                 cx.subscribe(field, move |this, _, event, cx| this.on_crop_field(edge, event, cx))
             })
             .collect();
-        Self { fields, linked: [false; 2], _events: events }
+        Self { fields: fields.map(SyncedField::new), linked: [false; 2], _events: events }
     }
 
     /// Shows the values in effect in the fields not being typed in.
-    pub(super) fn sync(&self, window: &Window, cx: &mut Context<MainWindow>) {
+    pub(super) fn sync(&mut self, window: &Window, cx: &mut Context<MainWindow>) {
         let edges = effects::effective(cx).prefs.video.crop_edges;
-        for (edge, field) in Edge::ALL.iter().zip(&self.fields) {
-            let text = edge.of(&edges).to_string();
-            if !field.read(cx).is_focused(window) && field.read(cx).text() != text {
-                field.update(cx, |field, cx| show(field, text, cx));
-            }
+        for (edge, field) in Edge::ALL.iter().zip(&mut self.fields) {
+            field.sync(edge.of(&edges).to_string(), window, cx);
         }
     }
 
     fn field(&self, edge: Edge) -> &Entity<TextInput> {
-        &self.fields[edge as usize]
+        self.fields[edge as usize].field()
     }
 }
 
@@ -131,9 +132,9 @@ impl MainWindow {
             let error = Edge::ALL
                 .iter()
                 .find_map(|edge| invalid_reason(controls.field(*edge), cx))
-                .map(|why| div().text_size(px(TEXT)).text_color(p.danger).child(why));
+                .map(|why| div().text_size(text_px(TEXT)).text_color(p.danger).child(why));
             div()
-                .flex()
+                .flex_row_start()
                 .flex_col()
                 .gap(px(GAP))
                 .px(px(BOX_PADDING))
@@ -149,10 +150,11 @@ impl MainWindow {
     fn edge_row(&self, edges: [Edge; 2], p: &Palette, cx: &mut Context<Self>) -> Div {
         let pair = edges[0].pair();
         let linked = self.settings_panel.crop.linked[pair];
+        let (first, second) = (edges[0].label(), edges[1].label());
         let (icon, name) = if linked {
-            (icons::LINK, format!("Unlink {} and {}", edges[0].label(), edges[1].label()))
+            (icons::LINK, tr!("Unlink {first} and {second}", first, second))
         } else {
-            (icons::LINK_OFF, format!("Link {} and {}", edges[0].label(), edges[1].label()))
+            (icons::LINK_OFF, tr!("Link {first} and {second}", first, second))
         };
         let link = IconButton::new(format!("crop-link-{pair}"), icon, name)
             .size(LINK_SIZE, metrics::ICON)
@@ -160,7 +162,7 @@ impl MainWindow {
             .when(linked, |button| button.color(p.accent))
             .on_click(cx.listener(move |this, _, _, cx| this.toggle_crop_link(edges[0], cx)));
         div()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .children(edges.map(|edge| self.edge_field(edge, p)))
@@ -170,18 +172,18 @@ impl MainWindow {
     /// One edge's box: its label, its field and "px".
     fn edge_field(&self, edge: Edge, p: &Palette) -> impl IntoElement {
         div()
-            .id(edge.label())
+            .id(("crop-edge", edge as usize))
             .flex_1()
             .min_w_0()
             .h(px(FIELD_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .px(px(GAP + GAP))
             .rounded(px(metrics::RADIUS))
             .bg(p.well)
-            .text_size(px(TEXT))
-            .tooltip(tooltip::text(PIXELS_TIP, None::<&str>))
+            .text_size(text_px(TEXT))
+            .tooltip(tooltip::text(crate::i18n::text(PIXELS_TIP), None::<&str>))
             .child(div().flex_none().text_color(p.text_muted).child(edge.label()))
             .child(
                 div()
@@ -213,7 +215,10 @@ impl MainWindow {
             text_input::Event::Submitted | text_input::Event::Blurred => {
                 let typed = field.read(cx).text().to_owned();
                 match self.crop_value(edge, &typed, cx) {
-                    Ok(value) => self.set_crop_edge(edge, value, cx),
+                    Ok(value) => {
+                        self.set_crop_edge(edge, value, cx);
+                        field.update(cx, |field, cx| field.set_text(value.to_string(), cx));
+                    }
                     Err(why) => field.update(cx, |field, cx| {
                         field.set_validation(Validation::Error(why.into()), cx);
                     }),
@@ -225,7 +230,8 @@ impl MainWindow {
 
     /// The pixels typed for `edge`, or why they can't be.
     fn crop_value(&self, edge: Edge, typed: &str, cx: &App) -> Result<u32, String> {
-        let value = parse_pixels(typed).ok_or_else(|| "A whole number of pixels".to_owned())?;
+        let value =
+            parse_pixels(typed).ok_or_else(|| tr!("A whole number of pixels").to_owned())?;
         let Some(side) = self.crop_side(edge, cx) else { return Ok(value) };
         let linked = self.settings_panel.crop.linked[edge.pair()];
         let other = edge.opposite().of(&effects::effective(cx).prefs.video.crop_edges);
@@ -233,7 +239,7 @@ impl MainWindow {
         if value <= most {
             return Ok(value);
         }
-        Err(format!("At most {most} px, so {MIN_KEPT} px of the picture stay"))
+        Err(tr!("At most {most} px, so {kept} px of the picture stay", most, kept = MIN_KEPT))
     }
 
     /// The playing video's pixels along `edge`'s axis, when known.
@@ -250,12 +256,6 @@ impl MainWindow {
             effects::change(cx, &VIDEO_CROP, edge.opposite().key(), Value::Number(value.into()));
         }
     }
-}
-
-/// Shows `text` in `field`, clearing any error.
-fn show(field: &mut TextInput, text: String, cx: &mut Context<TextInput>) {
-    field.set_text(text, cx);
-    field.set_validation(Validation::None, cx);
 }
 
 /// Why a field's value was refused, if it was.
@@ -283,30 +283,4 @@ fn parse_pixels(text: &str) -> Option<u32> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pixels_read_with_or_without_the_unit() {
-        assert_eq!(parse_pixels("12"), Some(12));
-        assert_eq!(parse_pixels(" 12 PX "), Some(12));
-        assert_eq!(parse_pixels(""), Some(0));
-        assert_eq!(parse_pixels("-3"), None);
-        assert_eq!(parse_pixels("a lot"), None);
-    }
-
-    #[test]
-    fn an_edge_takes_what_its_opposite_leaves() {
-        assert_eq!(most_for(1064, 64, false), 1000);
-        assert_eq!(most_for(1064, 2000, false), 0);
-        assert_eq!(most_for(1064, 64, true), 532, "linked, both take it");
-    }
-
-    #[test]
-    fn edges_follow_the_sections_order() {
-        assert_eq!(Edge::Top.key(), "video.crop_edges.top");
-        assert_eq!(Edge::Right.key(), "video.crop_edges.right");
-        assert_eq!(Edge::Left.opposite(), Edge::Right);
-        assert_eq!(Edge::Bottom.pair(), 0);
-    }
-}
+mod tests;

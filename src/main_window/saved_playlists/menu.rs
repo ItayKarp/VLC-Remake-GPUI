@@ -23,13 +23,14 @@ impl MainWindow {
         cx: &App,
     ) -> Vec<MenuItem> {
         let save_queue =
-            main_menu::dispatching(&act::SaveQueueAsPlaylist, "Save Queue as Playlist…", cx)
+            main_menu::dispatching(&act::SaveQueueAsPlaylist, tr!("Save Queue as Playlist…"), cx)
                 .disabled(self.queue.len() == 0)
-                .why_disabled("The queue is empty");
+                .why_disabled(tr!("The queue is empty"));
         vec![
-            main_menu::dispatching(&act::NewPlaylist, "New Playlist…", cx).icon(icons::PLAYLIST),
+            main_menu::dispatching(&act::NewPlaylist, tr!("New Playlist…"), cx)
+                .icon(icons::PLAYLIST),
             save_queue,
-            main_menu::dispatching(&act::ImportPlaylist, "Import Playlist…", cx),
+            main_menu::dispatching(&act::ImportPlaylist, tr!("Import Playlist…"), cx),
             self.add_to_playlist_menu(main, cx),
             saved_playlists_menu(main, cx),
         ]
@@ -39,8 +40,8 @@ impl MainWindow {
     fn add_to_playlist_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let media = self.player_media(cx);
         let Some(media) = media else {
-            return MenuItem::submenu("Add to Playlist", Vec::new())
-                .why_disabled("No media playing");
+            return MenuItem::submenu(tr!("Add to Playlist"), Vec::new())
+                .why_disabled(tr!("No media playing"));
         };
         let mut items: Vec<MenuItem> = playlists::summaries(cx)
             .iter()
@@ -50,11 +51,11 @@ impl MainWindow {
             items.push(MenuItem::Separator);
         }
         let main = main.clone();
-        items.push(MenuItem::action("New Playlist…", move |window, cx| {
+        items.push(MenuItem::action(tr!("New Playlist…"), move |window, cx| {
             let files = vec![media.clone()];
             main.update(cx, |main, cx| main.show_new_playlist(files, window, cx)).ok();
         }));
-        MenuItem::submenu("Add to Playlist", items)
+        MenuItem::submenu(tr!("Add to Playlist"), items)
     }
 }
 
@@ -70,40 +71,42 @@ fn add_item(main: &WeakEntity<MainWindow>, summary: &Summary, media: &Media) -> 
 /// Saved Playlists ▸: each playlist and what can be done with it.
 fn saved_playlists_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem {
     let items = playlists::summaries(cx).iter().map(|summary| playlist_menu(main, summary));
-    MenuItem::submenu("Saved Playlists", items.collect())
+    MenuItem::submenu(tr!("Saved Playlists"), items.collect())
         .icon(icons::PLAYLIST)
-        .why_disabled("No saved playlists yet")
+        .why_disabled(tr!("No saved playlists yet"))
 }
 
 /// One playlist's submenu.
 fn playlist_menu(main: &WeakEntity<MainWindow>, summary: &Summary) -> MenuItem {
     let empty = summary.len == 0;
     let items = vec![
-        on_playlist(main, summary, "Play", |_, summary, window, cx| {
+        on_playlist(main, summary, tr!("Play"), |_, summary, window, cx| {
             MainWindow::play_playlist(summary, Placement::Replace, window, cx);
         })
         .icon(icons::PLAY)
         .disabled(empty)
-        .why_disabled("This playlist is empty"),
-        on_playlist(main, summary, "Add to Queue", |_, summary, window, cx| {
+        .why_disabled(tr!("This playlist is empty")),
+        on_playlist(main, summary, tr!("Add to Queue"), |_, summary, window, cx| {
             MainWindow::play_playlist(summary, Placement::Enqueue, window, cx);
         })
         .icon(icons::QUEUE)
         .disabled(empty)
-        .why_disabled("This playlist is empty"),
+        .why_disabled(tr!("This playlist is empty")),
         MenuItem::Separator,
-        on_playlist(main, summary, "Rename…", MainWindow::rename_playlist).icon(icons::EDIT),
-        on_playlist(main, summary, "Duplicate", |_, summary, window, cx| {
+        on_playlist(main, summary, tr!("Rename…"), MainWindow::rename_playlist).icon(icons::EDIT),
+        on_playlist(main, summary, tr!("Duplicate"), |_, summary, window, cx| {
             MainWindow::duplicate_playlist(summary, window, cx);
         }),
-        on_playlist(main, summary, "Export…", MainWindow::show_export_playlist),
-        on_playlist(main, summary, "Delete…", MainWindow::confirm_delete_playlist)
+        on_playlist(main, summary, tr!("Export…"), MainWindow::show_export_playlist),
+        on_playlist(main, summary, tr!("Delete…"), MainWindow::confirm_delete_playlist)
             .icon(icons::REMOVE),
     ];
-    let label = match summary.len {
-        1 => format!("{} (1 item)", summary.title),
-        n => format!("{} ({n} items)", summary.title),
-    };
+    let label = trn!(
+        "{title} ({count} item)",
+        "{title} ({count} items)",
+        summary.len,
+        title = summary.title
+    );
     MenuItem::submenu(label, items).icon(icons::PLAYLIST)
 }
 

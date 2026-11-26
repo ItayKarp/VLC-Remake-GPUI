@@ -6,6 +6,7 @@ use gpui::{Context, Div, div, prelude::*, px};
 
 use crate::main_window::MainWindow;
 use crate::theme::Palette;
+use crate::theme::text_px;
 
 /// The title's height and text size.
 const TITLE_HEIGHT: f32 = 44.;
@@ -26,9 +27,9 @@ impl MainWindow {
             .items_center()
             .justify_center()
             .bg(p.well)
-            .text_size(px(TITLE_TEXT))
+            .text_size(text_px(TITLE_TEXT))
             .text_color(p.text)
-            .child("Queue");
+            .child(tr!("Queue"));
         div()
             .flex_none()
             .h(px(height))

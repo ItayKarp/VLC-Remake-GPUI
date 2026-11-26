@@ -8,19 +8,30 @@
 //! the library read from the playing file (S4.3.5). The sidebar toggle and L show the library
 //! sidebar over the content (S4.5), whose pop-out switches to full library mode with the
 //! miniplayer (S4.10). Audio-only media plays in music mode, its cover in the video's place and
-//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4). Picture in
-//! Picture pops the player out into a small window above the others (S8.5).
+//! a control bar of its own (S8.1). Shift+S saves the picture on screen (S8.4), and Shift+R
+//! records what plays (S8.6). Picture in
+//! Picture pops the player out into a small window above the others (S8.5). The bars show what
+//! the player layout says, which Customize Player edits (S8.7). The settings panel's Playback
+//! tab holds the sleep timer and the statistics overlay, and Shift+L loops from A to B (S8.13).
 //! Onboarding hands off to it (S0.2).
 
+mod ab_loop;
 mod about;
 mod add_subtitles;
+mod announcements;
 mod audio;
 mod audio_delay;
 mod audio_tracks;
 mod auto_hide;
 mod bar_panel;
+mod casting;
 mod control_bar;
+mod convert_dialog;
+mod customize;
+mod device_dialog;
+mod device_failure;
 mod diagnostics;
+mod disc_navigation;
 mod empty_state;
 mod flash;
 mod frame_step;
@@ -39,47 +50,62 @@ mod new_playlist;
 mod notice;
 mod now_playing;
 mod now_playing_notice;
+mod open_capture;
+mod open_disc;
 mod opening;
 mod osd;
 mod picture;
 mod pip;
 mod play_order;
 mod player_keys;
+mod playing_id;
+mod podcasts;
+mod profiles;
 mod properties;
 mod queue_panel;
 mod queue_play;
+mod recording;
 mod saved_playlists;
+mod scrobbling;
 mod seek_bar;
 mod seeking;
 mod session;
 mod settings_panel;
 mod shortcuts_dialog;
+mod sleep_timer;
 mod snapshot;
 mod speed;
+mod statistics;
+mod stream_dialog;
 pub(crate) mod subtitle_style;
 mod subtitle_sync;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod title_bar;
 mod track_popover;
 mod tracks;
 mod transport;
+mod tray;
+mod updates;
 mod video_menu;
 mod video_mouse;
 mod video_window;
 mod viewport;
 mod volume_slider;
+mod wallpaper;
+mod web_remote;
 mod wheel;
 
 use gpui::{
-    AnyElement, App, Context, DismissEvent, Div, Entity, FocusHandle, ScrollEvent, SharedString,
-    Subscription, Window, div, prelude::*, px,
+    App, Context, Div, Entity, FocusHandle, ScrollEvent, SharedString, Subscription, Window, div,
+    prelude::*, px,
 };
 
 use self::auto_hide::rules::Chrome;
 use crate::app;
 use crate::app::request::OpenRequest;
 use crate::engine::player::Player;
+use crate::i18n::DirectionalStyle;
 use crate::keymap::actions::CopyDebugInfo;
 use crate::keymap::contexts;
 use crate::keymap::repeat::RepeatGate;
@@ -87,6 +113,7 @@ use crate::power::DisplaySleep;
 use crate::queue::{Queue, Skips};
 use crate::settings;
 use crate::theme;
+use crate::ui::announcer::Announcer;
 use crate::ui::focus;
 use crate::ui::modal::ModalLayer;
 use crate::ui::popover::BoundsTracker;
@@ -94,9 +121,11 @@ use crate::ui::toast::{Toast, Toasts};
 use crate::ui::{drop_target, menu::ContextMenu};
 use crate::video::VideoView;
 
+pub use self::convert_dialog::ask_before_quitting;
 pub use self::now_playing_notice::NOW_PLAYING_TAG;
 pub use self::pip::{PipCommand, PipView};
 pub use self::shortcuts_dialog::edit_keyboard_shortcuts;
+pub use self::web_remote::web_remote_hint;
 
 /// The player title bar's height in the designs (`player/screens/*`).
 pub const TITLE_BAR_HEIGHT: f32 = 40.;
@@ -145,6 +174,12 @@ pub struct MainWindow {
     volume_slider: volume_slider::VolumeSlider,
     /// The message over the video (S2.5.7, S2.10.2).
     osd: osd::Osd,
+    /// The statistics over the video (S8.13.2).
+    statistics: statistics::StatisticsOverlay,
+    /// The sleep timer (S8.13.1).
+    sleep_timer: sleep_timer::SleepTimer,
+    /// The recording being made (S8.6).
+    recording: recording::RecordingWatch,
     /// Whether frame steps are taking a while (S2.10.3).
     frame_step: frame_step::FrameStepWait,
     /// Clicks and sideways scrolling on the video (S2.10.1).
@@ -169,13 +204,29 @@ pub struct MainWindow {
     modals: Entity<ModalLayer>,
     /// Settings → Interface's Window section and notification for this window (S5.4).
     windowing: video_window::Windowing,
+    /// Customize Player, while it's open (S8.7).
+    customizing: Option<customize::Customizing>,
+    /// The playing file's row in the library, for the bar's Favorite and Thumbnail (S8.7.6).
+    playing_id: playing_id::PlayingId,
+    /// The profile media switched to by itself, and the one to go back to (S8.8.3).
+    auto_profile: profiles::AutoProfile,
+    /// The web remote phones control playback from (S8.15).
+    web_remote: web_remote::WebRemote,
+    /// The track being listened to, for last.fm (S8.17.1).
+    scrobbling: scrobbling::Scrobbling,
+    /// What a screen reader was last told about playback (S9.1.2).
+    announcer: Announcer,
+    /// Shows the updater's news (S9.5).
+    update_news: updates::UpdateNews,
 }
 
 impl MainWindow {
     /// Builds the window's view, opening `request` and showing any pending settings
     /// notices.
+    #[allow(clippy::too_many_lines, reason = "one struct literal, a line per field")]
     pub fn new(request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::follow_window(window, cx);
+        crate::perf::main_window_opened(window);
         let mut this = Self {
             queue: Queue::default(),
             skips: Skips::default(),
@@ -200,6 +251,9 @@ impl MainWindow {
             seek_bar: seek_bar::SeekBar::new(cx),
             volume_slider: volume_slider::VolumeSlider::new(cx),
             osd: osd::Osd::default(),
+            statistics: statistics::StatisticsOverlay::default(),
+            sleep_timer: sleep_timer::SleepTimer::default(),
+            recording: recording::RecordingWatch::default(),
             frame_step: frame_step::FrameStepWait::default(),
             video_mouse: video_mouse::VideoMouse::default(),
             track_popover: track_popover::TrackPopover::new(cx),
@@ -212,21 +266,33 @@ impl MainWindow {
             auto_hide: auto_hide::AutoHide::default(),
             modals: cx.new(|_| ModalLayer::new()),
             windowing: video_window::Windowing::default(),
+            customizing: None,
+            playing_id: playing_id::PlayingId::default(),
+            auto_profile: profiles::AutoProfile::default(),
+            web_remote: web_remote::WebRemote::default(),
+            scrobbling: scrobbling::Scrobbling::default(),
+            announcer: Announcer::default(),
+            update_news: updates::UpdateNews::default(),
         };
         this.start(request, window, cx);
         this
     }
 
     /// Gives the Open button the keyboard, starts recording history and the session, brings the
-    /// last session back, and opens `request`.
+    /// last session back, opens `request`, and starts the web remote if it's on. Problems
+    /// submitting to last.fm, and news of updates, show here.
     fn start(&mut self, request: OpenRequest, window: &mut Window, cx: &mut Context<Self>) {
         self.open_button.focus(window, cx);
+        self.control_bar.sync_layout(cx);
         self.plan_compact_start(cx);
         self.set_up_history(cx);
         self.set_up_session(cx);
+        self.set_up_scrobbling(cx);
+        self.set_up_updates(cx);
         self.restore_session(&request, window, cx);
         self.open(request, window, cx);
         self.show_pending_crash(cx);
+        self.sync_web_remote(window, cx);
     }
 
     /// Follows the window: the theme, redraws, its geometry, focus, the GPU it renders with, and
@@ -238,19 +304,38 @@ impl MainWindow {
         Self::release_keys_on_blur(window, cx);
         Self::close_popovers_on_deactivate(window, cx);
         Self::follow_library_switch(window, cx);
+        Self::ask_before_closing(window, cx);
         crate::diagnostics::system::remember_gpu(window);
+    }
+
+    /// Closing the window hides it into the tray when Settings says to (S8.16.1); otherwise,
+    /// while conversions run, it asks whether to cancel them first (S8.10).
+    fn ask_before_closing(window: &mut Window, cx: &mut Context<Self>) {
+        let main = cx.entity().downgrade();
+        window.on_window_should_close(cx, move |window, cx| {
+            let hidden = main.update(cx, |main, cx| main.hide_to_tray(window, cx));
+            !hidden.unwrap_or(false) && convert_dialog::may_close(&main, window, cx)
+        });
     }
 
     /// Redraws when Settings → Interface changes (the title bar, the controls' hiding), and when
     /// the window is maximized, restored or goes fullscreen (the Maximize/Restore icon, the
-    /// layout).
+    /// layout). Settings changes also start or stop the web remote.
     fn redraw_on_changes(window: &mut Window, cx: &mut Context<Self>) {
         cx.observe_global_in::<settings::SettingsStore>(window, |this, window, cx| {
             this.sync_video_window(window, cx);
+            this.sync_web_remote(window, cx);
+            this.control_bar.sync_layout(cx);
             cx.notify();
         })
         .detach();
-        cx.observe_global::<crate::library::Library>(|_, cx| cx.notify()).detach();
+        // The indexer reports progress often; only the folder rows show it (S9.3.2).
+        cx.observe_global::<crate::library::Library>(|this, cx| {
+            if this.shows_library_folders(cx) {
+                cx.notify();
+            }
+        })
+        .detach();
         cx.observe_window_bounds(window, |_, _, cx| cx.notify()).detach();
     }
 
@@ -263,22 +348,6 @@ impl MainWindow {
     /// Shows `toast` at the bottom right of the window.
     pub fn show_toast(&mut self, toast: Toast, cx: &mut Context<Self>) {
         self.toasts.update(cx, |toasts, cx| toasts.push(toast, cx));
-    }
-
-    fn toggle_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.menu.take().is_some() {
-            cx.notify();
-            return;
-        }
-        self.close_popovers(window, cx);
-        let items = main_menu::items(&cx.entity().downgrade(), window, cx);
-        let menu = ContextMenu::build(items, window, cx);
-        let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
-            this.menu = None;
-            cx.notify();
-        });
-        self.menu = Some((menu, subscription));
-        cx.notify();
     }
 
     /// Names the OS window (taskbar, Alt+Tab, Mission Control) like the title bar (S2.1.5).
@@ -300,7 +369,7 @@ impl MainWindow {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Div {
-        let (top, bottom) = viewport::content_insets(chrome);
+        let (top, bottom) = viewport::content_insets(chrome, self.control_bar_height());
         let area = div().absolute().top(px(top)).left_0().right_0().bottom(px(bottom));
         match self.showing_video(cx) {
             Some(video) => {
@@ -310,7 +379,9 @@ impl MainWindow {
                     this.scroll_on_video(event, window, cx);
                 }))
                 .child(self.video_area(shown, window, cx))
+                .children(self.render_statistics(p, cx))
                 .children(self.render_osd(p, cx))
+                .children(self.render_recording_badge(p, cx))
             }
             None => area.child(
                 div()
@@ -323,36 +394,23 @@ impl MainWindow {
     }
 }
 
-impl MainWindow {
-    /// The menus that are open: `…`, the bar's overflow, the queue's sort, the video's and the
-    /// library sidebar's.
-    fn render_menus(&self) -> impl Iterator<Item = AnyElement> {
-        let menus = [
-            self.render_menu(),
-            self.render_overflow_menu(),
-            self.render_sort_menu(),
-            self.render_video_menu(),
-        ];
-        menus.into_iter().flatten().chain(self.render_library_menus())
-    }
-}
-
 impl Render for MainWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.sync_os_title(window, cx);
         self.windowing.prefs.sync(window, cx);
         self.release_previews(window);
-        self.sync_music_mode(window, cx);
+        self.sync_media(window, cx);
         let p = theme::palette(window, cx);
         let chrome = self.sync_chrome(window, cx);
         self.fit_library(window, cx);
         self.place_miniplayer(chrome.title_bar, window, cx);
         let full = self.library_panel.is_full();
 
-        let root = Self::player_keys(focus::tab_navigation(div()), cx);
+        // Text aligns to the start side, mirrored for right-to-left languages (S9.2.2).
+        let root = Self::player_keys(focus::tab_navigation(div().text_start()), cx);
         let root = Self::properties_actions(Self::history_actions(root, cx), cx);
         let root = Self::menu_actions(Self::playlist_actions(root, cx), cx);
-        Self::open_actions(Self::network_actions(root, cx), cx)
+        Self::open_actions(Self::open_dialog_actions(root, cx), cx)
             .id("main-window")
             // The whole window is the player until Stage 2 gives it a view of its own.
             .key_context(focus::context(&[contexts::MAIN_WINDOW, contexts::PLAYER]))
@@ -372,13 +430,14 @@ impl Render for MainWindow {
             .children(self.render_library(&p, chrome, cx))
             .children(chrome.title_bar.then(|| self.render_title_bar(&p, window, cx)))
             .children(chrome.controls.then(|| self.render_control_bar(&p, window, cx)))
+            .children(self.render_customize_palette(chrome.title_bar, &p, cx))
             .children(self.render_track_popover(&p, window, cx))
             .children(self.render_settings_panel(&p, window, cx))
             .children((!full).then(|| self.render_queue_panel(&p, window, cx)).flatten())
-            .children(self.render_miniplayer(&p, cx))
+            .children(self.render_miniplayer(&p, window, cx))
             .children(chrome.controls.then(|| self.render_seek_card(&p, window, cx)).flatten())
             .child(Self::pointer_watcher(cx))
-            .child(self.toasts.clone())
+            .children(self.render_messages())
             .children(self.render_menus())
             .child(self.modals.clone())
             .child(drop_target::highlight(&p))

@@ -6,8 +6,9 @@
 //! highlighted, rather than at the pointer. Opening it closes any popover or other menu first.
 //! Playlist shows or hides the queue and clears it (S3.2), and holds Repeat, Shuffle, Stop After
 //! Each Item and When Playback Finishes (S3.3), and the saved playlists (S3.5).
-//! Record (S8.6) joins with its story (S2.9.4).
+//! Record (S8.6) reads Stop Recording while recording.
 
+mod disc;
 mod media;
 mod playback;
 
@@ -31,7 +32,7 @@ pub(super) type VideoMenu = (Entity<ContextMenu>, Subscription, Point<Pixels>);
 const KEYBOARD_INSET: f32 = 16.;
 
 /// Why items that need open media are disabled.
-pub(super) const NOTHING_PLAYING: &str = "No media playing";
+pub(super) const NOTHING_PLAYING: &str = tr_noop!("No media playing");
 
 impl MainWindow {
     /// A right-click on the video: the menu at the pointer.
@@ -86,7 +87,7 @@ impl MainWindow {
     fn video_menu_items(&self, window: &Window, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let main = cx.entity().downgrade();
         let mut items = self.transport_items(&main, cx);
-        let hide_ui = if self.auto_hide.hide_ui { "Show UI" } else { "Hide UI" };
+        let hide_ui = if self.auto_hide.hide_ui { tr!("Show UI") } else { tr!("Hide UI") };
         items.extend([
             run(&main, &act::HideInterface, hide_ui, cx).icon(icons::HIDE_UI),
             self.playback_menu(&main, cx),
@@ -94,13 +95,13 @@ impl MainWindow {
             self.audio_submenu(&main, cx),
             self.subtitle_submenu(&main, cx),
             self.more_settings_menu(&main, cx),
-            main_menu::dispatching(&act::ShowProperties, "Properties & Metadata…", cx)
+            main_menu::dispatching(&act::ShowProperties, tr!("Properties & Metadata…"), cx)
                 .icon(icons::INFO)
                 .disabled(!self.has_properties(cx))
-                .why_disabled(NOTHING_PLAYING),
+                .why_disabled(crate::i18n::text(NOTHING_PLAYING)),
             self.playlist_menu(&main, cx),
             open_media_menu(&main, cx),
-            main_menu::dispatching(&act::Quit, "Quit VLC", cx).icon(icons::QUIT),
+            main_menu::dispatching(&act::Quit, tr!("Quit VLC"), cx).icon(icons::QUIT),
         ]);
         items
     }
@@ -111,40 +112,51 @@ impl MainWindow {
         let playing = player.as_ref().is_some_and(|player| player.read(cx).wants_to_play());
         let active = player.is_some_and(|player| player.read(cx).state().is_active());
         let (play, play_icon) =
-            if playing { ("Pause", icons::PAUSE) } else { ("Play", icons::PLAY) };
+            if playing { (tr!("Pause"), icons::PAUSE) } else { (tr!("Play"), icons::PLAY) };
         vec![
             run(main, &act::PlayPause, play, cx).icon(play_icon),
-            run(main, &act::Stop, "Stop", cx)
+            run(main, &act::Stop, tr!("Stop"), cx)
                 .icon(icons::STOP)
                 .disabled(!active)
-                .why_disabled(NOTHING_PLAYING),
-            run(main, &act::PreviousItem, "Previous Item", cx)
+                .why_disabled(crate::i18n::text(NOTHING_PLAYING)),
+            run(main, &act::PreviousItem, tr!("Previous Item"), cx)
                 .icon(icons::PREVIOUS)
                 .disabled(!self.can_go_back(cx))
-                .why_disabled("No previous item"),
-            run(main, &act::NextItem, "Next Item", cx)
+                .why_disabled(tr!("No previous item")),
+            run(main, &act::NextItem, tr!("Next Item"), cx)
                 .icon(icons::NEXT)
                 .disabled(!self.can_go_next())
-                .why_disabled("No next item"),
+                .why_disabled(tr!("No next item")),
+            self.record_item(main, cx),
         ]
     }
 }
 
 impl MainWindow {
+    /// Record, or Stop Recording while recording; disabled with the reason when it can't start.
+    fn record_item(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
+        let label = if self.is_recording(cx) { tr!("Stop Recording") } else { tr!("Record") };
+        let why = self.why_no_recording(cx);
+        run(main, &act::Record, label, cx)
+            .icon(icons::RECORD)
+            .disabled(why.is_some())
+            .why_disabled(why.unwrap_or(""))
+    }
+
     /// Playlist: show or hide the queue, clear it, the play order and saved playlists (S3.5).
     fn playlist_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
-        let show = if self.queue_panel.is_open() { "Hide Queue" } else { "Show Queue" };
+        let show = if self.queue_panel.is_open() { tr!("Hide Queue") } else { tr!("Show Queue") };
         let mut items = vec![
             run(main, &act::ToggleQueue, show, cx).icon(icons::QUEUE),
-            on_main(main, "Clear Queue", |this, _, cx| this.clear_queue(cx))
+            on_main(main, tr!("Clear Queue"), |this, _, cx| this.clear_queue(cx))
                 .disabled(self.queue.len() == 0)
-                .why_disabled("The queue is empty"),
+                .why_disabled(tr!("The queue is empty")),
             MenuItem::Separator,
         ];
         items.extend(self.play_order_items(main, cx));
         items.push(MenuItem::Separator);
         items.extend(self.saved_playlist_items(main, cx));
-        MenuItem::submenu("Playlist", items).icon(icons::LIST)
+        MenuItem::submenu(tr!("Playlist"), items).icon(icons::LIST)
     }
 }
 
@@ -178,14 +190,24 @@ fn on_main(
 /// Open Media: the open commands, Add to Queue and Play Next (S3.1.2), and Open Recent.
 fn open_media_menu(main: &WeakEntity<MainWindow>, cx: &App) -> MenuItem {
     let items = vec![
-        main_menu::dispatching(&act::OpenFile, "Open File(s)…", cx).icon(icons::FILE),
-        main_menu::dispatching(&act::OpenFolder, "Open Folder…", cx).icon(icons::FOLDER),
-        main_menu::dispatching(&act::OpenFromClipboard, "Open from Clipboard", cx),
+        main_menu::dispatching(&act::OpenFile, tr!("Open File(s)…"), cx).icon(icons::FILE),
+        main_menu::dispatching(&act::OpenFolder, tr!("Open Folder…"), cx).icon(icons::FOLDER),
+        main_menu::dispatching(&act::OpenFromClipboard, tr!("Open from Clipboard"), cx),
+        main_menu::dispatching(&act::OpenDisc, tr!("Open Disc…"), cx).icon(icons::DISC),
+        main_menu::dispatching(&act::OpenCaptureDevice, tr!("Open Capture Device…"), cx)
+            .icon(icons::CAPTURE_DEVICE),
         MenuItem::Separator,
-        on_main(main, "Add to Queue…", |_, window, cx| MainWindow::prompt_to_enqueue(window, cx)),
-        on_main(main, "Play Next…", |_, window, cx| MainWindow::prompt_to_play_next(window, cx)),
+        on_main(main, tr!("Add to Queue…"), |_, window, cx| {
+            MainWindow::prompt_to_enqueue(window, cx);
+        }),
+        on_main(main, tr!("Play Next…"), |_, window, cx| {
+            MainWindow::prompt_to_play_next(window, cx);
+        }),
         MenuItem::Separator,
         main_menu::recent_menu(main, cx).icon(icons::RECENT),
     ];
-    MenuItem::submenu("Open Media", items).icon(icons::FILE)
+    MenuItem::submenu(tr!("Open Media"), items).icon(icons::FILE)
 }
+
+#[cfg(test)]
+pub(super) mod tests;

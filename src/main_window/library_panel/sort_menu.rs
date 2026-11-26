@@ -10,6 +10,7 @@ use gpui::{AnyElement, App, ClickEvent, Context, Div, Window, div, prelude::*, p
 use super::header::{BUTTON, ICON};
 use super::{MainWindow, OpenMenu};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::navigation::sort::{self, Sort, Sortable};
 use crate::settings;
 use crate::theme::Palette;
@@ -34,8 +35,10 @@ impl MainWindow {
         let sortable = Sortable::of(self.library_panel.history.current());
         let sort = self.library_sort(cx);
         let changed = sortable.zip(sort).is_some_and(|(place, sort)| sort != place.default_sort());
-        let label =
-            sort.map_or_else(|| "Sort".to_owned(), |sort| format!("Sort: {}", sort.label()));
+        let label = sort.map_or_else(
+            || tr!("Sort").to_owned(),
+            |sort| tr!("Sort: {sort}", sort = sort.label()),
+        );
         let button = IconButton::new("library-sort", icons::SORT, label)
             .size(BUTTON, ICON)
             .disabled(sortable.is_none())
@@ -45,7 +48,7 @@ impl MainWindow {
         let dot = div()
             .absolute()
             .top(px(DOT_INSET))
-            .right(px(DOT_INSET))
+            .inset_end(px(DOT_INSET))
             .size(px(DOT))
             .rounded_full()
             .bg(p.accent);

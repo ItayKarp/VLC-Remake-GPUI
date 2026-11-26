@@ -12,6 +12,8 @@ use super::certificates::{DialogCallbacks, DialogId};
 use super::core_vars::CoreVars;
 use super::runtime::Runtime;
 
+mod records;
+
 /// Declares an opaque libVLC handle type.
 macro_rules! opaque {
     ($($(#[$doc:meta])* $name:ident;)*) => {
@@ -30,6 +32,12 @@ opaque! {
     EventManager;
     /// `libvlc_equalizer_t`.
     AudioEqualizer;
+    /// `libvlc_media_list_t`.
+    MediaList;
+    /// `libvlc_renderer_discoverer_t`.
+    RendererDiscoverer;
+    /// `libvlc_renderer_item_t`.
+    RendererItem;
 }
 
 /// `libvlc_event_t`: the event type, its sender, and a union of per-type payloads.
@@ -54,6 +62,8 @@ pub union EventData {
     pub time: i64,
     /// `new_seekable`, `new_pausable`, `new_count`, `new_scrambled`.
     pub int: c_int,
+    /// `renderer_discoverer_item_added.item` and `renderer_discoverer_item_deleted.item`.
+    pub renderer: *mut RendererItem,
 }
 
 /// `libvlc_callback_t`.
@@ -77,82 +87,10 @@ pub type UnlockCallback = unsafe extern "C" fn(*mut c_void, *mut c_void, *const 
 /// `libvlc_video_display_cb`: the picture is due on screen.
 pub type DisplayCallback = unsafe extern "C" fn(*mut c_void, *mut c_void);
 
-/// `libvlc_media_track_t` from libVLC 3, field for field.
-#[repr(C)]
-pub struct MediaTrack {
-    pub codec: u32,
-    pub original_fourcc: u32,
-    pub id: c_int,
-    /// `libvlc_track_type_t`: -1 unknown, 0 audio, 1 video, 2 text.
-    pub kind: c_int,
-    pub profile: c_int,
-    pub level: c_int,
-    /// The kind's details; which member is valid depends on `kind`.
-    pub detail: TrackDetail,
-    pub bitrate: c_uint,
-    pub language: *mut c_char,
-    pub description: *mut c_char,
-}
-
-/// The anonymous union in `libvlc_media_track_t`: one pointer, to the details of the track's
-/// kind. Each may be NULL.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub union TrackDetail {
-    /// `libvlc_audio_track_t`, when the track is audio.
-    pub audio: *mut AudioTrack,
-    /// `libvlc_video_track_t`, when the track is video.
-    pub video: *mut VideoTrack,
-    /// `libvlc_subtitle_track_t`, when the track is text; unread.
-    pub subtitle: *mut c_void,
-}
-
-/// `libvlc_audio_track_t` from libVLC 3, field for field.
-#[repr(C)]
-pub struct AudioTrack {
-    pub channels: c_uint,
-    pub rate: c_uint,
-}
-
-/// `libvlc_video_track_t` from libVLC 3, field for field.
-#[repr(C)]
-pub struct VideoTrack {
-    pub height: c_uint,
-    pub width: c_uint,
-    pub sar_num: c_uint,
-    pub sar_den: c_uint,
-    pub frame_rate_num: c_uint,
-    pub frame_rate_den: c_uint,
-    pub orientation: c_int,
-    pub projection: c_int,
-    pub pose: [c_float; 4],
-}
-
-/// `libvlc_track_description_t`: one node of a linked list of track names.
-#[repr(C)]
-pub struct TrackDescription {
-    pub id: c_int,
-    pub name: *mut c_char,
-    pub next: *mut TrackDescription,
-}
-
-/// `libvlc_chapter_description_t`.
-#[repr(C)]
-pub struct ChapterDescription {
-    /// Start, in milliseconds.
-    pub time_offset: i64,
-    /// Length, in milliseconds.
-    pub duration: i64,
-    pub name: *mut c_char,
-}
-
-/// `libvlc_audio_output_device_t`: one node of a linked list of output devices.
-#[repr(C)]
-pub struct AudioOutputDevice {
-    pub next: *mut AudioOutputDevice,
-    pub device: *mut c_char,
-    pub description: *mut c_char,
-}
+pub use self::records::{
+    AudioOutputDevice, ChapterDescription, MediaStats, MediaTrack, RendererService,
+    TitleDescription, TrackDescription, VideoTrack,
+};
 
 type Player = *mut MediaPlayer;
 
@@ -199,6 +137,7 @@ libvlc_api! {
     libvlc_media_get_meta: fn(*mut Media, c_int) -> *mut c_char;
     libvlc_media_tracks_get: fn(*mut Media, *mut *mut *mut MediaTrack) -> c_uint;
     libvlc_media_tracks_release: fn(*mut *mut MediaTrack, c_uint);
+    libvlc_media_get_stats: fn(*mut Media, *mut MediaStats) -> bool;
     libvlc_media_slaves_add: fn(*mut Media, c_int, c_uint, *const c_char) -> c_int;
     libvlc_media_player_new: fn(*mut Instance) -> Player;
     libvlc_media_player_release: fn(Player);
@@ -210,12 +149,27 @@ libvlc_api! {
     libvlc_media_player_set_time: fn(Player, i64);
     libvlc_media_player_set_position: fn(Player, c_float);
     libvlc_media_player_get_time: fn(Player) -> i64;
+    libvlc_media_player_get_state: fn(Player) -> c_int;
+    libvlc_media_player_get_length: fn(Player) -> i64;
+    libvlc_media_player_get_position: fn(Player) -> c_float;
     libvlc_media_player_next_frame: fn(Player);
     libvlc_media_player_get_fps: fn(Player) -> c_float;
     libvlc_media_player_set_rate: fn(Player, c_float) -> c_int;
     libvlc_media_player_get_full_chapter_descriptions:
         fn(Player, c_int, *mut *mut *mut ChapterDescription) -> c_int;
     libvlc_chapter_descriptions_release: fn(*mut *mut ChapterDescription, c_uint);
+    libvlc_media_player_get_full_title_descriptions:
+        fn(Player, *mut *mut *mut TitleDescription) -> c_int;
+    libvlc_title_descriptions_release: fn(*mut *mut TitleDescription, c_uint);
+    libvlc_media_player_get_title: fn(Player) -> c_int;
+    libvlc_media_player_set_title: fn(Player, c_int);
+    libvlc_media_player_navigate: fn(Player, c_uint);
+    libvlc_media_subitems: fn(*mut Media) -> *mut MediaList;
+    libvlc_media_list_lock: fn(*mut MediaList);
+    libvlc_media_list_unlock: fn(*mut MediaList);
+    libvlc_media_list_count: fn(*mut MediaList) -> c_int;
+    libvlc_media_list_item_at_index: fn(*mut MediaList, c_int) -> *mut Media;
+    libvlc_media_list_release: fn(*mut MediaList);
     libvlc_audio_set_volume: fn(Player, c_int) -> c_int;
     libvlc_audio_set_mute: fn(Player, c_int);
     libvlc_audio_get_mute: fn(Player) -> c_int;
@@ -259,6 +213,19 @@ libvlc_api! {
     libvlc_dialog_set_callbacks: fn(*mut Instance, *const DialogCallbacks, *mut c_void);
     libvlc_dialog_post_action: fn(*mut DialogId, c_int) -> c_int;
     libvlc_dialog_dismiss: fn(*mut DialogId) -> c_int;
+    libvlc_renderer_discoverer_list_get:
+        fn(*mut Instance, *mut *mut *mut RendererService) -> usize;
+    libvlc_renderer_discoverer_list_release: fn(*mut *mut RendererService, usize);
+    libvlc_renderer_discoverer_new: fn(*mut Instance, *const c_char) -> *mut RendererDiscoverer;
+    libvlc_renderer_discoverer_release: fn(*mut RendererDiscoverer);
+    libvlc_renderer_discoverer_start: fn(*mut RendererDiscoverer) -> c_int;
+    libvlc_renderer_discoverer_stop: fn(*mut RendererDiscoverer);
+    libvlc_renderer_discoverer_event_manager: fn(*mut RendererDiscoverer) -> *mut EventManager;
+    libvlc_renderer_item_hold: fn(*mut RendererItem) -> *mut RendererItem;
+    libvlc_renderer_item_release: fn(*mut RendererItem);
+    libvlc_renderer_item_name: fn(*const RendererItem) -> *const c_char;
+    libvlc_renderer_item_flags: fn(*const RendererItem) -> c_int;
+    libvlc_media_player_set_renderer: fn(Player, *mut RendererItem) -> c_int;
 }
 
 /// The libVLC libraries, core first, by their file names on this OS.

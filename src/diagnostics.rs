@@ -3,10 +3,12 @@
 //! Info".
 //!
 //! Nothing here is ever uploaded: crash reports and logs stay in the `logs/`
-//! folder until the user chooses to share them (S9.6).
+//! folder until the user chooses to share them (S9.6, `docs/privacy.md`).
 
 pub mod crash;
 pub mod debug_info;
+pub mod report_issue;
+pub mod scrub;
 pub mod system;
 
 use std::path::{Path, PathBuf};

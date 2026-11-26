@@ -25,6 +25,7 @@ use super::menu::ContextMenu;
 use super::popover::{self, BoundsTracker};
 use super::toast::Toast;
 use super::{focus, metrics};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// The component kit gallery window: one of every kit component, wired to demo state.
@@ -129,7 +130,7 @@ impl Gallery {
             .flex()
             .flex_row()
             .justify_between()
-            .child(div().text_size(px(22.)).text_color(p.text_strong).child("Component kit"))
+            .child(div().text_size(text_px(22.)).text_color(p.text_strong).child("Component kit"))
             .child(div().text_color(p.text_muted).child(self.status.clone()))
     }
 
@@ -190,7 +191,7 @@ impl Render for Gallery {
             .size_full()
             .bg(p.background)
             .text_color(p.text)
-            .text_size(px(metrics::TEXT - 2.))
+            .text_size(text_px(metrics::TEXT - 2.))
             .on_key_down(cx.listener(Self::on_key_down))
             .child(self.sections(&p, cx))
             .children(popover)

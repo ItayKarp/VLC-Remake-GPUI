@@ -27,6 +27,7 @@ pub struct Server {
 pub fn listen(paths: &InstancePaths, lock: File, inbox: &Inbox) -> io::Result<Server> {
     paths.remove_stale_socket();
     let listener = ListenerOptions::new().name(paths.name()?).reclaim_name(true).create_sync()?;
+    paths.restrict_socket()?;
     let inbox = inbox.clone();
     thread::Builder::new().name("instance-listener".into()).spawn(move || {
         for connection in listener.incoming() {

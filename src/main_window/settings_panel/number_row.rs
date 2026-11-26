@@ -12,7 +12,9 @@ use gpui::{
     Context, Entity, EventEmitter, KeyDownEvent, Subscription, Window, div, prelude::*, px,
 };
 
+use crate::i18n::DirectionalStyle;
 use crate::theme;
+use crate::theme::text_px;
 use crate::ui::slider::{self, Slider, SliderModel};
 use crate::ui::text_input::{self, TextInput, Validation};
 
@@ -132,6 +134,18 @@ impl NumberRow {
         self.field.update(cx, |field, cx| field.set_disabled(disabled, cx));
     }
 
+    /// The field, for tests that type into it.
+    #[cfg(test)]
+    pub(in crate::main_window) fn field(&self) -> &Entity<TextInput> {
+        &self.field
+    }
+
+    /// The slider, for tests that move the keyboard from it.
+    #[cfg(test)]
+    pub(in crate::main_window) fn slider(&self) -> &Entity<Slider> {
+        &self.slider
+    }
+
     /// Asks the owner for `value`.
     fn ask(&mut self, value: f64, cx: &mut Context<Self>) {
         self.shown = None;
@@ -200,14 +214,19 @@ impl Render for NumberRow {
             .child(self.field.clone());
         let row = div()
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(4.))
-            .text_size(px(ROW_TEXT))
+            .ps(px(4.))
+            .text_size(text_px(ROW_TEXT))
             .text_color(p.text_muted)
             .child(self.label)
             .child(field);
-        div().flex().flex_col().pb(px(SLIDER_BOTTOM)).child(row).child(self.slider.clone())
+        div()
+            .flex_row_start()
+            .flex_col()
+            .pb(px(SLIDER_BOTTOM))
+            .child(row)
+            .child(self.slider.clone())
     }
 }

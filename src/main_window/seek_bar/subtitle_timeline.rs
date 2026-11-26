@@ -33,11 +33,11 @@ impl Unavailable {
     /// The line under the toggle saying why it is off.
     pub(in crate::main_window) fn hint(self) -> &'static str {
         match self {
-            Self::NoSubtitle => "Turn on a subtitle to see its lines along the seek bar.",
+            Self::NoSubtitle => tr!("Turn on a subtitle to see its lines along the seek bar."),
             Self::UnknownTimes => {
-                "The times of this subtitle's lines aren't known. Subtitle files VLC reads itself \
-                 (SRT, WebVTT, ASS/SSA, MicroDVD) can show; the video's own subtitles and \
-                 picture subtitles can't."
+                tr!("The times of this subtitle's lines aren't known. Subtitle files VLC reads \
+                     itself (SRT, WebVTT, ASS/SSA, MicroDVD) can show; the video's own subtitles \
+                     and picture subtitles can't.")
             }
         }
     }

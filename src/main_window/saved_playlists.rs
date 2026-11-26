@@ -49,7 +49,13 @@ impl MainWindow {
         let main = cx.entity().downgrade();
         let on_save = move |draft, window: &mut Window, cx: &mut App| {
             let saved = playlists::create(&draft, cx);
-            report_to(&main, saved, |title| format!("Saved the playlist “{title}”."), window, cx);
+            report_to(
+                &main,
+                saved,
+                |title| tr!("Saved the playlist “{title}”.", title),
+                window,
+                cx,
+            );
         };
         let modals = self.modals.downgrade();
         let dialog = cx.new(|cx| NewPlaylistDialog::new(files, modals, on_save, window, cx));
@@ -64,9 +70,11 @@ impl MainWindow {
         cx: &mut Context<Self>,
     ) {
         let items = playlists::items(summary.id, cx);
+        let title = (placement == Placement::Replace).then(|| summary.title.clone());
         cx.spawn_in(window, async move |this, cx| {
             let Some(items) = items.await.filter(|items| !items.is_empty()) else { return };
             this.update_in(cx, |this, window, cx| {
+                this.queue.expect_title(title, &items);
                 this.open(OpenRequest::placed(items, placement), window, cx);
             })
             .ok();
@@ -83,11 +91,16 @@ impl MainWindow {
     ) {
         let added = playlists::add(summary.id, media, cx);
         let title = summary.title.clone();
-        let what = match media.len() {
-            1 => String::new(),
-            count => format!("{count} items "),
+        let message = match media.len() {
+            1 => tr!("Added to “{title}”.", title),
+            count => trn!(
+                "Added {count} item to “{title}”.",
+                "Added {count} items to “{title}”.",
+                count,
+                title
+            ),
         };
-        let done = move |()| format!("Added {what}to “{title}”.");
+        let done = move |()| message;
         Self::report_playlists(added, done, window, cx);
     }
 
@@ -97,29 +110,34 @@ impl MainWindow {
             TextInput::new(window, cx)
                 .with_text(&summary.title)
                 .with_all_selected()
-                .with_label("Playlist title")
+                .with_label(tr!("Playlist title"))
                 .with_max_len(playlists::title::MAX_CHARS)
         });
         let main = cx.entity().downgrade();
         let id = summary.id;
         let rename = {
             let input = input.clone();
-            DialogButton::new("Rename").primary().on_click(move |window, cx| {
+            DialogButton::new(tr!("Rename")).primary().on_click(move |window, cx| {
                 let typed = input.read(cx).text().to_owned();
                 let renamed = playlists::rename(id, &typed, cx);
-                report_to(&main, renamed, |title| format!("Renamed to “{title}”."), window, cx);
+                report_to(&main, renamed, |title| tr!("Renamed to “{title}”.", title), window, cx);
             })
         };
         let body = move |_: &mut Window, _: &mut App| input.clone().into_any_element();
-        let buttons = vec![DialogButton::new("Cancel"), rename];
-        let dialog = cx.new(|cx| Dialog::new("Rename Playlist", body, buttons, cx));
+        let buttons = vec![DialogButton::new(tr!("Cancel")), rename];
+        let dialog = cx.new(|cx| Dialog::new(tr!("Rename Playlist"), body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
 
     /// Copies playlist `summary` under a numbered title.
     fn duplicate_playlist(summary: &Summary, window: &mut Window, cx: &mut Context<Self>) {
         let copied = playlists::duplicate(summary.id, cx);
-        Self::report_playlists(copied, |title| format!("Made a copy named “{title}”."), window, cx);
+        Self::report_playlists(
+            copied,
+            |title| tr!("Made a copy named “{title}”.", title),
+            window,
+            cx,
+        );
     }
 
     /// Asks before deleting playlist `summary`, or deletes it at once when confirmations are off
@@ -136,14 +154,14 @@ impl MainWindow {
         }
         let main = cx.entity().downgrade();
         let id = summary.id;
-        let delete = DialogButton::new("Delete").primary().on_click(move |_, cx| {
+        let delete = DialogButton::new(tr!("Delete")).primary().on_click(move |_, cx| {
             main.update(cx, |_, cx| Self::delete_playlist(id, cx)).ok();
         });
         let body = |_: &mut Window, _: &mut App| {
-            "The playlist is removed. Its files stay where they are.".into_any_element()
+            tr!("The playlist is removed. Its files stay where they are.").into_any_element()
         };
-        let buttons = vec![DialogButton::new("Cancel"), delete];
-        let title = format!("Delete “{}”?", summary.title);
+        let buttons = vec![DialogButton::new(tr!("Cancel")), delete];
+        let title = tr!("Delete “{title}”?", title = summary.title);
         let dialog = cx.new(|cx| Dialog::new(title, body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
@@ -168,7 +186,9 @@ impl MainWindow {
         cx.spawn_in(window, async move |this, cx| {
             let toast = match task.await {
                 Some(value) => Toast::new(Level::Success, done(value)),
-                None => Toast::new(Level::Error, "Couldn't save the change to your playlists."),
+                None => {
+                    Toast::new(Level::Error, tr!("Couldn't save the change to your playlists."))
+                }
             };
             this.update(cx, |this, cx| this.show_toast(toast, cx)).ok();
         })
@@ -190,10 +210,10 @@ fn report_to<T: 'static>(
 /// "Deleted “X”." with Undo, or the failure.
 fn deleted_toast(deleted: Option<Deleted>) -> Toast {
     let Some(deleted) = deleted else {
-        return Toast::new(Level::Error, "Couldn't delete the playlist.");
+        return Toast::new(Level::Error, tr!("Couldn't delete the playlist."));
     };
-    let message = format!("Deleted “{}”.", deleted.title());
-    Toast::new(Level::Info, message).action("Undo", move |_, cx| {
+    let message = tr!("Deleted “{title}”.", title = deleted.title());
+    Toast::new(Level::Info, message).action(tr!("Undo"), move |_, cx| {
         playlists::restore(deleted.clone(), cx).detach();
     })
 }

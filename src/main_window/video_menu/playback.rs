@@ -1,7 +1,7 @@
 //! The video menu's Playback and More Settings submenus (S2.9.3).
 //!
 //! **Playback:** Speed ▸ (common speeds, then Faster, Slower and Normal Speed), Chapter ▸ when
-//! the media has chapters (S8.2), Jump Forward and Jump Backward by the short skip, and Jump to Time,
+//! the media has chapters (S8.2), Title ▸ and Program ▸ when it has several (S8.9), Jump Forward and Jump Backward by the short skip, and Jump to Time,
 //! which opens the current time for typing (S2.4), and Add Bookmark (S8.3.2). A-B loop isn't in
 //! the engine yet, so it isn't listed.
 //!
@@ -15,8 +15,9 @@ use std::time::Duration;
 
 use gpui::{App, Context, WeakEntity};
 
-use super::{NOTHING_PLAYING, on_main, run};
+use super::{NOTHING_PLAYING, disc, on_main, run};
 use crate::assets::icons;
+use crate::i18n;
 use crate::keymap::actions as act;
 use crate::main_window::MainWindow;
 use crate::main_window::seeking::chapters::{self, Listed};
@@ -29,40 +30,42 @@ const SPEEDS: [f32; 8] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 /// Leeway when matching the playing speed to a listed one, for float noise.
 const SPEED_EPSILON: f32 = 1e-3;
 /// Why items that open something on the control bar are disabled in Hide UI mode.
-const NO_CONTROLS: &str = "Leave Hide UI to use this";
+const NO_CONTROLS: &str = tr_noop!("Leave Hide UI to use this");
 
 impl MainWindow {
     /// Playback ▸.
     pub(super) fn playback_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let Some(player) = self.loaded_player(cx) else {
-            return MenuItem::submenu("Playback", Vec::new())
+            return MenuItem::submenu(tr!("Playback"), Vec::new())
                 .icon(icons::PLAYBACK)
-                .why_disabled(NOTHING_PLAYING);
+                .why_disabled(i18n::text(NOTHING_PLAYING));
         };
         let seekable = player.read(cx).is_seekable() != Some(false);
-        let cant_seek = "This media can't seek";
+        let cant_seek = tr!("This media can't seek");
         let mut items = vec![self.speed_menu(main, cx)];
         let position = player.read(cx).position();
         items.extend(chapter_menu(main, self.chapters(cx), position, cx));
+        items.extend(disc::title_menu(main, player.read(cx).titles(), cx));
+        items.extend(disc::program_menu(main, player.read(cx).programs(), cx));
         items.extend([
             MenuItem::Separator,
-            run(main, &act::SeekForward, "Jump Forward", cx)
+            run(main, &act::SeekForward, tr!("Jump Forward"), cx)
                 .disabled(!seekable)
                 .why_disabled(cant_seek),
-            run(main, &act::SeekBackward, "Jump Backward", cx)
+            run(main, &act::SeekBackward, tr!("Jump Backward"), cx)
                 .disabled(!seekable)
                 .why_disabled(cant_seek),
-            on_main(main, "Jump to Time…", |main, window, cx| {
+            on_main(main, tr!("Jump to Time…"), |main, window, cx| {
                 main.summon_controls(window, cx);
                 main.start_time_edit(window, cx);
             })
             .disabled(!seekable || self.auto_hide.hide_ui)
-            .why_disabled(if seekable { NO_CONTROLS } else { cant_seek }),
-            run(main, &act::AddBookmark, "Add Bookmark", cx)
+            .why_disabled(if seekable { i18n::text(NO_CONTROLS) } else { cant_seek }),
+            run(main, &act::AddBookmark, tr!("Add Bookmark"), cx)
                 .disabled(!seekable)
                 .why_disabled(cant_seek),
         ]);
-        MenuItem::submenu("Playback", items).icon(icons::PLAYBACK)
+        MenuItem::submenu(tr!("Playback"), items).icon(icons::PLAYBACK)
     }
 
     /// Speed ▸: the listed speeds with the playing one checked, then the speed commands.
@@ -70,8 +73,12 @@ impl MainWindow {
         let Some(player) = self.speed_player(cx) else {
             let live =
                 self.loaded_player(cx).is_some_and(|p| p.read(cx).is_seekable() == Some(false));
-            let why = if live { "Live streams play at normal speed" } else { NOTHING_PLAYING };
-            return MenuItem::submenu("Speed", Vec::new()).why_disabled(why);
+            let why = if live {
+                tr!("Live streams play at normal speed")
+            } else {
+                i18n::text(NOTHING_PLAYING)
+            };
+            return MenuItem::submenu(tr!("Speed"), Vec::new()).why_disabled(why);
         };
         let rate = player.read(cx).rate().get();
         let mut items: Vec<MenuItem> = SPEEDS
@@ -80,11 +87,11 @@ impl MainWindow {
             .collect();
         items.extend([
             MenuItem::Separator,
-            run(main, &act::Faster, "Faster", cx),
-            run(main, &act::Slower, "Slower", cx),
-            run(main, &act::NormalSpeed, "Normal Speed", cx),
+            run(main, &act::Faster, tr!("Faster"), cx),
+            run(main, &act::Slower, tr!("Slower"), cx),
+            run(main, &act::NormalSpeed, tr!("Normal Speed"), cx),
         ]);
-        MenuItem::submenu("Speed", items)
+        MenuItem::submenu(tr!("Speed"), items)
     }
 
     /// Plays at `speed`, picked from Speed ▸, and says so over the video.
@@ -96,10 +103,10 @@ impl MainWindow {
     /// More Settings ▸: a tab of the settings panel each.
     pub(super) fn more_settings_menu(&self, main: &WeakEntity<Self>, cx: &App) -> MenuItem {
         let tabs = [
-            (PanelTab::Playback, "Playback Settings…"),
-            (PanelTab::Video, "Video Settings…"),
-            (PanelTab::Audio, "Audio Settings…"),
-            (PanelTab::Subtitles, "Subtitle Settings…"),
+            (PanelTab::Playback, tr!("Playback Settings…")),
+            (PanelTab::Video, tr!("Video Settings…")),
+            (PanelTab::Audio, tr!("Audio Settings…")),
+            (PanelTab::Subtitles, tr!("Subtitle Settings…")),
         ];
         let usable = self.has_active_media(cx) && !self.auto_hide.hide_ui;
         let items = tabs.into_iter().filter(|_| usable).map(|(tab, label)| {
@@ -108,8 +115,9 @@ impl MainWindow {
                 main.open_settings_panel(tab, window, cx);
             })
         });
-        let why = if self.auto_hide.hide_ui { NO_CONTROLS } else { NOTHING_PLAYING };
-        MenuItem::submenu("More Settings", items.collect()).icon(icons::SETTINGS).why_disabled(why)
+        let why = i18n::text(if self.auto_hide.hide_ui { NO_CONTROLS } else { NOTHING_PLAYING });
+        let menu = MenuItem::submenu(tr!("More Settings"), items.collect());
+        menu.icon(icons::SETTINGS).why_disabled(why)
     }
 }
 
@@ -145,15 +153,15 @@ fn chapter_menu(
         .collect();
     items.extend([
         MenuItem::Separator,
-        run(main, &act::NextChapter, "Next Chapter", cx),
-        run(main, &act::PreviousChapter, "Previous Chapter", cx),
+        run(main, &act::NextChapter, tr!("Next Chapter"), cx),
+        run(main, &act::PreviousChapter, tr!("Previous Chapter"), cx),
     ]);
-    Some(MenuItem::submenu("Chapter", items))
+    Some(MenuItem::submenu(tr!("Chapter"), items))
 }
 
 /// "1.25×", "1×".
 fn speed_label(speed: f32) -> String {
-    format!("{speed}×")
+    format!("{}×", rules::number(f64::from(speed)))
 }
 
 #[cfg(test)]

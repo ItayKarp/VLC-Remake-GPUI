@@ -20,6 +20,10 @@ use interprocess::local_socket::prelude::*;
 
 use crate::settings::Locations;
 
+/// The socket file's mode on Unix: only its owner may connect.
+#[cfg(unix)]
+const SOCKET_MODE: u32 = 0o600;
+
 /// Where one user's instance keeps its lock and listener.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InstancePaths {
@@ -54,6 +58,20 @@ impl InstancePaths {
         {
             self.socket.as_path().to_fs_name::<interprocess::local_socket::GenericFilePath>()
         }
+    }
+
+    /// Lets only this user connect to the socket (S9.7.4): a forwarded launch opens whatever it
+    /// names, so another account must not be able to send one, even when the socket sits in a
+    /// shared temp folder. Windows keeps pipes apart per user and session by name and by the
+    /// pipe's default security.
+    #[cfg_attr(not(unix), allow(clippy::unused_self, reason = "pipes have no file mode"))]
+    pub fn restrict_socket(&self) -> io::Result<()> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&self.socket, fs::Permissions::from_mode(SOCKET_MODE))?;
+        }
+        Ok(())
     }
 
     /// Deletes a socket file left behind by a crashed instance. Only call this while
@@ -157,5 +175,18 @@ mod tests {
         assert_eq!(a, InstancePaths::in_dir(Path::new("one")));
         assert!(a.name().is_ok());
         assert_eq!(fnv1a(b"a"), 0xaf63_dc4c_8601_ec8c);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn only_the_user_may_connect() {
+        use std::os::unix::fs::PermissionsExt;
+        let paths = InstancePaths::in_dir(&scratch_dir("mode"));
+        paths.remove_stale_socket();
+        let _listener = std::os::unix::net::UnixListener::bind(&paths.socket).expect("a socket");
+        paths.restrict_socket().expect("the mode changes");
+        let mode = fs::metadata(&paths.socket).expect("the socket").permissions().mode();
+        assert_eq!(mode & 0o777, SOCKET_MODE);
+        paths.remove_stale_socket();
     }
 }

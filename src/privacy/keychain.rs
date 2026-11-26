@@ -16,12 +16,17 @@ const SERVICE: &str = "org.redesignedvlc.app";
 pub enum Secret {
     /// The last.fm password (S5.5.2), for submitting played tracks (S8.17).
     LastFmPassword,
+    /// The session last.fm gave for that account, after the user name and the submission URL
+    /// it is for (S8.17.1).
+    LastFmSession,
     /// The HTTP proxy's password (S5.10.1).
     ProxyPassword,
     /// The OpenSubtitles account's password (S6.5.1), for more downloads a day.
     OpenSubtitlesPassword,
     /// The token OpenSubtitles gave for that account, after the user name it is for (S6.5.1).
     OpenSubtitlesToken,
+    /// The password phones sign in to the web remote with (S8.15).
+    WebRemotePassword,
 }
 
 impl Secret {
@@ -29,9 +34,11 @@ impl Secret {
     fn account(self) -> &'static str {
         match self {
             Self::LastFmPassword => "lastfm",
+            Self::LastFmSession => "lastfm-session",
             Self::ProxyPassword => "http-proxy",
             Self::OpenSubtitlesPassword => "opensubtitles",
             Self::OpenSubtitlesToken => "opensubtitles-token",
+            Self::WebRemotePassword => "web-remote",
         }
     }
 }
@@ -104,24 +111,27 @@ fn read(entry: &Entry) -> Result<Option<String>, KeychainError> {
 fn entry(secret: Secret) -> Result<Entry, KeychainError> {
     if let Err(error) = Entry::store_status() {
         tracing::warn!("keychain: none to use: {error}");
-        return Err(KeychainError::Unavailable(UNAVAILABLE.to_owned()));
+        return Err(KeychainError::Unavailable(crate::i18n::text(UNAVAILABLE).to_owned()));
     }
     Entry::new(SERVICE, secret.account()).map_err(|error| failed(&error))
 }
 
-/// What the row says when there's no keychain.
+/// What the row says when there's no keychain; translated where it is used.
 const UNAVAILABLE: &str = if cfg!(target_os = "linux") {
-    "No keychain: VLC needs a Secret Service, such as GNOME Keyring or KWallet, to save passwords."
+    tr_noop!(
+        "No keychain: VLC needs a Secret Service, such as GNOME Keyring or KWallet, to save \
+         passwords."
+    )
 } else {
-    "The system keychain can't be reached, so the password can't be saved."
+    tr_noop!("The system keychain can't be reached, so the password can't be saved.")
 };
 
 fn failed(error: &keyring::Error) -> KeychainError {
     tracing::warn!("keychain: {error}");
     match error {
         keyring::Error::NoStorageAccess(_) | keyring::Error::NoDefaultStore => {
-            KeychainError::Unavailable(UNAVAILABLE.to_owned())
+            KeychainError::Unavailable(crate::i18n::text(UNAVAILABLE).to_owned())
         }
-        _ => KeychainError::Failed("The keychain couldn't be used. Try again.".to_owned()),
+        _ => KeychainError::Failed(tr!("The keychain couldn't be used. Try again.").to_owned()),
     }
 }

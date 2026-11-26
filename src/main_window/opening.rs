@@ -94,6 +94,7 @@ impl MainWindow {
         if request.items.is_empty() {
             return;
         }
+        crate::perf::opening();
         if request.placement == Placement::Replace {
             self.cancel_opening(cx);
         }
@@ -173,10 +174,11 @@ impl MainWindow {
             self.show_toast(Toast::new(Level::Error, problem.message(item)), cx);
         }
         if resolved.skipped > 0 {
-            let message = match resolved.skipped {
-                1 => "1 file skipped: it isn't media.".to_owned(),
-                n => format!("{n} files skipped: they aren't media."),
-            };
+            let message = trn!(
+                "{count} file skipped: it isn't media.",
+                "{count} files skipped: they aren't media.",
+                resolved.skipped
+            );
             self.show_toast(Toast::new(Level::Info, message), cx);
         }
     }
@@ -188,7 +190,7 @@ impl MainWindow {
             files: !folder,
             directories: folder,
             multiple: true,
-            prompt: Some("Open".into()),
+            prompt: Some(tr!("Open").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else {
@@ -244,10 +246,10 @@ impl MainWindow {
             Some(items) if !items.is_empty() => {
                 self.open(OpenRequest::replace(items), window, cx);
             }
-            _ => self.show_toast(
-                Toast::new(Level::Info, "Copy a file path or a URL first, then paste it here."),
-                cx,
-            ),
+            _ => {
+                let text = tr!("Copy a file path or a URL first, then paste it here.");
+                self.show_toast(Toast::new(Level::Info, text), cx);
+            }
         }
     }
 }
@@ -271,6 +273,9 @@ fn clipboard_items(entries: &[ClipboardEntry]) -> Vec<Media> {
 fn job_label(items: &[Media]) -> SharedString {
     match items {
         [item] => item.display_name().into(),
-        items => format!("{} items", items.len()).into(),
+        items => trn!("{count} item", "{count} items", items.len()).into(),
     }
 }
+
+#[cfg(test)]
+mod tests;

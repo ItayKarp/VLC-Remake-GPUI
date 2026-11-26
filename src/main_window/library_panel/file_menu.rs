@@ -1,10 +1,10 @@
 //! A media card's file menu (S4.8.1; `library/menus/file_context_menu.png`): Play, Mark as
-//! Watched (or Unwatched), Favorite, Add to Queue, Add to Playlist ▸, Show in Finder (File
-//! Explorer, Files), Go to Source, Add Subtitle Tracks (the Add Subtitles dialog, S6.4), Add
-//! Audio Tracks and Properties & Metadata.
+//! Watched (or Unwatched), Favorite, Stream (the Stream dialog for one file, S8.12), Convert (the
+//! Convert dialog holding the files, S8.10), Add to Queue, Add to Playlist ▸, Show in Finder
+//! (File Explorer, Files), Go to Source, Add Subtitle Tracks (the Add Subtitles dialog, S6.4),
+//! Add Audio Tracks and Properties & Metadata.
 //!
-//! The design's Stream (S8.12) and Convert (S8.10) join when their stories ship; like the main menu, the menu leaves out what doesn't work yet. A file the
-//! library hasn't identified yet can't be a favorite. A file that vanished while the menu was
+//! A file the library hasn't identified yet can't be a favorite. A file that vanished while the menu was
 //! open says "File not found" when shown or inspected.
 
 use std::path::{Path, PathBuf};
@@ -29,7 +29,15 @@ use crate::ui::menu::MenuItem;
 use crate::ui::toast::{Level, Toast};
 
 /// What a file that is gone says.
-const NOT_FOUND: &str = "File not found";
+const NOT_FOUND: &str = tr_noop!("File not found");
+
+/// Add Subtitle Tracks, for one file.
+fn add_subtitles(main: &WeakEntity<MainWindow>, files: &[FileTarget]) -> MenuItem {
+    let label = tr!("Add Subtitle Tracks");
+    on_one(main, files, label, icons::SUBTITLES, |main, file, window, cx| {
+        main.show_add_subtitles(Target::File(file.path.clone()), window, cx);
+    })
+}
 
 /// The file menu's items for `files`.
 pub(super) fn items(
@@ -39,13 +47,19 @@ pub(super) fn items(
 ) -> Vec<MenuItem> {
     let media: Vec<Media> = files.iter().map(|file| Media::File(file.path.clone())).collect();
     vec![
-        on_all(main, files, "Play", icons::PLAY, |main, files, window, cx| match files {
+        on_all(main, files, tr!("Play"), icons::PLAY, |main, files, window, cx| match files {
             [file] => main.open_item(file.index, window, cx),
             files => main.play_cards(files_media(files), 0, window, cx),
         }),
         mark_watched(main, files),
         favorite(files, cx),
-        on_all(main, files, "Add to Queue", icons::QUEUE, |main, files, window, cx| {
+        on_one(main, files, tr!("Stream"), icons::STREAMING, |main, file, window, cx| {
+            main.show_stream(Media::File(file.path.clone()), window, cx);
+        }),
+        on_all(main, files, tr!("Convert"), icons::CONVERT, |main, files, window, cx| {
+            main.show_convert(files_media(files), window, cx);
+        }),
+        on_all(main, files, tr!("Add to Queue"), icons::QUEUE, |main, files, window, cx| {
             let request = OpenRequest::placed(files_media(files), Placement::Enqueue);
             main.open(request, window, cx);
         }),
@@ -53,16 +67,20 @@ pub(super) fn items(
         on_one(main, files, show_in_folder_label(), icons::FOLDER, |_, file, _, cx| {
             MainWindow::reveal_file(file.path.clone(), cx);
         }),
-        on_one(main, files, "Go to Source", icons::ARROW_RIGHT, |main, file, _, cx| {
-            main.go_to_source(file, cx);
-        }),
-        on_one(main, files, "Add Subtitle Tracks", icons::SUBTITLES, |main, file, window, cx| {
-            main.show_add_subtitles(Target::File(file.path.clone()), window, cx);
-        }),
-        on_one(main, files, "Add Audio Tracks", icons::AUDIO, |_, file, window, cx| {
+        on_one(
+            main,
+            files,
+            tr!("Go to Source"),
+            crate::i18n::mirrored(icons::ARROW_RIGHT, icons::ARROW_LEFT),
+            |main, file, _, cx| {
+                main.go_to_source(file, cx);
+            },
+        ),
+        add_subtitles(main, files),
+        on_one(main, files, tr!("Add Audio Tracks"), icons::AUDIO, |_, file, window, cx| {
             MainWindow::prompt_for_audio_tracks(Media::File(file.path.clone()), window, cx);
         }),
-        on_one(main, files, "Properties & Metadata", icons::INFO, |main, file, window, cx| {
+        on_one(main, files, tr!("Properties & Metadata"), icons::INFO, |main, file, window, cx| {
             main.show_file_properties(file.path.clone(), window, cx);
         }),
     ]
@@ -76,7 +94,7 @@ fn files_media(files: &[FileTarget]) -> Vec<Media> {
 /// Mark as Watched, or Mark as Unwatched once every one of `files` is watched.
 fn mark_watched(main: &WeakEntity<MainWindow>, files: &[FileTarget]) -> MenuItem {
     let watched = !files.iter().all(|file| file.watched);
-    let label = if watched { "Mark as Watched" } else { "Mark as Unwatched" };
+    let label = if watched { tr!("Mark as Watched") } else { tr!("Mark as Unwatched") };
     on_all(main, files, label, icons::CHECK_BOX_FULL, move |main, files, _, cx| {
         main.mark_cards_watched(files_media(files), watched, cx);
     })
@@ -88,10 +106,10 @@ fn favorite(files: &[FileTarget], cx: &App) -> MenuItem {
     let marked: Vec<Favorite> = files.iter().filter_map(|f| f.media.map(Favorite::Media)).collect();
     let unknown = marked.len() < files.len();
     let all = favorites::all(&marked, cx);
-    MenuItem::check("Favorite", all, move |_, cx| favorites::mark(marked.clone(), !all, cx))
+    MenuItem::check(tr!("Favorite"), all, move |_, cx| favorites::mark(marked.clone(), !all, cx))
         .icon(icons::FAVORITE)
         .disabled(unknown)
-        .why_disabled("Not in the library yet")
+        .why_disabled(tr!("Not in the library yet"))
 }
 
 /// Add to Playlist ▸: the saved playlists, then New Playlist… holding `media`.
@@ -110,21 +128,21 @@ fn add_to_playlist(main: &WeakEntity<MainWindow>, media: &[Media], cx: &App) -> 
         items.push(MenuItem::Separator);
     }
     let (main, files) = (main.clone(), media.to_vec());
-    items.push(MenuItem::action("New Playlist…", move |window, cx| {
+    items.push(MenuItem::action(tr!("New Playlist…"), move |window, cx| {
         let files = files.clone();
         main.update(cx, |main, cx| main.show_new_playlist(files, window, cx)).ok();
     }));
-    MenuItem::submenu("Add to Playlist", items).icon(icons::PLAYLIST)
+    MenuItem::submenu(tr!("Add to Playlist"), items).icon(icons::PLAYLIST)
 }
 
 /// What the OS's file manager is called: Show in Finder, File Explorer or Files.
 pub(in crate::main_window) fn show_in_folder_label() -> &'static str {
     if cfg!(target_os = "macos") {
-        "Show in Finder"
+        tr!("Show in Finder")
     } else if cfg!(target_os = "windows") {
-        "Show in File Explorer"
+        tr!("Show in File Explorer")
     } else {
-        "Show in Files"
+        tr!("Show in Files")
     }
 }
 
@@ -173,7 +191,7 @@ impl MainWindow {
         if found {
             cx.reveal_path(path);
         } else {
-            self.show_toast(Toast::new(Level::Error, NOT_FOUND), cx);
+            self.show_toast(Toast::new(Level::Error, crate::i18n::text(NOT_FOUND)), cx);
         }
     }
 
@@ -199,7 +217,7 @@ impl MainWindow {
         if path.exists() {
             Self::show_properties_of(path, window, cx);
         } else {
-            self.show_toast(Toast::new(Level::Error, NOT_FOUND), cx);
+            self.show_toast(Toast::new(Level::Error, crate::i18n::text(NOT_FOUND)), cx);
         }
     }
 }

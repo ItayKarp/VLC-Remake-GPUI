@@ -70,7 +70,7 @@ impl AddSubtitlesDialog {
     ) {
         let Target::File(video) = self.target().clone() else { return };
         let proxy = settings::proxy_url(&settings::get(cx).prefs.network.http_proxy);
-        self.report("Downloading…", false, cx);
+        self.report(tr!("Downloading…"), false, cx);
         let fetch = cx.background_spawn(async move { fetch(downloads, proxy.as_ref()) });
         self.saving = Some(cx.spawn_in(window, async move |this, cx| {
             let fetched = fetch.await;
@@ -112,7 +112,7 @@ impl AddSubtitlesDialog {
                 change.remove.iter().map(|subtitle| (change.video.clone(), subtitle.clone()))
             })
             .collect();
-        self.report("Saving…", false, cx);
+        self.report(tr!("Saving…"), false, cx);
         let saving = subtitle_links::save(changes, cx);
         self.saving = Some(cx.spawn_in(window, async move |this, cx| {
             let outcomes = saving.await;
@@ -133,9 +133,12 @@ impl AddSubtitlesDialog {
         window.defer(cx, move |window, cx| on_saved(saved, window, cx));
         match failed {
             0 => cx.emit(DismissEvent),
-            1 => self.report("1 subtitle couldn't be added; its row says why.", true, cx),
             n => self.report(
-                format!("{n} subtitles couldn't be added; their rows say why."),
+                trn!(
+                    "{count} subtitle couldn't be added; its row says why.",
+                    "{count} subtitles couldn't be added; their rows say why.",
+                    n
+                ),
                 true,
                 cx,
             ),
@@ -190,7 +193,7 @@ impl AddSubtitlesDialog {
 /// answering each file's path or why it didn't come. Blocks on the network.
 fn fetch(downloads: Downloads, proxy: Option<&url::Url>) -> Vec<Result<PathBuf, String>> {
     let Some(folder) = Locations::resolve().map(|locations| locations.subtitles()) else {
-        return vec![Err("There's no folder to save it in.".to_owned())];
+        return vec![Err(tr!("There's no folder to save it in.").to_owned())];
     };
     match downloads {
         Downloads::Link(url) => {

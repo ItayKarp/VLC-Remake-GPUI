@@ -12,7 +12,6 @@ use gpui::{
 
 use super::TITLE_BAR_HEIGHT;
 use super::auto_hide::rules::{Chrome, Layout};
-use super::control_bar::CONTROL_BAR_HEIGHT;
 use crate::theme::Palette;
 use crate::video::VideoView;
 
@@ -39,41 +38,41 @@ pub fn framed(video: Entity<VideoView>, p: &Palette, chrome: Chrome) -> Div {
 
 /// How far the content area is from the window's top and bottom: the bars' heights while they
 /// are docked (no title bar without window decorations, S5.4.1), nothing while they float or
-/// hide.
-pub fn content_insets(chrome: Chrome) -> (f32, f32) {
+/// hide. The control bar is `bar` tall (one row or two, S8.7).
+pub fn content_insets(chrome: Chrome, bar: f32) -> (f32, f32) {
     match chrome.layout {
         Layout::Docked => {
             let top = if chrome.title_bar { TITLE_BAR_HEIGHT } else { 0. };
-            (top, CONTROL_BAR_HEIGHT)
+            (top, bar)
         }
         Layout::Floating | Layout::Fullscreen => (0., 0.),
     }
 }
 
-/// How much of the video's top and bottom the title bar and control bar cover for `chrome`:
-/// nothing while they are docked around the video or hidden; floating, their heights less the
-/// viewport's inset.
-pub fn covered(chrome: Chrome) -> (f32, f32) {
+/// How much of the video's top and bottom the title bar and a control bar `bar` tall cover for
+/// `chrome`: nothing while they are docked around the video or hidden; floating, their heights
+/// less the viewport's inset.
+pub fn covered(chrome: Chrome, bar: f32) -> (f32, f32) {
     let inset = match chrome.layout {
         Layout::Docked => return (0., 0.),
         Layout::Floating => INSET,
         Layout::Fullscreen => 0.,
     };
     let top = if chrome.title_bar { TITLE_BAR_HEIGHT - inset } else { 0. };
-    let bottom = if chrome.controls { CONTROL_BAR_HEIGHT - inset } else { 0. };
+    let bottom = if chrome.controls { bar - inset } else { 0. };
     (top, bottom)
 }
 
-/// The width and height the window has around the picture for `chrome`: the docked bars and the
-/// viewport's inset ("Resize window to fit video", S5.4.1).
-pub fn surround(chrome: Chrome) -> (f32, f32) {
+/// The width and height the window has around the picture for `chrome`: the docked bars (the
+/// control bar `bar` tall) and the viewport's inset ("Resize window to fit video", S5.4.1).
+pub fn surround(chrome: Chrome, bar: f32) -> (f32, f32) {
     let width = 2. * INSET;
     match chrome.layout {
         Layout::Fullscreen => (0., 0.),
         Layout::Floating => (width, 2. * INSET),
         Layout::Docked => {
             let top = if chrome.title_bar { TITLE_BAR_HEIGHT } else { INSET };
-            (width, top + CONTROL_BAR_HEIGHT + INSET)
+            (width, top + bar + INSET)
         }
     }
 }

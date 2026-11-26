@@ -14,6 +14,8 @@ use super::model::Choice;
 use super::render::{PADDING, ROW_GAP, ROW_HEIGHT, file_name, icon_and_name, note};
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::IconButton;
 use crate::ui::icon::icon;
@@ -36,7 +38,7 @@ impl AddSubtitlesDialog {
     pub(super) fn render_files(files: &Files, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         if files.candidates.is_empty() {
             return note(
-                "No subtitle files in this folder. Click the folder above to choose another.",
+                tr!("No subtitle files in this folder. Click the folder above to choose another."),
                 p,
             )
             .into_any_element();
@@ -57,7 +59,7 @@ impl AddSubtitlesDialog {
             .min_h_0()
             .px(px(PADDING))
             .role(accesskit::Role::List)
-            .aria_label("Subtitle files")
+            .aria_label(tr!("Subtitle files"))
             .child(list)
             .into_any_element()
     }
@@ -85,12 +87,12 @@ impl AddSubtitlesDialog {
             .aria_toggled(checked.into())
             .aria_label(file_name(&path))
             .h(px(ROW_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .gap(px(12.))
-            .pl(px(18.))
-            .pr(px(16.))
+            .ps(px(18.))
+            .pe(px(16.))
             .rounded(px(metrics::RADIUS + 2.))
             .cursor_pointer()
             .text_color(if checked { p.text } else { p.text_muted })
@@ -106,13 +108,13 @@ impl AddSubtitlesDialog {
                 linked.then(|| Self::remove_button(index, &path, cx)),
                 p,
             ));
-        spaced(focus::ring(row, p)).into_any_element()
+        spaced(focus::outline_ring(row, p)).into_any_element()
     }
 
     /// A linked subtitle's remove button: leaves it out, which unlinks it on Save.
     fn remove_button(index: usize, path: &std::path::Path, cx: &mut Context<Self>) -> IconButton {
         let path = path.to_path_buf();
-        IconButton::new(("add-subtitles-unlink", index), icons::REMOVE, "Remove this subtitle")
+        IconButton::new(("add-subtitles-unlink", index), icons::REMOVE, tr!("Remove this subtitle"))
             .size(28., 18.)
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 cx.stop_propagation();
@@ -142,16 +144,16 @@ fn trailing(
     remove: Option<IconButton>,
     p: &Palette,
 ) -> Div {
-    let tag = remove
-        .is_some()
-        .then(|| div().text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child("Linked"));
+    let tag = remove.is_some().then(|| {
+        div().text_size(text_px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(tr!("Linked"))
+    });
     let check = div()
         .size(px(CHECK))
         .flex_none()
         .when(checked, |slot| slot.child(icon(icons::CHECK, CHECK, p.accent_fg)));
     div()
         .flex_none()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(10.))
         .children(status)

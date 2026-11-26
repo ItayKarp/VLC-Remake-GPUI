@@ -4,6 +4,7 @@ use gpui::{App, Div, div, prelude::*, px};
 
 use crate::assets::{icons, two_tone};
 use crate::settings;
+use crate::theme::text_px;
 use crate::theme::{Accent, Palette, ThemeMode};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::icon;
@@ -23,7 +24,7 @@ pub(super) fn section(title: &'static str, p: &Palette) -> Div {
         .bg(p.panel)
         .border_1()
         .border_color(p.divider)
-        .child(div().text_size(px(12.)).text_color(p.text_muted).child(title.to_uppercase()))
+        .child(div().text_size(text_px(12.)).text_color(p.text_muted).child(title.to_uppercase()))
 }
 
 /// A wrapping row of components inside a section.

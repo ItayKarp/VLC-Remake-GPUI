@@ -18,14 +18,18 @@ use super::MainWindow;
 use super::control_bar::clock;
 use super::flash::Flash;
 use crate::assets::icons;
+use crate::engine::display_text;
 use crate::theme::Palette;
+use crate::theme::text_px;
 
 /// How long a message stays.
 const SHOWN_FOR: Duration = Duration::from_millis(1500);
 /// How long a message takes to fade in.
 const FADE_IN: Duration = Duration::from_millis(120);
 /// How far the message sits from the video's top and left edges.
-const MARGIN: f32 = 24.;
+pub(super) const MARGIN: f32 = 24.;
+/// The message's height, fixed so what sits below it (the statistics, S8.13.2) stays put.
+pub(super) const HEIGHT: f32 = 50.;
 /// The message's text size.
 const TEXT_SIZE: f32 = 18.;
 /// The frame step spinner's size.
@@ -43,11 +47,19 @@ pub struct Osd {
 }
 
 impl MainWindow {
-    /// Shows `text` over the video for a moment.
+    /// Shows `text` over the video for a moment, as one line without control characters, since
+    /// it often holds a title from the media (S9.7.2).
     pub(super) fn show_osd(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
-        self.osd.text = text.into();
+        let text = text.into();
+        self.osd.text = display_text::clean(&text).map_or(text, SharedString::from);
         self.osd.shown += 1;
         self.flash(|this| &mut this.osd.flash, SHOWN_FOR, cx);
+    }
+
+    /// The last message shown, for tests of what says what.
+    #[cfg(test)]
+    pub(super) fn osd_text(&self) -> &str {
+        &self.osd.text
     }
 
     /// The message, or the frame step spinner, while either shows.
@@ -77,12 +89,14 @@ impl MainWindow {
 /// The message's surface.
 fn bubble(p: &Palette) -> Div {
     div()
+        .h(px(HEIGHT))
+        .flex()
+        .items_center()
         .px(px(18.))
-        .py(px(10.))
         .rounded(px(8.))
         .bg(p.panel)
         .shadow_lg()
-        .text_size(px(TEXT_SIZE))
+        .text_size(text_px(TEXT_SIZE))
         .text_color(p.text_strong)
         .font_features(clock::tabular_digits())
 }
@@ -100,5 +114,5 @@ fn stepping(p: &Palette, reduce_motion: bool) -> Div {
             })
             .into_any_element()
     };
-    div().flex().items_center().gap(px(10.)).child(spinner).child("Stepping…")
+    div().flex().items_center().gap(px(10.)).child(spinner).child(tr!("Stepping…"))
 }

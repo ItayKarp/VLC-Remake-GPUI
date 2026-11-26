@@ -49,7 +49,7 @@ impl MainWindow {
     pub(super) fn set_audio_delay(&mut self, delay: Offset, cx: &mut Context<Self>) {
         let Some(player) = self.loaded_player(cx) else { return };
         if !player.update(cx, |player, cx| player.set_audio_delay(delay, cx)) {
-            self.show_osd("No audio playing", cx);
+            self.show_osd(tr!("No audio playing"), cx);
             return;
         }
         let delay = player.read(cx).audio_delay();
@@ -67,7 +67,7 @@ impl MainWindow {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Add".into()),
+            prompt: Some(tr!("Add").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else { return };
@@ -90,7 +90,7 @@ impl MainWindow {
             paths.into_iter().partition(|path| kind::by_extension(path) == Some(Kind::Media));
         if let Some(other) = others.first() {
             let name = Media::File(other.clone()).display_name();
-            self.show_toast(Toast::new(Level::Info, format!("{name} has no audio to add.")), cx);
+            self.show_toast(Toast::new(Level::Info, tr!("{name} has no audio to add.", name)), cx);
         }
         if audio.is_empty() {
             return;
@@ -114,7 +114,9 @@ impl MainWindow {
         }
         let Some((_, files)) = self.audio_tracks.0.take() else { return };
         let added = player.update(cx, |player, cx| files.iter().all(|f| player.add_audio(f, cx)));
-        let text = if added { added_message(&files, cx) } else { "Couldn't add the audio.".into() };
+        let text =
+            if added { added_message(&files, cx) } else { tr!("Couldn't add the audio.").into() };
+
         let level = if added { Level::Success } else { Level::Error };
         self.show_toast(Toast::new(level, text), cx);
     }
@@ -124,14 +126,17 @@ impl MainWindow {
 fn added_message(files: &[PathBuf], cx: &gpui::App) -> String {
     let what = match files {
         [file] => {
-            format!("Added “{}” as an audio track.", Media::File(file.clone()).display_name())
+            let name = Media::File(file.clone()).display_name();
+            tr!("Added “{name}” as an audio track.", name)
         }
-        files => format!("Added {} audio tracks.", files.len()),
+        files => trn!("Added {count} audio track.", "Added {count} audio tracks.", files.len()),
     };
     let earlier = keymap::shortcut(&act::AudioDelayEarlier, cx);
     let later = keymap::shortcut(&act::AudioDelayLater, cx);
     match (earlier, later) {
-        (Some(earlier), Some(later)) => format!("{what} Out of sync? Press {earlier} or {later}."),
+        (Some(earlier), Some(later)) => {
+            tr!("{what} Out of sync? Press {earlier} or {later}.", what, earlier, later)
+        }
         _ => what,
     }
 }
@@ -139,20 +144,13 @@ fn added_message(files: &[PathBuf], cx: &gpui::App) -> String {
 /// The OSD's text for an audio delay: "Audio delay: −150 ms".
 fn delay_message(delay: Offset) -> String {
     match delay.as_millis() {
-        0 => "Audio delay: 0 ms".to_owned(),
-        millis if millis < 0 => format!("Audio delay: −{} ms", millis.unsigned_abs()),
-        millis => format!("Audio delay: +{millis} ms"),
+        0 => tr!("Audio delay: 0 ms").to_owned(),
+        millis if millis < 0 => {
+            tr!("Audio delay: −{millis} ms", millis = millis.unsigned_abs())
+        }
+        millis => tr!("Audio delay: +{millis} ms", millis),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_delay_reads_with_its_sign() {
-        assert_eq!(delay_message(Offset::from_millis(0)), "Audio delay: 0 ms");
-        assert_eq!(delay_message(Offset::from_millis(-150)), "Audio delay: −150 ms");
-        assert_eq!(delay_message(Offset::from_millis(50)), "Audio delay: +50 ms");
-    }
-}
+mod tests;

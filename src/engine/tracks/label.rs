@@ -9,15 +9,18 @@ pub(super) fn label(track: &Track, number: usize) -> String {
     let base = track.title.clone().unwrap_or_else(|| untitled(track, number));
     match details(track) {
         // A title often names the codec already ("English DTS-HD 5.1").
-        Some(details) if !mentions_codec(&base, track) => format!("{base} — {details}"),
+        Some(details) if !mentions_codec(&base, track) => {
+            tr!("{base} — {details}", base, details)
+        }
         _ => base,
     }
 }
 
 /// The name of a track the container didn't title: its language, or its number.
 fn untitled(track: &Track, number: usize) -> String {
-    let name = track.language.as_ref().map_or_else(|| format!("Track {number}"), Language::name);
-    if track.forced { format!("{name} (Forced)") } else { name }
+    let name =
+        track.language.as_ref().map_or_else(|| tr!("Track {number}", number), Language::name);
+    if track.forced { tr!("{name} (Forced)", name) } else { name }
 }
 
 /// The codec and, for audio, the channel layout ("AC3 5.1").
@@ -34,15 +37,15 @@ fn mentions_codec(title: &str, track: &Track) -> bool {
 /// How a channel count is usually written.
 fn layout(channels: u32) -> String {
     match channels {
-        1 => "Mono".to_owned(),
-        2 => "Stereo".to_owned(),
+        1 => tr!("Mono").to_owned(),
+        2 => tr!("Stereo").to_owned(),
         3 => "2.1".to_owned(),
         4 => "4.0".to_owned(),
         5 => "5.0".to_owned(),
         6 => "5.1".to_owned(),
         7 => "6.1".to_owned(),
         8 => "7.1".to_owned(),
-        _ => format!("{channels} ch"),
+        _ => tr!("{channels} ch", channels),
     }
 }
 

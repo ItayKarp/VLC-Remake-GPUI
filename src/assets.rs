@@ -65,6 +65,10 @@ icons! {
     /// Music mode's Back 15 s and Forward 15 s (S8.1.2, `controls-music.png`).
     BACK_15 => "back-15.svg",
     FORWARD_15 => "forward-15.svg",
+    /// Customize Player's Backward 10 s, Forward 10 s and Playback Speed (S8.7).
+    BACK_10 => "back-10.svg",
+    FORWARD_10 => "forward-10.svg",
+    SPEED => "speed.svg",
     MINIMIZE => "minimize.svg",
     MAXIMIZE => "maximize.svg",
     FULLSCREEN => "fullscreen.svg",
@@ -122,7 +126,6 @@ icons! {
     CAPTURE_DEVICE => "capture-device.svg",
     CONVERT => "convert.svg",
     RECENT => "recent.svg",
-    #[allow(dead_code, reason = "the main menu's Profile submenu arrives with profiles (S8.8)")]
     PROFILE => "profile.svg",
     HOTKEYS => "hotkeys.svg",
     PAINT => "paint.svg",
@@ -138,6 +141,13 @@ icons! {
     // The List panel (S3.2).
     QUEUE => "queue.svg",
     BOOKMARKS => "bookmarks.svg",
+    /// Customize Player's Bookmark: bookmarks where playback is (S8.7).
+    BOOKMARK => "bookmark.svg",
+    /// Customize Player's HDR, Zoom, Right Sidebar and Thumbnail (S8.7.6).
+    HDR => "hdr.svg",
+    ZOOM => "zoom.svg",
+    SIDEBAR_RIGHT => "sidebar-right.svg",
+    THUMBNAIL => "thumbnail.svg",
     CHAPTERS => "chapters.svg",
     SORT => "sort.svg",
     REMOVE => "remove.svg",

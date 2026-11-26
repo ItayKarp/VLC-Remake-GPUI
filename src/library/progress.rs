@@ -40,34 +40,17 @@ impl Progress {
 
     /// "Indexing 1,234 of ~5,000".
     pub fn label(self) -> String {
-        format!("Indexing {} of ~{}", group_thousands(self.found), group_thousands(self.estimate))
+        tr!(
+            "Indexing {found} of ~{estimate}",
+            found = crate::i18n::number(self.found),
+            estimate = crate::i18n::number(self.estimate)
+        )
     }
-}
-
-/// `1234567` as `1,234,567`.
-pub fn group_thousands(count: usize) -> String {
-    let digits = count.to_string();
-    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
-    for (i, digit) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
-    grouped
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn counts_are_grouped_by_thousands() {
-        assert_eq!(group_thousands(0), "0");
-        assert_eq!(group_thousands(999), "999");
-        assert_eq!(group_thousands(1_234), "1,234");
-        assert_eq!(group_thousands(1_234_567), "1,234,567");
-    }
 
     #[test]
     fn a_rescan_estimates_from_the_last_count() {

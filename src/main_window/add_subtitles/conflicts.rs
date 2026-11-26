@@ -4,18 +4,46 @@
 //! the checkbox or the checked subtitles change.
 
 use gpui::{
-    AnyElement, AppContext as _, Context, DismissEvent, Div, MouseButton, MouseDownEvent,
-    SharedString, div, prelude::*, px,
+    AnyElement, AppContext as _, ClickEvent, Context, DismissEvent, Div, MouseButton,
+    MouseDownEvent, Pixels, Point, SharedString, Stateful, accesskit, div, prelude::*, px,
 };
 
 use super::model::Pair;
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::subtitle_links::copy::{self, OnConflict};
 use crate::theme::Palette;
+use crate::theme::text_px;
+use crate::ui::focus;
 use crate::ui::icon::icon;
 use crate::ui::menu::{ContextMenu, MenuItem};
 use crate::ui::metrics;
+
+/// The "Name taken: …" chip for `pair`, a tab stop that opens the choices.
+fn conflict_chip(pair: &Pair, label: SharedString, p: &Palette) -> Stateful<Div> {
+    let id = format!("conflict-{}", pair.1.display());
+    div()
+        .id(SharedString::from(id.clone()))
+        .debug_selector(move || id)
+        .tab_index(0)
+        .key_context(focus::CONTROL)
+        .role(accesskit::Role::Button)
+        .aria_label(label.clone())
+        .flex_none()
+        .flex_row_start()
+        .items_center()
+        .gap(px(4.))
+        .px(px(8.))
+        .py(px(2.))
+        .rounded(px(metrics::RADIUS))
+        .bg(p.control)
+        .hover(|style| style.bg(p.button_hover))
+        .text_size(text_px(metrics::TEXT_SMALL))
+        .text_color(p.warning)
+        .child(label)
+        .child(icon(icons::CHEVRON_DOWN, 14., p.icon))
+}
 
 /// The widest a row's error gets before it is cut short.
 const ERROR_WIDTH: f32 = 320.;
@@ -36,38 +64,31 @@ impl AddSubtitlesDialog {
         if !added {
             return None;
         }
-        let label = SharedString::from(format!("Name taken: {}", conflict_label(*choice)));
+        let label =
+            SharedString::from(tr!("Name taken: {choice}", choice = conflict_label(*choice)));
         let pair = pair.clone();
-        let button = div()
-            .id(SharedString::from(format!("conflict-{}", pair.1.display())))
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(px(4.))
-            .px(px(8.))
-            .py(px(2.))
-            .rounded(px(metrics::RADIUS))
-            .bg(p.control)
-            .hover(|style| style.bg(p.button_hover))
-            .text_size(px(metrics::TEXT_SMALL))
-            .text_color(p.warning)
+        let keyboard_pair = pair.clone();
+        let button = conflict_chip(&pair, label, p)
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     cx.stop_propagation();
-                    this.open_conflict_menu(&pair, event, window, cx);
+                    this.open_conflict_menu(&pair, event.position, window, cx);
                 }),
             )
-            .child(label)
-            .child(icon(icons::CHEVRON_DOWN, 14., p.icon));
-        Some(button.into_any_element())
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                if let Some(at) = focus::keyboard_anchor(event) {
+                    this.open_conflict_menu(&keyboard_pair, at, window, cx);
+                }
+            }));
+        Some(focus::outline_ring(button, p).into_any_element())
     }
 
     /// The menu of what to do with `pair`'s taken name.
     fn open_conflict_menu(
         &mut self,
         pair: &Pair,
-        event: &MouseDownEvent,
+        position: Point<Pixels>,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
@@ -88,7 +109,7 @@ impl AddSubtitlesDialog {
             this.focus_handle.focus(window, cx);
             cx.notify();
         });
-        self.menu = Some((event.position, menu, closed));
+        self.menu = Some((position, menu, closed));
         cx.notify();
     }
 
@@ -156,9 +177,9 @@ impl AddSubtitlesDialog {
 /// How the conflict menu and button name `choice`.
 fn conflict_label(choice: OnConflict) -> &'static str {
     match choice {
-        OnConflict::Overwrite => "Overwrite",
-        OnConflict::KeepBoth => "Keep both",
-        OnConflict::Skip => "Skip",
+        OnConflict::Overwrite => tr!("Overwrite"),
+        OnConflict::KeepBoth => tr!("Keep both"),
+        OnConflict::Skip => tr!("Skip"),
     }
 }
 
@@ -166,11 +187,11 @@ fn conflict_label(choice: OnConflict) -> &'static str {
 fn error_label(error: &str, p: &Palette) -> Div {
     let text = div().min_w_0().max_w(px(ERROR_WIDTH)).truncate().child(error.to_owned());
     div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(6.))
         .text_color(p.danger)
-        .text_size(px(metrics::TEXT_SMALL))
+        .text_size(text_px(metrics::TEXT_SMALL))
         .child(icon(icons::INFO, 16., p.danger))
         .child(text)
 }

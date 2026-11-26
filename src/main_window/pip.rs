@@ -101,7 +101,7 @@ impl MainWindow {
         } else if self.wants_pip(cx) {
             self.open_pip(window, cx);
         } else {
-            self.show_osd(NOTHING_PLAYING, cx);
+            self.show_osd(crate::i18n::text(NOTHING_PLAYING), cx);
         }
     }
 

@@ -14,6 +14,7 @@ use super::INSET;
 use super::MainWindow;
 use super::view_menu;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::keymap;
 use crate::keymap::actions::{GoBack, GoForward};
 use crate::navigation::breadcrumb::Trail;
@@ -21,6 +22,7 @@ use crate::navigation::history::Step;
 use crate::navigation::item_count;
 use crate::navigation::route::Route;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 
 /// The header's buttons: 28 px, 8 px apart, 18 px in from the panel's sides (`player_02`).
@@ -45,16 +47,16 @@ impl MainWindow {
             .h(px(ROW_HEIGHT))
             .mt(px(NAV_TOP))
             .px(px(SIDE))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .child(self.step_button(Step::Back, cx))
             .child(self.step_button(Step::Forward, cx))
             .child(self.render_crumbs(&trail, p, cx))
-            .child(later("library-more", icons::MORE, "More"))
+            .child(later("library-more", icons::MORE, tr!("More")))
             .child(pop_out_button(cx));
         div()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .flex_none()
             .child(nav)
@@ -66,8 +68,18 @@ impl MainWindow {
     /// Back or Forward, enabled when the step leads somewhere.
     pub(super) fn step_button(&self, step: Step, cx: &mut Context<Self>) -> IconButton {
         let (id, icon, label, action): (_, _, _, &dyn Action) = match step {
-            Step::Back => ("library-back", icons::ARROW_LEFT, "Back", &GoBack),
-            Step::Forward => ("library-forward", icons::ARROW_RIGHT, "Forward", &GoForward),
+            Step::Back => (
+                "library-back",
+                crate::i18n::mirrored(icons::ARROW_LEFT, icons::ARROW_RIGHT),
+                tr!("Back"),
+                &GoBack,
+            ),
+            Step::Forward => (
+                "library-forward",
+                crate::i18n::mirrored(icons::ARROW_RIGHT, icons::ARROW_LEFT),
+                tr!("Forward"),
+                &GoForward,
+            ),
         };
         let button = IconButton::new(id, icon, label)
             .size(BUTTON, ICON)
@@ -80,9 +92,9 @@ impl MainWindow {
         div()
             .h(px(COUNT_HEIGHT))
             .mt(px(COUNT_TOP))
-            .pl(px(INSET))
-            .pr(px(SIDE))
-            .flex()
+            .ps(px(INSET))
+            .pe(px(SIDE))
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .child(self.count_text(outside_library, p, cx).flex_1())
@@ -95,14 +107,16 @@ impl MainWindow {
 impl MainWindow {
     /// "N items", with "Not in library" for a folder outside every media folder.
     pub(super) fn count_text(&self, outside_library: bool, p: &Palette, cx: &App) -> Div {
-        let mut count = item_count(self.listed_count(cx));
-        if outside_library {
-            count.push_str(" · Not in library");
-        }
+        let listed = self.listed_count(cx);
+        let count = if outside_library {
+            trn!("{count} item · Not in library", "{count} items · Not in library", listed)
+        } else {
+            item_count(listed)
+        };
         div()
             .min_w_0()
             .truncate()
-            .text_size(px(COUNT_TEXT))
+            .text_size(text_px(COUNT_TEXT))
             .text_color(p.text_muted)
             .child(SharedString::from(count))
     }
@@ -110,7 +124,7 @@ impl MainWindow {
     /// View, showing the current view's icon, which opens the View menu.
     pub(super) fn view_button(&self, cx: &mut Context<Self>) -> Div {
         let button =
-            IconButton::new("library-view", view_menu::icon(self.library_view(cx)), "View")
+            IconButton::new("library-view", view_menu::icon(self.library_view(cx)), tr!("View"))
                 .size(BUTTON, ICON)
                 .disabled(*self.library_panel.history.current() == Route::Home)
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -123,7 +137,7 @@ impl MainWindow {
 impl MainWindow {
     /// Search, shown on while the field is open, which opens and closes it.
     fn search_button(&self, cx: &mut Context<Self>) -> IconButton {
-        IconButton::new("library-search", icons::SEARCH, "Search")
+        IconButton::new("library-search", icons::SEARCH, tr!("Search"))
             .size(BUTTON, ICON)
             .selected(self.library_panel.search.is_some())
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -134,7 +148,7 @@ impl MainWindow {
 
 /// Pop-out: switches to full library mode.
 fn pop_out_button(cx: &mut Context<MainWindow>) -> IconButton {
-    IconButton::new("library-pop-out", icons::POP_OUT, "Open full library")
+    IconButton::new("library-pop-out", icons::POP_OUT, tr!("Open full library"))
         .size(BUTTON, ICON)
         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
             this.open_full_library(window, cx);

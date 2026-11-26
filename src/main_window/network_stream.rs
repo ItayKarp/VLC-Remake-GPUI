@@ -11,6 +11,8 @@ mod open;
 mod render;
 #[cfg(test)]
 mod screenshots;
+#[cfg(test)]
+mod tests;
 
 use std::rc::Rc;
 
@@ -69,13 +71,13 @@ impl NetworkStreamDialog {
         let urls = cx.new(|cx| {
             TextInput::new(window, cx)
                 .with_rows(URL_ROWS)
-                .with_placeholder("e.g., https://www.example.com/stream.avi")
-                .with_label("Network URL")
+                .with_placeholder(tr!("e.g., https://www.example.com/stream.avi"))
+                .with_label(tr!("Network URL"))
         });
         let name = cx.new(|cx| {
             TextInput::new(window, cx)
-                .with_placeholder("e.g., Favorite TV Channels")
-                .with_label("Playlist name")
+                .with_placeholder(tr!("e.g., Favorite TV Channels"))
+                .with_label(tr!("Playlist name"))
                 .with_max_len(playlists::title::MAX_CHARS)
         });
         let subscriptions = [
@@ -152,15 +154,22 @@ impl NetworkStreamDialog {
         notes.extend(refused_note(&self.links.refused));
         notes.extend(match self.links.duplicates {
             0 => None,
-            1 => Some("1 repeated link is left out.".into()),
-            n => Some(format!("{n} repeated links are left out.").into()),
+            n => Some(
+                trn!(
+                    "{count} repeated link is left out.",
+                    "{count} repeated links are left out.",
+                    n
+                )
+                .into(),
+            ),
         });
         let with_password = self.links.urls.len() - network::storable(&self.links.urls).len();
         if with_password > 0 {
             notes.push(if self.title(cx).is_some() {
-                "Links with a password can't be saved in a playlist, so they are left out.".into()
+                tr!("Links with a password can't be saved in a playlist, so they are left out.")
+                    .into()
             } else {
-                "Links with a password play, but aren't kept in Recent Streams.".into()
+                tr!("Links with a password play, but aren't kept in Recent Streams.").into()
             });
         }
         notes
@@ -171,9 +180,13 @@ impl NetworkStreamDialog {
 fn refused_note(refused: &[String]) -> Option<SharedString> {
     let first = links::masked(refused.first()?);
     Some(match refused.len() {
-        1 => format!("“{first}” isn't a media link, so it is left out.").into(),
-        n => {
-            format!("{n} entries, like “{first}”, aren't media links, so they are left out.").into()
-        }
+        1 => tr!("“{first}” isn't a media link, so it is left out.", first).into(),
+        n => trn!(
+            "{count} entry, like “{first}”, isn't a media link, so it is left out.",
+            "{count} entries, like “{first}”, aren't media links, so they are left out.",
+            n,
+            first
+        )
+        .into(),
     })
 }

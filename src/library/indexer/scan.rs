@@ -58,6 +58,7 @@ pub fn scan(
     cancel: &Cancel,
     progress: &mut dyn FnMut(Progress),
 ) -> Outcome {
+    let started = Instant::now();
     let (case, dir) = (job.root.case, job.dir.to_path_buf());
     let before = call(store, move |c| match folders::find(c, &dir, case)? {
         Some(folder) => files::count_below(c, folder),
@@ -81,6 +82,10 @@ pub fn scan(
         }
     });
     writer.flush();
+    if before == 0 && writer.found > 0 {
+        // A folder the library had nothing of: its first index (S9.3).
+        crate::perf::indexed(writer.found as u64, started.elapsed());
+    }
     writer.outcome
 }
 

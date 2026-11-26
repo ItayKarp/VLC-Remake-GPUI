@@ -10,18 +10,20 @@ use gpui::{
     App, AppContext as _, Context, Entity, KeyDownEvent, Subscription, Window, div, prelude::*, px,
 };
 
+use crate::i18n::DirectionalStyle;
 use crate::privacy::keychain::{self, KeychainError, Secret, Status};
+use crate::scrobble;
 use crate::ui::button::Button;
 use crate::ui::text_input::{self, TextInput, Validation};
 
 /// The space between the field and Forget.
 const BUTTON_GAP: f32 = 8.;
 /// The hint while the keychain is being asked.
-const CHECKING: &str = "Checking the keychain…";
+const CHECKING: &str = tr_noop!("Checking the keychain…");
 /// The hint with a password saved.
-const SAVED: &str = "Saved in the keychain";
+const SAVED: &str = tr_noop!("Saved in the keychain");
 /// The hint without one.
-const NOT_SAVED: &str = "Not saved";
+const NOT_SAVED: &str = tr_noop!("Not saved");
 
 /// A password field backed by the keychain.
 pub(super) struct SecretField {
@@ -43,7 +45,10 @@ impl SecretField {
         cx: &mut Context<Self>,
     ) -> Self {
         let input = cx.new(|cx| {
-            TextInput::new(window, cx).masked().with_label(label).with_placeholder(CHECKING)
+            TextInput::new(window, cx)
+                .masked()
+                .with_label(label)
+                .with_placeholder(crate::i18n::text(CHECKING))
         });
         let events =
             cx.subscribe(&input, |this, input, event: &text_input::Event, cx| match event {
@@ -103,10 +108,7 @@ impl SecretField {
         cx.spawn(async move |this, cx| {
             let result = done.await;
             this.update(cx, |this, cx| match result {
-                Ok(()) => {
-                    this.input.update(cx, |input, cx| input.set_text("", cx));
-                    this.refresh(cx);
-                }
+                Ok(()) => this.changed(cx),
                 Err(error) => {
                     let message = Validation::Error(error.message().to_owned().into());
                     this.input.update(cx, |input, cx| input.set_validation(message, cx));
@@ -117,6 +119,16 @@ impl SecretField {
         .detach();
     }
 
+    /// The keychain took the change: the field empties, the hint says what is saved now, and
+    /// scrobbling signs in again with a new last.fm password (S8.17.1).
+    fn changed(&mut self, cx: &mut Context<Self>) {
+        self.input.update(cx, |input, cx| input.set_text("", cx));
+        if self.secret == Secret::LastFmPassword {
+            scrobble::password_changed(cx);
+        }
+        self.refresh(cx);
+    }
+
     /// Whether a password can be typed: the parent is on and the keychain is there.
     fn can_edit(&self) -> bool {
         !self.parent_off && matches!(self.status, Some(Status::Saved | Status::NotSaved))
@@ -125,9 +137,9 @@ impl SecretField {
     /// Puts the status in the field's hint and enables it when it can be edited.
     fn show_status(&mut self, cx: &mut Context<Self>) {
         let hint = match &self.status {
-            None => CHECKING.to_owned(),
-            Some(Status::Saved) => SAVED.to_owned(),
-            Some(Status::NotSaved) => NOT_SAVED.to_owned(),
+            None => crate::i18n::text(CHECKING).to_owned(),
+            Some(Status::Saved) => crate::i18n::text(SAVED).to_owned(),
+            Some(Status::NotSaved) => crate::i18n::text(NOT_SAVED).to_owned(),
             Some(Status::Unavailable(why)) => why.clone(),
         };
         let disabled = !self.can_edit();
@@ -156,7 +168,7 @@ impl Render for SecretField {
         let saved = self.status == Some(Status::Saved);
         let forget = saved.then(|| {
             let this = cx.entity().downgrade();
-            Button::new("forget", "Forget").disabled(self.parent_off).on_click(
+            Button::new("forget", tr!("Forget")).disabled(self.parent_off).on_click(
                 move |_, _, cx: &mut App| {
                     this.update(cx, SecretField::forget).ok();
                 },
@@ -164,7 +176,7 @@ impl Render for SecretField {
         });
         div()
             .w_full()
-            .flex()
+            .flex_row_start()
             .items_start()
             .gap(px(BUTTON_GAP))
             .on_key_down(cx.listener(Self::on_key_down))

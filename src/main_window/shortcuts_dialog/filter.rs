@@ -25,9 +25,9 @@ impl Field {
     /// The dropdown's text for it.
     pub fn label(self) -> &'static str {
         match self {
-            Field::All => "All Fields",
-            Field::Action => "Action",
-            Field::Hotkey => "Hotkey",
+            Field::All => tr!("All Fields"),
+            Field::Action => tr!("Action"),
+            Field::Hotkey => tr!("Hotkey"),
         }
     }
 
@@ -42,8 +42,10 @@ impl Field {
 pub struct Row {
     /// The command's index in the command table.
     pub index: usize,
-    /// The command's name.
+    /// The command's name, in the interface language.
     pub label: &'static str,
+    /// The command's English name, which search matches too.
+    pub english: &'static str,
     /// Its shortcuts as text, the primary one first.
     pub keys: Vec<SharedString>,
     /// Whether its keys differ from the defaults.
@@ -54,7 +56,7 @@ impl Row {
     /// Whether the row answers `query` in `field`: every word of it appears, ignoring case.
     /// Keys match however they're spaced ("ctrl+o" finds "Ctrl + O").
     pub fn matches(&self, query: &str, field: Field) -> bool {
-        let label = self.label.to_lowercase();
+        let label = format!("{}\n{}", self.label, self.english).to_lowercase();
         let keys = compact(&self.keys.join(" "));
         query.split_whitespace().all(|word| {
             let in_label = field != Field::Hotkey && label.contains(&word.to_lowercase());
@@ -82,10 +84,16 @@ pub fn groups(shortcuts: &Shortcuts) -> Vec<Group> {
         let command = commands::find(action)?;
         let keys = shortcuts.keys(index).iter().map(|key| label::text(key, mac).into()).collect();
         let changed = !shortcuts.is_default(index);
-        (!menus::is_pending(action)).then_some(Row { index, label: command.label, keys, changed })
+        (!menus::is_pending(action)).then_some(Row {
+            index,
+            label: command.title(),
+            english: command.label,
+            keys,
+            changed,
+        })
     };
     let group = |section: &Section| Group {
-        title: section.title,
+        title: crate::i18n::text(section.title),
         rows: section.actions.iter().filter_map(|action| row(*action)).collect(),
     };
     SECTIONS.iter().map(group).collect()
@@ -115,7 +123,7 @@ mod tests {
 
     fn row(label: &'static str, keys: &[&'static str]) -> Row {
         let keys = keys.iter().map(|key| SharedString::from(*key)).collect();
-        Row { index: 0, label, keys, changed: false }
+        Row { index: 0, label, english: label, keys, changed: false }
     }
 
     fn sample() -> Vec<Group> {

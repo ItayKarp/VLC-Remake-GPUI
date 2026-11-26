@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use crate::db::playlists::PlaylistId;
+use crate::db::podcasts::FeedId;
 
 /// A place in the library.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,6 +18,8 @@ pub enum Route {
     Music(MusicRoute),
     /// Network streams: their categories (`None`), or one category (S4.11).
     Network(Option<NetworkCategory>),
+    /// A podcast's episodes, in Network → Podcasts (S8.17.2).
+    Podcast(FeedId),
     /// The saved playlists (`None`), or one of them.
     Playlists(Option<PlaylistId>),
     /// The recently played list (S4.5.7).
@@ -56,18 +59,18 @@ impl HomeSection {
     /// The section's heading.
     pub fn label(self) -> &'static str {
         match self {
-            Self::ContinueWatching => "Continue Watching",
-            Self::ListenAgain => "Listen Again",
-            Self::Favorites => "Favorites",
-            Self::Folders => "Frequently Visited Folders",
-            Self::Playlists => "Frequently Visited Playlists",
-            Self::Artists => "Frequently Listened Artists",
+            Self::ContinueWatching => tr!("Continue Watching"),
+            Self::ListenAgain => tr!("Listen Again"),
+            Self::Favorites => tr!("Favorites"),
+            Self::Folders => tr!("Frequently Visited Folders"),
+            Self::Playlists => tr!("Frequently Visited Playlists"),
+            Self::Artists => tr!("Frequently Listened Artists"),
         }
     }
 }
 
 /// Network's categories (S4.11.3): built in, since streams are filed into them rather than
-/// organized freely (playlists do that). Podcasts are filled by subscriptions (S8.17).
+/// organized freely (playlists do that). Podcasts lists subscribed feeds (S8.17.2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NetworkCategory {
     /// The streams opened from Open Network Stream, the latest first.
@@ -85,9 +88,9 @@ impl NetworkCategory {
     /// The category's name.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Recent => "Recent Streams",
-            Self::Podcasts => "Podcasts",
-            Self::Radio => "Radio",
+            Self::Recent => tr!("Recent Streams"),
+            Self::Podcasts => tr!("Podcasts"),
+            Self::Radio => tr!("Radio"),
         }
     }
 }
@@ -138,15 +141,21 @@ impl Section {
     pub const ALL: [Self; 6] =
         [Self::Home, Self::Videos, Self::Music, Self::Network, Self::Playlists, Self::History];
 
-    /// The section's name, as its root's breadcrumb and the rail's tooltip say it.
+    /// The section's name, as its root's breadcrumb and the rail's tooltip say it, in the
+    /// interface language.
     pub fn label(self) -> &'static str {
+        crate::i18n::text(self.name())
+    }
+
+    /// The section's English name, which settings remember it by.
+    pub fn name(self) -> &'static str {
         match self {
-            Self::Home => "Home",
-            Self::Videos => "Videos",
-            Self::Music => "Music",
-            Self::Network => "Network",
-            Self::Playlists => "Playlists",
-            Self::History => "History",
+            Self::Home => tr_noop!("Home"),
+            Self::Videos => tr_noop!("Videos"),
+            Self::Music => tr_noop!("Music"),
+            Self::Network => tr_noop!("Network"),
+            Self::Playlists => tr_noop!("Playlists"),
+            Self::History => tr_noop!("History"),
         }
     }
 
@@ -196,10 +205,10 @@ impl MusicCategory {
     /// The category's name.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Songs => "Songs",
-            Self::Albums => "Albums",
-            Self::Artists => "Artists",
-            Self::Genres => "Genres",
+            Self::Songs => tr!("Songs"),
+            Self::Albums => tr!("Albums"),
+            Self::Artists => tr!("Artists"),
+            Self::Genres => tr!("Genres"),
         }
     }
 
@@ -221,7 +230,7 @@ impl Route {
             Self::Home | Self::HomeSection(_) => Section::Home,
             Self::Videos(_) => Section::Videos,
             Self::Music(_) => Section::Music,
-            Self::Network(_) => Section::Network,
+            Self::Network(_) | Self::Podcast(_) => Section::Network,
             Self::Playlists(_) => Section::Playlists,
             Self::History => Section::History,
             Self::Search(search) => search.scope,
@@ -273,6 +282,7 @@ mod tests {
             Route::Videos(Some("/media/Shows".into())),
             MusicCategory::Songs.route(),
             Route::Playlists(Some(PlaylistId(3))),
+            Route::Podcast(FeedId(2)),
             Route::Search(Search { query: "wand".into(), scope: Section::Videos }),
             Route::HomeSection(HomeSection::ListenAgain),
         ];

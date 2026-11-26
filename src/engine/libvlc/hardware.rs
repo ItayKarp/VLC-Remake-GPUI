@@ -48,7 +48,8 @@ pub fn set_policy(policy: HardwarePolicy) {
 pub fn media_key(source: &Source) -> String {
     match source {
         Source::File(path) => path.to_string_lossy().into_owned(),
-        Source::Url(url) => url.clone(),
+        Source::Url(url) => crate::network::links::without_user_info(url),
+        Source::Device(device) => device.to_stored(),
     }
 }
 

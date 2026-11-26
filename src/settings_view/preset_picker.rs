@@ -172,7 +172,7 @@ impl PresetPicker {
             TextInput::new(window, cx)
                 .with_text(&name)
                 .with_all_selected()
-                .with_label("Preset name")
+                .with_label(tr!("Preset name"))
                 .with_max_len(presets::names::MAX_CHARS)
         });
         let events = cx.subscribe_in(&input, window, |this, _, event, window, cx| {
@@ -192,7 +192,7 @@ impl PresetPicker {
         if keep {
             let typed = renaming.input.read(cx).text().to_owned();
             if presets::rename(cx, &renaming.name, &typed).is_none() {
-                self.report("A preset needs a name, so it keeps its old one.", true, cx);
+                self.report(tr!("A preset needs a name, so it keeps its old one."), true, cx);
             }
         }
         self.focus_handle.focus(window, cx);

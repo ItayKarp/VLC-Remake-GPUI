@@ -15,15 +15,17 @@ use gpui::{
 };
 
 use super::MainWindow;
-use super::subtitle_style;
+use super::{device_failure, subtitle_style};
 use crate::app::media::Media;
 use crate::engine;
+use crate::engine::backend::{Backend, EventSender};
 use crate::engine::player::{Player, PlayerEvent};
 use crate::engine::state::{ErrorKind, PlaybackState};
 use crate::library;
 use crate::power::Playback;
 use crate::settings::{self, SettingsStore};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
 use crate::video::{Output, VideoView};
@@ -40,7 +42,8 @@ impl MainWindow {
                 .update(cx, |player, cx| subtitles.iter().all(|path| player.add_subtitle(path, cx)))
         });
         if !attached {
-            self.show_toast(Toast::new(Level::Info, "Open a video first, then add subtitles."), cx);
+            let text = tr!("Open a video first, then add subtitles.");
+            self.show_toast(Toast::new(Level::Info, text), cx);
         }
     }
 
@@ -56,7 +59,19 @@ impl MainWindow {
         let output = Output::new();
         let subtitles = subtitle_style::style(&settings::get(cx).prefs.subtitles);
         let backend = engine::default_backend(output.sink(), Self::audio_config(cx), subtitles);
-        let player = cx.new(|cx| Player::new(backend, cx));
+        self.attach_player(output, backend, window, cx)
+    }
+
+    /// Makes the player on the backend `make_backend` builds, its pictures shown from `output`,
+    /// and wires it to the window: its events, the video area, audio, tracks and picture.
+    pub(super) fn attach_player(
+        &mut self,
+        output: Output,
+        make_backend: impl FnOnce(EventSender) -> Box<dyn Backend>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<Player> {
+        let player = cx.new(|cx| Player::new(make_backend, cx));
         Self::start_at_default_speed(&player, cx);
         let events = cx.subscribe_in(&player, window, Self::on_player_event);
         // A player closed while playing mustn't hold the thumbnailer back (S4.4).
@@ -120,10 +135,10 @@ impl MainWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.on_history_event(event, cx);
+        self.on_side_events(event, cx);
         match event {
-            PlayerEvent::EndReached => self.advance(window, cx),
-            PlayerEvent::Error(_) => self.skip_failed(window, cx),
+            PlayerEvent::EndReached => self.item_ended(window, cx),
+            PlayerEvent::Error(kind) => self.failed(*kind, window, cx),
             PlayerEvent::StateChanged(state) => {
                 if *state == PlaybackState::Playing {
                     self.skips.played();
@@ -134,6 +149,7 @@ impl MainWindow {
                 }
                 self.found_playing(*state, cx);
                 self.notify_now_playing(*state, cx);
+                self.announce_state(*state, cx);
                 self.attach_pending_audio(cx);
                 let busy = matches!(
                     state,
@@ -156,12 +172,31 @@ impl MainWindow {
                 }
             }
             PlayerEvent::HdrChanged(status) => self.warn_hdr(*status, cx),
-            // The title bar names the media by its title tag (S2.1.2).
-            PlayerEvent::MetadataChanged => cx.notify(),
             _ => self.on_audio_event(event, cx),
         }
-        // The control bar shows the position, length, volume and what Play/Pause would do.
+        // The control bar shows the position, length, volume and what Play/Pause would do, and
+        // the title bar names the media by its title tag (S2.1.2).
         cx.notify();
+    }
+
+    /// What the history, scrobbling, podcasts, recording, disc menus, casting and streaming
+    /// follow of `event`.
+    fn on_side_events(&mut self, event: &PlayerEvent, cx: &mut Context<Self>) {
+        self.on_history_event(event, cx);
+        self.on_scrobble_event(event, cx);
+        if *event == PlayerEvent::EndReached {
+            self.episode_played(cx);
+        }
+        self.on_recording_event(event, cx);
+        self.on_disc_event(event, cx);
+        self.on_cast_event(event, cx);
+        self.on_stream_event(event, cx);
+    }
+
+    /// Playback failed: says why for a disc or device, and moves on in the queue.
+    fn failed(&mut self, kind: ErrorKind, window: &mut Window, cx: &mut Context<Self>) {
+        self.explain_device_failure(kind, cx);
+        self.skip_failed(window, cx);
     }
 
     /// Stops what is opening: resolving items, and the engine's open.
@@ -179,12 +214,12 @@ impl MainWindow {
             .flex()
             .items_center()
             .gap(px(12.))
-            .text_size(px(14.))
+            .text_size(text_px(14.))
             .text_color(p.text)
             .child(text);
         let line = if cancellable {
             line.child(
-                Button::new("cancel-open", "Cancel")
+                Button::new("cancel-open", tr!("Cancel"))
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.cancel(cx))),
             )
         } else {
@@ -194,22 +229,27 @@ impl MainWindow {
     }
 
     /// What to say, and whether Cancel applies.
-    fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
+    pub(super) fn status(&self, cx: &Context<Self>) -> Option<(SharedString, bool)> {
         if let Some(job) = self.jobs.running.last() {
-            return Some((format!("Opening {}…", job.label).into(), true));
+            return Some((tr!("Opening {name}…", name = job.label).into(), true));
         }
         let (player, _) = self.player.as_ref()?;
         let player = player.read(cx);
         let name = player.media().map_or_default(Media::display_name);
         let text = match player.state() {
             PlaybackState::Idle => return None,
-            PlaybackState::Opening => return Some((format!("Opening {name}…").into(), true)),
-            PlaybackState::Buffering => format!("Buffering {name}…"),
-            PlaybackState::Playing => format!("Playing {name}"),
-            PlaybackState::Paused => format!("Paused: {name}"),
-            PlaybackState::Ended => format!("Finished {name}"),
-            PlaybackState::Stopped => format!("Stopped {name}"),
-            PlaybackState::Error(kind) => format!("Couldn't play {name}: {}", error_message(kind)),
+            PlaybackState::Opening => return Some((tr!("Opening {name}…", name).into(), true)),
+            PlaybackState::Buffering => tr!("Buffering {name}…", name),
+            PlaybackState::Playing => tr!("Playing {name}", name),
+            PlaybackState::Paused => tr!("Paused: {name}", name),
+            PlaybackState::Ended => tr!("Finished {name}", name),
+            PlaybackState::Stopped => tr!("Stopped {name}", name),
+            PlaybackState::Error(kind) => {
+                let device = player.media().and_then(Media::as_device);
+                let reason =
+                    device.map_or(error_message(kind), |d| device_failure::reason(d, kind));
+                tr!("Couldn't play {name}: {reason}", name, reason)
+            }
         };
         Some((text.into(), false))
     }
@@ -218,16 +258,20 @@ impl MainWindow {
 /// Why something couldn't play, for the user.
 fn error_message(kind: ErrorKind) -> &'static str {
     match kind {
-        ErrorKind::NotFound => "the file doesn't exist.",
-        ErrorKind::EmptyFile => "the file is empty.",
-        ErrorKind::NotAFile => "it isn't a media file.",
-        ErrorKind::Unreadable => "the file can't be read.",
-        ErrorKind::Locked => "another program is using the file.",
-        ErrorKind::OpenFailed => "VLC can't open this media.",
-        ErrorKind::NoPlayableStreams => "it has nothing VLC can play.",
-        ErrorKind::Corrupt => "the file is damaged.",
-        ErrorKind::Protected => "protected content can't be played.",
-        ErrorKind::BackendUnavailable => "VLC's playback engine couldn't be loaded.",
-        ErrorKind::SourceLost => "the file or its drive went away.",
+        ErrorKind::NotFound => tr!("the file doesn't exist."),
+        ErrorKind::EmptyFile => tr!("the file is empty."),
+        ErrorKind::NotAFile => tr!("it isn't a media file."),
+        ErrorKind::Unreadable => tr!("the file can't be read."),
+        ErrorKind::Locked => tr!("another program is using the file."),
+        ErrorKind::OpenFailed => tr!("VLC can't open this media."),
+        ErrorKind::NoPlayableStreams => tr!("it has nothing VLC can play."),
+        ErrorKind::Corrupt => tr!("the file is damaged."),
+        ErrorKind::Protected => tr!("protected content can't be played."),
+        ErrorKind::BackendUnavailable => tr!("VLC's playback engine couldn't be loaded."),
+        ErrorKind::SourceLost => tr!("the file or its drive went away."),
+        ErrorKind::RefusedLink => tr!("VLC doesn't open this kind of link."),
     }
 }
+
+#[cfg(test)]
+pub(super) mod tests;

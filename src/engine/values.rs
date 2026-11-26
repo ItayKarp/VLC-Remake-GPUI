@@ -3,6 +3,8 @@
 
 use std::time::Duration;
 
+use super::stream_out::StreamTarget;
+
 /// Which `open` an event belongs to. Every open gets a new one, so events that arrive late from
 /// a cancelled open can be recognized and dropped.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -153,13 +155,15 @@ pub enum BackendSeek {
 }
 
 /// Where an open starts: at the beginning and playing, unless restoring the last session (S3.4)
-/// asks for the saved position, paused.
+/// asks for the saved position, paused; and whether it streams to the network (S8.12).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Start {
     /// The position playback starts from.
     pub at: Duration,
     /// Whether the media opens paused there instead of playing.
     pub paused: bool,
+    /// The stream the media is sent to while it plays; `None` doesn't stream.
+    pub stream: Option<StreamTarget>,
 }
 
 /// Which way a frame step goes.

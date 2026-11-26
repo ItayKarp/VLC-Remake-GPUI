@@ -8,6 +8,8 @@ use gpui::{
 
 use super::{NewPlaylistDialog, Thumbnail};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::button::{Button, ButtonStyle, IconButton};
 use crate::ui::{focus, metrics};
@@ -46,7 +48,7 @@ impl Render for NewPlaylistDialog {
             .overflow_y_scroll()
             .px(px(PADDING))
             .pt(px(PADDING))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .gap(px(41.))
             .child(self.details(&p, cx))
@@ -56,11 +58,11 @@ impl Render for NewPlaylistDialog {
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(Self::on_key_down))
             .role(accesskit::Role::Dialog)
-            .aria_label("New Playlist")
+            .aria_label(tr!("New Playlist"))
             .w(px(WIDTH))
             .max_w(viewport.width - px(2. * self.window_margin))
             .max_h(viewport.height - px(2. * self.window_margin))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .rounded(px(metrics::RADIUS_LARGE + 4.))
             .overflow_hidden()
@@ -78,28 +80,28 @@ impl Render for NewPlaylistDialog {
 impl NewPlaylistDialog {
     /// "New Playlist" and ✕ on a darker band.
     fn header(p: &Palette, cx: &mut Context<Self>) -> Div {
-        let close = IconButton::new("new-playlist-close", icons::CLOSE, "Close")
+        let close = IconButton::new("new-playlist-close", icons::CLOSE, tr!("Close"))
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.cancel(window, cx)));
         div()
             .flex_none()
             .h(px(HEADER_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
-            .pl(px(PADDING))
-            .pr(px(PADDING - 6.))
+            .ps(px(PADDING))
+            .pe(px(PADDING - 6.))
             .bg(p.sunken)
-            .text_size(px(DESCRIPTION_TEXT + 1.))
+            .text_size(text_px(DESCRIPTION_TEXT + 1.))
             .text_color(p.text)
-            .child("New Playlist")
+            .child(tr!("New Playlist"))
             .child(close)
     }
 
     /// Playlist Details: the title field and the thumbnail well.
     fn details(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let text = section(
-            "Playlist Details",
-            "The playlist will be saved and displayed with this title and thumbnail.",
+            tr!("Playlist Details"),
+            tr!("The playlist will be saved and displayed with this title and thumbnail."),
             p,
         )
         .flex_1()
@@ -112,14 +114,14 @@ impl NewPlaylistDialog {
         let thumbnail = div()
             .flex_none()
             .mt(px(THUMBNAIL_TOP))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_end()
             .gap(px(4.))
-            .text_size(px(metrics::TEXT_SMALL))
+            .text_size(text_px(metrics::TEXT_SMALL))
             .child(self.thumbnail_well(p, cx))
             .children(refused);
-        div().flex().items_start().gap(px(20.)).child(text).child(thumbnail)
+        div().flex_row_start().items_start().gap(px(20.)).child(text).child(thumbnail)
     }
 
     /// The thumbnail well: the picked image, or a "+" that picks one.
@@ -130,7 +132,8 @@ impl NewPlaylistDialog {
             ),
             _ => None,
         };
-        let label = if picked.is_some() { "Change thumbnail" } else { "Choose thumbnail" };
+        let label =
+            if picked.is_some() { tr!("Change thumbnail") } else { tr!("Choose thumbnail") };
         let plus = IconButton::new("new-playlist-thumbnail", icons::ADD, label)
             .size(PLUS_BUTTON, PLUS_ICON)
             .disabled(self.thumbnail == Thumbnail::Checking)
@@ -140,7 +143,7 @@ impl NewPlaylistDialog {
         div()
             .relative()
             .size(px(THUMBNAIL))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .rounded(px(metrics::RADIUS_LARGE))
@@ -155,9 +158,13 @@ impl NewPlaylistDialog {
     /// Select Files: the drop zone and what the last addition left out.
     fn select_files(&self, p: &Palette, cx: &mut Context<Self>) -> Div {
         let note = self.note.clone().map(|note| {
-            div().pt(px(8.)).text_size(px(metrics::TEXT_SMALL)).text_color(p.text_muted).child(note)
+            div()
+                .pt(px(8.))
+                .text_size(text_px(metrics::TEXT_SMALL))
+                .text_color(p.text_muted)
+                .child(note)
         });
-        section("Select Files", "These files will be added to the playlist.", p)
+        section(tr!("Select Files"), tr!("These files will be added to the playlist."), p)
             .child(div().pt(px(20.)).child(self.drop_zone(p, cx)))
             .children(note)
     }
@@ -168,7 +175,7 @@ impl NewPlaylistDialog {
         let plus = div()
             .w(px(DROP_ZONE_PLUS_WIDTH))
             .h(px(PLUS_BUTTON))
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .rounded(px(metrics::RADIUS))
@@ -179,9 +186,9 @@ impl NewPlaylistDialog {
             .tab_index(0)
             .key_context(focus::CONTROL)
             .role(accesskit::Role::Button)
-            .aria_label("Add files")
+            .aria_label(tr!("Add files"))
             .h(px(DROP_ZONE_HEIGHT))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_center()
             .justify_center()
@@ -193,7 +200,7 @@ impl NewPlaylistDialog {
             .border_dashed()
             .border_color(p.border)
             .cursor_pointer()
-            .text_size(px(DESCRIPTION_TEXT + 1.))
+            .text_size(text_px(DESCRIPTION_TEXT + 1.))
             .text_color(p.text_muted)
             .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_color(accent))
             .on_drop(cx.listener(Self::drop_files))
@@ -204,34 +211,37 @@ impl NewPlaylistDialog {
     }
 
     /// What the drop zone says: how to add files, how many are in, or that some are coming.
-    fn drop_zone_text(&self) -> SharedString {
+    pub(super) fn drop_zone_text(&self) -> SharedString {
         if !self.adding.is_idle() {
-            return "Adding files…".into();
+            return tr!("Adding files…").into();
         }
         match self.files.len() {
-            0 => "Drag files into the box or click here to select files.".into(),
-            1 => "1 file will be added. Drag in more or click here to select more.".into(),
-            n => format!("{n} files will be added. Drag in more or click here to select more.")
-                .into(),
+            0 => tr!("Drag files into the box or click here to select files.").into(),
+            n => trn!(
+                "{count} file will be added. Drag in more or click here to select more.",
+                "{count} files will be added. Drag in more or click here to select more.",
+                n
+            )
+            .into(),
         }
     }
 
     /// Cancel at the left, Save at the right.
     fn footer(&self, cx: &mut Context<Self>) -> Div {
         let can_save = self.can_save(cx);
-        let cancel = Button::new("new-playlist-cancel", "Cancel")
+        let cancel = Button::new("new-playlist-cancel", tr!("Cancel"))
             .style(ButtonStyle::Filled)
             .width(FOOTER_BUTTON_WIDTH)
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.cancel(window, cx)));
         let save_style = if can_save { ButtonStyle::Primary } else { ButtonStyle::Ghost };
-        let save = Button::new("new-playlist-save", "Save")
+        let save = Button::new("new-playlist-save", tr!("Save"))
             .style(save_style)
             .width(FOOTER_BUTTON_WIDTH)
             .disabled(!can_save)
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)));
         div()
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .px(px(PADDING))
@@ -245,11 +255,11 @@ impl NewPlaylistDialog {
 /// A section's heading and description, as a column to add its controls to.
 fn section(heading: &'static str, description: &'static str, p: &Palette) -> Div {
     div()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .child(
             div()
-                .text_size(px(HEADING_TEXT))
+                .text_size(text_px(HEADING_TEXT))
                 .font_weight(FontWeight::NORMAL)
                 .text_color(p.text_strong)
                 .child(heading),
@@ -257,7 +267,7 @@ fn section(heading: &'static str, description: &'static str, p: &Palette) -> Div
         .child(
             div()
                 .pt(px(8.))
-                .text_size(px(DESCRIPTION_TEXT))
+                .text_size(text_px(DESCRIPTION_TEXT))
                 .text_color(p.text_muted)
                 .child(description),
         )

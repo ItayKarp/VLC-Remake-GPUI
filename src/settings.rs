@@ -13,6 +13,7 @@ pub(crate) mod lenient;
 mod migrate;
 mod paths;
 pub mod presets;
+pub mod profiles;
 pub mod registry;
 mod schema;
 mod storage;
@@ -33,16 +34,17 @@ pub use paths::{Locations, cache_dir, default_media_folder, display_path, expand
     reason = "part of the settings API; some types are named only by tests and later stages"
 )]
 pub use schema::{
-    ArtworkSource, AudioSettings, AutoHide, Buffering, Caching, CastQuality, CipherPreference,
-    ClickAction, ClockSynchronisation, ColorSettings, ControlsSettings, CustomBinding, Decoder,
-    DoubleClickAction, DurationReadout, Encoder, EncodingPreset, EqualizerPick, FitVideo,
-    HardwareDecoding, HorizontalWheelAction, InterfaceLanguage, KeymapSettings, LibraryRoutes,
-    LibrarySettings, LiveState, LocalState, MAX_SAVED_NAME, MiniplayerCorner, NetworkSettings,
-    NowPlayingNotification, PerformanceSettings, PictureSettings, PipPlace, PlayerSettings,
-    PostProcessing, Preferences, Preset, PresetSettings, QueueSiblings, RecordingSettings,
-    ResumePolicy, SavedEqualizer, ScreenRect, Settings, SizeValues, SkipLength, SkipLoopFilter,
-    StartupVolume, SubtitleArea, SubtitleSettings, Tuning, VideoQuality, VideoSettings,
-    WheelAction, WhenFinished, WindowGeometry, WindowMode, proxy_url,
+    ArtworkSource, AudioSettings, AutoHide, Automatic, Buffering, Caching, CastQuality,
+    CipherPreference, ClickAction, ClockSynchronisation, ColorSettings, ControlsSettings,
+    CustomBinding, Decoder, DoubleClickAction, DurationReadout, Encoder, EncodingPreset,
+    EqualizerPick, FitVideo, HardwareDecoding, HorizontalWheelAction, InterfaceLanguage,
+    KeymapSettings, LibraryRoutes, LibrarySettings, LiveState, LocalState, MAX_SAVED_NAME,
+    MiniplayerCorner, NetworkSettings, NowPlayingNotification, PerformanceSettings,
+    PictureSettings, PipPlace, PlayerSettings, PostProcessing, Preferences, Preset, PresetSettings,
+    Profile, ProfileSettings, QueueSiblings, RecordingSettings, ResumePolicy, SavedEqualizer,
+    ScreenRect, Settings, SizeValues, SkipLength, SkipLoopFilter, StartupVolume, StoredLayout,
+    SubtitleArea, SubtitleSettings, Tuning, VideoQuality, VideoSettings, WheelAction, WhenFinished,
+    WindowGeometry, WindowMode, proxy_url,
 };
 pub use store::Notice;
 use store::SettingsState;
@@ -152,9 +154,10 @@ pub fn flush(cx: &mut App) -> Result<(), String> {
 /// Fails when settings can't be persisted at all (in-memory mode).
 pub fn save(cx: &mut App) -> Task<Result<(), String>> {
     if !is_persistent(cx) {
-        return Task::ready(Err(
-            "Settings can't be saved on this system (the settings folder is unavailable).".into(),
-        ));
+        return Task::ready(Err(tr!(
+            "Settings can't be saved on this system (the settings folder is unavailable)."
+        )
+        .into()));
     }
     let job = cx.update_global::<SettingsStore, _>(|store, _| {
         store.pending_save = None;

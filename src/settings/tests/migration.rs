@@ -34,8 +34,23 @@ fn migrates_the_v0_onboarding_file() {
 
     save(&mut state);
     let prefs = dir.read("settings.toml");
-    assert!(prefs.starts_with("schema_version = 1\n"), "{prefs}");
+    assert!(prefs.starts_with("schema_version = 2\n"), "{prefs}");
     assert!(!prefs.contains("media_folder"), "{prefs}");
     assert!(!prefs.contains("onboarding_complete"), "{prefs}");
     assert_eq!(dir.load().settings, state.settings);
+}
+
+#[test]
+fn v1_files_take_the_opt_in_diagnostics_defaults() {
+    let dir = TempDir::new();
+    dir.write(
+        "settings.toml",
+        "schema_version = 1\naccent = \"pink\"\n\n[privacy]\nredact_file_names_in_logs = false\n\n\
+         [diagnostics]\ncollect_statistics = true\n",
+    );
+    let state = dir.load();
+    assert!(state.is_dirty(), "a migrated file should be saved");
+    assert!(state.settings.prefs.privacy.redact_file_names_in_logs);
+    assert!(!state.settings.prefs.diagnostics.collect_statistics);
+    assert_eq!(state.settings.prefs.accent, Accent::Pink);
 }

@@ -22,8 +22,10 @@ pub struct PrivacySettings {
     /// list (S0.6.5) and the playback history (S1.7): off, nothing is written to either.
     #[serde(deserialize_with = "lenient")]
     pub save_recently_played: bool,
-    /// Hides media file names in the log file, keeping only their extensions
-    /// (S0.7.1). The home directory is always replaced by `~`.
+    /// "Hide file names in logs and crash reports" (S0.7.1, S9.6.2): media file names in the log
+    /// keep only their extensions, and crash reports carry no paths but source locations. On by
+    /// default: file names are only written once the user allows it. The home directory is
+    /// always replaced by `~`.
     #[serde(deserialize_with = "lenient")]
     pub redact_file_names_in_logs: bool,
     /// How many items Open Recent keeps (S1.3.5); `0` keeps none.
@@ -54,7 +56,7 @@ impl Default for PrivacySettings {
     fn default() -> Self {
         PrivacySettings {
             save_recently_played: true,
-            redact_file_names_in_logs: false,
+            redact_file_names_in_logs: true,
             recent_media_count: DEFAULT_RECENT_MEDIA_COUNT,
             remember_playback_position: true,
             never_remember: Vec::new(),

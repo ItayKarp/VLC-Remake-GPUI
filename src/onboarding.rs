@@ -30,6 +30,7 @@ use gpui::{App, Context, ExternalPaths, FocusHandle, KeyDownEvent, Window, div, 
 use crate::app;
 use crate::app::media::Media;
 use crate::app::request::OpenRequest;
+use crate::i18n::DirectionalStyle;
 use crate::settings;
 use crate::theme::{self, Accent, Palette, Theme, ThemeMode};
 use crate::ui::{drop_target, focus};
@@ -164,7 +165,7 @@ impl Render for Onboarding {
             Step::Shortcuts => self.render_shortcuts(&palette, cx),
         };
 
-        focus::tab_navigation(div())
+        focus::tab_navigation(div().text_start())
             .id("onboarding")
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(Self::on_key_down))

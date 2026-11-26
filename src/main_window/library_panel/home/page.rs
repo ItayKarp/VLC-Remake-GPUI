@@ -16,8 +16,10 @@ use super::super::{INSET, MainWindow};
 use super::{Page, welcome};
 use crate::assets::icons;
 use crate::db::metadata::MediaKind;
+use crate::i18n::DirectionalStyle;
 use crate::navigation::route::{HomeSection, Route};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 
 /// A heading's height, the air above every heading but the first, and its text.
@@ -37,9 +39,11 @@ const NOTE_TEXT: f32 = 13.;
 const BOTTOM: f32 = 20.;
 
 /// What the privacy note says.
-const NOT_SAVED: &str = "Recently played items aren't saved, so only Favorites shows here. Turn \
-                         on “Save recently played items” in Settings to see what you were \
-                         watching.";
+const NOT_SAVED: &str = tr_noop!(
+    "Recently played items aren't saved, so only Favorites shows here. Turn \
+     on “Save recently played items” in Settings to see what you were \
+     watching."
+);
 
 impl MainWindow {
     /// Home's sections, its welcome while it has none, or nothing while it is read.
@@ -59,9 +63,11 @@ impl MainWindow {
             .children(self.home_children(page, p, cx));
         div()
             .size_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
-            .when(!page.history, |page| page.child(note(NOT_SAVED.into(), p).px(px(INSET))))
+            .when(!page.history, |page| {
+                page.child(note(crate::i18n::text(NOT_SAVED).into(), p).px(px(INSET)))
+            })
             .child(column)
             .into_any_element()
     }
@@ -78,8 +84,11 @@ impl MainWindow {
             if lined {
                 let tiles = indices.filter_map(|index| self.home_tile(&items, index, p, cx));
                 let gap = self.home_tiles().gap;
-                let line =
-                    div().flex().items_start().gap(px(gap)).children(tiles.collect::<Vec<_>>());
+                let line = div()
+                    .flex_row_start()
+                    .items_start()
+                    .gap(px(gap))
+                    .children(tiles.collect::<Vec<_>>());
                 children.push(line.into_any_element());
             } else {
                 children.extend(indices.filter_map(|index| self.home_item(&items, index, p, cx)));
@@ -148,8 +157,8 @@ fn heading(
     let name = div().min_w_0().truncate().child(section.label());
     let more = IconButton::new(
         ("library-home-more", section as usize),
-        icons::CHEVRON_RIGHT,
-        format!("Show all of {}", section.label()),
+        crate::i18n::mirrored(icons::CHEVRON_RIGHT, icons::CHEVRON_LEFT),
+        tr!("Show all of {section}", section = section.label()),
     )
     .size(MORE_BUTTON, MORE_ICON)
     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -159,10 +168,10 @@ fn heading(
         .id(("library-home-heading", section as usize))
         .h(px(HEADING_HEIGHT))
         .when(at > 0, |heading| heading.mt(px(gap)))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(8.))
-        .text_size(px(text))
+        .text_size(text_px(text))
         .text_color(p.text_strong)
         .child(if lined { name } else { name.flex_1() })
         .child(more)
@@ -170,5 +179,5 @@ fn heading(
 
 /// A muted line under a section or above the page.
 fn note(text: SharedString, p: &Palette) -> Div {
-    div().py(px(8.)).text_size(px(NOTE_TEXT)).text_color(p.text_muted).child(text)
+    div().py(px(8.)).text_size(text_px(NOTE_TEXT)).text_color(p.text_muted).child(text)
 }

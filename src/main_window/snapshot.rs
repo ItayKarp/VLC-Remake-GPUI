@@ -22,9 +22,9 @@ use crate::ui::toast::{Level, Toast};
 use crate::video::Still;
 
 /// Why there is no snapshot of media without a picture.
-const NO_VIDEO: &str = "No video to take a snapshot of";
+const NO_VIDEO: &str = tr_noop!("No video to take a snapshot of");
 /// Why there is no snapshot before the first picture shows.
-const NO_PICTURE_YET: &str = "No picture yet";
+const NO_PICTURE_YET: &str = tr_noop!("No picture yet");
 
 /// Why a snapshot wasn't saved.
 enum Failure {
@@ -37,12 +37,13 @@ enum Failure {
 impl MainWindow {
     /// Why Take Snapshot can't run now; `None` when it can.
     pub(super) fn why_no_snapshot(&self, cx: &App) -> Option<&'static str> {
-        let Some(player) = self.loaded_player(cx) else { return Some(NOTHING_PLAYING) };
+        let text = crate::i18n::text;
+        let Some(player) = self.loaded_player(cx) else { return Some(text(NOTHING_PLAYING)) };
         if self.is_music_mode() || player.read(cx).video_size().is_none() {
-            return Some(NO_VIDEO);
+            return Some(text(NO_VIDEO));
         }
         let shows = self.video.as_ref().is_some_and(|video| video.read(cx).still(cx).is_some());
-        (!shows).then_some(NO_PICTURE_YET)
+        (!shows).then(|| text(NO_PICTURE_YET))
     }
 
     /// Saves the picture on screen, or says over the video why it can't.
@@ -93,10 +94,10 @@ impl MainWindow {
 fn failure_toast(failure: &Failure) -> Toast {
     let (error, message) = match failure {
         Failure::Unreadable(error) => {
-            (error, "Couldn't take a snapshot: this video can't be captured.")
+            (error, tr!("Couldn't take a snapshot: this video can't be captured."))
         }
         Failure::Unwritable(error) => {
-            (error, "Couldn't save the snapshot: no folder could be written.")
+            (error, tr!("Couldn't save the snapshot: no folder could be written."))
         }
     };
     tracing::warn!("snapshot: {error:#}");
@@ -109,19 +110,23 @@ fn saved_toast(saved: Saved) -> Toast {
     let Saved { path, instead_of, thumbnail } = saved;
     let folder = path.parent().map_or_else(String::new, display_path);
     let (level, message) = match instead_of {
-        None => (Level::Success, format!("Snapshot saved in {folder}")),
+        None => (Level::Success, tr!("Snapshot saved in {folder}", folder)),
         Some(wanted) => (
             Level::Warning,
-            format!("Couldn't save in {}, so the snapshot is in {folder}", display_path(&wanted)),
+            tr!(
+                "Couldn't save in {wanted}, so the snapshot is in {folder}",
+                wanted = display_path(&wanted),
+                folder
+            ),
         ),
     };
     let thumbnail = Arc::new(RenderImage::new([image::Frame::new(thumbnail)]));
     let (open, reveal, copy) = (path.clone(), path.clone(), path);
     Toast::new(level, message)
         .thumbnail(thumbnail)
-        .lasting_action("Open", move |_, cx| cx.open_with_system(&open))
+        .lasting_action(tr!("Open"), move |_, cx| cx.open_with_system(&open))
         .lasting_action(show_in_folder_label(), move |_, cx| cx.reveal_path(&reveal))
-        .lasting_action("Copy", move |_, cx| copy_image(copy.clone(), cx))
+        .lasting_action(tr!("Copy"), move |_, cx| copy_image(copy.clone(), cx))
 }
 
 /// Puts the image file at `path` on the clipboard, read off the UI thread.
@@ -139,3 +144,6 @@ fn copy_image(path: PathBuf, cx: &mut App) {
     })
     .detach();
 }
+
+#[cfg(test)]
+mod tests;

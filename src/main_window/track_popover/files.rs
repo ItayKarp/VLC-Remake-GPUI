@@ -17,9 +17,11 @@ use super::sections::{
 };
 use crate::assets::icons;
 use crate::engine::tracks::{SubtitleFile, TrackId, TrackKind, Tracks};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::opening::kind::{self, Kind};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::IconButton;
 use crate::ui::focus;
 use crate::ui::icon::icon;
@@ -38,12 +40,12 @@ impl MainWindow {
         p: &Palette,
         cx: &mut Context<Self>,
     ) -> Div {
-        let edit = IconButton::new("edit-subtitles", icons::EDIT, "Edit subtitle files")
+        let edit = IconButton::new("edit-subtitles", icons::EDIT, tr!("Edit subtitle files"))
             .size(HEADER_BUTTON, HEADER_ICON)
             .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                 this.edit_playing_subtitles(window, cx);
             }));
-        let add = IconButton::new("add-subtitles", icons::ADD, "Add a subtitle file")
+        let add = IconButton::new("add-subtitles", icons::ADD, tr!("Add a subtitle file"))
             .size(HEADER_BUTTON, HEADER_ICON)
             .on_click(cx.listener(|_, _: &ClickEvent, window, cx| {
                 Self::prompt_for_subtitles(window, cx);
@@ -57,10 +59,10 @@ impl MainWindow {
                 }))
                 .into_any_element()
         });
-        let empty = files.is_empty().then(|| note("No subtitle files.", p));
+        let empty = files.is_empty().then(|| note(tr!("No subtitle files."), p));
         section(p)
             .child(header(
-                "External Tracks",
+                tr!("External Tracks"),
                 vec![edit.into_any_element(), add.into_any_element()],
                 p,
             ))
@@ -85,7 +87,7 @@ impl MainWindow {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Add".into()),
+            prompt: Some(tr!("Add").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else {
@@ -102,7 +104,7 @@ impl MainWindow {
             paths.into_iter().partition(|path| kind::by_extension(path) == Some(Kind::Subtitle));
         if let Some(other) = others.first() {
             let name = SubtitleFile::new(other.clone()).name();
-            let text = format!("{name} isn't a subtitle file.");
+            let text = tr!("{name} isn't a subtitle file.", name);
             self.show_toast(Toast::new(Level::Info, text), cx);
         }
         self.attach_subtitles(&subtitles, cx);
@@ -145,18 +147,19 @@ fn file_row(index: usize, name: SharedString, state: FileState, p: &Palette) -> 
     };
     let row = div()
         .id(("file", index))
+        .debug_selector(move || format!("subtitle-file-{index}"))
         .group(group)
         .h(px(ROW_HEIGHT))
         .flex_none()
         .mx(px(8.))
         .px(px(14.))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(14.))
         .rounded(px(6.))
         .border_2()
         .border_color(gpui::transparent_black())
-        .text_size(px(ROW_TEXT))
+        .text_size(text_px(ROW_TEXT))
         .tab_index(0)
         .when(state != FileState::Waiting, |row| row.cursor_pointer().hover(move |s| s.bg(hover)))
         .role(accesskit::Role::RadioButton)

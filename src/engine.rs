@@ -25,12 +25,25 @@
 //! - [`colors`]: the color filters (S7.4).
 //! - [`thumbnail`]: one picture of a video at a chosen time, for library thumbnails (S4.4.1).
 //! - [`waveform`]: a file's loudness along its length, for the waveform seek bar (S7.8.2).
+//! - [`recording`]: what becomes of recording the media playing (S8.6).
+//! - [`navigation`]: a stream's programs, a disc's titles and its menus (S8.9).
+//! - [`discs`]: an audio CD's tracks, read without playing it (S8.9.1).
+//! - [`convert`]: converting media to another format, on threads of their own (S8.10).
+//! - [`cast`]: the cast devices found on the network, and casting to one (S8.11).
+//! - [`stream_out`]: streaming the media playing to the network (S8.12).
+//! - [`statistics`]: what the backend counted about the media playing, and [`ab_loop`] the
+//!   A-B loop (S8.13).
 
+pub mod ab_loop;
 pub mod audio;
 pub mod backend;
+pub mod cast;
 mod coalesce;
 pub mod colors;
+pub mod convert;
 pub mod cues;
+pub mod discs;
+pub mod display_text;
 pub mod hdr;
 pub mod language;
 pub mod lengths;
@@ -38,13 +51,17 @@ pub mod libvlc;
 pub mod media_info;
 pub mod media_options;
 pub mod mock;
+pub mod navigation;
 pub mod player;
 mod position;
 mod preflight;
 pub mod preview;
+pub mod recording;
 pub mod shutdown;
 pub mod sidecar;
 pub mod state;
+pub mod statistics;
+pub mod stream_out;
 pub mod subtitle_style;
 pub mod subtitle_sync;
 pub mod subtitle_text;

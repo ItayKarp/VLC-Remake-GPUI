@@ -172,7 +172,7 @@ impl ContextMenu {
             }
             return;
         }
-        let MenuItem::Submenu { items, .. } = &mut self.items[index] else {
+        let MenuItem::Submenu { items, disabled: false, .. } = &mut self.items[index] else {
             return;
         };
         // Submenus are rebuilt each time they open, so take the items and put

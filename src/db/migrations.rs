@@ -21,6 +21,9 @@ pub(super) const MIGRATIONS: &[&str] = &[
     super::subtitle_links::MIGRATION,
     super::audio_delay::MIGRATION,
     super::bookmarks::MIGRATION,
+    super::scrobbles::MIGRATION,
+    super::podcasts::MIGRATION,
+    super::scrub::MIGRATION,
 ];
 
 /// Version 1 (S1.7): what the player remembers about each media, by identity (S1.7.2).

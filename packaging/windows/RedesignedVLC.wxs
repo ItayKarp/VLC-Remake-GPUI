@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Windows installer (S9.4.1), built by build-msi.ps1 with WiX 5 (`dotnet tool install -g wix`
+  and `wix extension add -g WixToolset.Util.wixext`).
+
+  It installs for every user into Program Files: the app, libVLC and its plugins (S9.4.4), a
+  Start menu entry, and the file associations register-file-types.ps1 makes for one user, which
+  "Default apps" lists without taking any file type over. A newer version replaces an older one.
+
+  Uninstalling leaves settings, the library and caches (%APPDATA% and %LOCALAPPDATA%
+  \RedesignedVLC) unless asked to remove them too:
+      msiexec /x RedesignedVLC-<version>-windows-x64.msi REMOVEUSERDATA=1
+
+  Defines passed by build-msi.ps1: Version (numeric, such as 0.2.0), Stage (the folder holding
+  the files to install) and Icon (the .ico file).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- Keep the list in sync with src/app/file_types.rs; its tests check it. -->
+  <?define Extensions = 3gp;avi;flv;m2ts;m4v;mkv;mov;mp4;mpeg;mpg;mts;ogv;ts;vob;webm;wmv;aac;aiff;ape;flac;m4a;mka;mp3;oga;ogg;opus;wav;wma;m3u;m3u8;pls;xspf ?>
+  <?define UrlSchemes = mms;rtmp;rtsp ?>
+  <?define ProgId = RedesignedVLC.Media ?>
+  <?define AppKey = Software\RedesignedVLC ?>
+
+  <Package Name="VLC" Manufacturer="RedesignedVLC" Version="$(Version)" Scope="perMachine"
+           UpgradeCode="F1D9BD92-9E3D-4FE2-AD05-79F182370EA7" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of VLC is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.ico" SourceFile="$(Icon)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/ItayKarp/VLC-Remake-GPUI" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RedesignedVLC" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="VLC">
+      <ComponentGroupRef Id="App" />
+      <ComponentGroupRef Id="Runtime" />
+      <ComponentGroupRef Id="FileTypes" />
+      <ComponentGroupRef Id="UserData" />
+    </Feature>
+  </Package>
+
+  <!-- The app and its Start menu entry. -->
+  <Fragment>
+    <ComponentGroup Id="App" Directory="INSTALLFOLDER">
+      <Component Id="AppExe">
+        <File Id="AppExe" Source="$(Stage)\RedesignedVLC.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="VLC"
+                    Description="Play videos, music and network streams" WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon.ico" Advertise="yes" />
+        </File>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!--
+    libVLC beside the executable, where src/engine/libvlc/runtime.rs looks for it. Windows
+    Installer doesn't keep the plugins' file times exactly, which libVLC's plugin cache checks, so
+    vlc-cache-gen writes plugins.dat after the files are in place (and it goes on uninstall).
+  -->
+  <Fragment>
+    <ComponentGroup Id="Runtime" Directory="INSTALLFOLDER">
+      <Files Include="$(Stage)\**">
+        <Exclude Files="$(Stage)\RedesignedVLC.exe" />
+      </Files>
+      <Component Id="PluginCache">
+        <RemoveFile Id="PluginCache" Subdirectory="plugins" Name="plugins.dat" On="uninstall" />
+        <RegistryValue Root="HKLM" Key="$(AppKey)" Name="PluginCache" Value="1" Type="integer" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <CustomAction Id="WritePluginCache" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="no"
+                  Return="ignore" ExeCommand="&quot;[INSTALLFOLDER]vlc-cache-gen.exe&quot; &quot;[INSTALLFOLDER]plugins&quot;" />
+    <InstallExecuteSequence>
+      <Custom Action="WritePluginCache" After="InstallFiles" Condition="NOT REMOVE" />
+    </InstallExecuteSequence>
+  </Fragment>
+
+  <!--
+    "Open with" and Settings > Apps > Default apps, as register-file-types.ps1 does per user: a
+    ProgID that opens files and URLs with the app, an OpenWithProgids entry per extension, and
+    the Capabilities that "Default apps" lists. Windows asks the user to pick the default.
+  -->
+  <Fragment>
+    <ComponentGroup Id="FileTypes" Directory="INSTALLFOLDER">
+      <Component Id="ProgId">
+        <RegistryKey Root="HKLM" Key="Software\Classes\$(ProgId)">
+          <RegistryValue Value="Media file" Type="string" KeyPath="yes" />
+          <RegistryValue Key="DefaultIcon" Value="&quot;[#AppExe]&quot;,0" Type="string" />
+          <RegistryValue Key="shell\open\command" Value="&quot;[#AppExe]&quot; --started-from-file &quot;%1&quot;" Type="string" />
+        </RegistryKey>
+        <RegistryKey Root="HKLM" Key="$(AppKey)\Capabilities">
+          <RegistryValue Name="ApplicationName" Value="VLC" Type="string" />
+          <RegistryValue Name="ApplicationDescription" Value="VLC media player" Type="string" />
+          <?foreach Extension in $(Extensions) ?>
+          <RegistryValue Key="FileAssociations" Name=".$(Extension)" Value="$(ProgId)" Type="string" />
+          <?endforeach?>
+          <?foreach Scheme in $(UrlSchemes) ?>
+          <RegistryValue Key="URLAssociations" Name="$(Scheme)" Value="$(ProgId)" Type="string" />
+          <?endforeach?>
+        </RegistryKey>
+        <RegistryValue Root="HKLM" Key="Software\RegisteredApplications" Name="RedesignedVLC"
+                       Value="$(AppKey)\Capabilities" Type="string" />
+        <?foreach Extension in $(Extensions) ?>
+        <RegistryValue Root="HKLM" Key="Software\Classes\.$(Extension)\OpenWithProgids"
+                       Name="$(ProgId)" Value="" Type="string" />
+        <?endforeach?>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!--
+    Settings, the library and caches belong to each user and stay after uninstalling, unless
+    REMOVEUSERDATA=1 asks for them to go too: the uninstalling user's roaming settings and local
+    library, history and caches (src/settings/paths.rs).
+  -->
+  <Fragment>
+    <SetProperty Id="ROAMINGDATA" Value="[AppDataFolder]RedesignedVLC" Before="CostInitialize" Sequence="execute" />
+    <SetProperty Id="LOCALDATA" Value="[LocalAppDataFolder]RedesignedVLC" Before="CostInitialize" Sequence="execute" />
+    <ComponentGroup Id="UserData" Directory="INSTALLFOLDER">
+      <Component Id="UserData">
+        <util:RemoveFolderEx Id="RoamingData" Property="ROAMINGDATA" On="uninstall" Condition="REMOVEUSERDATA=1" />
+        <util:RemoveFolderEx Id="LocalData" Property="LOCALDATA" On="uninstall" Condition="REMOVEUSERDATA=1" />
+        <RegistryValue Root="HKLM" Key="$(AppKey)" Name="UserData" Value="1" Type="integer" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

@@ -115,14 +115,14 @@ fn open(target: &LogFile) -> (Option<RollingFile>, Option<String>) {
 /// exists. Says why not otherwise. Opening it is left to [`set`], which falls back if needed.
 pub fn check(path: &Path) -> Result<(), String> {
     if !path.is_absolute() {
-        return Err("Choose a full path, such as one from Browse".into());
+        return Err(tr!("Choose a full path, such as one from Browse").into());
     }
     if path.is_dir() {
-        return Err("That's a folder; choose a file".into());
+        return Err(tr!("That's a folder; choose a file").into());
     }
     match path.parent() {
         Some(dir) if dir.is_dir() => Ok(()),
-        _ => Err("That folder doesn't exist".into()),
+        _ => Err(tr!("That folder doesn't exist").into()),
     }
 }
 
@@ -169,10 +169,10 @@ mod tests {
         let dir = temp_dir("check");
         assert!(check(&dir.join("vlc.log")).is_ok());
         assert!(check(Path::new("relative.log")).is_err());
-        assert_eq!(check(&dir), Err("That's a folder; choose a file".into()));
+        assert_eq!(check(&dir), Err(tr!("That's a folder; choose a file").into()));
         assert_eq!(
             check(&dir.join("missing").join("vlc.log")),
-            Err("That folder doesn't exist".into())
+            Err(tr!("That folder doesn't exist").into())
         );
         fs::remove_dir_all(dir).ok();
     }

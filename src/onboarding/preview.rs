@@ -4,6 +4,8 @@
 use gpui::{Div, IntoElement, Styled, Svg, div, prelude::*, px, relative, svg};
 
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{Palette, blend};
 
 /// How far the mock seek bar has played.
@@ -15,15 +17,14 @@ const VOLUME_LEVEL: f32 = 0.35;
 pub(super) fn title_bar(p: &Palette) -> impl IntoElement {
     div()
         .h(px(22.))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .justify_between()
         .px(px(8.))
         .bg(p.title_bar)
         .child(svg().path(icons::LOGO_SMALL).size(px(14.)).text_color(p.accent))
         .child(
-            div().flex().flex_row().gap(px(8.)).children(
+            div().flex_row_start().gap(px(8.)).children(
                 [icons::MINIMIZE, icons::MAXIMIZE, icons::FULLSCREEN, icons::CLOSE]
                     .map(|icon| svg().path(icon).size(px(12.)).text_color(p.icon)),
             ),
@@ -34,8 +35,7 @@ pub(super) fn title_bar(p: &Palette) -> impl IntoElement {
 pub(super) fn control_bar(p: &Palette) -> impl IntoElement {
     div()
         .h(px(29.))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .gap(px(10.))
         .px(px(14.))
@@ -59,7 +59,7 @@ fn icon(path: &'static str, p: &Palette) -> Svg {
 }
 
 fn time(label: &'static str, p: &Palette) -> Div {
-    div().text_size(px(8.)).text_color(p.text_muted).child(label)
+    div().text_size(text_px(8.)).text_color(p.text_muted).child(label)
 }
 
 fn play_button(p: &Palette) -> Div {
@@ -68,7 +68,7 @@ fn play_button(p: &Palette) -> Div {
         .h(px(14.))
         .rounded(px(3.))
         .bg(p.accent)
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .child(svg().path(icons::PLAY).size(px(11.)).text_color(p.on_accent))
@@ -80,8 +80,7 @@ fn seek_bar(p: &Palette) -> Div {
         .h(px(13.))
         .rounded(px(2.))
         .bg(p.sunken)
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .child(
             div()

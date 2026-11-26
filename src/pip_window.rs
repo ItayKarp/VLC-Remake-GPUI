@@ -25,7 +25,8 @@ use crate::main_window::{MainWindow, PipCommand, PipView};
 use crate::native_window;
 use crate::settings;
 use crate::theme;
-use crate::ui::player_overlay::{self, Handlers, OnClick, WindowButton};
+use crate::ui::focus;
+use crate::ui::player_overlay::{self, Handlers, OnClick, Reveal, TransportState, WindowButton};
 use crate::ui::popover::BoundsTracker;
 use crate::ui::thumbnail::{Placeholder, ThumbnailTile};
 use crate::video::VideoView;
@@ -150,8 +151,21 @@ impl PipWindow {
         self.main.update(cx, |main, _, _| main.release_keys()).ok();
     }
 
-    /// Sends a key the main window's player understands there.
-    fn forward_key(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
+    /// Whether Tab moved the keyboard onto one of the controls (S9.1.1).
+    fn control_focused(&self, window: &Window, cx: &App) -> bool {
+        self.focus_handle.contains_focused(window, cx)
+            && !self.focus_handle.is_focused(window)
+            && window.last_input_was_keyboard()
+    }
+
+    /// Sends a key the main window's player understands there. Tab stays here to move between
+    /// the controls, and so do Enter and Space while a control has the focus, to press it.
+    fn forward_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let key = event.keystroke.key.as_str();
+        let on_control = !self.focus_handle.is_focused(window);
+        if key == "tab" || (on_control && matches!(key, "enter" | "space")) {
+            return;
+        }
         let keystroke = event.keystroke.clone();
         // Through the untyped handle: the typed one holds the main view while the key dispatches.
         let main: AnyWindowHandle = self.main.into();
@@ -193,10 +207,11 @@ impl PipWindow {
     fn render_controls(
         &self,
         view: &PipView,
+        transport: TransportState,
         accent: Hsla,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let pop_in = WindowButton { icon: icons::PIP, label: "Back to the player".into() };
+        let pop_in = WindowButton { icon: icons::PIP, label: tr!("Back to the player").into() };
         let handlers = Handlers {
             close: Self::on_click(PipCommand::Stop, cx),
             window: Self::on_click(PipCommand::PopIn, cx),
@@ -220,7 +235,7 @@ impl PipWindow {
             .child(
                 div().absolute().left_0().top_0().h_full().w(relative(view.progress)).bg(accent),
             );
-        player_overlay::overlay(GROUP, view.transport, pop_in, &handlers, true).child(bar)
+        player_overlay::overlay(GROUP, transport, pop_in, &handlers, true).child(bar)
     }
 }
 
@@ -228,7 +243,7 @@ impl Render for PipWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Through the view: the main window may be the one opening this window.
         let view = self.main_view.upgrade().and_then(|main| main.read(cx).pip_view(cx));
-        let root = div()
+        let root = focus::tab_navigation(div())
             .id("pip-window")
             .relative()
             .size_full()
@@ -246,7 +261,11 @@ impl Render for PipWindow {
         let Some(view) = view else { return root };
         let picture = self.render_picture(&view, window);
         let accent = theme::palette(window, cx).accent;
-        root.child(picture).child(self.render_controls(&view, accent, cx))
+        let transport = TransportState {
+            reveal: Reveal::keyboard_inside(self.control_focused(window, cx)),
+            ..view.transport
+        };
+        root.child(picture).child(self.render_controls(&view, transport, accent, cx))
     }
 }
 

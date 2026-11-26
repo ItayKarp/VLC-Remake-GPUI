@@ -20,6 +20,7 @@ use gpui::{
 use super::header::GAP;
 use super::{INSET, MainWindow};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::library::search::{self, Query};
 use crate::navigation::history::Step;
 use crate::navigation::route::{Route, Search, Section};
@@ -80,8 +81,8 @@ impl MainWindow {
             TextInput::new(window, cx)
                 .with_text(query)
                 .with_all_selected()
-                .with_placeholder("Search titles, files, artists and albums")
-                .with_label("Search the library")
+                .with_placeholder(tr!("Search titles, files, artists and albums"))
+                .with_label(tr!("Search the library"))
                 .with_max_len(search::MAX_QUERY_CHARS)
         });
         let events = cx.subscribe_in(&input, window, Self::on_search_input);
@@ -187,7 +188,7 @@ impl MainWindow {
             .id("library-search-box")
             .size_full()
             .px(px(BOX_PAD))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .rounded(px(metrics::RADIUS))
@@ -199,7 +200,7 @@ impl MainWindow {
                 this.open_library_search(window, cx);
             }))
             .child(icon(icons::SEARCH, BOX_ICON, p.icon))
-            .child("Search");
+            .child(tr!("Search"));
         box_.child(closed)
     }
 }
@@ -207,7 +208,7 @@ impl MainWindow {
 /// The open field and, searching Videos or Music, Everywhere; Escape closes it.
 fn search_row(field: &SearchField, cx: &mut Context<MainWindow>) -> Div {
     let row = div()
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(GAP))
         .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
@@ -227,11 +228,14 @@ fn search_row(field: &SearchField, cx: &mut Context<MainWindow>) -> Div {
 fn everywhere_button(on: bool, section: Section, cx: &mut Context<MainWindow>) -> Button {
     let style = if on { ButtonStyle::Primary } else { ButtonStyle::Subtle };
     let tip = if on {
-        format!("Searching the whole library. Click to search only {}.", section.label())
+        tr!(
+            "Searching the whole library. Click to search only {section}.",
+            section = section.label()
+        )
     } else {
-        format!("Searching {}. Click to search the whole library.", section.label())
+        tr!("Searching {section}. Click to search the whole library.", section = section.label())
     };
-    Button::new("library-search-everywhere", "Everywhere")
+    Button::new("library-search-everywhere", tr!("Everywhere"))
         .style(style)
         .tooltip(tip, None::<&str>)
         .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_everywhere(cx)))

@@ -17,7 +17,7 @@ impl MainWindow {
             files: true,
             directories: false,
             multiple: true,
-            prompt: Some("Import".into()),
+            prompt: Some(tr!("Import").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else { return };
@@ -45,7 +45,7 @@ async fn import_one(main: &WeakEntity<MainWindow>, path: PathBuf, cx: &mut Async
             let Ok(saved) = cx.update(|_, cx| playlists::create(&draft, cx)) else { return };
             match saved.await {
                 Some(title) => Toast::new(Level::Success, imported.message(&title)),
-                None => Toast::new(Level::Error, "Couldn't save the imported playlist."),
+                None => Toast::new(Level::Error, tr!("Couldn't save the imported playlist.")),
             }
         }
     };

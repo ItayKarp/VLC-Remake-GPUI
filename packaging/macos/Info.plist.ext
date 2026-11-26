@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Merged into the bundle's Info.plist by cargo-bundle (osx_info_plist_exts in Cargo.toml).
+<!-- Merged into the bundle's Info.plist by packaging/macos/build-app.sh (S9.4.2).
      Keep the lists in sync with src/app/file_types.rs; its tests check them. -->
 <plist version="1.0">
 <dict>
+  <!-- Open Capture Device (S8.9.2): macOS stops an app that opens the camera without saying why. -->
+  <key>NSCameraUsageDescription</key>
+  <string>VLC plays what your camera or capture card shows when you open it with Open Capture Device.</string>
+  <!-- Casting (S8.11): macOS blocks browsing the local network for services the app doesn't name,
+       and asks the user first, showing this reason. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>VLC looks for Chromecasts and other cast devices on your network so you can play on them.</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_googlecast._tcp</string>
+  </array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

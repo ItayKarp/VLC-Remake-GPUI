@@ -7,6 +7,7 @@ use gpui::{
 };
 
 use super::{Orientation, Slider, Tone};
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::{focus, metrics};
 
@@ -195,7 +196,7 @@ impl Slider {
             .py(px(2.))
             .rounded(px(4.))
             .bg(p.tooltip)
-            .text_size(px(12.))
+            .text_size(text_px(12.))
             .text_color(p.tooltip_text)
             .whitespace_nowrap()
             .child(self.value_text());

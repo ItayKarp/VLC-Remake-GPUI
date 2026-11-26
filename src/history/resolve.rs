@@ -54,9 +54,9 @@ pub fn resolve(
 ) -> Result<MediaId, ResolveError> {
     match media {
         Media::File(path) => resolve_file(connection, path, now_ms),
-        Media::Url(url) => {
-            let entry =
-                Entry { identity: identity::url_key(url), location: url.clone(), stamp: None };
+        Media::Url(_) | Media::Device(_) => {
+            let url = media.to_stored();
+            let entry = Entry { identity: identity::url_key(&url), location: url, stamp: None };
             let transaction = connection.transaction()?;
             let id = match media::find_identity(&transaction, &entry.identity)? {
                 Some(id) => id,
@@ -73,7 +73,7 @@ pub fn resolve(
 pub fn identity_of(connection: &Connection, media: &Media) -> Result<String, ResolveError> {
     let path = match media {
         Media::File(path) => path,
-        Media::Url(url) => return Ok(identity::url_key(url)),
+        Media::Url(_) | Media::Device(_) => return Ok(identity::url_key(&media.to_stored())),
     };
     let stamp = identity::stamp(&std::fs::metadata(path)?);
     let here = media::find_at(connection, &stored_path::encode(path))?;

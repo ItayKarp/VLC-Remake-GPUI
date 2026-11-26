@@ -8,6 +8,7 @@ use gpui::Context;
 use super::{Intent, Player, PlayerEvent};
 use crate::engine::backend::{BackendEvent, Tagged};
 use crate::engine::hdr::HdrStatus;
+use crate::engine::media_info::Chapter;
 use crate::engine::state::PlaybackState;
 
 impl Player {
@@ -26,11 +27,7 @@ impl Player {
             BackendEvent::Position(time) => self.position_reported(time, cx),
             BackendEvent::Duration(duration) => self.duration_reported(duration, cx),
             BackendEvent::Seekable(seekable) => self.seekable_reported(seekable, cx),
-            BackendEvent::Pausable(pausable) => {
-                if self.info.pausable.replace(pausable) != Some(pausable) {
-                    cx.emit(PlayerEvent::PausableChanged(pausable));
-                }
-            }
+            BackendEvent::Pausable(pausable) => self.pausable_reported(pausable, cx),
             BackendEvent::Tracks(tracks) => self.tracks_reported(tracks, cx),
             BackendEvent::VideoSize(size) => {
                 if std::mem::replace(&mut self.info.video_size, size) != size {
@@ -38,10 +35,7 @@ impl Player {
                 }
             }
             BackendEvent::Hdr(status) => self.hdr_reported(status, cx),
-            BackendEvent::Chapters(chapters) => {
-                self.info.chapters = chapters;
-                cx.emit(PlayerEvent::ChaptersChanged);
-            }
+            BackendEvent::Chapters(chapters) => self.chapters_reported(chapters, cx),
             BackendEvent::Metadata(metadata) => {
                 self.info.metadata = metadata;
                 cx.emit(PlayerEvent::MetadataChanged);
@@ -50,8 +44,27 @@ impl Player {
             BackendEvent::FrameStepped => self.step_done(cx),
             BackendEvent::AudioDevices(devices) => self.devices_reported(devices, cx),
             BackendEvent::Corked(corked) => self.corked(corked, cx),
+            BackendEvent::Recording(recording) => self.recording_reported(recording, cx),
+            BackendEvent::Programs(programs) => self.programs_reported(programs, cx),
+            BackendEvent::Titles(titles) => self.titles_reported(titles, cx),
+            BackendEvent::CastDevices(devices) => self.cast_devices_reported(devices, cx),
+            BackendEvent::CastLost(device) => self.cast_lost(device, cx),
+            BackendEvent::StreamFailed => self.stream_failed(cx),
+            BackendEvent::Statistics(statistics) => self.info.statistics = Some(statistics),
         }
         cx.notify();
+    }
+
+    fn pausable_reported(&mut self, pausable: bool, cx: &mut Context<Self>) {
+        if self.info.pausable.replace(pausable) != Some(pausable) {
+            cx.emit(PlayerEvent::PausableChanged(pausable));
+        }
+    }
+
+    /// Keeps the chapters the backend reported, and says so.
+    fn chapters_reported(&mut self, chapters: Vec<Chapter>, cx: &mut Context<Self>) {
+        self.info.chapters = chapters;
+        cx.emit(PlayerEvent::ChaptersChanged);
     }
 
     /// Keeps what the backend found about the video's colors, and says when it changed.
@@ -69,8 +82,16 @@ impl Player {
             return;
         }
         self.state = next;
+        crate::perf::phase(match next {
+            PlaybackState::Playing => crate::perf::Phase::Playing,
+            PlaybackState::Paused => crate::perf::Phase::Paused,
+            _ => crate::perf::Phase::Other,
+        });
         if next == PlaybackState::Playing {
             self.audio.sounding_since = Some(Instant::now());
+        }
+        if let Some(clock) = &mut self.recording {
+            clock.follow(next == PlaybackState::Playing, Instant::now());
         }
         cx.emit(PlayerEvent::StateChanged(next));
         match next {
@@ -102,6 +123,7 @@ impl Player {
         if let Some(shown) = self.position.report(time, Instant::now()) {
             cx.emit(PlayerEvent::PositionChanged(shown));
         }
+        self.wrap_ab_loop(time, cx);
     }
 
     fn duration_reported(&mut self, duration: Option<Duration>, cx: &mut Context<Self>) {

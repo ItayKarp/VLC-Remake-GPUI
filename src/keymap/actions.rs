@@ -37,6 +37,8 @@ actions!(
         OpenCaptureDevice,
         /// Convert or save media to another format.
         Convert,
+        /// Stream the media playing to the network.
+        Stream,
         /// Open the Settings window.
         OpenSettings,
         /// Show the Keyboard Shortcuts dialog.
@@ -107,12 +109,18 @@ actions!(
         CycleRepeat,
         /// Switch Shuffle on or off.
         ToggleShuffle,
+        /// Mark A, then B, of a loop, then end it (S8.13.4).
+        LoopAToB,
         /// Step one frame back.
         PreviousFrame,
         /// Step one frame forward.
         NextFrame,
         /// Switch to the next program (DVB service).
         NextProgram,
+        /// Go to the disc's menu (S8.9.1).
+        DiscMenu,
+        /// Press the highlighted button of the disc menu showing (S8.9.1).
+        SelectInDiscMenu,
         /// Switch to the next subtitle track.
         CycleSubtitleTrack,
         /// Ask for subtitle files to add to the playing media (S6.1.4).

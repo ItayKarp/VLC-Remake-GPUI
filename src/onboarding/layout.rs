@@ -5,6 +5,7 @@ use gpui::{ClickEvent, Context, Div, KeyDownEvent, Stateful, accesskit, div, pre
 
 use super::Onboarding;
 use super::finish::FinishState;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::focus::{self, Axis, Layout};
@@ -27,8 +28,7 @@ impl Onboarding {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .gap(px(8.))
             .when(self.rerun, |this| this.child(cancel_button(cx)))
             .when(show_back, |this| this.child(back_button(cx)))
@@ -46,7 +46,7 @@ impl Onboarding {
 
 /// Cancel, offered when setup is run again: returns to the main window with nothing changed.
 fn cancel_button(cx: &mut Context<Onboarding>) -> Button {
-    Button::new("cancel", "Cancel")
+    Button::new("cancel", tr!("Cancel"))
         .style(ButtonStyle::Filled)
         .width(NAV_BUTTON_WIDTH)
         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.cancel(window, cx)))
@@ -54,7 +54,7 @@ fn cancel_button(cx: &mut Context<Onboarding>) -> Button {
 
 /// The Back button, which returns to the previous step.
 pub(super) fn back_button(cx: &mut Context<Onboarding>) -> Button {
-    Button::new("back", "Back")
+    Button::new("back", tr!("Back"))
         .style(ButtonStyle::Filled)
         .width(NAV_BUTTON_WIDTH)
         .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.go_back(cx)))
@@ -65,8 +65,7 @@ pub(super) fn back_button(cx: &mut Context<Onboarding>) -> Button {
 pub(super) fn radio_group(id: &'static str, label: &'static str, p: &Palette) -> Stateful<Div> {
     let group = div()
         .id(id)
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .p(px(4.))
         .rounded(px(12.))
@@ -92,11 +91,10 @@ pub(super) fn radio_step(
 pub(super) fn bottom_bar() -> Div {
     div()
         .absolute()
-        .left_0()
-        .right(px(EDGE_RIGHT))
+        .inset_start(px(0.))
+        .inset_end(px(EDGE_RIGHT))
         .bottom(px(EDGE_BOTTOM))
         .h(px(32.))
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
 }

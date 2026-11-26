@@ -7,6 +7,8 @@ use gpui::{
 
 use super::{Dropdown, VISIBLE_ROWS};
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 use crate::ui::focus;
 use crate::ui::icon::{icon, two_tone};
@@ -43,18 +45,17 @@ impl Dropdown {
             .relative()
             .h(px(self.height))
             .w_full()
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_center()
             .justify_between()
             .gap(px(8.))
-            .pl(px(14.))
-            .pr(px(12.))
+            .ps(px(14.))
+            .pe(px(12.))
             .rounded(px(metrics::RADIUS + 2.))
             .bg(p.control)
             .border_2()
             .border_color(if self.open { p.focus_ring } else { p.well })
-            .text_size(px(metrics::TEXT))
+            .text_size(text_px(metrics::TEXT))
             .text_color(p.text_muted)
             .track_focus(&self.focus_handle)
             .key_context(focus::context(&["Dropdown", focus::CONTROL, focus::TYPING]))
@@ -79,7 +80,7 @@ impl Dropdown {
         div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(12.))
             .when_some(self.glyph(self.selected), |face, glyph| {

@@ -22,8 +22,10 @@ mod miniplayer;
 mod network;
 mod performance;
 mod playback;
+mod player_layout;
 mod presets;
 mod privacy;
+mod profiles;
 mod recording;
 mod subtitles;
 mod video;
@@ -59,8 +61,10 @@ pub use performance::{
     SkipLoopFilter,
 };
 pub use playback::{PlayerSettings, QueueSiblings, ResumePolicy, VideoQuality, WhenFinished};
+pub use player_layout::StoredLayout;
 pub use presets::{Preset, PresetSettings};
 pub use privacy::PrivacySettings;
+pub use profiles::{Automatic, Profile, ProfileSettings};
 pub use recording::{CastQuality, EncodingPreset, RecordingSettings, Tuning};
 pub use subtitles::{SizeValues, SubtitleArea, SubtitleSettings};
 pub use video::{PictureSettings, VideoSettings};
@@ -133,6 +137,9 @@ pub struct Preferences {
     /// Custom key bindings (S5.6.3).
     #[serde(deserialize_with = "lenient")]
     pub keymap: KeymapSettings,
+    /// The title bar and control bar as Customize Player left them (S8.7).
+    #[serde(deserialize_with = "lenient")]
+    pub player_layout: StoredLayout,
     /// Logging, crash reports and libVLC's startup options (S0.7, S5.3.4).
     #[serde(deserialize_with = "lenient")]
     pub diagnostics: DiagnosticsSettings,
@@ -140,6 +147,10 @@ pub struct Preferences {
     /// them through `settings::presets`, which keeps the sections they cover in step.
     #[serde(deserialize_with = "lenient")]
     pub presets: PresetSettings,
+    /// Player profiles, each a player layout and a preset (S8.8). Change them through
+    /// `settings::profiles`, which keeps the layout and preset in use in step.
+    #[serde(deserialize_with = "lenient")]
+    pub profiles: ProfileSettings,
 }
 
 /// State that only makes sense on this machine.

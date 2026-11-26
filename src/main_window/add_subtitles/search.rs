@@ -13,6 +13,7 @@ use gpui::{
     accesskit, div, prelude::*, px,
 };
 
+use super::credit::credit;
 use super::files::spaced;
 use super::header::CONTROL_HEIGHT;
 use super::model::Target;
@@ -20,10 +21,12 @@ use super::render::{PADDING, ROW_HEIGHT, icon_and_name, note};
 use super::{AddSubtitlesDialog, Body};
 use crate::assets::icons;
 use crate::engine::language::{self, Language};
+use crate::i18n::DirectionalStyle;
 use crate::settings;
 use crate::subtitle_links::opensubtitles::{self, Failure, Found, Query};
 use crate::subtitle_links::query;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::dropdown::Dropdown;
 use crate::ui::icon::icon;
@@ -31,7 +34,7 @@ use crate::ui::text_input::{Look, TextInput};
 use crate::ui::{focus, metrics};
 
 /// The language dropdown's first option.
-const ANY_LANGUAGE: &str = "All Languages";
+const ANY_LANGUAGE: &str = tr_noop!("All Languages");
 /// The language picked when no preferred language is set.
 const DEFAULT_LANGUAGE: &str = "en";
 /// What the consent note says (S6.5.4).
@@ -83,11 +86,11 @@ pub(super) fn controls(
     let wanted = preferred.first().cloned().or_else(|| Language::recognize(DEFAULT_LANGUAGE));
     let selected =
         wanted.and_then(|wanted| languages.iter().position(|l| *l == wanted)).map_or(0, |i| i + 1);
-    let options = std::iter::once(ANY_LANGUAGE.into())
+    let options = std::iter::once(crate::i18n::text(ANY_LANGUAGE).into())
         .chain(languages.iter().map(|language| SharedString::from(language.name())))
         .collect();
     let menu = cx.new(|cx| {
-        Dropdown::new("Language", options, selected, window, cx).with_height(CONTROL_HEIGHT)
+        Dropdown::new(tr!("Language"), options, selected, window, cx).with_height(CONTROL_HEIGHT)
     });
     let title = match target {
         Target::File(path) => query::for_video(path),
@@ -97,8 +100,8 @@ pub(super) fn controls(
         TextInput::new(window, cx)
             .with_look(Look::Bare)
             .with_text(title)
-            .with_placeholder("Search by title")
-            .with_label("Search OpenSubtitles")
+            .with_placeholder(tr!("Search by title"))
+            .with_label(tr!("Search OpenSubtitles"))
     });
     (menu, field)
 }
@@ -156,24 +159,40 @@ impl AddSubtitlesDialog {
         cx.notify();
     }
 
-    /// The results, or what is happening instead.
+    /// The results, or what is happening instead, over the OpenSubtitles credit (S9.9.4).
     pub(super) fn render_search(
         search: &Search,
         p: &Palette,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        div()
+            .flex_1()
+            .min_h_0()
+            .flex_row_start()
+            .flex_col()
+            .child(Self::search_results(search, p, cx))
+            .child(credit(p))
+            .into_any_element()
+    }
+
+    fn search_results(search: &Search, p: &Palette, cx: &mut Context<Self>) -> AnyElement {
         let (results, checked) = match search {
-            Search::Searching => return note("Searching OpenSubtitles…", p).into_any_element(),
+            Search::Searching => {
+                return note(tr!("Searching OpenSubtitles…"), p).into_any_element();
+            }
             Search::Consent => return consent(p, cx).into_any_element(),
             Search::Failed(why) => return note(why.clone(), p).into_any_element(),
             Search::Found { results, .. } if results.is_empty() => {
-                return note("Nothing found. Try other words or another language.", p)
+                return note(tr!("Nothing found. Try other words or another language."), p)
                     .into_any_element();
             }
             Search::Found { results, checked } => (results, checked),
         };
         let rows = results.iter().enumerate().map(|(index, found)| {
-            spaced(focus::ring(result_row(index, found, checked.contains(&found.id), p, cx), p))
+            spaced(focus::outline_ring(
+                result_row(index, found, checked.contains(&found.id), p, cx),
+                p,
+            ))
         });
         div()
             .id("add-subtitles-results")
@@ -211,11 +230,11 @@ fn result_row(
         .role(accesskit::Role::CheckBox)
         .aria_toggled(checked.into())
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_between()
-        .pl(px(18.))
-        .pr(px(16.))
+        .ps(px(18.))
+        .pe(px(16.))
         .rounded(px(metrics::RADIUS + 2.))
         .cursor_pointer()
         .when(checked, |row| row.bg(p.sunken))
@@ -226,10 +245,10 @@ fn result_row(
         .child(
             div()
                 .flex_none()
-                .flex()
+                .flex_row_start()
                 .items_center()
                 .gap(px(16.))
-                .text_size(px(metrics::TEXT - 1.))
+                .text_size(text_px(metrics::TEXT - 1.))
                 .text_color(p.text_muted)
                 .child(found.details())
                 .child(
@@ -242,12 +261,12 @@ fn result_row(
 
 /// The consent note (S6.5.4): what a search sends, and a button allowing it.
 fn consent(p: &Palette, cx: &mut Context<AddSubtitlesDialog>) -> Div {
-    let allow = Button::new("add-subtitles-allow-opensubtitles", "Allow and Search")
+    let allow = Button::new("add-subtitles-allow-opensubtitles", tr!("Allow and Search"))
         .style(ButtonStyle::Primary)
         .width(CONSENT_BUTTON_WIDTH)
         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.allow_search(window, cx)));
     div()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .items_start()
         .gap(px(12.))

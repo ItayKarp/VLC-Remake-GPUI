@@ -50,6 +50,15 @@ fn arrows_move_through_the_sidebar_and_the_page_is_remembered(cx: &mut TestAppCo
 }
 
 #[gpui::test]
+fn a_saved_page_this_build_does_not_list_opens_general(cx: &mut TestAppContext) {
+    let (view, cx) = open(Category::Extensions, cx);
+    let expected =
+        if cfg!(feature = "extensions") { Category::Extensions } else { Category::General };
+    assert_eq!(current(&view, cx), expected);
+    assert_eq!(cx.read(|cx| settings::get(cx).local.settings_category), expected);
+}
+
+#[gpui::test]
 fn a_search_moves_to_a_page_with_matches_and_arrows_skip_the_others(cx: &mut TestAppContext) {
     let (view, cx) = open(Category::Network, cx);
     search(&view, "passthrough", cx);

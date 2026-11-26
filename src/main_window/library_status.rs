@@ -11,14 +11,24 @@ use gpui::{
 
 use super::MainWindow;
 use crate::db::roots::{RootKind, RootStatus};
+use crate::i18n::DirectionalStyle;
 use crate::library::indexer::RootState;
 use crate::library::root_text::status_text;
 use crate::library::{self};
 use crate::logging;
 use crate::settings;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::toast::{Level, Toast};
+
+impl MainWindow {
+    /// Whether the media folders' rows may be on screen: in the empty state, or on the library's
+    /// Home when it has nothing yet. Otherwise the indexer's reports change nothing shown.
+    pub(super) fn shows_library_folders(&self, cx: &App) -> bool {
+        self.showing_video(cx).is_none() || self.library_panel.is_open()
+    }
+}
 
 /// One row per media folder; nothing before the library has any.
 pub(super) fn render(p: &Palette, cx: &mut Context<MainWindow>) -> Option<Div> {
@@ -28,7 +38,7 @@ pub(super) fn render(p: &Palette, cx: &mut Context<MainWindow>) -> Option<Div> {
     }
     let rows: Vec<Div> =
         roots.iter().enumerate().map(|(index, root)| render_root(index, root, p, cx)).collect();
-    Some(div().w(px(520.)).max_w_full().flex().flex_col().gap(px(8.)).children(rows))
+    Some(div().w(px(520.)).max_w_full().flex_row_start().flex_col().gap(px(8.)).children(rows))
 }
 
 fn render_root(index: usize, root: &RootState, p: &Palette, cx: &mut Context<MainWindow>) -> Div {
@@ -36,16 +46,16 @@ fn render_root(index: usize, root: &RootState, p: &Palette, cx: &mut Context<Mai
     let text = div()
         .flex_1()
         .min_w_0()
-        .flex()
+        .flex_row_start()
         .flex_col()
-        .child(div().text_size(px(13.)).text_color(p.text_strong).truncate().child(name))
-        .child(div().text_size(px(12.)).text_color(p.text_muted).child(status_text(root)));
-    let mut row = div().flex().items_center().gap(px(8.)).child(text);
+        .child(div().text_size(text_px(13.)).text_color(p.text_strong).truncate().child(name))
+        .child(div().text_size(text_px(12.)).text_color(p.text_muted).child(status_text(root)));
+    let mut row = div().flex_row_start().items_center().gap(px(8.)).child(text);
     let path = root.path.clone();
     if root.status == RootStatus::Missing && root.kind == RootKind::Video {
         row = row.children(missing_folder_buttons(index, &path, cx));
     } else if root.indexing.is_none() && root.status != RootStatus::Missing {
-        let resync = Button::new(("resync", index), "Resync")
+        let resync = Button::new(("resync", index), tr!("Resync"))
             .on_click(move |_: &ClickEvent, _, cx: &mut App| library::resync(&path, cx));
         row = row.child(resync);
     }
@@ -56,14 +66,14 @@ fn render_root(index: usize, root: &RootState, p: &Palette, cx: &mut Context<Mai
 fn missing_folder_buttons(index: usize, path: &Path, cx: &mut Context<MainWindow>) -> [Button; 2] {
     let (old, missing) = (path.to_path_buf(), path.to_path_buf());
     let main = cx.entity().downgrade();
-    let choose = Button::new(("choose-folder", index), "Choose another folder").on_click(
+    let choose = Button::new(("choose-folder", index), tr!("Choose another folder")).on_click(
         move |_: &ClickEvent, window: &mut Window, cx: &mut App| {
             let old = old.clone();
             main.update(cx, |_, cx| choose_folder(old, window, cx)).ok();
         },
     );
     let this = cx.entity().downgrade();
-    let create = Button::new(("create-folder", index), "Create this folder").on_click(
+    let create = Button::new(("create-folder", index), tr!("Create this folder")).on_click(
         move |_: &ClickEvent, _, cx: &mut App| {
             this.update(cx, |_, cx| create_folder(missing.clone(), cx)).ok();
         },
@@ -77,7 +87,7 @@ fn choose_folder(old: PathBuf, window: &mut Window, cx: &mut Context<MainWindow>
         files: false,
         directories: true,
         multiple: false,
-        prompt: Some("Choose".into()),
+        prompt: Some(tr!("Choose").into()),
     });
     cx.spawn_in(window, async move |_, cx| {
         let Ok(Ok(Some(paths))) = paths.await else { return };
@@ -97,11 +107,71 @@ fn create_folder(path: PathBuf, cx: &mut Context<MainWindow>) {
             Ok(()) => library::resync(&path, cx),
             Err(error) => {
                 tracing::warn!("library: couldn't create {}: {error}", logging::path(&path));
-                let message = format!("Couldn't create “{}”.", settings::display_path(&path));
+                let folder = settings::display_path(&path);
+                let message = tr!("Couldn't create “{folder}”.", folder);
+
                 main.show_toast(Toast::new(Level::Error, message), cx);
             }
         })
         .ok();
     })
     .detach();
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::TestAppContext;
+
+    use super::*;
+    use crate::main_window::tests::{main_view, open, toast_messages};
+    use crate::opening::scratch::scratch_dir;
+
+    #[gpui::test]
+    fn create_this_folder_makes_the_missing_folder(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let missing = scratch_dir().join("Movies").join("New");
+        let path = missing.clone();
+        main_view(cx).update(cx, |_, cx| create_folder(path, cx));
+        cx.run_until_parked();
+        assert!(missing.is_dir());
+        assert_eq!(toast_messages(cx), Vec::<String>::new());
+    }
+
+    #[gpui::test]
+    fn a_folder_that_cant_be_made_says_so(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let file = scratch_dir().join("taken");
+        std::fs::write(&file, b"x").expect("file");
+        let inside = file.join("Movies");
+        main_view(cx).update(cx, |_, cx| create_folder(inside, cx));
+        cx.run_until_parked();
+        let said = toast_messages(cx);
+        assert!(said.len() == 1 && said[0].starts_with("Couldn't create"), "{said:?}");
+    }
+
+    #[gpui::test]
+    fn choose_another_folder_replaces_the_missing_one(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let (old, new) = (scratch_dir().join("gone"), scratch_dir());
+        cx.update(|_, cx| settings::update(cx, |s| s.local.media_folders = vec![old.clone()]));
+        let main = main_view(cx);
+        main.update_in(cx, |_, window, cx| choose_folder(old, window, cx));
+        let picked = new.clone();
+        cx.simulate_path_prompt_response(move |_| Some(vec![picked]));
+        cx.run_until_parked();
+        let folders = cx.update(|_, cx| settings::get(cx).local.media_folders.clone());
+        assert_eq!(folders, [new]);
+    }
+
+    #[gpui::test]
+    fn without_media_folders_no_rows_show(cx: &mut TestAppContext) {
+        let cx = open(cx);
+        let main = main_view(cx);
+        let (shown, rows) = main.update_in(cx, |main, window, cx| {
+            let p = crate::theme::palette(window, cx);
+            (main.shows_library_folders(cx), render(&p, cx).is_some())
+        });
+        assert!(shown, "nothing plays, so the empty state may show them");
+        assert!(!rows);
+    }
 }

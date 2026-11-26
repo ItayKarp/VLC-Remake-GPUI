@@ -1,9 +1,13 @@
 //! Names a libVLC failure. libVLC 3 reports only "an error happened", so the kind is inferred
 //! from the source and from how far playback got.
 
+use std::sync::atomic::Ordering;
+
+use super::worker::Worker;
 use crate::app::media::Media;
+use crate::engine::backend::BackendEvent;
 use crate::engine::preflight;
-use crate::engine::state::ErrorKind;
+use crate::engine::state::{ErrorKind, PlaybackState};
 
 /// Why playback of `source` failed, given whether it had `started` playing.
 ///
@@ -17,6 +21,33 @@ pub fn classify(source: Option<&Media>, started: bool) -> ErrorKind {
         (Some(Err(_)) | None, true) => ErrorKind::SourceLost,
         (Some(Ok(())), true) => ErrorKind::Corrupt,
         (_, false) => ErrorKind::OpenFailed,
+    }
+}
+
+impl Worker {
+    /// libVLC reached the end: the media ended, or it had nothing it could play.
+    pub(super) fn ended(&mut self) {
+        super::hardware::decoding(None);
+        self.recording_ends();
+        let state = if self.track_count() == 0 {
+            PlaybackState::Error(ErrorKind::NoPlayableStreams)
+        } else {
+            PlaybackState::Ended
+        };
+        self.shared.send(BackendEvent::State(state));
+    }
+
+    /// libVLC reported an error: says which, as far as it can be told.
+    pub(super) fn failed(&mut self) {
+        super::hardware::decoding(None);
+        self.recording_ends();
+        if self.stream_failed() {
+            return;
+        }
+        let started = self.shared.started.load(Ordering::Relaxed);
+        let kind = classify(self.source.as_ref(), started);
+        tracing::warn!("libvlc: playback failed ({kind:?}): {}", self.vlc.last_error());
+        self.shared.send(BackendEvent::State(PlaybackState::Error(kind)));
     }
 }
 

@@ -9,6 +9,7 @@ use std::time::Duration;
 use gpui::{Context, Div, Entity, Focusable as _, Subscription, Window, div, prelude::*, px};
 
 use crate::db::bookmarks::Bookmark;
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::theme::Palette;
 use crate::ui::metrics;
@@ -43,7 +44,7 @@ impl MainWindow {
                 .with_all_selected()
                 .with_look(Look::Bare)
                 .with_max_len(MAX_NAME)
-                .with_label("Bookmark name")
+                .with_label(tr!("Bookmark name"))
         });
         let events = cx.subscribe_in(&input, window, Self::on_rename_input);
         input.read(cx).focus_handle(cx).focus(window, cx);
@@ -101,7 +102,7 @@ pub(super) fn field(input: &Entity<TextInput>, p: &Palette) -> Div {
         .flex_1()
         .min_w_0()
         .h(px(FIELD_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .px(px(FIELD_PADDING))
         .rounded(px(metrics::RADIUS))

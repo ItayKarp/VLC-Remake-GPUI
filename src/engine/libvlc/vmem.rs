@@ -9,8 +9,10 @@ use std::ffi::{c_char, c_uint, c_void};
 use std::slice;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Instant;
 
 use super::api::{LibVlc, MediaPlayer};
+use super::repeats::Repeats;
 use crate::engine::hdr::{ToneMap, ToneMappingSink};
 use crate::engine::media_info::VideoSize;
 use crate::engine::video::{Format, MAX_PLANES, VideoSink};
@@ -26,6 +28,8 @@ pub struct Vmem {
     transposed: AtomicBool,
     /// What to do once the next picture shows (`hold.rs`).
     next_picture: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+    /// Finds the pictures libVLC draws again unchanged, which aren't shown (S9.3.2).
+    repeats: Repeats,
 }
 
 impl Vmem {
@@ -36,6 +40,7 @@ impl Vmem {
             display: Mutex::new(None),
             transposed: AtomicBool::new(false),
             next_picture: Mutex::new(None),
+            repeats: Repeats::default(),
         }
     }
 
@@ -149,6 +154,7 @@ unsafe extern "C" fn on_format(
             return 0;
         }
         log_format(proposed, &format);
+        vmem.repeats.set_format(&format);
         *chroma.cast::<[u8; 4]>() = format.chroma;
         *width = format.width;
         *height = format.height;
@@ -173,24 +179,36 @@ fn log_format(proposed: (c_uint, c_uint), format: &Format) {
 
 unsafe extern "C" fn on_cleanup(opaque: *mut c_void) {
     // SAFETY: `opaque` is the pointer `install` registered.
-    unsafe { vmem(opaque).sink.cleanup() };
+    let vmem = unsafe { vmem(opaque) };
+    vmem.repeats.reset();
+    vmem.sink.cleanup();
 }
 
 unsafe extern "C" fn on_lock(opaque: *mut c_void, planes: *mut *mut c_void) -> *mut c_void {
     // SAFETY: `planes` is libVLC's table of `MAX_PLANES` pointers; `opaque` is ours.
-    unsafe { vmem(opaque).sink.lock(&mut *planes.cast::<[*mut c_void; MAX_PLANES]>()) };
+    unsafe {
+        let vmem = vmem(opaque);
+        let planes = &mut *planes.cast::<[*mut c_void; MAX_PLANES]>();
+        vmem.sink.lock(planes);
+        vmem.repeats.locked(planes);
+    }
     std::ptr::null_mut()
 }
 
 unsafe extern "C" fn on_unlock(opaque: *mut c_void, _picture: *mut c_void, _: *const *mut c_void) {
     // SAFETY: `opaque` is the pointer `install` registered.
-    unsafe { vmem(opaque).sink.unlock() };
+    let vmem = unsafe { vmem(opaque) };
+    // Before the sink unlocks, while the planes are still the picture's.
+    vmem.repeats.written(Instant::now());
+    vmem.sink.unlock();
 }
 
 unsafe extern "C" fn on_display(opaque: *mut c_void, _picture: *mut c_void) {
     // SAFETY: `opaque` is the pointer `install` registered.
     let vmem = unsafe { vmem(opaque) };
-    vmem.sink.display();
+    if !vmem.repeats.is_repeat() {
+        vmem.sink.display();
+    }
     let then = vmem.next_picture.lock().unwrap_or_else(PoisonError::into_inner).take();
     if let Some(then) = then {
         then();

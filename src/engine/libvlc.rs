@@ -1,27 +1,38 @@
 //! The libVLC 3 backend (S1.2, ADR 0001).
 //!
-//! - [`api`] loads libVLC at run time and declares the C API; [`runtime`] finds the libraries.
+//! - [`api`] loads libVLC at run time and declares the C API; [`runtime`] finds the libraries;
+//!   [`instance`] starts an instance with the app's options.
 //! - [`LibVlcBackend`] queues commands for a worker thread ([`worker`], [`control`],
 //!   [`query`]) that owns every libVLC handle, so the UI never waits on a libVLC call.
 //! - [`events`] is the libVLC event callback: it translates and forwards, and never calls libVLC.
 //! - [`failure`] names the cause of an error libVLC reports without one.
+//! - [`casting`] finds cast devices and plays to one (S8.11).
+//! - [`streaming`] streams the media playing to the network (S8.12).
+//! - [`statistics`] reads what libVLC counted about the media playing (S8.13.2).
 //!
 //! - [`audio`] lists output devices and picks one (S1.5).
 //! - [`vmem`] hands decoded pictures to a [`VideoSink`] (S1.4.1), and [`prepare`] reads a file's
 //!   video geometry before it plays. Without a sink, libVLC's dummy output decodes and discards
 //!   pictures, so libVLC never opens a window of its own.
 
+mod advisories;
 mod api;
 mod audio;
 mod audio_effects;
+mod casting;
+#[cfg(test)]
+mod casting_tests;
 mod certificates;
 mod color_filters;
 #[cfg(test)]
 mod color_tests;
 mod control;
 mod core_vars;
+#[cfg(test)]
+mod corpus_tests;
 mod cpu_filters;
 mod decoding;
+pub mod disc_tracks;
 mod enhance;
 #[cfg(test)]
 mod enhance_tests;
@@ -34,19 +45,33 @@ mod hdr;
 #[cfg(test)]
 mod hdr_tests;
 mod hold;
+mod instance;
 pub mod lengths;
 mod media_options;
+mod navigation;
+#[cfg(test)]
+mod navigation_tests;
 pub mod options;
 mod picture;
 mod prepare;
 pub mod preview;
 mod query;
+mod recording;
+#[cfg(test)]
+mod recording_tests;
 mod reopen;
 #[cfg(test)]
 mod reopen_tests;
+mod repeats;
 pub mod runtime;
 mod size_watch;
+mod statistics;
+#[cfg(test)]
+mod statistics_tests;
 mod stream_colour;
+mod streaming;
+#[cfg(test)]
+mod streaming_tests;
 mod subtitle_style;
 pub mod system_options;
 pub mod tags;
@@ -55,6 +80,9 @@ mod test_tone;
 mod tests;
 pub mod thumbnail;
 mod track_list;
+pub mod transcode;
+#[cfg(test)]
+mod transcode_tests;
 mod video_filters;
 #[cfg(test)]
 mod video_tests;
@@ -63,39 +91,35 @@ mod vmem;
 pub mod waveform;
 mod worker;
 
-use std::ffi::CString;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::thread::{self, JoinHandle};
 
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow};
 
-use self::api::{Instance, LibVlc};
+use self::api::LibVlc;
 use self::events::Shared;
+use self::instance::{ARGUMENTS, new_handles, new_instance};
 use self::runtime::{PLUGIN_PATH_ENV, Runtime};
 use self::vmem::Vmem;
-use self::worker::{Handles, Message, Worker};
+use self::worker::{Message, Worker};
 use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioConfig, OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, Command, EventSender};
+use super::cast::{CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
+use super::stream_out::StreamTarget;
 use super::subtitle_style::SubtitleStyle;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use super::video::VideoSink;
 use crate::app::media::Media;
-
-/// The arguments every libVLC instance starts with: the file name would otherwise be drawn into
-/// the video when it starts, and the app finds subtitle files beside the video itself
-/// ([`super::sidecar`]) to know which track came from which file.
-const ARGUMENTS: [&str; 2] = ["--no-video-title-show", "--no-sub-autodetect-file"];
-/// Added without a video sink: decode and discard video.
-const NO_VIDEO_ARGUMENT: &str = "--vout=vdummy";
 
 /// The libVLC library once something asked for it, or why it couldn't be loaded.
 static LIBRARY: OnceLock<Result<Arc<LibVlc>, String>> = OnceLock::new();
@@ -112,6 +136,7 @@ fn load() -> std::result::Result<Arc<LibVlc>, String> {
     warn_without_plugin_path(runtime);
     let vlc = LibVlc::load(runtime).map_err(|error| format!("{error:#}"))?;
     tracing::info!("libvlc: loaded {} from {:?}", vlc.version(), runtime.lib_dir);
+    advisories::warn_if_outdated(&vlc.version());
     Ok(Arc::new(vlc))
 }
 
@@ -295,6 +320,30 @@ impl Backend for LibVlcBackend {
         self.send(Command::SetHdrMode(mode));
     }
 
+    fn record(&mut self, folder: Option<&Path>) {
+        self.send(Command::Record(folder.map(Path::to_path_buf)));
+    }
+
+    fn navigate(&mut self, to: Navigation) {
+        self.send(Command::Navigate(to));
+    }
+
+    fn set_cast_setup(&mut self, setup: CastSetup) {
+        self.send(Command::SetCastSetup(setup));
+    }
+
+    fn cast(&mut self, device: Option<CastDeviceId>) {
+        self.send(Command::Cast(device));
+    }
+
+    fn stream(&mut self, target: Option<StreamTarget>) {
+        self.send(Command::Stream(target));
+    }
+
+    fn read_statistics(&mut self) {
+        self.send(Command::ReadStatistics);
+    }
+
     fn shut_down(mut self: Box<Self>) {
         let _ = self.worker.send(Message::Shutdown);
         if let Some(thread) = self.thread.take()
@@ -312,72 +361,4 @@ impl Drop for LibVlcBackend {
             let _ = self.worker.send(Message::Shutdown);
         }
     }
-}
-
-/// A new libVLC instance with [`ARGUMENTS`], the `setup` arguments (audio and subtitle style),
-/// the Network and Performance settings ([`system_options`]) and the user's startup options
-/// ([`options`]), and a media player on it; `with_video` false adds [`NO_VIDEO_ARGUMENT`].
-fn new_handles(vlc: &LibVlc, with_video: bool, setup: &[String]) -> Result<Handles> {
-    let video = (!with_video).then_some(NO_VIDEO_ARGUMENT);
-    let system = system_options::arguments(&system_options::current());
-    let groups: [(&str, &[String]); 3] =
-        [("audio", setup), ("network and performance", &system), ("startup", options::startup())];
-    let instance = start_instance(vlc, video, &groups)?;
-    if !system_options::current().verify_certificates {
-        certificates::install(vlc, instance);
-    }
-    // SAFETY: the instance is live.
-    let player = unsafe { (vlc.api.libvlc_media_player_new)(instance) };
-    if player.is_null() {
-        let error = vlc.last_error();
-        // SAFETY: the instance is live and released once.
-        unsafe { (vlc.api.libvlc_release)(instance) };
-        bail!("libvlc_media_player_new: {error}");
-    }
-    Ok(Handles { instance, player })
-}
-
-/// A new libVLC instance with every group of options. An option this libVLC doesn't know fails
-/// the instance, so it is retried without the last group, then the one before, and so on.
-fn start_instance(
-    vlc: &LibVlc,
-    video: Option<&str>,
-    groups: &[(&str, &[String])],
-) -> Result<*mut Instance> {
-    let mut count = groups.len();
-    loop {
-        let options = groups[..count].iter().flat_map(|(_, options)| options.iter());
-        let arguments: Vec<&str> =
-            ARGUMENTS.into_iter().chain(video).chain(options.map(String::as_str)).collect();
-        let error = match new_instance(vlc, &arguments) {
-            Ok(instance) => return Ok(instance),
-            Err(error) => error,
-        };
-        let Some(last) = groups[..count].iter().rposition(|(_, options)| !options.is_empty())
-        else {
-            return Err(error);
-        };
-        tracing::warn!(
-            "libvlc: {} options refused ({error:#}); starting without them",
-            groups[last].0
-        );
-        count = last;
-    }
-}
-
-/// A new libVLC instance started with `arguments`.
-fn new_instance(vlc: &LibVlc, arguments: &[&str]) -> Result<*mut Instance> {
-    let arguments: Vec<CString> = arguments
-        .iter()
-        .map(|argument| CString::new(*argument))
-        .collect::<Result<_, _>>()
-        .context("an option holds a NUL character")?;
-    let pointers: Vec<_> = arguments.iter().map(|argument| argument.as_ptr()).collect();
-    // SAFETY: `pointers` holds NUL-terminated strings that outlive the call.
-    let instance: *mut Instance =
-        unsafe { (vlc.api.libvlc_new)(pointers.len() as i32, pointers.as_ptr()) };
-    if instance.is_null() {
-        bail!("libvlc_new: {}", vlc.last_error());
-    }
-    Ok(instance)
 }

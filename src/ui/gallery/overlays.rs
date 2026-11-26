@@ -8,6 +8,7 @@ use gpui::{
 use super::basics::{row, section};
 use super::{Gallery, updating};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::{Button, ButtonStyle};
 use crate::ui::popover::{self, Side};
 use crate::ui::toast::{self, Banner, Level, Toast};
@@ -81,7 +82,7 @@ impl Gallery {
             .child(self.widgets.sliders.speed.clone())
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(text_px(12.))
                     .text_color(p.text_muted)
                     .child("Opens above its button, and below it when there's no room."),
             )

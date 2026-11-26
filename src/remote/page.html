@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>VLC Remote</title>
+<style>
+  :root {
+    --bg: #0e0e0e; --panel: #1a1a1a; --line: #2a2a2a; --text: #ececec; --muted: #9a9a9a;
+    --accent: #f28c28; --danger: #ff6b5e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+  main { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--panel); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .title { font-size: 19px; font-weight: 600; overflow-wrap: anywhere; min-height: 1.4em; }
+  .times { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px;
+    font-variant-numeric: tabular-nums; margin-top: 12px; }
+  .bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); }
+  .transport { display: flex; justify-content: center; align-items: center; gap: 24px; margin-top: 16px; }
+  button { font: inherit; color: var(--text); background: var(--line); border: 0; border-radius: 999px;
+    cursor: pointer; touch-action: manipulation; }
+  button:disabled { opacity: .35; }
+  .round { width: 56px; height: 56px; font-size: 20px; }
+  .play { width: 72px; height: 72px; font-size: 26px; background: var(--accent); color: #111; }
+  .volume { display: flex; align-items: center; gap: 12px; }
+  .volume input { flex: 1; accent-color: var(--accent); }
+  .volume span { width: 48px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mute { padding: 8px 12px; font-size: 14px; border-radius: 8px; }
+  .mute[aria-pressed="true"] { background: var(--accent); color: #111; }
+  ol { list-style: none; margin: 0; padding: 0; }
+  li button { width: 100%; text-align: left; background: none; border-radius: 8px; padding: 10px 8px;
+    overflow-wrap: anywhere; }
+  li button[aria-current="true"] { color: var(--accent); font-weight: 600; }
+  .more { color: var(--muted); font-size: 13px; padding: 8px; }
+  form { display: flex; flex-direction: column; gap: 12px; }
+  input[type=password] { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; }
+  .primary { background: var(--accent); color: #111; border-radius: 10px; padding: 12px; font-weight: 600; }
+  .error { color: var(--danger); min-height: 1.4em; margin: 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>VLC Remote</h1>
+  <section id="login" class="card" hidden>
+    <form id="login-form">
+      <label for="password">Password, as set in VLC under Settings → Controls → Remotes</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button class="primary" type="submit">Sign In</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+  <div id="remote" hidden>
+    <section class="card" aria-label="Now playing">
+      <div id="title" class="title"></div>
+      <div class="times"><span id="position">0:00</span><span id="duration"></span></div>
+      <div class="bar"><div id="progress"></div></div>
+      <div class="transport">
+        <button id="previous" class="round" aria-label="Previous">⏮</button>
+        <button id="play" class="round play" aria-label="Play">▶</button>
+        <button id="next" class="round" aria-label="Next">⏭</button>
+      </div>
+    </section>
+    <section class="card volume" aria-label="Volume">
+      <button id="mute" class="mute" aria-pressed="false">Mute</button>
+      <input id="volume" type="range" min="0" max="125" step="1" aria-label="Volume">
+      <span id="volume-text"></span>
+    </section>
+    <section class="card" aria-label="Queue">
+      <ol id="queue"></ol>
+      <div id="more" class="more" hidden></div>
+    </section>
+    <p id="error" class="error" role="alert"></p>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const POLL_MS = 1000;
+let queueRevision = null;
+let draggingVolume = false;
+
+function time(ms) {
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+function show(signedIn) {
+  $("login").hidden = signedIn;
+  $("remote").hidden = !signedIn;
+}
+
+async function call(method, path, body) {
+  const options = { method, headers: {}, credentials: "same-origin" };
+  if (body !== undefined) {
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetch(path, options);
+  if (response.status === 401 && path !== "/api/login") {
+    show(false);
+    throw new Error("signed out");
+  }
+  if (!response.ok) {
+    const answer = await response.json().catch(() => ({}));
+    throw new Error(answer.error || `VLC answered ${response.status}.`);
+  }
+  return response.status === 204 ? null : response.json();
+}
+
+function render(state) {
+  $("title").textContent = state.title;
+  $("position").textContent = time(state.position_ms);
+  $("duration").textContent = state.duration_ms == null ? "" : time(state.duration_ms);
+  const share = state.duration_ms ? Math.min(1, state.position_ms / state.duration_ms) : 0;
+  $("progress").style.width = `${share * 100}%`;
+  $("play").textContent = state.playing ? "⏸" : "▶";
+  $("play").setAttribute("aria-label", state.playing ? "Pause" : "Play");
+  $("previous").disabled = !state.can_go_back;
+  $("next").disabled = !state.can_go_next;
+  $("mute").setAttribute("aria-pressed", String(state.muted));
+  $("volume").max = state.max_volume;
+  if (!draggingVolume) $("volume").value = state.volume;
+  $("volume-text").textContent = `${state.muted ? 0 : state.volume}%`;
+  if (state.queue_revision !== queueRevision) {
+    queueRevision = state.queue_revision;
+    loadQueue();
+  }
+}
+
+async function loadQueue() {
+  const queue = await call("GET", "/api/queue");
+  const list = $("queue");
+  list.replaceChildren(...queue.items.map((item) => {
+    const row = document.createElement("li");
+    const button = document.createElement("button");
+    button.textContent = item.title;
+    button.setAttribute("aria-current", String(item.current));
+    button.addEventListener("click", () => send({ command: "play", id: item.id }));
+    row.append(button);
+    return row;
+  }));
+  $("more").hidden = queue.more === 0;
+  $("more").textContent = `and ${queue.more} more`;
+}
+
+async function refresh() {
+  try {
+    const state = await call("GET", "/api/state");
+    show(true);
+    $("error").textContent = "";
+    render(state);
+  } catch (error) {
+    if (error.message !== "signed out") $("error").textContent = "VLC can't be reached.";
+  }
+}
+
+async function send(command) {
+  try {
+    await call("POST", "/api/command", command);
+    $("error").textContent = "";
+    setTimeout(refresh, 150);
+  } catch (error) {
+    if (error.message !== "signed out") $("error").textContent = error.message;
+  }
+}
+
+$("login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("login-error").textContent = "";
+  try {
+    await call("POST", "/api/login", { password: $("password").value });
+    $("password").value = "";
+    queueRevision = null;
+    await refresh();
+  } catch (error) {
+    $("login-error").textContent = error.message;
+  }
+});
+$("play").addEventListener("click", () => send({ command: "play_pause" }));
+$("previous").addEventListener("click", () => send({ command: "previous" }));
+$("next").addEventListener("click", () => send({ command: "next" }));
+$("mute").addEventListener("click", () => send({ command: "toggle_mute" }));
+$("volume").addEventListener("input", () => {
+  draggingVolume = true;
+  $("volume-text").textContent = `${$("volume").value}%`;
+});
+$("volume").addEventListener("change", () => {
+  draggingVolume = false;
+  send({ command: "volume", percent: Number($("volume").value) });
+});
+
+refresh();
+setInterval(() => { if (!document.hidden && !$("remote").hidden) refresh(); }, POLL_MS);
+</script>
+</body>
+</html>

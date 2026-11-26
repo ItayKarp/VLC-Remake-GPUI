@@ -17,6 +17,15 @@ fn nested_playlists_expand_in_place() {
 }
 
 #[test]
+fn links_that_are_not_media_and_captures_are_left_out() {
+    let dir = scratch_dir();
+    let text = "a.mp3\njavascript://alert(1)\nfd://0\nscreen://\nv4l2:///dev/video0\nb.mp3\n";
+    fs::write(dir.join("list.m3u"), text).unwrap();
+    let items = expand(&dir.join("list.m3u"), PlaylistFormat::M3u, &Cancel::default()).unwrap();
+    assert_eq!(files(&items), ["a.mp3", "b.mp3"]);
+}
+
+#[test]
 fn cycles_are_expanded_once() {
     let dir = scratch_dir();
     fs::write(dir.join("a.m3u"), "1.mp3\nb.m3u\n").unwrap();

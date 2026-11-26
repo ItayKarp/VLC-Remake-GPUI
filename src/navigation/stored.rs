@@ -1,12 +1,14 @@
 //! Routes as text, so the last one can be saved in `local.toml` (S4.5.6).
 //!
 //! The form is `kind[/category][:value]`: `home`, `home:listen-again`, `videos`, `videos:/media/Shows`,
-//! `music/songs:/music/My Songs`, `music/albums:Juxt`, `playlists:4`, `search/videos:wand`.
+//! `music/songs:/music/My Songs`, `music/albums:Juxt`, `network/podcast:7`, `playlists:4`,
+//! `search/videos:wand`.
 //! Paths are encoded like every stored path, so any path survives. Text that doesn't parse (a
 //! newer build's route, a hand edit) reads as nothing, and the library opens at Home.
 
 use super::route::{HomeSection, MusicRoute, NetworkCategory, Route, Search, Section};
 use crate::db::playlists::PlaylistId;
+use crate::db::podcasts::FeedId;
 use crate::settings::stored_path;
 
 /// `route` as text.
@@ -24,6 +26,7 @@ pub fn encode(route: &Route) -> String {
         Route::Network(category) => {
             ("network", category.map(|category| category.as_str().to_owned()))
         }
+        Route::Podcast(id) => ("network/podcast", Some(id.0.to_string())),
         Route::Playlists(id) => ("playlists", id.map(|id| id.0.to_string())),
         Route::History => ("history", None),
         Route::Search(search) => {
@@ -63,6 +66,7 @@ pub fn decode(text: &str) -> Option<Route> {
                 NetworkCategory::ALL.into_iter().find(|category| category.as_str() == name)?,
             )),
         },
+        "network/podcast" => Route::Podcast(FeedId(value?.parse().ok()?)),
         "playlists" => Route::Playlists(value.map(str::parse).transpose().ok()?.map(PlaylistId)),
         "history" => Route::History,
         _ => {
@@ -118,6 +122,7 @@ mod tests {
             Route::Music(MusicRoute::Genres(Some("Jazz".into()))),
             Route::Network(Some(NetworkCategory::Radio)),
             Route::Network(None),
+            Route::Podcast(FeedId(7)),
             Route::Playlists(Some(PlaylistId(42))),
             Route::Playlists(None),
             Route::History,
@@ -131,8 +136,17 @@ mod tests {
 
     #[test]
     fn unreadable_text_is_no_route() {
-        let texts =
-            ["", "settings", "playlists:x", "search/podcasts:a", "search/all", "videos:", "home:x"];
+        let texts = [
+            "",
+            "settings",
+            "playlists:x",
+            "network/podcast",
+            "network/podcast:x",
+            "search/podcasts:a",
+            "search/all",
+            "videos:",
+            "home:x",
+        ];
         for text in texts {
             assert_eq!(decode(text), None, "{text}");
         }

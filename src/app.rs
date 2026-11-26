@@ -22,6 +22,7 @@ pub mod request;
 pub mod screens;
 mod settings_window;
 mod system_options;
+pub mod system_tray;
 mod video_window;
 
 use gpui::{
@@ -61,12 +62,12 @@ const ONBOARDING_MIN_SIZE: (f32, f32) = (900., 640.);
 pub fn init(cx: &mut App) {
     system_options::init(cx);
     hardware_fallback::init(cx);
-    cx.on_action(|_: &Quit, cx| cx.quit());
+    system_tray::init(cx);
+    // Running conversions are asked about first (S8.10).
+    cx.on_action(|_: &Quit, cx| crate::main_window::ask_before_quitting(cx));
     cx.on_action(|_: &CloseWindow, cx| {
         if let Some(window) = cx.active_window() {
-            cx.defer(move |cx| {
-                window.update(cx, |_, window, _| window.remove_window()).ok();
-            });
+            cx.defer(move |cx| close_window(window, cx));
         }
     });
     crate::settings_window::bind_keys(cx);
@@ -76,11 +77,27 @@ pub fn init(cx: &mut App) {
         if response.tag == crate::main_window::NOW_PLAYING_TAG {
             cx.activate(true);
         }
+        // Clicking a conversion's notification shows the file it made (S8.10.2).
+        if response.tag == crate::convert::CONVERSIONS_TAG
+            && let Some(conversions) = crate::convert::Conversions::global(cx)
+        {
+            conversions.read(cx).reveal_last(cx);
+        }
     });
     cx.on_action(|_: &RunSetupAgain, cx| {
         let display = preferred_display(cx);
         cx.defer(move |cx| run_setup_again(display, cx));
     });
+}
+
+/// Closes `window`, unless it is the main window and goes into the system tray instead
+/// (S8.16.1).
+fn close_window(window: gpui::AnyWindowHandle, cx: &mut App) {
+    let main = window.downcast::<MainWindow>();
+    let hidden = main.and_then(|main| main.update(cx, MainWindow::hide_to_tray).ok());
+    if hidden != Some(true) {
+        window.update(cx, |_, window, _| window.remove_window()).ok();
+    }
 }
 
 /// Starts the UI for this process's [`Role`]: the first window, and receiving
@@ -130,10 +147,13 @@ pub fn open_initial_window(launch: &Launch, cx: &mut App) {
     cx.activate(true);
 }
 
-/// Reopens a window when the app is activated with none open (macOS Dock icon).
+/// Reopens a window when the app is activated with none open (macOS Dock icon), or shows the
+/// main window the system tray hid (S8.16.1).
 pub fn reopen(cx: &mut App) {
     if cx.windows().is_empty() {
         open_initial_window(&Launch::default(), cx);
+    } else {
+        system_tray::show_hidden_main_window(cx);
     }
 }
 
@@ -300,7 +320,7 @@ fn correct_dpi_drift<V: 'static>(
 pub fn run_setup_again(display: Option<DisplayId>, cx: &mut App) {
     if let Err(err) = open_onboarding(display, cx) {
         tracing::error!("couldn't open onboarding: {err:#}");
-        show_error_in_main_windows("Setup couldn't be opened. See the log for details.", cx);
+        show_error_in_main_windows(tr!("Setup couldn't be opened. See the log for details."), cx);
         return;
     }
     for handle in cx.windows() {

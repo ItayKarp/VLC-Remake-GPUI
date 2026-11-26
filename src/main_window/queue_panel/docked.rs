@@ -5,6 +5,7 @@
 use gpui::{Context, Div, KeyDownEvent, Stateful, Window, div, prelude::*};
 
 use super::MainWindow;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
 use crate::ui::focus;
 
@@ -21,7 +22,7 @@ impl MainWindow {
             .id("docked-queue")
             .flex_1()
             .min_h_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .track_focus(&self.queue_panel.focus)
             .key_context(focus::context(&["QueuePanel", focus::CONTROL]))

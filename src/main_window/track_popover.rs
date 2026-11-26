@@ -145,14 +145,20 @@ impl MainWindow {
         let body = Self::render_track_tab(kind, &snapshot, p, cx);
         let footer = footer(kind, bar_panel::width(window), cx);
         Some(
-            bar_panel::surface("track-popover", DESIGN_HEIGHT, window, p)
-                .track_focus(&self.track_popover.focus)
-                .key_context(focus::context(&["TrackPopover", focus::CONTROL]))
-                .on_key_down(cx.listener(Self::on_track_popover_key))
-                .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_tracks))
-                .child(Self::render_track_tabs(&tabs, kind, p, cx))
-                .child(body)
-                .child(footer),
+            bar_panel::surface(
+                "track-popover",
+                DESIGN_HEIGHT,
+                self.control_bar_height(),
+                window,
+                p,
+            )
+            .track_focus(&self.track_popover.focus)
+            .key_context(focus::context(&["TrackPopover", focus::CONTROL]))
+            .on_key_down(cx.listener(Self::on_track_popover_key))
+            .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_tracks))
+            .child(Self::render_track_tabs(&tabs, kind, p, cx))
+            .child(body)
+            .child(footer),
         )
     }
 
@@ -208,7 +214,7 @@ impl MainWindow {
 /// The footer: Show Preferences, which opens the settings panel on the tab of `kind`.
 fn footer(kind: TrackKind, width: f32, cx: &mut Context<MainWindow>) -> Div {
     let tab = PanelTab::of(kind);
-    let button = Button::new("show-preferences", "Show Preferences")
+    let button = Button::new("show-preferences", tr!("Show Preferences"))
         .width(width - 2. * FOOTER_PADDING)
         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
             this.open_settings_panel(tab, window, cx);
@@ -238,9 +244,9 @@ pub(super) fn tab_icon(kind: TrackKind) -> &'static str {
 
 fn tab_label(kind: TrackKind) -> &'static str {
     match kind {
-        TrackKind::Video => "Video",
-        TrackKind::Audio => "Audio",
-        TrackKind::Subtitle => "Subtitles",
+        TrackKind::Video => tr!("Video"),
+        TrackKind::Audio => tr!("Audio"),
+        TrackKind::Subtitle => tr!("Subtitles"),
     }
 }
 

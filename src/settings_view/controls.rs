@@ -9,6 +9,8 @@ use gpui::{AnyElement, App, Context, PathPromptOptions, PromptLevel, Window, div
 
 use super::SettingsPage;
 use super::swatches::{SelectHandler, SwatchRow, swatches};
+use crate::i18n;
+use crate::i18n::DirectionalStyle;
 use crate::settings::{
     self,
     registry::{Control, PathPick, SettingDef, Value},
@@ -40,26 +42,27 @@ impl SettingsPage {
     ) -> AnyElement {
         let enabled = state.enabled;
         match (def.control, &state.value) {
-            (Control::Toggle, Value::Bool(on)) => Toggle::new(def.key, *on, def.label)
+            (Control::Toggle, Value::Bool(on)) => Toggle::new(def.key, *on, i18n::text(def.label))
                 .disabled(!enabled)
                 .on_change(cx.listener(move |this, on: &bool, window, cx| {
                     this.toggle(def, *on, window, cx);
                 }))
                 .into_any_element(),
             (Control::Segmented(choices), Value::Choice(id)) => {
-                let labels = choices.iter().map(|choice| choice.label);
-                let segmented = Segmented::new(def.key, def.label, labels, index_of(def, id));
+                let labels = choices.iter().map(|choice| i18n::text(choice.label));
+                let label = i18n::text(def.label);
+                let segmented = Segmented::new(def.key, label, labels, index_of(def, id));
                 let segmented =
                     if enabled { segmented.on_select(choice_listener(def, cx)) } else { segmented };
                 div().w_full().child(segmented).into_any_element()
             }
             (Control::Swatches { choices, color }, Value::Choice(id)) => {
-                let row =
-                    SwatchRow { label: def.label, choices, selected: index_of(def, id), color };
+                let label = i18n::text(def.label);
+                let row = SwatchRow { label, choices, selected: index_of(def, id), color };
                 let on_select = enabled.then(|| Rc::new(choice_listener(def, cx)) as SelectHandler);
                 swatches(def.key, &row, p, on_select.as_ref()).into_any_element()
             }
-            (Control::Button { label, action }, _) => Button::new(def.key, label)
+            (Control::Button { label, action }, _) => Button::new(def.key, i18n::text(label))
                 .disabled(!enabled)
                 .on_click(move |_, window, cx| action(window, cx))
                 .into_any_element(),
@@ -84,9 +87,9 @@ impl SettingsPage {
         };
         let answer = window.prompt(
             PromptLevel::Warning,
-            confirm.title,
-            Some(confirm.detail),
-            &[confirm.button, "Cancel"],
+            i18n::text(confirm.title),
+            Some(i18n::text(confirm.detail)),
+            &[i18n::text(confirm.button), tr!("Cancel")],
             cx,
         );
         cx.spawn(async move |page, cx| {
@@ -113,7 +116,7 @@ impl SettingsPage {
             (Control::Path(pick), _) => with_browse(def, pick, field, enabled, cx),
             (Control::HexColor, _) => self.with_color_square(def, field),
             (_, Some(side)) => {
-                let button = Button::new(def.key, side.label)
+                let button = Button::new(def.key, i18n::text(side.label))
                     .disabled(!enabled)
                     .on_click(move |_, window, cx| (side.action)(window, cx));
                 beside(field, button.into_any_element())
@@ -129,7 +132,7 @@ impl SettingsPage {
         let square = self.widgets.picker(def.key).cloned();
         div()
             .w_full()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(BESIDE_GAP))
             .child(div().flex_1().min_w_0().child(field))
@@ -159,7 +162,7 @@ fn with_browse(
     enabled: bool,
     cx: &mut Context<SettingsPage>,
 ) -> AnyElement {
-    let browse = Button::new("browse", "Browse")
+    let browse = Button::new("browse", tr!("Browse"))
         .disabled(!enabled)
         .on_click(cx.listener(move |_, _, _, cx| browse_for(def, pick, cx)));
     beside(field, browse.into_any_element())
@@ -169,7 +172,7 @@ fn with_browse(
 fn beside(field: AnyElement, button: AnyElement) -> AnyElement {
     div()
         .w_full()
-        .flex()
+        .flex_row_start()
         .items_start()
         .gap(px(BESIDE_GAP))
         .child(div().flex_1().min_w_0().child(field))

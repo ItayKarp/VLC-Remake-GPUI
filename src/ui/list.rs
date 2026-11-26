@@ -20,6 +20,7 @@ use gpui::{
 use super::focus::{self, Axis, Layout};
 use super::metrics;
 use super::popover::BoundsTracker;
+use crate::i18n::DirectionalStyle;
 use crate::theme;
 
 /// How the item at an index should look.
@@ -210,8 +211,7 @@ impl VirtualList {
         div()
             .id(("row", row))
             .h(px(layout.row_height))
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .gap(px(layout.gap))
             .px(px(layout.gap))
             .children(items)

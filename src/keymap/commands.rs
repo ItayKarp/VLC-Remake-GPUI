@@ -71,7 +71,8 @@ impl Keys {
 
 /// One user command.
 pub struct Command {
-    /// The name shown in menus and the shortcuts dialog.
+    /// The English name, which identifies the command (menu bar items, held keys); menus and
+    /// the shortcuts dialog show [`Command::title`].
     pub label: &'static str,
     /// Where its shortcut works.
     pub area: Area,
@@ -81,6 +82,13 @@ pub struct Command {
     pub repeat: Repeat,
     /// The action it dispatches.
     pub action: &'static dyn Action,
+}
+
+impl Command {
+    /// The name shown in menus and the shortcuts dialog, in the interface language.
+    pub fn title(&self) -> &'static str {
+        crate::i18n::text(self.label)
+    }
 }
 
 const NONE: Keys = Keys::All(&[]);
@@ -100,109 +108,125 @@ const fn keys(keys: &'static [&'static str]) -> Keys {
 
 /// Every command, in the order the shortcuts dialog lists them.
 pub const COMMANDS: &[Command] = &[
-    cmd("Open File(s)", AppArea, keys(&["secondary-o"]), &act::OpenFile),
-    cmd("Open Folder", AppArea, keys(&["secondary-shift-o"]), &act::OpenFolder),
+    cmd(tr_noop!("Open File(s)"), AppArea, keys(&["secondary-o"]), &act::OpenFile),
+    cmd(tr_noop!("Open Folder"), AppArea, keys(&["secondary-shift-o"]), &act::OpenFolder),
     // A text input's own paste binding is deeper in the key context, so it wins there.
-    cmd("Open from Clipboard", AppArea, keys(&["secondary-v"]), &act::OpenFromClipboard),
-    cmd("Open Network Stream", AppArea, keys(&["secondary-n"]), &act::OpenNetworkStream),
-    cmd("Open Disc", AppArea, keys(&["secondary-d"]), &act::OpenDisc),
-    cmd("Open Capture Device", AppArea, keys(&["secondary-shift-c"]), &act::OpenCaptureDevice),
-    cmd("Convert", AppArea, keys(&["secondary-r"]), &act::Convert),
-    cmd("Search", Library, keys(&["secondary-f"]), &act::Search),
+    cmd(tr_noop!("Open from Clipboard"), AppArea, keys(&["secondary-v"]), &act::OpenFromClipboard),
+    cmd(tr_noop!("Open Network Stream"), AppArea, keys(&["secondary-n"]), &act::OpenNetworkStream),
+    cmd(tr_noop!("Open Disc"), AppArea, keys(&["secondary-d"]), &act::OpenDisc),
+    cmd(
+        tr_noop!("Open Capture Device"),
+        AppArea,
+        keys(&["secondary-shift-c"]),
+        &act::OpenCaptureDevice,
+    ),
+    cmd(tr_noop!("Convert"), AppArea, keys(&["secondary-r"]), &act::Convert),
+    cmd(tr_noop!("Stream"), AppArea, keys(&["secondary-s"]), &act::Stream),
+    cmd(tr_noop!("Search"), Library, keys(&["secondary-f"]), &act::Search),
     // Alt+Left and Alt+Right seek in the player; the library's are deeper in the key context, so
     // they win while it has focus.
     cmd(
-        "Back",
+        tr_noop!("Back"),
         Library,
         Keys::PerOs { mac: &["cmd-[", "alt-left"], others: &["alt-left"] },
         &act::GoBack,
     ),
     cmd(
-        "Forward",
+        tr_noop!("Forward"),
         Library,
         Keys::PerOs { mac: &["cmd-]", "alt-right"], others: &["alt-right"] },
         &act::GoForward,
     ),
-    cmd("Toggle fullscreen", Player, keys(&["f"]), &act::ToggleFullscreen),
-    cmd("Exit fullscreen", Player, keys(&["escape"]), &act::ExitFullscreen),
-    cmd("Show playback position and time", Player, keys(&["t"]), &act::ShowTime),
-    cmd("Show interface controls in fullscreen", Player, keys(&["i"]), &act::ShowControls),
-    cmd("Hide interface", Player, keys(&["secondary-\\"]), &act::HideInterface),
-    cmd("Show / hide queue", Player, keys(&["q"]), &act::ToggleQueue),
-    cmd("Show / hide file browser", Player, keys(&["l"]), &act::ToggleFileBrowser),
-    cmd("Play / pause", Player, keys(&["space"]), &act::PlayPause),
-    cmd("Stop playback", Player, keys(&["s"]), &act::Stop),
-    // P/N are layout-safe; `<`/`>` (taught by onboarding's design) stay as aliases.
-    cmd("Previous item", Player, keys(&["p", "<"]), &act::PreviousItem),
-    cmd("Next item", Player, keys(&["n", ">"]), &act::NextItem),
-    // VLC's keys: Shift with the queue's P and N.
-    cmd("Previous chapter", Player, keys(&["shift-p"]), &act::PreviousChapter),
-    cmd("Next chapter", Player, keys(&["shift-n"]), &act::NextChapter),
-    // VLC has no key for it; B is the audio track, so the platform's modifier goes with it.
-    cmd("Add bookmark", Player, keys(&["secondary-b"]), &act::AddBookmark),
-    // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
-    cmd("Repeat (Off, All, One)", Player, NONE, &act::CycleRepeat),
-    cmd("Shuffle", Player, NONE, &act::ToggleShuffle),
-    // The skip amounts (S2.3.4): Shift is finer, Alt (Option) and Ctrl (Cmd) coarser.
-    held("Seek backward", keys(&["left"]), &act::SeekBackward),
-    held("Seek forward", keys(&["right"]), &act::SeekForward),
-    held("Very short seek backward", keys(&["shift-left"]), &act::SeekBackwardVeryShort),
-    held("Very short seek forward", keys(&["shift-right"]), &act::SeekForwardVeryShort),
-    held("Medium seek backward", keys(&["alt-left"]), &act::SeekBackwardMedium),
-    held("Medium seek forward", keys(&["alt-right"]), &act::SeekForwardMedium),
-    held("Long seek backward", keys(&["secondary-left"]), &act::SeekBackwardLong),
-    held("Long seek forward", keys(&["secondary-right"]), &act::SeekForwardLong),
-    cmd("Go to the start", Player, keys(&["home"]), &act::SeekToStart),
-    cmd("Go to the end", Player, keys(&["end"]), &act::SeekToEnd),
-    held("Previous frame", keys(&[","]), &act::PreviousFrame),
-    held("Next frame", keys(&["."]), &act::NextFrame),
-    cmd("Next program / Service ID", Player, keys(&["x"]), &act::NextProgram),
-    // VLC's keys (S2.7.3); a held key keeps changing the speed.
-    held("Faster", keys(&["]"]), &act::Faster),
-    held("Slower", keys(&["["]), &act::Slower),
-    cmd("Normal speed", Player, keys(&["="]), &act::NormalSpeed),
-    held("Increase volume", keys(&["up"]), &act::VolumeUp),
-    held("Decrease volume", keys(&["down"]), &act::VolumeDown),
-    cmd("Cycle audio track", Player, keys(&["b"]), &act::CycleAudioTrack),
-    cmd("Cycle subtitle track", Player, keys(&["v"]), &act::CycleSubtitleTrack),
-    cmd("Add subtitle file", Player, NONE, &act::AddSubtitleFile),
-    // VLC's keys; a held key keeps moving the audio.
-    held("Audio delay earlier", keys(&["j"]), &act::AudioDelayEarlier),
-    held("Audio delay later", keys(&["k"]), &act::AudioDelayLater),
-    held("Subtitle delay earlier", keys(&["g"]), &act::SubtitleDelayEarlier),
-    held("Subtitle delay later", keys(&["h"]), &act::SubtitleDelayLater),
-    // VLC has no key for it; it lives in the View and video menus.
-    cmd("Picture in Picture", Player, NONE, &act::PictureInPicture),
-    cmd("Take a snapshot", Player, keys(&["shift-s"]), &act::Snapshot),
-    cmd("Record", Player, keys(&["shift-r"]), &act::Record),
-    // The context-menu key ("menu") exists on Windows and Linux keyboards.
-    cmd("Show context menu", Player, keys(&["shift-f10", "menu"]), &act::ShowContextMenu),
-    cmd("Keyboard Shortcuts", AppArea, NONE, &act::ShowKeyboardShortcuts),
-    cmd("Customize Player", AppArea, NONE, &act::CustomizePlayer),
+    cmd(tr_noop!("Toggle fullscreen"), Player, keys(&["f"]), &act::ToggleFullscreen),
+    cmd(tr_noop!("Exit fullscreen"), Player, keys(&["escape"]), &act::ExitFullscreen),
+    cmd(tr_noop!("Show playback position and time"), Player, keys(&["t"]), &act::ShowTime),
     cmd(
-        "Settings",
+        tr_noop!("Show interface controls in fullscreen"),
+        Player,
+        keys(&["i"]),
+        &act::ShowControls,
+    ),
+    cmd(tr_noop!("Hide interface"), Player, keys(&["secondary-\\"]), &act::HideInterface),
+    cmd(tr_noop!("Show / hide queue"), Player, keys(&["q"]), &act::ToggleQueue),
+    cmd(tr_noop!("Show / hide file browser"), Player, keys(&["l"]), &act::ToggleFileBrowser),
+    cmd(tr_noop!("Play / pause"), Player, keys(&["space"]), &act::PlayPause),
+    cmd(tr_noop!("Stop playback"), Player, keys(&["s"]), &act::Stop),
+    // P/N are layout-safe; `<`/`>` (taught by onboarding's design) stay as aliases.
+    cmd(tr_noop!("Previous item"), Player, keys(&["p", "<"]), &act::PreviousItem),
+    cmd(tr_noop!("Next item"), Player, keys(&["n", ">"]), &act::NextItem),
+    // VLC's keys: Shift with the queue's P and N.
+    cmd(tr_noop!("Previous chapter"), Player, keys(&["shift-p"]), &act::PreviousChapter),
+    cmd(tr_noop!("Next chapter"), Player, keys(&["shift-n"]), &act::NextChapter),
+    // VLC has no key for it; B is the audio track, so the platform's modifier goes with it.
+    cmd(tr_noop!("Add bookmark"), Player, keys(&["secondary-b"]), &act::AddBookmark),
+    // No default keys: VLC's L (loop) is the file browser here (D3), and they live in menus.
+    cmd(tr_noop!("Repeat (Off, All, One)"), Player, NONE, &act::CycleRepeat),
+    cmd(tr_noop!("Shuffle"), Player, NONE, &act::ToggleShuffle),
+    // VLC's key; L alone is the file browser here (D3).
+    cmd(tr_noop!("A-B loop"), Player, keys(&["shift-l"]), &act::LoopAToB),
+    // The skip amounts (S2.3.4): Shift is finer, Alt (Option) and Ctrl (Cmd) coarser.
+    held(tr_noop!("Seek backward"), keys(&["left"]), &act::SeekBackward),
+    held(tr_noop!("Seek forward"), keys(&["right"]), &act::SeekForward),
+    held(tr_noop!("Very short seek backward"), keys(&["shift-left"]), &act::SeekBackwardVeryShort),
+    held(tr_noop!("Very short seek forward"), keys(&["shift-right"]), &act::SeekForwardVeryShort),
+    held(tr_noop!("Medium seek backward"), keys(&["alt-left"]), &act::SeekBackwardMedium),
+    held(tr_noop!("Medium seek forward"), keys(&["alt-right"]), &act::SeekForwardMedium),
+    held(tr_noop!("Long seek backward"), keys(&["secondary-left"]), &act::SeekBackwardLong),
+    held(tr_noop!("Long seek forward"), keys(&["secondary-right"]), &act::SeekForwardLong),
+    cmd(tr_noop!("Go to the start"), Player, keys(&["home"]), &act::SeekToStart),
+    cmd(tr_noop!("Go to the end"), Player, keys(&["end"]), &act::SeekToEnd),
+    held(tr_noop!("Previous frame"), keys(&[","]), &act::PreviousFrame),
+    held(tr_noop!("Next frame"), keys(&["."]), &act::NextFrame),
+    cmd(tr_noop!("Next program / Service ID"), Player, keys(&["x"]), &act::NextProgram),
+    // VLC's key for the DVD menu; in a menu the arrows move and Enter (or Space) chooses.
+    cmd(tr_noop!("Disc menu"), Player, keys(&["shift-m"]), &act::DiscMenu),
+    cmd(tr_noop!("Choose in disc menu"), Player, keys(&["enter"]), &act::SelectInDiscMenu),
+    // VLC's keys (S2.7.3); a held key keeps changing the speed.
+    held(tr_noop!("Faster"), keys(&["]"]), &act::Faster),
+    held(tr_noop!("Slower"), keys(&["["]), &act::Slower),
+    cmd(tr_noop!("Normal speed"), Player, keys(&["="]), &act::NormalSpeed),
+    held(tr_noop!("Increase volume"), keys(&["up"]), &act::VolumeUp),
+    held(tr_noop!("Decrease volume"), keys(&["down"]), &act::VolumeDown),
+    cmd(tr_noop!("Cycle audio track"), Player, keys(&["b"]), &act::CycleAudioTrack),
+    cmd(tr_noop!("Cycle subtitle track"), Player, keys(&["v"]), &act::CycleSubtitleTrack),
+    cmd(tr_noop!("Add subtitle file"), Player, NONE, &act::AddSubtitleFile),
+    // VLC's keys; a held key keeps moving the audio.
+    held(tr_noop!("Audio delay earlier"), keys(&["j"]), &act::AudioDelayEarlier),
+    held(tr_noop!("Audio delay later"), keys(&["k"]), &act::AudioDelayLater),
+    held(tr_noop!("Subtitle delay earlier"), keys(&["g"]), &act::SubtitleDelayEarlier),
+    held(tr_noop!("Subtitle delay later"), keys(&["h"]), &act::SubtitleDelayLater),
+    // VLC has no key for it; it lives in the View and video menus.
+    cmd(tr_noop!("Picture in Picture"), Player, NONE, &act::PictureInPicture),
+    cmd(tr_noop!("Take a snapshot"), Player, keys(&["shift-s"]), &act::Snapshot),
+    cmd(tr_noop!("Record"), Player, keys(&["shift-r"]), &act::Record),
+    // The context-menu key ("menu") exists on Windows and Linux keyboards.
+    cmd(tr_noop!("Show context menu"), Player, keys(&["shift-f10", "menu"]), &act::ShowContextMenu),
+    cmd(tr_noop!("Keyboard Shortcuts"), AppArea, NONE, &act::ShowKeyboardShortcuts),
+    cmd(tr_noop!("Customize Player"), AppArea, NONE, &act::CustomizePlayer),
+    cmd(
+        tr_noop!("Settings"),
         AppArea,
         Keys::PerOs { mac: &["cmd-,"], others: &["ctrl-p", "ctrl-,"] },
         &act::OpenSettings,
     ),
-    cmd("About VLC", AppArea, keys(&["shift-f1"]), &act::About),
-    cmd("Run Setup Again", AppArea, NONE, &act::RunSetupAgain),
-    cmd("Copy Debug Info", AppArea, NONE, &act::CopyDebugInfo),
-    cmd("Mark as Watched", AppArea, NONE, &act::MarkWatched),
-    cmd("Mark as Unwatched", AppArea, NONE, &act::MarkUnwatched),
-    cmd("Clear History", AppArea, NONE, &act::ClearHistory),
-    cmd("Properties & Metadata", AppArea, keys(&["secondary-i"]), &act::ShowProperties),
-    cmd("New Playlist", AppArea, NONE, &act::NewPlaylist),
-    cmd("Save Queue as Playlist", AppArea, NONE, &act::SaveQueueAsPlaylist),
-    cmd("Import Playlist", AppArea, NONE, &act::ImportPlaylist),
+    cmd(tr_noop!("About VLC"), AppArea, keys(&["shift-f1"]), &act::About),
+    cmd(tr_noop!("Run Setup Again"), AppArea, NONE, &act::RunSetupAgain),
+    cmd(tr_noop!("Copy Debug Info"), AppArea, NONE, &act::CopyDebugInfo),
+    cmd(tr_noop!("Mark as Watched"), AppArea, NONE, &act::MarkWatched),
+    cmd(tr_noop!("Mark as Unwatched"), AppArea, NONE, &act::MarkUnwatched),
+    cmd(tr_noop!("Clear History"), AppArea, NONE, &act::ClearHistory),
+    cmd(tr_noop!("Properties & Metadata"), AppArea, keys(&["secondary-i"]), &act::ShowProperties),
+    cmd(tr_noop!("New Playlist"), AppArea, NONE, &act::NewPlaylist),
+    cmd(tr_noop!("Save Queue as Playlist"), AppArea, NONE, &act::SaveQueueAsPlaylist),
+    cmd(tr_noop!("Import Playlist"), AppArea, NONE, &act::ImportPlaylist),
     cmd(
-        "Close Window",
+        tr_noop!("Close Window"),
         Global,
         // Windows and Linux close windows with Alt+F4 through the OS.
         Keys::PerOs { mac: &["cmd-w"], others: &[] },
         &act::CloseWindow,
     ),
-    cmd("Quit", Global, keys(&["secondary-q"]), &act::Quit),
+    cmd(tr_noop!("Quit"), Global, keys(&["secondary-q"]), &act::Quit),
 ];
 
 /// The command that dispatches `action`, if it is one of ours.

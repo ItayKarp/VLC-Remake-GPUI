@@ -6,7 +6,8 @@
 //! and Shift+N), the speed (S2.7.3: `[`,
 //! `]` and `=`), the audio delay (S4.8.1: J and K), showing or hiding the interface (S2.8: I and Ctrl+\) and the video's menu
 //! (S2.9: Shift+F10 and the context-menu key), frame stepping (`,` and `.`) and T (S2.10.3)
-//! work, Q shows the queue (S3.2) and L the library sidebar (S4.5). A command whose story hasn't
+//! work, Q shows the queue (S3.2) and L the library sidebar (S4.5), and Shift+L loops from A to B
+//! (S8.13.4). A command whose story hasn't
 //! shipped (X, Shift+S, Shift+R) says "Coming soon" over the video in debug builds and is only
 //! logged in release builds.
 
@@ -101,9 +102,12 @@ impl MainWindow {
                 AddBookmark,
                 CycleRepeat,
                 ToggleShuffle,
+                LoopAToB,
                 PreviousFrame,
                 NextFrame,
                 NextProgram,
+                DiscMenu,
+                SelectInDiscMenu,
                 Faster,
                 Slower,
                 NormalSpeed,
@@ -131,6 +135,10 @@ impl MainWindow {
         let Some(command) = commands::find(action) else {
             return;
         };
+        // While a disc menu shows, the arrows and Space are its keys.
+        if self.disc_menu_key(action, cx) {
+            return;
+        }
         if self.repeat.admit(command, Instant::now()) && !self.perform(action, window, cx) {
             self.not_yet(command, cx);
         }
@@ -140,7 +148,7 @@ impl MainWindow {
     fn not_yet(&mut self, command: &Command, cx: &mut Context<Self>) {
         tracing::debug!("{}: not implemented yet", command.label);
         if cfg!(debug_assertions) {
-            self.show_osd(coming_soon(command.label), cx);
+            self.show_osd(coming_soon(command.title()), cx);
         }
     }
 
@@ -179,8 +187,13 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
     (&act::NextChapter, |this, _, cx| this.jump_chapter(Jump::Next, cx)),
     (&act::AddBookmark, |this, _, cx| this.add_bookmark(cx)),
     (&act::Snapshot, |this, _, cx| this.take_snapshot(cx)),
+    (&act::Record, |this, _, cx| this.toggle_recording(cx)),
+    (&act::NextProgram, |this, _, cx| this.next_program(cx)),
+    (&act::DiscMenu, |this, _, cx| this.go_to_disc_menu(cx)),
+    (&act::SelectInDiscMenu, |this, _, cx| this.select_in_disc_menu(cx)),
     (&act::CycleRepeat, MainWindow::cycle_repeat),
     (&act::ToggleShuffle, MainWindow::toggle_shuffle),
+    (&act::LoopAToB, |this, _, cx| this.loop_a_to_b(cx)),
     (&act::SeekBackward, |this, _, cx| this.skip(Way::Back, SkipLength::Short, cx)),
     (&act::SeekForward, |this, _, cx| this.skip(Way::Forward, SkipLength::Short, cx)),
     (&act::SeekBackwardVeryShort, |this, _, cx| this.skip(Way::Back, SkipLength::VeryShort, cx)),
@@ -218,7 +231,7 @@ const HANDLERS: &[(&dyn Action, Handler)] = &[
 
 /// What a key whose command has no effect yet says in debug builds.
 fn coming_soon(label: &str) -> String {
-    format!("Coming soon: {label}")
+    tr!("Coming soon: {label}", label)
 }
 
 #[cfg(test)]

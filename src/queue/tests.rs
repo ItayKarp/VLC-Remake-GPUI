@@ -179,3 +179,24 @@ fn repeat_one_after_removing_the_current_entry_goes_on() {
     assert_eq!(q.after_end(), Some(0));
     assert_eq!(names(&q)[0], "b");
 }
+
+#[test]
+fn a_playlist_names_the_queue_it_fills_until_something_else_replaces_it() {
+    let items = vec![file("a.mkv"), file("b.mkv")];
+    let mut queue = Queue::default();
+    queue.expect_title(Some("Road trip".into()), &items);
+    queue.replace(items.clone());
+    assert_eq!(queue.title(), Some("Road trip"));
+    queue.append(vec![file("c.mkv")]);
+    assert_eq!(queue.title(), Some("Road trip"), "adding keeps it");
+    queue.replace(vec![file("d.mkv")]);
+    assert_eq!(queue.title(), None);
+}
+
+#[test]
+fn a_playlist_whose_items_changed_on_the_way_names_nothing() {
+    let mut queue = Queue::default();
+    queue.expect_title(Some("Road trip".into()), &[file("a.mkv"), file("gone.mkv")]);
+    queue.replace(vec![file("a.mkv")]);
+    assert_eq!(queue.title(), None);
+}

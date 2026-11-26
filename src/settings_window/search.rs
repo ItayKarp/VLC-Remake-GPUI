@@ -92,7 +92,8 @@ mod tests {
         assert!(Category::ALL.iter().all(|&category| search.offers(category)));
         assert_eq!(search.step(Category::General, true), Some(Category::Interface));
         assert_eq!(search.step(Category::General, false), None);
-        assert_eq!(search.step(Category::Extensions, true), None);
+        let last = *Category::ALL.last().expect("categories");
+        assert_eq!(search.step(last, true), None);
     }
 
     #[test]

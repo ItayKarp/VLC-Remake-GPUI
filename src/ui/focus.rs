@@ -10,7 +10,10 @@
 //! - The **focus ring** shows only for keyboard focus (`focus_visible`), never after
 //!   a mouse click. Components draw it with [`ring`].
 
-use gpui::{InteractiveElement, KeyContext, KeyDownEvent, Styled, actions};
+use gpui::{
+    BoxShadow, ClickEvent, InteractiveElement, KeyContext, KeyDownEvent, Pixels, Point, Styled,
+    actions, px,
+};
 
 use crate::theme::Palette;
 
@@ -53,6 +56,32 @@ pub fn tab_navigation<E: InteractiveElement>(element: E) -> E {
 pub fn ring<E: InteractiveElement + Styled>(element: E, p: &Palette) -> E {
     let color = p.focus_ring;
     element.focus_visible(move |style| style.border_color(color))
+}
+
+/// The ring's width when it's drawn as an outline.
+const OUTLINE_WIDTH: f32 = 2.;
+
+/// Draws the keyboard focus ring as a 2px line just inside the element's edge, for elements
+/// with no border for [`ring`] to recolor (rows, listings) or whose border is already the
+/// focus color (S9.1.1). It takes no room, so focusing never shifts the layout, and being
+/// inside the edge, a parent's clipping can't hide it.
+pub fn outline_ring<E: InteractiveElement + Styled>(element: E, p: &Palette) -> E {
+    let color = p.focus_ring;
+    element.focus_visible(move |style| {
+        style.shadow(vec![
+            BoxShadow::new(px(0.), px(0.), color).spread_radius(px(OUTLINE_WIDTH)).inset(),
+        ])
+    })
+}
+
+/// Where a menu opened from the keyboard goes: under the element Enter or Space pressed.
+/// `None` for mouse and touch clicks, which controls that open on mouse-down handle there,
+/// so their `on_click` only adds the keyboard's way in (S9.1.1).
+pub fn keyboard_anchor(event: &ClickEvent) -> Option<Point<Pixels>> {
+    match event {
+        ClickEvent::Keyboard(keyboard) => Some(keyboard.bounds.bottom_left()),
+        ClickEvent::Mouse(_) | ClickEvent::Touch(_) => None,
+    }
 }
 
 /// A movement inside a group, from an arrow key or Home/End.

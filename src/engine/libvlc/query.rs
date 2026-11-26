@@ -9,6 +9,7 @@ use super::api::{MediaTrack, TrackDescription, VideoTrack, borrowed_string};
 use super::track_list::{self, Stream};
 use super::worker::{Refresh, Worker};
 use crate::engine::backend::BackendEvent;
+use crate::engine::display_text::clean_tag;
 use crate::engine::media_info::{Chapter, Metadata, VideoSize};
 use crate::engine::tracks::{TrackId, TrackKind, Tracks};
 
@@ -30,9 +31,13 @@ impl Worker {
         match what {
             Refresh::Tracks => {
                 self.send_tracks();
+                self.send_programs();
                 self.apply_visualizer();
             }
-            Refresh::Chapters => self.send_chapters(),
+            Refresh::Chapters => {
+                self.send_titles();
+                self.send_chapters();
+            }
             Refresh::Metadata => self.send_metadata(),
             Refresh::AudioDevices => self.poll_devices(),
             Refresh::Audible => self.restart_visualizer(),
@@ -41,6 +46,8 @@ impl Worker {
                 self.apply_delays();
                 self.apply_speaker_setup();
                 self.send_tracks();
+                self.send_programs();
+                self.send_titles();
                 self.send_chapters();
                 self.send_metadata();
                 self.watch_colour(Instant::now());
@@ -112,7 +119,7 @@ impl Worker {
             unsafe {
                 for &chapter in std::slice::from_raw_parts(list, count as usize) {
                     chapters.push(Chapter {
-                        title: borrowed_string((*chapter).name),
+                        title: clean_tag(borrowed_string((*chapter).name)),
                         start: Duration::from_millis((*chapter).time_offset.max(0) as u64),
                     });
                 }
@@ -128,7 +135,7 @@ impl Worker {
         }
         // SAFETY: the media is live; `get_meta` returns a string we own, or NULL.
         let tag = |kind| unsafe {
-            self.vlc.take_string((self.vlc.api.libvlc_media_get_meta)(self.media, kind))
+            clean_tag(self.vlc.take_string((self.vlc.api.libvlc_media_get_meta)(self.media, kind)))
         };
         let metadata =
             Metadata { title: tag(META_TITLE), artist: tag(META_ARTIST), album: tag(META_ALBUM) };

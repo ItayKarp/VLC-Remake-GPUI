@@ -1,7 +1,8 @@
 //! The listing's item menus (S4.8): a media card's file menu ([`file_menu`](super::file_menu)),
 //! a folder row's ([`folder_menu`](super::folder_menu)), a playlist row's
-//! ([`playlist_menu`](super::playlist_menu)) and a network stream row's
-//! ([`stream_menu`](super::stream_menu)). Each opens from a right-click, the item's `•••`
+//! ([`playlist_menu`](super::playlist_menu)), a network stream row's
+//! ([`stream_menu`](super::stream_menu)), and a podcast's or an episode's
+//! ([`podcast_menu`](super::podcast_menu)). Each opens from a right-click, the item's `•••`
 //! hover button, and the context-menu key or Shift+F10 on the keyboard's item (S4.8.4).
 //!
 //! A menu acts on every selected item of its kind, in list order, when the item it opened on is
@@ -17,12 +18,14 @@ use gpui::{
 };
 
 use super::listing::{Body, Item};
+use super::podcast_menu::{self, EpisodeTarget};
 use super::row::Target;
 use super::stream_menu::StreamTarget;
 use super::{INSET, MainWindow, file_menu, folder_menu, playlist_menu, stream_menu};
 use crate::db::media::MediaId;
 use crate::db::metadata::MediaKind;
 use crate::db::playlists::Summary;
+use crate::db::podcasts::FeedId;
 use crate::navigation::route::Route;
 use crate::playlists;
 use crate::ui::menu::{ContextMenu, MenuItem};
@@ -32,7 +35,7 @@ use crate::ui::popover;
 pub(super) type ItemMenu = Option<(Entity<ContextMenu>, Point<Pixels>, Subscription)>;
 
 /// What hovering an action that works on one item at a time says while several are selected.
-const ONE_AT_A_TIME: &str = "Works on one item at a time";
+const ONE_AT_A_TIME: &str = tr_noop!("Works on one item at a time");
 /// How far in from the item's left edge a menu opened from the keyboard sits.
 const KEYBOARD_INSET: f32 = 24.;
 
@@ -47,6 +50,10 @@ pub(super) enum MenuKind {
     Playlist,
     /// A network stream row's.
     Stream,
+    /// A podcast row's.
+    Podcast,
+    /// A podcast episode row's.
+    Episode,
 }
 
 /// One media card a file menu acts on.
@@ -70,6 +77,8 @@ enum Subject {
     Folders(Vec<PathBuf>),
     Playlists(Vec<Summary>),
     Streams(Vec<StreamTarget>),
+    Podcasts(Vec<FeedId>),
+    Episodes(Vec<EpisodeTarget>),
 }
 
 /// The menu `item` has, if any: cards, folders and saved playlists have one.
@@ -101,6 +110,8 @@ impl MainWindow {
             Subject::Folders(folders) => folder_menu::items(&main, folders),
             Subject::Playlists(playlists) => playlist_menu::items(&main, playlists, cx),
             Subject::Streams(streams) => stream_menu::items(&main, streams),
+            Subject::Podcasts(feeds) => podcast_menu::feed_items(&main, feeds),
+            Subject::Episodes(episodes) => podcast_menu::episode_items(&main, episodes),
         };
         let menu = ContextMenu::build(items, window, cx);
         let subscription = cx.subscribe(&menu, |this, _, _: &DismissEvent, cx| {
@@ -193,17 +204,30 @@ fn subject(kind: MenuKind, picked: &[(usize, Item<'_>)], cx: &App) -> Subject {
             };
             Subject::Playlists(routes().filter_map(summary).collect())
         }
-        MenuKind::Stream => Subject::Streams(
-            rows()
-                .filter_map(|target| match target {
-                    Target::Stream(url, category) => {
-                        Some(StreamTarget { url: url.clone(), category: *category })
-                    }
-                    _ => None,
-                })
-                .collect(),
-        ),
+        MenuKind::Stream => Subject::Streams(rows().filter_map(stream_target).collect()),
+        MenuKind::Podcast => Subject::Podcasts(routes().filter_map(podcast).collect()),
+        MenuKind::Episode => {
+            Subject::Episodes(rows().filter_map(|target| episode(target, cx)).collect())
+        }
     }
+}
+
+/// The stream a row plays, if it plays one.
+fn stream_target(target: &Target) -> Option<StreamTarget> {
+    let Target::Stream(url, category) = target else { return None };
+    Some(StreamTarget { url: url.clone(), category: *category })
+}
+
+/// The podcast a route shows, if it shows one.
+fn podcast(route: &Route) -> Option<FeedId> {
+    let Route::Podcast(id) = route else { return None };
+    Some(*id)
+}
+
+/// The episode a row plays, if it plays one that is still listed.
+fn episode(target: &Target, cx: &App) -> Option<EpisodeTarget> {
+    let Target::Episode(id, _) = target else { return None };
+    EpisodeTarget::of(*id, cx)
 }
 
 /// The media cards among `picked`, as what a file menu acts on.
@@ -258,7 +282,7 @@ pub(super) fn on_one<T: Clone + 'static>(
         }
     })
     .disabled(several)
-    .why_disabled(ONE_AT_A_TIME)
+    .why_disabled(crate::i18n::text(ONE_AT_A_TIME))
 }
 
 /// The item menu at its place, while open.

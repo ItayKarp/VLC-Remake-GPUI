@@ -73,7 +73,7 @@ pub(in crate::main_window) fn listed(
 fn title(chapter: &Chapter, number: usize) -> String {
     match chapter.title.as_deref().map(str::trim) {
         Some(title) if !title.is_empty() => title.to_owned(),
-        _ => format!("Chapter {number}"),
+        _ => tr!("Chapter {number}", number),
     }
 }
 

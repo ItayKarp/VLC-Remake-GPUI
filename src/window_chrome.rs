@@ -6,7 +6,7 @@
 //!   Maximize, hover behaviour, double-click on the bar to maximize, etc.).
 //!
 //! [`title_bar`] is onboarding's plain strip (Minimize, Close). [`drag_bar`] and
-//! [`caption_buttons`] build the main window's player-style bar (S0.3.4).
+//! [`caption_button`] build the main window's player-style bar (S0.3.4).
 
 use std::cell::Cell;
 
@@ -103,10 +103,15 @@ pub fn caption_buttons(buttons: &[Caption], maximized: bool, palette: &Palette) 
     if cfg!(target_os = "macos") {
         return Vec::new();
     }
-    buttons.iter().map(|&button| caption_button(button, maximized, palette)).collect()
+    buttons.iter().map(|&button| draw_caption(button, maximized, palette)).collect()
 }
 
-fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> AnyElement {
+/// One caption button; none on macOS, where the traffic lights do this.
+pub fn caption_button(button: Caption, maximized: bool, palette: &Palette) -> Option<AnyElement> {
+    (!cfg!(target_os = "macos")).then(|| draw_caption(button, maximized, palette))
+}
+
+fn draw_caption(button: Caption, maximized: bool, palette: &Palette) -> AnyElement {
     let (id, icon, area) = match button {
         Caption::Minimize => ("minimize", icons::MINIMIZE, Some(WindowControlArea::Min)),
         Caption::Maximize => (

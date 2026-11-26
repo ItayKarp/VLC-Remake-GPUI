@@ -43,6 +43,7 @@ use crate::assets::icons;
 use crate::engine::lengths::{self, LengthAnswer, LengthProbe, LengthReceiver};
 use crate::queue::Lengths;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::focus;
 use crate::ui::menu::ContextMenu;
 use crate::ui::popover::BoundsTracker;
@@ -58,9 +59,12 @@ const LENGTHS_PER_REDRAW: usize = 64;
 
 /// The panel's tabs, in order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ListTab {
+pub(super) enum ListTab {
+    /// What plays, in order (S3.2).
     Queue,
+    /// The playing media's bookmarks (S8.3).
     Bookmarks,
+    /// The playing media's chapters (S8.2).
     Chapters,
 }
 
@@ -69,9 +73,9 @@ impl ListTab {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Queue => "Queue",
-            Self::Bookmarks => "Bookmarks",
-            Self::Chapters => "Chapters",
+            Self::Queue => tr!("Queue"),
+            Self::Bookmarks => tr!("Bookmarks"),
+            Self::Chapters => tr!("Chapters"),
         }
     }
 
@@ -95,6 +99,8 @@ struct LengthWatch {
 /// The panel's state: the open tab, its focus, the selection, the lengths and the drag.
 pub(super) struct QueuePanel {
     open: Option<ListTab>,
+    /// The tab it last showed, which Customize Player's Right Sidebar opens it on (S8.7.6).
+    last: ListTab,
     focus: FocusHandle,
     scroll: UniformListScrollHandle,
     selection: Selection,
@@ -120,6 +126,7 @@ impl QueuePanel {
     pub(super) fn new(cx: &mut Context<MainWindow>) -> Self {
         Self {
             open: None,
+            last: ListTab::Queue,
             focus: cx.focus_handle(),
             scroll: UniformListScrollHandle::new(),
             selection: Selection::default(),
@@ -139,6 +146,11 @@ impl QueuePanel {
     pub(super) fn is_open(&self) -> bool {
         self.open.is_some()
     }
+
+    /// Whether the panel is open on `tab`.
+    pub(super) fn shows(&self, tab: ListTab) -> bool {
+        self.open == Some(tab)
+    }
 }
 
 impl MainWindow {
@@ -154,12 +166,38 @@ impl MainWindow {
         }
     }
 
+    /// Opens the panel on the tab it last showed, or closes it (Customize Player's Right
+    /// Sidebar, S8.7.6).
+    pub(super) fn toggle_right_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.queue_panel.is_open() {
+            self.close_queue_panel(window, cx);
+        } else {
+            self.open_queue_panel(self.queue_panel.last, window, cx);
+        }
+    }
+
+    /// Opens the panel on `tab`, or closes it if it shows that tab (Customize Player's Chapters
+    /// and Bookmarks buttons, S8.7).
+    pub(super) fn toggle_list_tab(
+        &mut self,
+        tab: ListTab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.queue_panel.shows(tab) {
+            self.close_queue_panel(window, cx);
+        } else {
+            self.open_queue_panel(tab, window, cx);
+        }
+    }
+
     /// Opens the panel on `tab`, closing what shares its place, and gives it the keyboard.
     fn open_queue_panel(&mut self, tab: ListTab, window: &mut Window, cx: &mut Context<Self>) {
         self.menu = None;
         self.control_bar.close_overflow();
         self.close_popovers(window, cx);
         self.queue_panel.open = Some(tab);
+        self.queue_panel.last = tab;
         self.watch_lengths(cx);
         // After the click that opened it, which focuses the clicked button once its handlers ran.
         let handle = self.queue_panel.focus.clone();
@@ -236,7 +274,7 @@ impl MainWindow {
             ListTab::Chapters => self.render_chapters_tab(p, window, cx),
         };
         Some(
-            bar_panel::surface("queue-panel", DESIGN_HEIGHT, window, p)
+            bar_panel::surface("queue-panel", DESIGN_HEIGHT, self.control_bar_height(), window, p)
                 .track_focus(&self.queue_panel.focus)
                 .key_context(focus::context(&["QueuePanel", focus::CONTROL]))
                 .on_key_down(cx.listener(Self::on_queue_panel_key))
@@ -297,5 +335,5 @@ async fn receive_lengths(
 
 /// A muted line of explanation at the top of a tab.
 fn note(text: &'static str, p: &Palette) -> Div {
-    div().p(px(INSET)).text_size(px(NOTE_TEXT)).text_color(p.text_muted).child(text)
+    div().p(px(INSET)).text_size(text_px(NOTE_TEXT)).text_color(p.text_muted).child(text)
 }

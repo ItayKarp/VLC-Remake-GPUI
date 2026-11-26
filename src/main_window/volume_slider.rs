@@ -64,12 +64,12 @@ impl VolumeSlider {
 
 /// The volume as the bubble and screen readers say it ("100 %", as designed).
 fn percent_text(volume: Volume) -> String {
-    format!("{} %", volume.as_percent())
+    tr!("{percent} %", percent = crate::i18n::number(volume.as_percent()))
 }
 
 impl MainWindow {
     /// The loaded player, if its volume can change: it has an output device.
-    fn audible(&self, cx: &App) -> Option<Entity<Player>> {
+    pub(super) fn audible(&self, cx: &App) -> Option<Entity<Player>> {
         self.loaded_player(cx).filter(|player| !player.read(cx).has_no_audio_device())
     }
 
@@ -80,7 +80,7 @@ impl MainWindow {
         if self.chrome(window, cx).controls {
             self.flash(|this| &mut this.volume_slider.bubble, BUBBLE_SHOWN_FOR, cx);
         } else {
-            let text = format!("Volume {}", percent_text(player.read(cx).volume()));
+            let text = tr!("Volume {percent}", percent = percent_text(player.read(cx).volume()));
             self.show_osd(text, cx);
         }
     }

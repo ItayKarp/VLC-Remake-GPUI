@@ -21,6 +21,7 @@ use gpui::{
 };
 
 use super::focus::{FocusNext, FocusPrev};
+use crate::i18n::DirectionalStyle;
 use crate::theme::{self, Palette};
 
 pub use dialog::{Dialog, DialogButton};
@@ -172,7 +173,7 @@ impl ModalLayer {
             .id(("modal", index))
             .absolute()
             .inset_0()
-            .flex()
+            .flex_row_start()
             .items_center()
             .justify_center()
             .bg(p.scrim)
@@ -186,7 +187,7 @@ impl ModalLayer {
             })
             .child(
                 div()
-                    .flex()
+                    .flex_row_start()
                     .flex_col()
                     .max_w_full()
                     .max_h_full()

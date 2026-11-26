@@ -28,6 +28,17 @@ const VIDEO_OUTPUT: &CStr = c"video output";
 pub(super) const INPUT: &CStr = c"input";
 /// `VLC_SUCCESS`.
 const SUCCESS: c_int = 0;
+/// `VLC_VAR_GETCHOICES`: `var_Change`'s action listing a variable's choices and their names.
+const GET_CHOICES: c_int = 0x0024;
+
+/// The choices of an integer variable, such as the input's `program`, and the one it holds.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Choices {
+    /// Each choice's value and name, in libVLC's order.
+    pub all: Vec<(i64, Option<String>)>,
+    /// The value the variable holds.
+    pub current: Option<i64>,
+}
 
 /// `vlc_value_t`, reduced to the members read and written here; eight bytes, like the C union.
 #[repr(C)]
@@ -55,6 +66,9 @@ type ListChildren = unsafe extern "C" fn(*mut c_void) -> *mut VlcList;
 type ListRelease = unsafe extern "C" fn(*mut VlcList);
 type InputGetItem = unsafe extern "C" fn(*mut c_void) -> *mut c_void;
 type ItemGetInfo = unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *mut c_char;
+type VarChange =
+    unsafe extern "C" fn(*mut c_void, *const c_char, c_int, *mut VlcValue, *mut VlcValue) -> c_int;
+type VarFreeList = unsafe extern "C" fn(*mut VlcValue, *mut VlcValue);
 
 /// The core's variable calls.
 pub struct CoreVars {
@@ -67,6 +81,10 @@ pub struct CoreVars {
     pub(super) input_item: InputGetItem,
     /// `input_item_GetInfo`: a line of an item's description, a copy the caller frees.
     pub(super) item_info: ItemGetInfo,
+    /// `var_Change`: a variable's choices, among other things.
+    change: VarChange,
+    /// `var_FreeList`: frees the choices `var_Change` handed over.
+    free_list: VarFreeList,
 }
 
 impl CoreVars {
@@ -90,6 +108,8 @@ impl CoreVars {
                 item_info: *core
                     .get::<ItemGetInfo>(b"input_item_GetInfo\0")
                     .context("input_item_GetInfo")?,
+                change: *core.get::<VarChange>(b"var_Change\0").context("var_Change")?,
+                free_list: *core.get::<VarFreeList>(b"var_FreeList\0").context("var_FreeList")?,
             })
         }
     }
@@ -181,12 +201,11 @@ impl LibVlc {
     }
 
     /// The boolean variable `name` of the player's first child of type `kind`; `None` without
-    /// such a child or variable. For the smoke tests.
+    /// such a child or variable: whether the input is recording (S8.6), and the smoke tests'.
     ///
     /// # Safety
     ///
     /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
-    #[cfg(test)]
     pub(super) unsafe fn child_bool(
         &self,
         player: *mut MediaPlayer,
@@ -286,6 +305,83 @@ impl LibVlc {
                 return None;
             }
             self.take_string(value.string.cast_mut())
+        }
+    }
+}
+
+impl LibVlc {
+    /// The choices of the integer variable `name` of the player's first child of type `kind`,
+    /// and the one it holds; empty without such a child or variable.
+    ///
+    /// # Safety
+    ///
+    /// `player` is a live `libvlc_media_player_t`, which is a libVLC object.
+    pub(super) unsafe fn child_choices(
+        &self,
+        player: *mut MediaPlayer,
+        kind: &CStr,
+        name: &CStr,
+    ) -> Choices {
+        let mut choices = None;
+        // SAFETY: the caller's promise; each child is live during the call.
+        unsafe {
+            self.for_each_child(player, kind, |child| {
+                if choices.is_none() {
+                    choices = Some(self.choices_of(child, name));
+                }
+            });
+        }
+        choices.unwrap_or_default()
+    }
+
+    /// The choices of `object`'s integer variable `name`, and the one it holds.
+    ///
+    /// # Safety
+    ///
+    /// `object` is a live libVLC object.
+    unsafe fn choices_of(&self, object: *mut c_void, name: &CStr) -> Choices {
+        let mut values = VlcValue { integer: 0 };
+        let mut names = VlcValue { integer: 0 };
+        let mut current = VlcValue { integer: 0 };
+        // SAFETY: the caller's promise. On success the core hands over two lists, one of
+        // values and one of their names (strings it owns), which `var_FreeList` frees.
+        unsafe {
+            let listed = (self.core.change)(
+                object,
+                name.as_ptr(),
+                GET_CHOICES,
+                &raw mut values,
+                &raw mut names,
+            );
+            if listed != SUCCESS {
+                return Choices::default();
+            }
+            let all = list_values(values.address.cast())
+                .iter()
+                .zip(list_values(names.address.cast()))
+                .map(|(value, name)| (value.integer, super::api::borrowed_string(name.string)))
+                .collect();
+            (self.core.free_list)(&raw mut values, &raw mut names);
+            let held = (self.core.get)(object, name.as_ptr(), VAR_INTEGER, &raw mut current);
+            Choices { all, current: (held == SUCCESS).then_some(current.integer) }
+        }
+    }
+}
+
+/// The values a `vlc_list_t` holds.
+///
+/// # Safety
+///
+/// `list` is NULL or a live `vlc_list_t`, which outlives the slice.
+unsafe fn list_values<'a>(list: *const VlcList) -> &'a [VlcValue] {
+    // SAFETY: the caller's promise.
+    unsafe {
+        let Some(list) = list.as_ref() else { return &[] };
+        let count = usize::try_from(list.count).unwrap_or_default();
+        if count == 0 || list.values.is_null() {
+            &[]
+        } else {
+            slice::from_raw_parts(list.values, count)
         }
     }
 }

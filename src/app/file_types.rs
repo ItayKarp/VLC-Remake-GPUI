@@ -115,4 +115,20 @@ mod tests {
         let listed: BTreeSet<&str> = list.split('\'').skip(1).step_by(2).collect();
         assert_eq!(listed, extensions());
     }
+
+    /// The `<?define name = a;b;c ?>` list in the WiX source.
+    fn wix_list<'a>(wxs: &'a str, name: &str) -> BTreeSet<&'a str> {
+        let start = wxs.find(&format!("<?define {name} = ")).expect("define present");
+        let rest = &wxs[start..];
+        let value = rest[..rest.find("?>").expect("define closes")].split('=').nth(1);
+        value.expect("define has a value").split(';').map(str::trim).collect()
+    }
+
+    #[test]
+    fn windows_installer_lists_every_extension_and_scheme() {
+        let wxs = packaging("windows/RedesignedVLC.wxs");
+        assert_eq!(wix_list(&wxs, "Extensions"), extensions());
+        let schemes: BTreeSet<&str> = URL_SCHEMES.iter().copied().collect();
+        assert_eq!(wix_list(&wxs, "UrlSchemes"), schemes);
+    }
 }

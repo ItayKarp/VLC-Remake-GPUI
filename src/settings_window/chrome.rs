@@ -10,7 +10,9 @@ use gpui::{AnyElement, Context, Div, Entity, Stateful, WindowControlArea, div, p
 use super::SettingsWindow;
 use super::keys::SEARCH_CONTEXT;
 use crate::assets::icons;
+use crate::i18n::DirectionalStyle;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::button::Button;
 use crate::ui::icon::icon;
 use crate::ui::text_input::TextInput;
@@ -56,16 +58,16 @@ pub(super) fn top_row(
     let title = div()
         .flex_1()
         .min_w_0()
-        .pl(px(TITLE_INSET))
+        .ps(px(TITLE_INSET))
         .truncate()
-        .text_size(px(TITLE_TEXT))
+        .text_size(text_px(TITLE_TEXT))
         .text_color(p.text_strong)
         .child(title);
     let row = div()
         .id("settings-top-row")
         .flex_none()
         .h(px(TOP_ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .px(px(MARGIN))
         .window_control_area(WindowControlArea::Drag)
@@ -80,13 +82,13 @@ pub(super) fn search_field(query: &Entity<TextInput>, p: &Palette) -> Div {
     div()
         .key_context(SEARCH_CONTEXT)
         .h(px(SEARCH_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(10.))
         .px(px(12.))
         .rounded(px(metrics::RADIUS))
         .bg(p.control)
-        .text_size(px(metrics::TEXT))
+        .text_size(text_px(metrics::TEXT))
         .child(icon(icons::SEARCH, metrics::ICON, p.icon))
         .child(div().flex_1().min_w_0().child(query.clone()))
 }
@@ -98,7 +100,7 @@ fn close_button(p: &Palette) -> Stateful<Div> {
         .id("close-settings")
         .flex_none()
         .size(px(CLOSE_SIZE))
-        .flex()
+        .flex_row_start()
         .items_center()
         .justify_center()
         .rounded(px(metrics::RADIUS))
@@ -108,7 +110,7 @@ fn close_button(p: &Palette) -> Stateful<Div> {
         .cursor_pointer()
         .hover(move |s| s.bg(hover))
         .tab_index(0)
-        .aria_label("Close Settings")
+        .aria_label(tr!("Close Settings"))
         .on_click(|_, window, _| window.remove_window())
         .child(icon(icons::CLOSE, CLOSE_ICON, p.icon));
     focus::ring(button, p)
@@ -116,12 +118,12 @@ fn close_button(p: &Palette) -> Stateful<Div> {
 
 /// What shows in place of the page when the search finds nothing anywhere.
 pub(super) fn no_matches(query: &str, p: &Palette, cx: &mut Context<SettingsWindow>) -> AnyElement {
-    let clear = Button::new("clear-search", "Clear Search")
+    let clear = Button::new("clear-search", tr!("Clear Search"))
         .on_click(cx.listener(|this, _, window, cx| this.clear_search(window, cx)));
     div()
         .id("settings-no-matches")
         .size_full()
-        .flex()
+        .flex_row_start()
         .flex_col()
         .items_center()
         .justify_center()
@@ -131,16 +133,16 @@ pub(super) fn no_matches(query: &str, p: &Palette, cx: &mut Context<SettingsWind
         .child(
             div()
                 .max_w(px(EMPTY_WIDTH))
-                .text_size(px(EMPTY_HEADING))
+                .text_size(text_px(EMPTY_HEADING))
                 .text_color(p.text_strong)
-                .child(format!("No settings match \u{201c}{query}\u{201d}")),
+                .child(tr!("No settings match “{query}”", query)),
         )
         .child(
             div()
                 .max_w(px(EMPTY_WIDTH))
-                .text_size(px(metrics::TEXT))
+                .text_size(text_px(metrics::TEXT))
                 .text_color(p.text_muted)
-                .child("Check the spelling, or try fewer or different words."),
+                .child(tr!("Check the spelling, or try fewer or different words.")),
         )
         .child(clear)
         .into_any_element()

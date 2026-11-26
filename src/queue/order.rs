@@ -30,10 +30,10 @@ impl SortKey {
     /// The menu label.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Name => "Sort by Name",
-            Self::Duration => "Sort by Duration",
-            Self::DateAdded => "Sort by Date Added",
-            Self::Shuffle => "Shuffle Once",
+            Self::Name => tr!("Sort by Name"),
+            Self::Duration => tr!("Sort by Duration"),
+            Self::DateAdded => tr!("Sort by Date Added"),
+            Self::Shuffle => tr!("Shuffle Once"),
         }
     }
 }

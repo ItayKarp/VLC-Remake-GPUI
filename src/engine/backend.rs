@@ -15,11 +15,16 @@ use super::audio::effects::AudioEffects;
 use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{AudioDevice, OutputDevice, SpeakerSetup, StereoMode};
+use super::cast::{CastDevice, CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::{HdrMode, HdrStatus};
 use super::media_info::{Chapter, Metadata, VideoSize};
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::{Navigation, Programs, Titles};
+use super::recording::Recording;
 use super::state::PlaybackState;
+use super::statistics::Statistics;
+use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind, Tracks};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
@@ -60,13 +65,35 @@ pub enum BackendEvent {
     /// The OS asked for this app's audio to stop (`true`: another app, such as a call, needs
     /// it) or allowed it again (`false`).
     Corked(bool),
+    /// Recording the media (S8.6) started, stopped or was refused.
+    Recording(Recording),
+    /// The stream's programs, or which one plays, changed (S8.9.3).
+    Programs(Programs),
+    /// The disc's titles, or which one plays, changed (S8.9.1).
+    Titles(Titles),
+    /// The cast devices found on the network now (S8.11); sent whenever the list changes.
+    CastDevices(Vec<CastDevice>),
+    /// The device media was cast to went away, and media plays here again.
+    CastLost(CastDevice),
+    /// The stream couldn't start (S8.12): the media plays here without it.
+    StreamFailed,
+    /// What the backend counted about the media, as [`Backend::read_statistics`] asked.
+    Statistics(Statistics),
 }
 
 impl BackendEvent {
     /// Whether the event is about the open media, so one from an earlier open is stale.
-    /// Device and audio-focus events are about the machine, and always apply.
+    /// Device and audio-focus events are about the machine, and always apply; so does the end
+    /// of a recording, which another open ends.
     pub fn is_about_media(&self) -> bool {
-        !matches!(self, Self::AudioDevices(_) | Self::Corked(_))
+        !matches!(
+            self,
+            Self::AudioDevices(_)
+                | Self::Corked(_)
+                | Self::Recording(_)
+                | Self::CastDevices(_)
+                | Self::CastLost(_)
+        )
     }
 }
 
@@ -161,6 +188,18 @@ pub enum Command {
     SetColors(Colors),
     /// Show HDR video this way.
     SetHdrMode(HdrMode),
+    /// Record the media playing into this folder, or stop recording with `None`.
+    Record(Option<PathBuf>),
+    /// Move to another program or title, or press a key in a disc's menu.
+    Navigate(Navigation),
+    /// Look for cast devices, and convert for them, this way.
+    SetCastSetup(CastSetup),
+    /// Play on this cast device, or here with `None`.
+    Cast(Option<CastDeviceId>),
+    /// Stream the media open now this way, or stop streaming it.
+    Stream(Option<StreamTarget>),
+    /// Report what was counted about the media.
+    ReadStatistics,
 }
 
 /// A playback backend.
@@ -248,6 +287,30 @@ pub trait Backend: Send {
     /// Shows HDR video as `mode` says from now on, for this and later media; the video playing
     /// may reopen where it is.
     fn set_hdr_mode(&mut self, mode: HdrMode);
+    /// Starts recording the media playing into `folder` as it arrives, without re-encoding, or
+    /// stops with `None` (S8.6). Answered by [`BackendEvent::Recording`]: started or refused,
+    /// and stopped once the recording ends, whether this stopped it or the media did.
+    fn record(&mut self, folder: Option<&Path>);
+    /// Plays another program or title of the open media, or presses a key in the disc menu
+    /// showing (S8.9). Programs and titles are reported with [`BackendEvent::Programs`] and
+    /// [`BackendEvent::Titles`], again once the move is made.
+    fn navigate(&mut self, to: Navigation);
+    /// Looks for cast devices on the network or stops, and converts media for them, as `setup`
+    /// says (S8.11). Found devices are reported with [`BackendEvent::CastDevices`]; turning
+    /// discovery off empties the list and brings media casting back here.
+    fn set_cast_setup(&mut self, setup: CastSetup);
+    /// Plays this and later media on cast device `device`, or here with `None`, from where it
+    /// is. A device the backend doesn't know is ignored. If the device goes away meanwhile, media
+    /// plays here again and [`BackendEvent::CastLost`] says so.
+    fn cast(&mut self, device: Option<CastDeviceId>);
+    /// Streams the media open now to the network as `target` says, from where it is, or stops
+    /// streaming it with `None` (S8.12). Stopped or ended media streams once it plays again.
+    /// Media opened later streams only as its [`Start`] says. A stream that can't start is
+    /// dropped, the media playing on without it, and [`BackendEvent::StreamFailed`] says so.
+    fn stream(&mut self, target: Option<StreamTarget>);
+    /// Reports what was counted about the open media so far (S8.13.2) with
+    /// [`BackendEvent::Statistics`]; nothing when no media is open.
+    fn read_statistics(&mut self);
     /// Stops playback and releases everything. May block on a hung source.
     fn shut_down(self: Box<Self>);
 }

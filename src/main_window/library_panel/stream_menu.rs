@@ -33,12 +33,12 @@ pub(super) fn items(
         })
     };
     let add_to_radio =
-        on_all(main, streams, "Add to Radio", icons::STREAMING, |_, streams, _, cx| {
+        on_all(main, streams, tr!("Add to Radio"), icons::STREAMING, |_, streams, _, cx| {
             for stream in streams {
                 network::add(&stream.url, NetworkCategory::Radio, cx);
             }
         });
-    let copy = on_one(main, streams, "Copy Link", icons::LIST, |_, stream, _, cx| {
+    let copy = on_one(main, streams, tr!("Copy Link"), icons::LIST, |_, stream, _, cx| {
         cx.write_to_clipboard(ClipboardItem::new_string(stream.url.clone()));
     });
     let remove =
@@ -48,8 +48,8 @@ pub(super) fn items(
             }
         });
     let mut items = vec![
-        play("Play", icons::PLAY, Placement::Replace),
-        play("Add to Queue", icons::QUEUE, Placement::Enqueue),
+        play(tr!("Play"), icons::PLAY, Placement::Replace),
+        play(tr!("Add to Queue"), icons::QUEUE, Placement::Enqueue),
     ];
     items.extend((category != NetworkCategory::Radio).then_some(add_to_radio));
     items.extend([copy, MenuItem::Separator, remove]);
@@ -77,8 +77,8 @@ fn play(
 /// What Remove says for streams in `category`.
 fn remove_label(category: NetworkCategory) -> &'static str {
     match category {
-        NetworkCategory::Recent => "Remove from Recent Streams",
-        NetworkCategory::Podcasts => "Remove from Podcasts",
-        NetworkCategory::Radio => "Remove from Radio",
+        NetworkCategory::Recent => tr!("Remove from Recent Streams"),
+        NetworkCategory::Podcasts => tr!("Remove from Podcasts"),
+        NetworkCategory::Radio => tr!("Remove from Radio"),
     }
 }

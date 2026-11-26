@@ -11,14 +11,15 @@ use std::time::{Duration, Instant};
 
 use super::api::{EventManager, Instance, LibVlc, Media, MediaPlayer};
 use super::audio::{Channels, DeviceWatch};
+use super::casting::{Casting, RendererChange};
 use super::cpu_filters::CpuFilters;
 use super::decoding::{Decoding, Slave};
 use super::events::{self, MEDIA_META_CHANGED, PLAYER_EVENTS, Shared};
-use super::failure;
 use super::hdr::HdrState;
 use super::hold::Hold;
 use super::reopen::Restore;
 use super::size_watch::{SIZE_POLL, SizeWatch};
+use super::streaming::Streaming;
 use super::test_tone::TestTone;
 use super::track_list::Defaults;
 use super::visualizer::Visuals;
@@ -64,6 +65,8 @@ pub enum Message {
     Failed,
     /// The picture held media waited for showed (`hold.rs`).
     PictureShown,
+    /// A cast device appeared or went away (`casting.rs`).
+    Renderer(RendererChange),
     /// Stop, release everything, and exit.
     Shutdown,
 }
@@ -126,6 +129,12 @@ pub struct Worker {
     /// The audio effects after the equalizer (S7.9), and whether the equalizer is on.
     pub(super) audio_effects: AudioEffects,
     pub(super) equalizer_on: bool,
+    /// When the running recording is checked on next (S8.6); `None` while not recording.
+    pub(super) recording_check: Option<Instant>,
+    /// The cast devices found, and the one media plays on (S8.11).
+    pub(super) casting: Casting,
+    /// The stream the open media goes to (S8.12).
+    pub(super) streaming: Streaming,
 }
 
 impl Worker {
@@ -163,6 +172,9 @@ impl Worker {
             visuals: Visuals::default(),
             audio_effects: AudioEffects::default(),
             equalizer_on: false,
+            recording_check: None,
+            casting: Casting::default(),
+            streaming: Streaming::default(),
         };
         worker.attach(worker.player_events(), &PLAYER_EVENTS);
         worker
@@ -177,13 +189,11 @@ impl Worker {
                 Message::Ended => self.ended(),
                 Message::Failed => self.failed(),
                 Message::PictureShown => self.pause_held(),
+                Message::Renderer(change) => self.renderer_changed(change),
                 Message::Shutdown => break,
             }
             // A steady stream of messages must not starve the device list or the switch.
-            self.poll_devices_if_due();
-            self.switch_if_due(Instant::now());
-            self.pause_held_if_due(Instant::now());
-            self.read_colour_if_due(Instant::now());
+            self.run_due_work();
         }
         self.release();
     }
@@ -221,6 +231,9 @@ impl Worker {
         if let Some(read) = self.until_colour_read(now) {
             wait = wait.min(read);
         }
+        if let Some(check) = self.until_record_check(now) {
+            wait = wait.min(check);
+        }
         wait
     }
 
@@ -228,9 +241,11 @@ impl Worker {
     /// `start` says, as open `generation`.
     pub(super) fn open(&mut self, source: Source, start: Start, generation: Generation) {
         super::hardware::decoding(None);
+        self.recording_ends();
         self.end_hold();
         self.reset_hdr();
         self.stop_visualizer();
+        self.stream_on_open(start.stream, start.at);
         let media = self.new_media(&source);
         self.decoding =
             if media.is_null() { Decoding::Hardware } else { self.prepare_video(media, &source) };
@@ -300,27 +315,35 @@ impl Worker {
         }
     }
 
+    /// A new media for `source`, with a device's own options (S8.9) and the stream's (S8.12);
+    /// NULL if libVLC refused.
     pub(super) fn new_media(&self, source: &Source) -> *mut Media {
         let (text, from_path) = match source {
             Source::File(path) => (path.to_string_lossy().into_owned(), true),
             Source::Url(url) => (url.clone(), false),
+            Source::Device(device) => (device.mrl().to_owned(), false),
         };
         let Ok(text) = CString::new(text) else { return std::ptr::null_mut() };
         let api = &self.vlc.api;
         let create =
             if from_path { api.libvlc_media_new_path } else { api.libvlc_media_new_location };
         // SAFETY: the instance is live and `text` is NUL-terminated.
-        unsafe { create(self.handles.instance, text.as_ptr()) }
+        let media = unsafe { create(self.handles.instance, text.as_ptr()) };
+        if let (Source::Device(device), false) = (source, media.is_null()) {
+            let options: Vec<&str> = device.options().iter().map(String::as_str).collect();
+            self.add_option(media, &options);
+        }
+        if !media.is_null() {
+            self.add_stream_options(media);
+        }
+        media
     }
 
     /// Nothing arrived since `idle_since`: reads the device list and switches to software
     /// decoding when due, re-reads a still-unknown video size, and settles a seek that waited
     /// [`SEEK_SETTLE`].
     fn idle(&mut self, idle_since: Instant) {
-        self.poll_devices_if_due();
-        self.switch_if_due(Instant::now());
-        self.pause_held_if_due(Instant::now());
-        self.read_colour_if_due(Instant::now());
+        self.run_due_work();
         if self.size_watch.is_watching(Instant::now()) {
             self.send_video_size();
         }
@@ -329,28 +352,20 @@ impl Worker {
         }
     }
 
+    /// Does the timed work that is due: the device list, the switch to software decoding, the
+    /// end of a hold, reading the video's colors and checking on a recording.
+    fn run_due_work(&mut self) {
+        self.poll_devices_if_due();
+        self.switch_if_due(Instant::now());
+        self.pause_held_if_due(Instant::now());
+        self.read_colour_if_due(Instant::now());
+        self.check_recording_if_due(Instant::now());
+    }
+
     fn settle_seek(&self) {
         if self.shared.seeking.swap(false, Ordering::Relaxed) {
             self.shared.send(BackendEvent::SeekCompleted);
         }
-    }
-
-    fn ended(&self) {
-        super::hardware::decoding(None);
-        let state = if self.track_count() == 0 {
-            PlaybackState::Error(ErrorKind::NoPlayableStreams)
-        } else {
-            PlaybackState::Ended
-        };
-        self.shared.send(BackendEvent::State(state));
-    }
-
-    fn failed(&self) {
-        super::hardware::decoding(None);
-        let started = self.shared.started.load(Ordering::Relaxed);
-        let kind = failure::classify(self.source.as_ref(), started);
-        tracing::warn!("libvlc: playback failed ({kind:?}): {}", self.vlc.last_error());
-        self.shared.send(BackendEvent::State(PlaybackState::Error(kind)));
     }
 
     fn player_events(&self) -> *mut EventManager {
@@ -389,6 +404,7 @@ impl Worker {
             (api.libvlc_media_player_release)(self.handles.player);
         }
         self.release_media();
+        self.release_casting();
         super::hardware::decoding(None);
         // SAFETY: nothing uses the instance any more.
         unsafe { (self.vlc.api.libvlc_release)(self.handles.instance) };

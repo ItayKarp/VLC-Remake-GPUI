@@ -40,13 +40,14 @@ pub fn init(cx: &mut App) {
         let name = display_name(&crashed.media);
         settings::update(cx, |settings| remember(&mut settings.local, crashed));
         let message = if is_blocked(&settings::get(cx).local, &gpu) {
-            "VLC closed unexpectedly while the graphics card decoded video again, so it no \
-             longer decodes with it. Settings → Performance can turn it back on."
-                .to_owned()
+            tr!("VLC closed unexpectedly while the graphics card decoded video again, so it no \
+                 longer decodes with it. Settings → Performance can turn it back on.")
+            .to_owned()
         } else {
-            format!(
+            tr!(
                 "VLC closed unexpectedly while the graphics card decoded “{name}”, so that file \
-                 now decodes without it."
+                 now decodes without it.",
+                name
             )
         };
         *NOTICE.lock().unwrap_or_else(PoisonError::into_inner) = Some(message);
@@ -87,21 +88,19 @@ pub fn hint(cx: &App) -> Option<String> {
     let local = &settings.local;
     if is_blocked(local, system::gpu()) {
         return Some(
-            "Off for this graphics card: VLC closed unexpectedly while it decoded video. Choose \
-             Off, then Automatic, to try it again."
-                .to_owned(),
+            tr!("Off for this graphics card: VLC closed unexpectedly while it decoded video. \
+                 Choose Off, then Automatic, to try it again.")
+            .to_owned(),
         );
     }
     match local.software_decoding.len() {
         0 => None,
-        1 => Some(
-            "One file decodes in software: VLC closed unexpectedly while the graphics \
-                   card decoded it."
-                .to_owned(),
-        ),
-        count => Some(format!(
+        count => Some(trn!(
+            "{count} file decodes in software: VLC closed unexpectedly while the graphics card \
+             decoded it.",
             "{count} files decode in software: VLC closed unexpectedly while the graphics card \
-             decoded them."
+             decoded them.",
+            count
         )),
     }
 }

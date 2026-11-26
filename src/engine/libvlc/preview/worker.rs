@@ -166,6 +166,8 @@ impl PreviewWorker {
         let (text, from_path) = match source {
             Source::File(path) => (path.to_string_lossy().into_owned(), true),
             Source::Url(url) => (url.clone(), false),
+            // A disc or camera has one reader: the player.
+            Source::Device(_) => return,
         };
         let Ok(text) = CString::new(text) else { return };
         let api = &self.vlc.api;

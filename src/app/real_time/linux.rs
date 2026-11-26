@@ -1,11 +1,13 @@
 //! The Linux probe: real-time scheduling tried on a short-lived thread of its own.
 
 /// What the row says when the kernel refuses.
-const NOT_PERMITTED: &str = "This system doesn't let VLC use real-time priority, so it runs as \
-                             usual. Give your user an rtprio limit to allow it.";
+const NOT_PERMITTED: &str = tr_noop!(
+    "This system doesn't let VLC use real-time priority, so it runs as usual. Give your user an \
+     rtprio limit to allow it."
+);
 /// What the row says when the probe itself fails.
-const UNKNOWN: &str = "VLC couldn't check whether real-time priority is allowed, so it runs as \
-                       usual.";
+const UNKNOWN: &str =
+    tr_noop!("VLC couldn't check whether real-time priority is allowed, so it runs as usual.");
 
 /// Tries real-time scheduling on a short-lived thread, which is dropped right after.
 pub(super) fn probe() -> Option<&'static str> {

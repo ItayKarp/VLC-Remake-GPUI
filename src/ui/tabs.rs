@@ -10,6 +10,8 @@ use gpui::{
 
 use super::focus::{self, Axis, Layout};
 use super::icon::icon;
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// Called with the index of the tab the user picked.
@@ -74,8 +76,7 @@ impl RenderOnce for Tabs {
         let bar = div()
             .id(self.id)
             .h(px(TAB_HEIGHT))
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_end()
             .gap(px(4.))
             .px(px(8.))
@@ -111,14 +112,13 @@ fn render_tab(
     div()
         .id(index)
         .h_full()
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_center()
         .gap(px(6.))
         .px(px(10.))
         .border_b_2()
         .border_color(if is_selected { p.accent_fg } else { gpui::transparent_black() })
-        .text_size(px(13.))
+        .text_size(text_px(13.))
         .text_color(if is_selected { p.text_strong } else { p.text_muted })
         .role(accesskit::Role::Tab)
         .aria_selected(is_selected)

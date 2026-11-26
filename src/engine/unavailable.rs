@@ -8,10 +8,14 @@ use super::audio::equalizer::Equalization;
 use super::audio::visualizer::VisualEffect;
 use super::audio::{OutputDevice, SpeakerSetup, StereoMode};
 use super::backend::{Backend, BackendEvent, EventSender};
+use super::cast::{CastDeviceId, CastSetup};
 use super::colors::Colors;
 use super::hdr::HdrMode;
 use super::media_options::{MediaOptions, Picture, VideoFilters};
+use super::navigation::Navigation;
+use super::recording::Recording;
 use super::state::{ErrorKind, PlaybackState};
+use super::stream_out::StreamTarget;
 use super::tracks::{TrackId, TrackKind};
 use super::values::{BackendSeek, Generation, Offset, Rate, Start, StepDirection, Volume};
 use crate::app::media::Media;
@@ -83,6 +87,22 @@ impl Backend for UnavailableBackend {
     fn set_colors(&mut self, _: Colors) {}
 
     fn set_hdr_mode(&mut self, _: HdrMode) {}
+
+    fn record(&mut self, folder: Option<&Path>) {
+        if folder.is_some() {
+            let refused = BackendEvent::Recording(Recording::Refused);
+            self.events.send(Generation::default(), refused);
+        }
+    }
+
+    fn navigate(&mut self, _: Navigation) {}
+
+    fn set_cast_setup(&mut self, _: CastSetup) {}
+
+    fn cast(&mut self, _: Option<CastDeviceId>) {}
+
+    fn stream(&mut self, _: Option<StreamTarget>) {}
+    fn read_statistics(&mut self) {}
 
     fn shut_down(self: Box<Self>) {}
 }

@@ -32,6 +32,15 @@ enum Playing {
     Shuffled,
 }
 
+/// Add Subtitle Tracks, for one playlist.
+fn add_subtitles(main: &WeakEntity<MainWindow>, playlists: &[Summary]) -> MenuItem {
+    let label = tr!("Add Subtitle Tracks");
+    on_one(main, playlists, label, icons::SUBTITLES, |main, summary, window, cx| {
+        let target = Target::Playlist { id: summary.id, title: summary.title.clone().into() };
+        main.show_add_subtitles(target, window, cx);
+    })
+}
+
 /// The playlist menu's items for `playlists`.
 pub(super) fn items(
     main: &WeakEntity<MainWindow>,
@@ -44,32 +53,34 @@ pub(super) fn items(
             MainWindow::play_playlists(playlists, playing, window, cx);
         })
         .disabled(empty)
-        .why_disabled("Nothing to play")
+        .why_disabled(tr!("Nothing to play"))
     };
     vec![
-        play("Play", icons::PLAY, Playing::Placed(Placement::Replace)),
+        play(tr!("Play"), icons::PLAY, Playing::Placed(Placement::Replace)),
         favorite(playlists, cx),
-        play("Shuffle", icons::SHUFFLE, Playing::Shuffled),
-        on_one(main, playlists, "Export Playlist", icons::SAVE, |main, summary, window, cx| {
-            main.show_export_playlist(summary, window, cx);
-        }),
-        play("Add to Queue", icons::QUEUE, Playing::Placed(Placement::Enqueue)),
+        play(tr!("Shuffle"), icons::SHUFFLE, Playing::Shuffled),
         on_one(
             main,
             playlists,
-            "Add Subtitle Tracks",
-            icons::SUBTITLES,
+            tr!("Export Playlist"),
+            icons::SAVE,
             |main, summary, window, cx| {
-                let target =
-                    Target::Playlist { id: summary.id, title: summary.title.clone().into() };
-                main.show_add_subtitles(target, window, cx);
+                main.show_export_playlist(summary, window, cx);
             },
-        )
-        .disabled(empty)
-        .why_disabled("Nothing to add subtitles to"),
-        on_one(main, playlists, "Properties & Metadata", icons::INFO, |_, summary, window, cx| {
-            MainWindow::show_playlist_properties(summary, window, cx);
-        }),
+        ),
+        play(tr!("Add to Queue"), icons::QUEUE, Playing::Placed(Placement::Enqueue)),
+        add_subtitles(main, playlists)
+            .disabled(empty)
+            .why_disabled(tr!("Nothing to add subtitles to")),
+        on_one(
+            main,
+            playlists,
+            tr!("Properties & Metadata"),
+            icons::INFO,
+            |_, summary, window, cx| {
+                MainWindow::show_playlist_properties(summary, window, cx);
+            },
+        ),
     ]
 }
 
@@ -77,7 +88,7 @@ pub(super) fn items(
 fn favorite(playlists: &[Summary], cx: &App) -> MenuItem {
     let marked: Vec<Favorite> = playlists.iter().map(|s| Favorite::Playlist(s.id)).collect();
     let all = favorites::all(&marked, cx);
-    MenuItem::check("Favorite", all, move |_, cx| favorites::mark(marked.clone(), !all, cx))
+    MenuItem::check(tr!("Favorite"), all, move |_, cx| favorites::mark(marked.clone(), !all, cx))
         .icon(icons::FAVORITE)
 }
 
@@ -91,6 +102,15 @@ impl MainWindow {
     ) {
         let reads: Vec<Task<Option<Vec<Media>>>> =
             playlists.iter().map(|summary| playlists::items(summary.id, cx)).collect();
+        // One playlist filling the queue names it (Customize Player's Playlist Name, S8.7.6).
+        let title = match playlists {
+            [summary]
+                if matches!(playing, Playing::Placed(Placement::Replace) | Playing::Shuffled) =>
+            {
+                Some(summary.title.clone())
+            }
+            _ => None,
+        };
         cx.spawn_in(window, async move |this, cx| {
             let mut media = Vec::new();
             for read in reads {
@@ -99,20 +119,34 @@ impl MainWindow {
             if media.is_empty() {
                 return;
             }
-            this.update_in(cx, |this, window, cx| match playing {
-                Playing::Placed(placement) => {
-                    this.open(OpenRequest::placed(media, placement), window, cx);
-                }
-                Playing::Shuffled => {
-                    this.queue.set_shuffle(true);
-                    let start = queue::random_start(media.len());
-                    this.play_cards(media, start, window, cx);
-                    this.show_osd("Shuffle: On", cx);
-                }
+            this.update_in(cx, |this, window, cx| {
+                this.queue.expect_title(title, &media);
+                this.play_read_playlists(media, playing, window, cx);
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Plays `media`, the playlists' items once read, as `playing` says.
+    fn play_read_playlists(
+        &mut self,
+        media: Vec<Media>,
+        playing: Playing,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match playing {
+            Playing::Placed(placement) => {
+                self.open(OpenRequest::placed(media, placement), window, cx);
+            }
+            Playing::Shuffled => {
+                self.queue.set_shuffle(true);
+                let start = queue::random_start(media.len());
+                self.play_cards(media, start, window, cx);
+                self.show_osd(tr!("Shuffle: On"), cx);
+            }
+        }
     }
 
     /// Properties & Metadata of playlist `summary`: its title, how many items it has, and
@@ -124,12 +158,12 @@ impl MainWindow {
             let items = read.await.unwrap_or_default();
             let durations: Vec<_> = items.iter().map(|item| item.duration).collect();
             let rows = vec![
-                ("Title", title),
-                ("Items", items.len().to_string().into()),
-                ("Length", length_text(&durations).into()),
+                (tr!("Title"), title),
+                (tr!("Items"), crate::i18n::number(items.len()).into()),
+                (tr!("Length"), length_text(&durations).into()),
             ];
             this.update_in(cx, |this, window, cx| {
-                this.show_info_dialog("Properties & Metadata", rows, window, cx);
+                this.show_info_dialog(tr!("Properties & Metadata"), rows, window, cx);
             })
             .ok();
         })
@@ -143,8 +177,8 @@ fn length_text(durations: &[Option<Duration>]) -> String {
     let known: Duration = durations.iter().flatten().sum();
     let missing = durations.iter().any(Option::is_none);
     match (known.is_zero() && missing, missing) {
-        (true, _) => "Unknown".to_owned(),
-        (false, true) => format!("At least {}", clock::format(known)),
+        (true, _) => tr!("Unknown").to_owned(),
+        (false, true) => tr!("At least {length}", length = clock::format(known)),
         (false, false) => clock::format(known),
     }
 }

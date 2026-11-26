@@ -86,18 +86,21 @@ impl Problem {
     pub fn message(self, item: &Media) -> String {
         let name = item.display_name();
         match self {
-            Problem::Unreadable(io::ErrorKind::PermissionDenied) => {
-                format!("VLC isn't allowed to read “{name}”. Check its access in system settings.")
-            }
-            Problem::Unreadable(io::ErrorKind::NotFound) => format!("“{name}” no longer exists."),
-            Problem::Unreadable(_) => format!("Couldn't read “{name}”."),
-            Problem::NoMediaInFolder => format!("No media files in “{name}”."),
-            Problem::FolderTruncated => format!(
-                "“{name}” has more than {} media files; only the first ones were opened.",
-                scan::MAX_FILES
+            Problem::Unreadable(io::ErrorKind::PermissionDenied) => tr!(
+                "VLC isn't allowed to read “{name}”. Check its access in system settings.",
+                name
             ),
-            Problem::EmptyPlaylist => format!("The playlist “{name}” is empty."),
-            Problem::PlaylistTooLarge => format!("“{name}” is too large to be a playlist."),
+            Problem::Unreadable(io::ErrorKind::NotFound) => tr!("“{name}” no longer exists.", name),
+            Problem::Unreadable(_) => tr!("Couldn't read “{name}”.", name),
+            Problem::NoMediaInFolder => tr!("No media files in “{name}”.", name),
+            Problem::FolderTruncated => trn!(
+                "“{name}” has more than {count} media file; only the first ones were opened.",
+                "“{name}” has more than {count} media files; only the first ones were opened.",
+                scan::MAX_FILES,
+                name
+            ),
+            Problem::EmptyPlaylist => tr!("The playlist “{name}” is empty.", name),
+            Problem::PlaylistTooLarge => tr!("“{name}” is too large to be a playlist.", name),
         }
     }
 }

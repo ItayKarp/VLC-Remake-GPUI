@@ -1,0 +1,5 @@
+# The corpus archive tests and QA passes use (S9.8.1, docs/qa.md): tools/corpus/pack.sh makes
+# it, it lives in an artifact store outside this repository, and tools/corpus/fetch.sh brings
+# it back.
+url=https://github.com/ItayKarp/VLC-Remake-GPUI-corpus/releases/download/corpus-2026-11-25/rvlc-corpus-2026-11-25.tar.gz
+sha256=7eb042f22660a8fe405ee520d95697053a91ca741909bf94029888c99c583048

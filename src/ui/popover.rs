@@ -69,6 +69,8 @@ pub enum Side {
     Above,
     /// To the right, top edges aligned (submenus).
     Right,
+    /// To the left, top edges aligned (submenus in a right-to-left interface).
+    Left,
 }
 
 impl Side {
@@ -80,6 +82,7 @@ impl Side {
             Side::AboveEnd => (Anchor::BottomRight, Anchor::TopRight, point(0., -1.)),
             Side::Above => (Anchor::BottomCenter, Anchor::TopCenter, point(0., -1.)),
             Side::Right => (Anchor::TopLeft, Anchor::TopRight, point(1., 0.)),
+            Side::Left => (Anchor::TopRight, Anchor::TopLeft, point(-1., 0.)),
         }
     }
 }

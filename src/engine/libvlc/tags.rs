@@ -17,6 +17,7 @@ use super::api::{Instance, LibVlc, Media, MediaTrack};
 use super::prepare::{PARSE_LOCAL, TRACK_VIDEO, parse_with, video_track};
 use super::query::display_size;
 use crate::db::metadata::{Metadata, Resolution};
+use crate::engine::display_text::clean_tag;
 use crate::engine::tags::{Lookup, Probe, Probed, TagReader};
 
 /// The reader's instance never plays, so it needs no outputs.
@@ -131,7 +132,7 @@ impl Loaded {
     unsafe fn probed(&self, media: *mut Media, path: &Path) -> Probed {
         // SAFETY: the caller's promise; `get_meta` returns a string we own, or NULL.
         let tag = |kind| unsafe {
-            self.vlc.take_string((self.vlc.api.libvlc_media_get_meta)(media, kind))
+            clean_tag(self.vlc.take_string((self.vlc.api.libvlc_media_get_meta)(media, kind)))
         };
         // SAFETY: the caller's promise.
         let tracks = unsafe { self.tracks(media) };

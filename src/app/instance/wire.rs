@@ -67,6 +67,7 @@ fn encode(launch: &Launch) -> Vec<u8> {
         let (kind, payload) = match item {
             Media::File(path) => (KIND_FILE, media::os_to_bytes(path.as_os_str())),
             Media::Url(url) => (KIND_URL, url.as_bytes().to_vec()),
+            Media::Device(device) => (KIND_URL, device.to_stored().into_bytes()),
         };
         out.push(kind);
         put_len(&mut out, payload.len());
@@ -134,7 +135,7 @@ impl<'a> Cursor<'a> {
                 .map(|path| Media::File(PathBuf::from(path)))
                 .ok_or_else(|| invalid("malformed path")),
             KIND_URL => String::from_utf8(payload.to_vec())
-                .map(Media::Url)
+                .map(|text| Media::from_stored(&text).unwrap_or(Media::Url(text)))
                 .map_err(|_| invalid("malformed URL")),
             _ => Err(invalid("unknown item kind")),
         }

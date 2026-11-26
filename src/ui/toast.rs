@@ -13,13 +13,16 @@ use std::time::Duration;
 
 use gpui::{
     App, Context, Div, ElementId, Hsla, ImageSource, RenderImage, SharedString, Stateful, Window,
-    accesskit, div, img, prelude::*, px,
+    div, img, prelude::*, px,
 };
 
+use super::announcer::{Politeness, live_region};
 use super::button::{Button, ButtonStyle, IconButton};
 use super::icon::two_tone;
 use super::metrics;
 use crate::assets::{icons, two_tone as icons2};
+use crate::i18n::DirectionalStyle;
+use crate::theme::text_px;
 use crate::theme::{self, Palette};
 
 /// The most toasts shown at once; older ones drop off.
@@ -60,6 +63,11 @@ impl Level {
     /// Errors and warnings need reading and maybe acting on, so they stay.
     pub fn auto_dismiss(self) -> bool {
         matches!(self, Level::Info | Level::Success)
+    }
+
+    /// Errors and warnings interrupt a screen reader; news waits its turn (S9.1.2).
+    fn politeness(self) -> Politeness {
+        if self.auto_dismiss() { Politeness::Polite } else { Politeness::Assertive }
     }
 }
 
@@ -193,7 +201,7 @@ fn trim(toasts: &mut Vec<Toast>, max: usize) {
 
 impl Toasts {
     /// One toast card: icon or thumbnail, message, the buttons and a dismiss button. With a
-    /// thumbnail the buttons go under the message, as there may be several.
+    /// thumbnail or several buttons, the buttons go under the message, so it keeps its width.
     fn render_toast(toast: &Toast, p: &Palette, cx: &mut Context<Self>) -> Stateful<Div> {
         let id = toast.id;
         let buttons = toast.actions.iter().enumerate().map(|(index, action)| {
@@ -206,26 +214,31 @@ impl Toasts {
                 }),
             )
         });
-        let message = message(toast.message.clone(), p.text_strong).pt(px(4.));
-        let card = toast_card(id, p);
-        let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, "Dismiss")
+        // Long paths wrap anywhere rather than overflow.
+        let message = message(toast.message.clone(), p.text_strong).pt(px(4.)).overflow_hidden();
+        let card = live_region(toast_card(id, p), toast.message.clone(), toast.level.politeness());
+        let close = IconButton::new(("toast-close", id as usize), icons::CLOSE, tr!("Dismiss"))
             .on_click(cx.listener(move |this, _, _, cx| this.dismiss(id, cx)));
-        let Some(thumbnail) = toast.thumbnail.clone() else {
-            let icon = two_tone(icons2::INFO, ICON_SIZE, p.icon, toast.level.color(p));
-            return card
-                .child(div().pt(px(4.)).child(icon))
-                .child(message)
-                .children(buttons)
-                .child(close);
+        let lead = match toast.thumbnail.clone() {
+            Some(thumbnail) => thumbnail_image(thumbnail, p),
+            None => div().pt(px(4.)).child(two_tone(
+                icons2::INFO,
+                ICON_SIZE,
+                p.icon,
+                toast.level.color(p),
+            )),
         };
+        if toast.thumbnail.is_none() && toast.actions.len() <= 1 {
+            return card.child(lead).child(message).children(buttons).child(close);
+        }
         let body = div()
             .flex_1()
             .min_w_0()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .child(message)
-            .child(div().flex().flex_row().flex_wrap().ml(px(-8.)).children(buttons));
-        card.child(thumbnail_image(thumbnail, p)).child(body).child(close)
+            .child(div().flex_row_start().flex_wrap().ms(px(-8.)).children(buttons));
+        card.child(lead).child(body).child(close)
     }
 }
 
@@ -236,19 +249,17 @@ fn toast_card(id: u64, p: &Palette) -> Stateful<Div> {
         .occlude()
         .w(px(TOAST_WIDTH))
         .max_w_full()
-        .flex()
-        .flex_row()
+        .flex_row_start()
         .items_start()
         .gap(px(10.))
-        .pl(px(12.))
-        .pr(px(4.))
+        .ps(px(12.))
+        .pe(px(4.))
         .py(px(8.))
         .rounded(px(metrics::RADIUS_LARGE))
         .bg(p.menu)
         .border_1()
         .border_color(p.divider)
         .shadow_lg()
-        .role(accesskit::Role::Alert)
 }
 
 /// A toast's thumbnail, fitted into [`THUMBNAIL_SIZE`] on black.
@@ -275,9 +286,9 @@ impl Render for Toasts {
 
         div()
             .absolute()
-            .right(px(16.))
+            .inset_end(px(16.))
             .bottom(px(16.))
-            .flex()
+            .flex_row_start()
             .flex_col()
             .items_end()
             .gap(px(8.))
@@ -328,30 +339,25 @@ impl RenderOnce for Banner {
                 .on_click(move |_, window, cx| f(window, cx))
         });
         let dismiss = self.on_dismiss.map(|f| {
-            IconButton::new("banner-dismiss", icons::CLOSE, "Dismiss")
+            IconButton::new("banner-dismiss", icons::CLOSE, tr!("Dismiss"))
                 .on_click(move |_, window, cx| f(window, cx))
         });
 
-        div()
-            .id(self.id)
+        let region = div().id(self.id);
+        live_region(region, self.message.clone(), self.level.politeness())
             .w_full()
             .max_w(px(640.))
-            .flex()
-            .flex_row()
+            .flex_row_start()
             .items_center()
             .gap(px(10.))
-            .pl(px(12.))
-            .pr(px(6.))
+            .ps(px(12.))
+            .pe(px(6.))
             .py(px(6.))
             .min_h(px(44.))
             .rounded(px(metrics::RADIUS))
             .bg(p.well)
             .border_1()
             .border_color(color)
-            .role(match self.level {
-                Level::Error | Level::Warning => accesskit::Role::Alert,
-                _ => accesskit::Role::Status,
-            })
             .child(two_tone(icons2::INFO, ICON_SIZE, p.icon, color))
             // Long paths wrap anywhere rather than overflow.
             .child(message(self.message, p.text).overflow_hidden())
@@ -362,12 +368,58 @@ impl RenderOnce for Banner {
 
 /// The message text of a toast or banner, taking the space the buttons leave.
 fn message(text: SharedString, color: Hsla) -> Div {
-    div().flex_1().min_w_0().text_size(px(14.)).line_height(px(20.)).text_color(color).child(text)
+    div()
+        .flex_1()
+        .min_w_0()
+        .text_size(text_px(14.))
+        .line_height(text_px(20.))
+        .text_color(color)
+        .child(text)
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+
+    /// A toast as other modules' tests see it.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub(crate) struct Shown {
+        /// How serious it is.
+        pub(crate) level: Level,
+        /// What it says.
+        pub(crate) message: String,
+        /// Its buttons' labels.
+        pub(crate) buttons: Vec<String>,
+    }
+
+    /// What other modules' tests read and press of a window's toasts.
+    impl Toasts {
+        /// Each toast showing, oldest first.
+        pub(crate) fn shown(&self) -> Vec<Shown> {
+            let shown = |toast: &Toast| Shown {
+                level: toast.level,
+                message: toast.message.to_string(),
+                buttons: toast.actions.iter().map(|action| action.label.to_string()).collect(),
+            };
+            self.toasts.iter().map(shown).collect()
+        }
+
+        /// Presses the button labelled `label` on the newest toast that has one, as a click does.
+        pub(crate) fn press_button(
+            &mut self,
+            label: &str,
+            window: &mut Window,
+            cx: &mut Context<Self>,
+        ) {
+            let pressed = self.toasts.iter().rev().find_map(|toast| {
+                let action = toast.actions.iter().find(|action| action.label == label)?;
+                Some((toast.id, action.dismisses, action.run.clone()))
+            });
+            let (id, dismisses, run) = pressed.expect("a toast has the button");
+            self.press(id, dismisses, cx);
+            run(window, cx);
+        }
+    }
 
     fn toast(level: Level, id: u64) -> Toast {
         Toast { id, ..Toast::new(level, "") }
@@ -387,6 +439,13 @@ mod tests {
         // With only errors left, the oldest goes.
         trim(&mut toasts, 1);
         assert_eq!(toasts[0].id, 4);
+    }
+
+    #[test]
+    fn errors_and_warnings_interrupt_screen_readers() {
+        assert_eq!(Level::Error.politeness(), Politeness::Assertive);
+        assert_eq!(Level::Warning.politeness(), Politeness::Assertive);
+        assert_eq!(Level::Info.politeness(), Politeness::Polite);
     }
 
     #[test]

@@ -1,4 +1,5 @@
-//! What the app is asked to open: a local file or folder, or a network URL (S0.6.2).
+//! What the app is asked to open: a local file or folder, a network URL (S0.6.2), or a disc or
+//! capture device (S8.9).
 //!
 //! Arguments are normalized in the process that received them, so relative paths
 //! resolve against the *launching* process's working directory even when the request
@@ -9,7 +10,11 @@ use std::path::{Path, PathBuf};
 
 use url::Url;
 
+pub use self::device::{Device, DeviceKind};
 use crate::settings::stored_path;
+
+pub mod device;
+pub mod scheme;
 
 /// One item to open.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -19,6 +24,8 @@ pub enum Media {
     /// A network stream or any other URL that isn't a local file (`https://…`,
     /// `rtsp://…`).
     Url(String),
+    /// A disc or capture device (S8.9).
+    Device(Device),
 }
 
 impl Media {
@@ -40,6 +47,9 @@ impl Media {
     /// With") into an item. A `file://` URL that can't be a local path is kept as a
     /// URL, so nothing the user asked for is dropped silently.
     pub fn from_url(text: &str) -> Self {
+        if let Some(device) = Device::new(text) {
+            return Media::Device(device);
+        }
         match Url::parse(text) {
             Ok(url) if url.scheme() == "file" => {
                 url.to_file_path().map_or_else(|()| Media::Url(text.to_owned()), Media::File)
@@ -52,36 +62,52 @@ impl Media {
     pub fn as_path(&self) -> Option<&Path> {
         match self {
             Media::File(path) => Some(path),
-            Media::Url(_) => None,
+            Media::Url(_) | Media::Device(_) => None,
         }
     }
 
-    /// The text settings and the session file keep this as (S1.3.5, S3.4): a URL as written,
-    /// a path in [`stored_path`]'s lossless form. A stored path never looks like a URL: it is
-    /// absolute, and an encoded one starts with `os-path:`, which has no `//`.
+    /// The text settings and the session file keep this as (S1.3.5, S3.4): a URL as written
+    /// but without a user name or password (S9.7.3), a path in [`stored_path`]'s lossless form, a device as [`Device::to_stored`] says. A
+    /// stored path never looks like a URL: it is absolute, and an encoded one starts with
+    /// `os-path:`, which has no `//`.
     pub fn to_stored(&self) -> String {
         match self {
             Media::File(path) => stored_path::encode(path),
-            Media::Url(url) => url.clone(),
+            Media::Url(url) => crate::network::links::without_user_info(url),
+            Media::Device(device) => device.to_stored(),
         }
     }
 
     /// The inverse of [`Self::to_stored`]; `None` for text that is neither.
     pub fn from_stored(text: &str) -> Option<Self> {
+        if let Some(device) = Device::from_stored(text) {
+            return Some(Media::Device(device));
+        }
         if has_url_scheme(text) {
             return Some(Media::Url(text.to_owned()));
         }
         stored_path::decode(text).map(Media::File)
     }
 
-    /// A short name for the window title and lists: the file name, or the URL with any
-    /// password in it masked.
+    /// A short name for the window title and lists: the file name, the URL with any password
+    /// in it masked, or the device's title or kind. A file name is shown as one line, without
+    /// control characters or bidirectional overrides (S9.7.2), which a name may hold too.
     pub fn display_name(&self) -> String {
         match self {
             Media::File(path) => {
-                path.file_name().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
+                let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy();
+                crate::engine::display_text::clean(&name).unwrap_or_else(|| name.into_owned())
             }
             Media::Url(url) => crate::network::links::masked(url),
+            Media::Device(device) => device.display_name(),
+        }
+    }
+
+    /// The device, if this is a disc or capture device.
+    pub fn as_device(&self) -> Option<&Device> {
+        match self {
+            Media::Device(device) => Some(device),
+            Media::File(_) | Media::Url(_) => None,
         }
     }
 }
@@ -163,6 +189,7 @@ mod tests {
             Media::Url("https://example.com/a b.mp4".into())
         );
         assert_eq!(arg("rtsp://cam.local/live"), Media::Url("rtsp://cam.local/live".into()));
+        assert!(matches!(arg("dvd:///dev/rdisk4"), Media::Device(_)));
         assert!(Media::from_arg(OsStr::new("")).is_none());
     }
 
@@ -214,6 +241,8 @@ mod tests {
         for media in [file, Media::Url("rtsp://cam/1".into())] {
             assert_eq!(Media::from_stored(&media.to_stored()), Some(media));
         }
+        let with_password = Media::Url("https://me:secret@host/live.m3u8".into());
+        assert_eq!(with_password.to_stored(), "https://host/live.m3u8");
         let plain = Media::from_stored("/abs/path.mkv");
         assert_eq!(plain, Some(Media::File(PathBuf::from("/abs/path.mkv"))));
     }
@@ -221,6 +250,8 @@ mod tests {
     #[test]
     fn display_names() {
         assert_eq!(Media::File(PathBuf::from("dir").join("a.mkv")).display_name(), "a.mkv");
+        let spoofed = Media::File(PathBuf::from("tab\there \u{202e}4pm.exe.mp4"));
+        assert_eq!(spoofed.display_name(), "tab here 4pm.exe.mp4");
         assert_eq!(Media::Url("https://x/y".into()).display_name(), "https://x/y");
     }
 }

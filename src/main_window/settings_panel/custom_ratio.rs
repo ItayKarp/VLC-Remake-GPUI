@@ -5,6 +5,7 @@
 
 use gpui::{AppContext as _, Context, Entity, Subscription, Window};
 
+use super::synced_field::SyncedField;
 use crate::effects;
 use crate::main_window::MainWindow;
 use crate::settings::registry::Value;
@@ -16,7 +17,7 @@ const KEY: &str = "video.custom_aspect_ratio";
 
 /// The field, and its subscription.
 pub(super) struct CustomRatioField {
-    field: Entity<TextInput>,
+    field: SyncedField,
     _events: Subscription,
 }
 
@@ -27,24 +28,20 @@ impl CustomRatioField {
             TextInput::new(window, cx)
                 .with_text(in_effect(cx))
                 .with_placeholder("2.4:1")
-                .with_label("Custom Ratio")
+                .with_label(tr!("Custom Ratio"))
         });
         let events = cx.subscribe(&field, |_, field, event, cx| on_event(&field, event, cx));
-        Self { field, _events: events }
+        Self { field: SyncedField::new(field), _events: events }
     }
 
     /// The field to show.
     pub(super) fn field(&self) -> Entity<TextInput> {
-        self.field.clone()
+        self.field.field().clone()
     }
 
     /// Shows the ratio in effect unless it is being typed.
-    pub(super) fn sync(&self, window: &Window, cx: &mut Context<MainWindow>) {
-        let text = in_effect(cx);
-        let field = self.field.read(cx);
-        if !field.is_focused(window) && !field.is_invalid() && field.text() != text {
-            self.field.update(cx, |field, cx| field.set_text(text, cx));
-        }
+    pub(super) fn sync(&mut self, window: &Window, cx: &mut Context<MainWindow>) {
+        self.field.sync(in_effect(cx), window, cx);
     }
 }
 
@@ -60,7 +57,7 @@ fn on_event(field: &Entity<TextInput>, event: &text_input::Event, cx: &mut Conte
             effects::set(cx, KEY, Value::Text(typed));
         }
         (text_input::Event::Submitted, false) => field.update(cx, |field, cx| {
-            field.set_validation(Validation::Error(RATIO_HELP.into()), cx);
+            field.set_validation(Validation::Error(crate::i18n::text(RATIO_HELP).into()), cx);
         }),
         (text_input::Event::Blurred, false) => {
             let text = in_effect(cx);

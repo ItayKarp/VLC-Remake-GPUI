@@ -62,7 +62,7 @@ impl MainWindow {
         if !self.shows_cover(cx) {
             return None;
         }
-        let (top, bottom) = viewport::content_insets(chrome);
+        let (top, bottom) = viewport::content_insets(chrome, self.control_bar_height());
         let size = window.viewport_size();
         Some(self.render_music(f32::from(size.width), f32::from(size.height) - top - bottom, cx))
     }

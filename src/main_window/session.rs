@@ -83,7 +83,7 @@ impl MainWindow {
         match (restored.load, session.current) {
             (Load::Paused(at), Some(index)) => {
                 self.skip_resume_offer(self.queue.entries()[index].media.clone());
-                self.play_from(index, Start { at, paused: true }, window, cx);
+                self.play_from(index, Start { at, paused: true, ..Start::default() }, window, cx);
             }
             (Load::Crashed(media), _) => self.tell_about_crash(&media, cx),
             _ => {}
@@ -178,9 +178,9 @@ impl MainWindow {
 
     /// "VLC closed unexpectedly while playing X": the restored item waits for Play.
     fn tell_about_crash(&mut self, media: &Media, cx: &mut Context<Self>) {
-        let text = format!(
-            "VLC closed unexpectedly while playing “{}”, so it wasn't opened again.",
-            media.display_name()
+        let text = tr!(
+            "VLC closed unexpectedly while playing “{name}”, so it wasn't opened again.",
+            name = media.display_name()
         );
         self.show_toast(Toast::new(Level::Warning, text), cx);
     }

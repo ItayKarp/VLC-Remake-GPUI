@@ -40,7 +40,7 @@ impl MainWindow {
         let Some(player) = self.loaded_player(cx) else { return };
         let before = player.read(cx).subtitle_sync();
         let Some(key) = player.update(cx, |player, cx| player.set_subtitle_sync(sync, cx)) else {
-            self.show_osd("No subtitles showing", cx);
+            self.show_osd(tr!("No subtitles showing"), cx);
             return;
         };
         let sync = player.read(cx).subtitle_sync();
@@ -125,12 +125,9 @@ pub(super) fn remembers(media: &Media, cx: &App) -> bool {
     settings::get(cx).prefs.privacy.save_recently_played && !exclusions::excluded(media, cx)
 }
 
-/// How the table names `media`: its stored path, or its URL.
+/// How the table names `media`: its stored path, its URL, or its device's stored form.
 pub(super) fn media_location(media: &Media) -> String {
-    match media {
-        Media::File(path) => stored_path::encode(path),
-        Media::Url(url) => url.clone(),
-    }
+    media.to_stored()
 }
 
 /// How the table names a subtitle track: `file:` and its stored path, or `stream:` and its id.
@@ -158,9 +155,11 @@ fn restored(text: &str, saved: &SavedSync) -> Option<(SubtitleKey, SubtitleSync)
 /// The OSD's text for a subtitle delay: "Subtitle delay: −150 ms".
 pub(super) fn delay_message(delay: Offset) -> String {
     match delay.as_millis() {
-        0 => "Subtitle delay: 0 ms".to_owned(),
-        millis if millis < 0 => format!("Subtitle delay: −{} ms", millis.unsigned_abs()),
-        millis => format!("Subtitle delay: +{millis} ms"),
+        0 => tr!("Subtitle delay: 0 ms").to_owned(),
+        millis if millis < 0 => {
+            tr!("Subtitle delay: −{millis} ms", millis = millis.unsigned_abs())
+        }
+        millis => tr!("Subtitle delay: +{millis} ms", millis),
     }
 }
 

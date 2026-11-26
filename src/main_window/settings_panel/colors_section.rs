@@ -19,10 +19,13 @@ use gpui::{
 };
 
 use super::effect_section::{self, BOX_PADDING, DISABLED_OPACITY, EffectControls, TEXT};
+use super::synced_field::SyncedField;
 use crate::effects::{self, VIDEO_COLORS};
+use crate::i18n::DirectionalStyle;
 use crate::main_window::MainWindow;
 use crate::settings::registry::{self, Choice, Value, format_hex_color, hex_color};
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::dropdown::{self, Dropdown};
 use crate::ui::metrics;
 use crate::ui::text_input::{self, Look, TextInput, Validation};
@@ -55,12 +58,13 @@ const GAP: f32 = 8.;
 /// The longest text a color field takes: a color's name or `#RRGGBB`.
 const COLOR_MAX_LEN: usize = 16;
 /// What a color field takes.
-const COLOR_HELP: &str = "#RRGGBB, #RGB or a color name";
+const COLOR_HELP: &str = tr_noop!("#RRGGBB, #RGB or a color name");
 
 /// The section's controls that keep state.
 pub(super) struct ColorsControls {
     sliders: EffectControls,
-    colors: [Entity<TextInput>; 2],
+    /// The color fields, in [`COLOR_FIELDS`]' order.
+    pub(super) colors: [SyncedField; 2],
     mode: Entity<Dropdown>,
     _events: Vec<Subscription>,
 }
@@ -85,26 +89,24 @@ impl ColorsControls {
                 cx.subscribe(field, move |_, field, event, cx| on_color(&field, key, event, cx))
             })
             .collect();
-        let labels = modes().iter().map(|choice| SharedString::from(choice.label)).collect();
+        let labels =
+            modes().iter().map(|choice| SharedString::from(crate::i18n::text(choice.label)));
+        let labels = labels.collect();
         let mode = cx.new(|cx| Dropdown::new(label(MODE), labels, 0, window, cx));
         events.push(cx.subscribe(&mode, |_, _, event: &dropdown::Changed, cx| {
             if let Some(choice) = modes().get(event.0) {
                 effects::change(cx, &VIDEO_COLORS, MODE, Value::Choice(choice.id));
             }
         }));
-        Self { sliders, colors, mode, _events: events }
+        Self { sliders, colors: colors.map(SyncedField::new), mode, _events: events }
     }
 
     /// Shows the values in effect, changed here or in Settings, and disables the controls whose
     /// switch is off.
-    pub(super) fn sync(&self, window: &mut Window, cx: &mut Context<MainWindow>) {
+    pub(super) fn sync(&mut self, window: &mut Window, cx: &mut Context<MainWindow>) {
         self.sliders.sync(window, cx);
-        for (&(key, _), field) in COLOR_FIELDS.iter().zip(&self.colors) {
-            let text = in_effect(cx, key);
-            let input = field.read(cx);
-            if !input.is_focused(window) && !input.is_invalid() && input.text() != text {
-                field.update(cx, |field, cx| field.set_text(text, cx));
-            }
+        for (&(key, _), field) in COLOR_FIELDS.iter().zip(&mut self.colors) {
+            field.sync(in_effect(cx, key), window, cx);
         }
         let mode = match effects::value(cx, MODE) {
             Some(Value::Choice(id)) => modes().iter().position(|choice| choice.id == id),
@@ -137,9 +139,9 @@ impl ColorsControls {
                 ],
                 vec![self.slider(SEPIA, p, cx)],
             ];
-            let body = div().flex().flex_col().px(px(BOX_PADDING)).pb(px(BOX_PADDING));
+            let body = div().flex_row_start().flex_col().px(px(BOX_PADDING)).pb(px(BOX_PADDING));
             groups.into_iter().enumerate().fold(body, |body, (index, rows)| {
-                let rows = div().flex().flex_col().py(px(GAP)).children(rows);
+                let rows = div().flex_row_start().flex_col().py(px(GAP)).children(rows);
                 body.when(index > 0, |body| body.child(div().h(px(1.)).bg(p.divider))).child(rows)
             })
         });
@@ -158,7 +160,7 @@ impl ColorsControls {
     /// switch; with what the field takes under it while it holds something else.
     fn color_row(&self, index: usize, p: &Palette, cx: &App) -> Div {
         let (key, filter) = COLOR_FIELDS[index];
-        let field = &self.colors[index];
+        let field = self.colors[index].field();
         let shown = hex_color(field.read(cx).text()).or_else(|| hex_color(&in_effect(cx, key)));
         let square = div()
             .flex_none()
@@ -170,7 +172,7 @@ impl ColorsControls {
         let color = div()
             .w(px(FIELD_WIDTH))
             .h(px(FIELD_HEIGHT))
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .px(px(FIELD_PADDING))
@@ -180,16 +182,20 @@ impl ColorsControls {
             .child(square);
         let controls = div()
             .flex_none()
-            .flex()
+            .flex_row_start()
             .items_center()
             .gap(px(GAP))
             .child(color)
             .child(switch(filter, true, cx));
-        let error = field
-            .read(cx)
-            .is_invalid()
-            .then(|| div().pb(px(GAP)).text_size(px(TEXT)).text_color(p.danger).child(COLOR_HELP));
-        div().flex().flex_col().child(labelled(filter, true, p).child(controls)).children(error)
+        let error = field.read(cx).is_invalid().then(|| {
+            let help = crate::i18n::text(COLOR_HELP);
+            div().pb(px(GAP)).text_size(text_px(TEXT)).text_color(p.danger).child(help)
+        });
+        div()
+            .flex_row_start()
+            .flex_col()
+            .child(labelled(filter, true, p).child(controls))
+            .children(error)
     }
 }
 
@@ -204,10 +210,10 @@ fn labelled(key: &str, live: bool, p: &Palette) -> Div {
     let label = div().flex_1().min_w_0().when(!live, |label| label.opacity(DISABLED_OPACITY));
     div()
         .h(px(ROW_HEIGHT))
-        .flex()
+        .flex_row_start()
         .items_center()
         .gap(px(GAP))
-        .text_size(px(TEXT))
+        .text_size(text_px(TEXT))
         .text_color(p.text_muted)
         .child(label.child(self::label(key)))
 }
@@ -239,7 +245,7 @@ fn on_color(
             field.update(cx, |field, cx| field.set_text(text, cx));
         }
         (text_input::Event::Submitted, None) => field.update(cx, |field, cx| {
-            field.set_validation(Validation::Error(COLOR_HELP.into()), cx);
+            field.set_validation(Validation::Error(crate::i18n::text(COLOR_HELP).into()), cx);
         }),
         (text_input::Event::Blurred, None) => {
             let text = in_effect(cx, key);
@@ -261,7 +267,7 @@ fn in_effect(cx: &App, key: &str) -> String {
 
 /// The label of the setting `key`.
 fn label(key: &str) -> &'static str {
-    registry::find(key).map_or("", |def| def.label)
+    registry::find(key).map_or("", |def| crate::i18n::text(def.label))
 }
 
 /// Gradient's modes.
@@ -270,24 +276,4 @@ fn modes() -> &'static [Choice] {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::settings::registry::Control;
-
-    #[test]
-    fn every_control_is_a_setting_of_its_kind() {
-        for key in [EXTRACT, THRESHOLD, NEGATE, POSTERIZE, GRADIENT, GRADIENT_COLOR, CARTOON] {
-            let def = registry::find(key).expect("a switch is a setting");
-            assert!(matches!(def.control, Control::Toggle), "{key}");
-        }
-        for (key, _) in COLOR_FIELDS {
-            let def = registry::find(key).expect("a color is a setting");
-            assert!(matches!(def.control, Control::HexColor), "{key}");
-        }
-        for key in [SATURATION, SIMILARITY, LEVELS, SEPIA] {
-            let def = registry::find(key).expect("a slider is a setting");
-            assert!(matches!(def.control, Control::Slider { .. }), "{key}");
-        }
-        assert_eq!(modes().len(), 3);
-    }
-}
+mod tests;

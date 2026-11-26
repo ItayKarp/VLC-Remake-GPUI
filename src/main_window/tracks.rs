@@ -1,6 +1,6 @@
 //! The main window's side of tracks (S1.6): it gives the player the preferred languages, default
-//! tracks, the options new media opens with (S5.7, S5.8.1) and the video filters (S7.2) from the
-//! settings in effect (Settings with the player's panel over them, S7.1) and follows changes to
+//! tracks, the options new media opens with (S5.7, S5.8.1), the video filters (S7.2) and the
+//! casting setup (S8.11) from the settings in effect (Settings with the player's panel over them, S7.1) and follows changes to
 //! them, and cycles audio (B) and subtitles (V), saying
 //! which track plays now over the video (S2.10.2); a newer message replaces the last, so a held
 //! key doesn't stack them.
@@ -68,6 +68,7 @@ fn apply(settings: &Settings, player: &mut Player, cx: &mut Context<Player>) {
         deinterlace: video.deinterlacing(),
     });
     player.set_hdr_mode(video.hdr);
+    player.set_cast_setup(super::casting::setup(settings));
     player.set_file_styles(settings.prefs.subtitles.file_styles, cx);
 }
 
@@ -105,16 +106,22 @@ fn media_options(settings: &Settings) -> MediaOptions {
 
 /// What the message says after cycling `kind`: "Audio: English — AC3 5.1", "Subtitles: Off".
 fn announcement(kind: TrackKind, cycled: Cycled, tracks: &Tracks) -> String {
-    let what = match kind {
-        TrackKind::Audio => "Audio",
-        TrackKind::Video => "Video",
-        TrackKind::Subtitle => "Subtitles",
+    let track = match cycled {
+        Cycled::NoTracks => {
+            let text = match kind {
+                TrackKind::Audio => tr!("No audio tracks"),
+                TrackKind::Video => tr!("No video tracks"),
+                TrackKind::Subtitle => tr!("No subtitles"),
+            };
+            return text.to_owned();
+        }
+        Cycled::Off => tr!("Off").to_owned(),
+        Cycled::Track(id) => tracks.label(id).unwrap_or_default(),
     };
-    match cycled {
-        Cycled::NoTracks if kind == TrackKind::Subtitle => "No subtitles".to_owned(),
-        Cycled::NoTracks => format!("No {} tracks", what.to_lowercase()),
-        Cycled::Off => format!("{what}: Off"),
-        Cycled::Track(id) => format!("{what}: {}", tracks.label(id).unwrap_or_default()),
+    match kind {
+        TrackKind::Audio => tr!("Audio: {track}", track),
+        TrackKind::Video => tr!("Video: {track}", track),
+        TrackKind::Subtitle => tr!("Subtitles: {track}", track),
     }
 }
 

@@ -63,7 +63,8 @@ impl Equalizer {
 /// A gain as the panels show it: "12.0 dB", never "-0.0 dB".
 pub fn format_gain(gain: f64) -> String {
     let tenths = (gain * 10.).round() / 10.;
-    format!("{:.1} dB", if tenths == 0. { 0. } else { tenths })
+    let gain = crate::i18n::decimal(if tenths == 0. { 0. } else { tenths }, 1);
+    tr!("{gain} dB", gain)
 }
 
 /// A typed gain: a number in dB, "dB" after it or not, with a point or a comma; kept within
@@ -76,12 +77,13 @@ pub fn parse_gain(text: &str) -> Result<f64, &'static str> {
         .or_else(|| text.strip_suffix("DB"))
         .unwrap_or(text)
         .trim()
-        .replace(',', ".");
+        .replace(',', ".")
+        .replace('\u{2212}', "-");
     match number.parse::<f64>() {
         Ok(gain) if gain.is_finite() => {
             Ok(gain.clamp(f64::from(GAIN_RANGE.0), f64::from(GAIN_RANGE.1)))
         }
-        _ => Err("A gain from -20 to 20 dB"),
+        _ => Err(tr!("A gain from -20 to 20 dB")),
     }
 }
 
@@ -166,7 +168,7 @@ impl Preset {
 
     /// The preset's name ("Full bass & treble"; the design's "Full base" is a typo).
     pub fn label(self) -> &'static str {
-        self.names().1
+        crate::i18n::text(self.names().1)
     }
 
     /// The preset whose id is `id`.
@@ -176,25 +178,25 @@ impl Preset {
 
     fn names(self) -> (&'static str, &'static str) {
         match self {
-            Self::Custom => ("custom", "Custom"),
-            Self::Flat => ("flat", "Flat"),
-            Self::Classical => ("classical", "Classical"),
-            Self::Club => ("club", "Club"),
-            Self::Dance => ("dance", "Dance"),
-            Self::FullBass => ("full_bass", "Full bass"),
-            Self::FullBassAndTreble => ("full_bass_and_treble", "Full bass & treble"),
-            Self::FullTreble => ("full_treble", "Full treble"),
-            Self::Headphones => ("headphones", "Headphones"),
-            Self::LargeHall => ("large_hall", "Large Hall"),
-            Self::Live => ("live", "Live"),
-            Self::Party => ("party", "Party"),
-            Self::Pop => ("pop", "Pop"),
-            Self::Reggae => ("reggae", "Reggae"),
-            Self::Rock => ("rock", "Rock"),
-            Self::Ska => ("ska", "Ska"),
-            Self::Soft => ("soft", "Soft"),
-            Self::SoftRock => ("soft_rock", "Soft rock"),
-            Self::Techno => ("techno", "Techno"),
+            Self::Custom => ("custom", tr_noop!("Custom")),
+            Self::Flat => ("flat", tr_noop!("Flat")),
+            Self::Classical => ("classical", tr_noop!("Classical")),
+            Self::Club => ("club", tr_noop!("Club")),
+            Self::Dance => ("dance", tr_noop!("Dance")),
+            Self::FullBass => ("full_bass", tr_noop!("Full bass")),
+            Self::FullBassAndTreble => ("full_bass_and_treble", tr_noop!("Full bass & treble")),
+            Self::FullTreble => ("full_treble", tr_noop!("Full treble")),
+            Self::Headphones => ("headphones", tr_noop!("Headphones")),
+            Self::LargeHall => ("large_hall", tr_noop!("Large Hall")),
+            Self::Live => ("live", tr_noop!("Live")),
+            Self::Party => ("party", tr_noop!("Party")),
+            Self::Pop => ("pop", tr_noop!("Pop")),
+            Self::Reggae => ("reggae", tr_noop!("Reggae")),
+            Self::Rock => ("rock", tr_noop!("Rock")),
+            Self::Ska => ("ska", tr_noop!("Ska")),
+            Self::Soft => ("soft", tr_noop!("Soft")),
+            Self::SoftRock => ("soft_rock", tr_noop!("Soft rock")),
+            Self::Techno => ("techno", tr_noop!("Techno")),
         }
     }
 

@@ -18,8 +18,8 @@ use crate::db::songs::Song;
 use crate::history::policy::WatchedRule;
 use crate::opening::scan::natural_cmp;
 
-/// Shown for a song without a genre tag.
-pub const UNKNOWN_GENRE: &str = "Unknown Genre";
+/// Shown for a song without a genre tag, translated where it is shown.
+pub const UNKNOWN_GENRE: &str = tr_noop!("Unknown Genre");
 
 /// How Music groups songs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,19 +40,19 @@ impl Grouping {
             Self::Albums => vec![display::album(tags).to_owned()],
             Self::Artists => {
                 let artists = display::split_artists(display::artist(tags), &ARTIST_SEPARATORS);
-                if artists.is_empty() { vec![UNKNOWN_ARTIST.to_owned()] } else { artists }
+                if artists.is_empty() { vec![self.unknown().to_owned()] } else { artists }
             }
-            Self::Genres => vec![tags.genre.clone().unwrap_or_else(|| UNKNOWN_GENRE.to_owned())],
+            Self::Genres => vec![tags.genre.clone().unwrap_or_else(|| self.unknown().to_owned())],
         }
     }
 
-    /// The name this grouping gives songs without the tag.
+    /// The name this grouping gives songs without the tag, in the interface language.
     fn unknown(self) -> &'static str {
-        match self {
+        crate::i18n::text(match self {
             Self::Albums => UNKNOWN_ALBUM,
             Self::Artists => UNKNOWN_ARTIST,
             Self::Genres => UNKNOWN_GENRE,
-        }
+        })
     }
 }
 

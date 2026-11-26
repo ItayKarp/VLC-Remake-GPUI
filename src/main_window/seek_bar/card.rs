@@ -14,8 +14,9 @@ use gpui::{
 use super::geometry;
 use super::preview::Picture;
 use crate::main_window::MainWindow;
-use crate::main_window::control_bar::{CONTROL_BAR_HEIGHT, clock};
+use crate::main_window::control_bar::clock;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::video::layout;
 
 /// The card's width with a picture, and its padding.
@@ -57,7 +58,7 @@ impl MainWindow {
         let card = div()
             .absolute()
             .left(px(geometry::card_left(x, width, window_width, MARGIN)))
-            .bottom(px(CONTROL_BAR_HEIGHT + GAP))
+            .bottom(px(self.control_bar_height() + GAP))
             .w(px(width))
             .px(px(PADDING))
             .pt(px(top))
@@ -76,7 +77,7 @@ impl MainWindow {
                     .h(px(TIME_ROW))
                     .flex()
                     .items_center()
-                    .text_size(px(TIME_TEXT))
+                    .text_size(text_px(TIME_TEXT))
                     .text_color(p.text_muted)
                     .child(clock::format(time)),
             );
@@ -112,7 +113,7 @@ fn chapter_name(title: String, below_picture: bool, p: &Palette) -> Div {
     div()
         .w_full()
         .pt(px(if below_picture { CHAPTER_TOP } else { 0. }))
-        .text_size(px(CHAPTER_TEXT))
+        .text_size(text_px(CHAPTER_TEXT))
         .text_color(p.text)
         .text_center()
         .truncate()

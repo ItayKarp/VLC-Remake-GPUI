@@ -12,6 +12,7 @@ use gpui::{App, Context, Div, Window, div, prelude::*, px};
 
 use super::super::MainWindow;
 use crate::db::playlists::Summary;
+use crate::i18n::DirectionalStyle;
 use crate::playlists::export::{self, Export, Format, PathStyle};
 use crate::playlists::{self};
 use crate::ui::modal::{Dialog, DialogButton};
@@ -43,14 +44,14 @@ impl MainWindow {
         let main = cx.entity().downgrade();
         let export = {
             let (choice, summary) = (choice.clone(), summary.clone());
-            DialogButton::new("Export…").primary().on_click(move |window, cx| {
+            DialogButton::new(tr!("Export…")).primary().on_click(move |window, cx| {
                 let choice = choice.get();
                 main.update(cx, |_, cx| Self::export_playlist(&summary, choice, window, cx)).ok();
             })
         };
         let body = move |_: &mut Window, _: &mut App| options(&choice).into_any_element();
-        let buttons = vec![DialogButton::new("Cancel"), export];
-        let title = format!("Export “{}”", summary.title);
+        let buttons = vec![DialogButton::new(tr!("Cancel")), export];
+        let title = tr!("Export “{title}”", title = summary.title);
         let dialog = cx.new(|cx| Dialog::new(title, body, buttons, cx));
         self.modals.update(cx, |layer, cx| layer.push(dialog, window, cx));
     }
@@ -72,7 +73,7 @@ impl MainWindow {
             let job = items.await.map(|items| Job { path, title, items, choice });
             let toast = match job {
                 Some(job) => written_toast(cx.background_spawn(async move { job.run() }).await),
-                None => Toast::new(Level::Error, "Couldn't read the playlist to export it."),
+                None => Toast::new(Level::Error, tr!("Couldn't read the playlist to export it.")),
             };
             this.update(cx, |this, cx| this.show_toast(toast, cx)).ok();
         })
@@ -102,7 +103,7 @@ fn written_toast(written: std::io::Result<PathBuf>) -> Toast {
     match written {
         Ok(path) => {
             let name = path.file_name().unwrap_or(path.as_os_str()).to_string_lossy();
-            Toast::new(Level::Success, format!("Exported to “{name}”."))
+            Toast::new(Level::Success, tr!("Exported to “{name}”.", name))
         }
         Err(error) => {
             tracing::warn!("playlists: export failed: {error}");
@@ -117,7 +118,7 @@ fn options(choice: &Rc<Cell<Choice>>) -> Div {
     let selected = Format::ALL.iter().position(|f| *f == current.format).unwrap_or_default();
     let format = {
         let choice = choice.clone();
-        Segmented::new("export-format", "Format", Format::ALL.map(Format::label), selected)
+        Segmented::new("export-format", tr!("Format"), Format::ALL.map(Format::label), selected)
             .on_select(move |index, window, _| {
                 let format = Format::ALL.get(*index).copied().unwrap_or_default();
                 choice.set(Choice { format, ..choice.get() });
@@ -126,18 +127,26 @@ fn options(choice: &Rc<Cell<Choice>>) -> Div {
     };
     let relative = {
         let choice = choice.clone();
-        Checkbox::new("export-relative", current.paths == PathStyle::Relative, "Relative paths")
-            .on_change(move |checked, window, _| {
-                let paths = if *checked { PathStyle::Relative } else { PathStyle::Absolute };
-                choice.set(Choice { paths, ..choice.get() });
-                window.refresh();
-            })
+        Checkbox::new(
+            "export-relative",
+            current.paths == PathStyle::Relative,
+            tr!("Relative paths"),
+        )
+        .on_change(move |checked, window, _| {
+            let paths = if *checked { PathStyle::Relative } else { PathStyle::Absolute };
+            choice.set(Choice { paths, ..choice.get() });
+            window.refresh();
+        })
     };
     let hint = match current.paths {
-        PathStyle::Relative => "The playlist keeps working when it moves along with its files.",
-        PathStyle::Absolute => "The playlist keeps working wherever it moves on this computer.",
+        PathStyle::Relative => {
+            tr!("The playlist keeps working when it moves along with its files.")
+        }
+        PathStyle::Absolute => {
+            tr!("The playlist keeps working wherever it moves on this computer.")
+        }
     };
-    div().flex().flex_col().gap(px(ROW_GAP)).child(format).child(relative).child(hint)
+    div().flex_row_start().flex_col().gap(px(ROW_GAP)).child(format).child(relative).child(hint)
 }
 
 /// `title` as a file name: characters some systems refuse become `-`.

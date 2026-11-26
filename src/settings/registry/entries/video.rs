@@ -2,8 +2,8 @@
 //! with; the framing, flip and rotation are in `video_framing.rs`. The in-player panels (Stage 7)
 //! change them for the session only (S5.8.4, D24).
 //!
-//! "Play video as desktop wallpaper" isn't offered: video draws inside VLC's own windows, and a
-//! wallpaper needs a window behind the desktop icons that only Windows has.
+//! "Play video as desktop wallpaper" is only offered on Windows (S8.16.3): a window behind the
+//! desktop icons only exists there.
 
 use super::super::def::{ApplyMode, Condition, Control, Marks, SettingDef};
 use super::super::value::{Binding, Choice, SettingChoice, choice, number, toggle};
@@ -11,21 +11,23 @@ use crate::engine::media_options::{Deinterlace, DeinterlaceMethod};
 use crate::settings::registry::Category;
 use crate::settings::{self, PictureSettings};
 
-const OUTPUT: (Category, &str) = (Category::Video, "Output");
-const PICTURE: (Category, &str) = (Category::Video, "Picture");
-const DEINTERLACING: (Category, &str) = (Category::Video, "Deinterlacing");
+const OUTPUT: (Category, &str) = (Category::Video, tr_noop!("Output"));
+const PICTURE: (Category, &str) = (Category::Video, tr_noop!("Picture"));
+const DEINTERLACING: (Category, &str) = (Category::Video, tr_noop!("Deinterlacing"));
 /// What the picture rows change, and how they relate to the player's panel (D24).
-const PICTURE_INFO: &str = "Seen at once, and kept for every video. The player's settings panel \
-                            can change it for the rest of the session.";
+const PICTURE_INFO: &str = tr_noop!(
+    "Seen at once, and kept for every video. The player's settings panel can change it for the \
+     rest of the session."
+);
 /// What an enhancement's slider says at 0.
-const OFF: &str = "Off";
+const OFF: &str = tr_noop!("Off");
 
 impl SettingChoice for Deinterlace {
     const VALUES: &'static [Self] = &[Self::Automatic, Self::On, Self::Off];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("automatic", "Automatic"),
-        Choice::new("on", "On"),
-        Choice::new("off", "Off"),
+        Choice::new("automatic", tr_noop!("Automatic")),
+        Choice::new("on", tr_noop!("On")),
+        Choice::new("off", tr_noop!("Off")),
     ];
 }
 
@@ -44,17 +46,17 @@ impl SettingChoice for DeinterlaceMethod {
         Self::Ivtc,
     ];
     const CHOICES: &'static [Choice] = &[
-        Choice::new("automatic", "Automatic"),
-        Choice::new("discard", "Discard"),
-        Choice::new("blend", "Blend"),
-        Choice::new("mean", "Mean"),
-        Choice::new("bob", "Bob"),
-        Choice::new("linear", "Linear"),
-        Choice::new("x", "X"),
-        Choice::new("yadif", "Yadif"),
-        Choice::new("yadif2x", "Yadif (2x)"),
-        Choice::new("phosphor", "Phosphor"),
-        Choice::new("ivtc", "Film NTSC (IVTC)"),
+        Choice::new("automatic", tr_noop!("Automatic")),
+        Choice::new("discard", tr_noop!("Discard")),
+        Choice::new("blend", tr_noop!("Blend")),
+        Choice::new("mean", tr_noop!("Mean")),
+        Choice::new("bob", tr_noop!("Bob")),
+        Choice::new("linear", tr_noop!("Linear")),
+        Choice::new("x", tr_noop!("X")),
+        Choice::new("yadif", tr_noop!("Yadif")),
+        Choice::new("yadif2x", tr_noop!("Yadif (2x)")),
+        Choice::new("phosphor", tr_noop!("Phosphor")),
+        Choice::new("ivtc", tr_noop!("Film NTSC (IVTC)")),
     ];
 }
 
@@ -65,17 +67,21 @@ fn plain(value: f64) -> String {
 
 /// A hue as its slider says it: "-30°".
 fn degrees(value: f64) -> String {
-    format!("{value:.0}°")
+    tr!("{value}°", value = crate::i18n::decimal(value, 0))
 }
 
 /// An enhancement's strength as its slider says it: "Off" at 0, else "0.5".
 fn strength(value: f64) -> String {
-    if value > 0. { plain(value) } else { OFF.to_owned() }
+    if value > 0. { plain(value) } else { crate::i18n::text(OFF).to_owned() }
 }
 
 /// A banding removal radius as its slider says it: "Off" at 0, else "16 px".
 fn radius(value: f64) -> String {
-    if value > 0. { format!("{value:.0} px") } else { OFF.to_owned() }
+    if value > 0. {
+        tr!("{value} px", value = crate::i18n::decimal(value, 0))
+    } else {
+        crate::i18n::text(OFF).to_owned()
+    }
 }
 
 /// Puts every picture value back, here and in the player's panel (S7.3.4), leaving "Adjust the
@@ -92,9 +98,9 @@ fn reset_picture(_: &mut gpui::Window, cx: &mut gpui::App) {
 /// aren't what plays (D24).
 fn picture_overridden(cx: &gpui::App) -> Option<String> {
     crate::effects::any_changed(cx, &crate::effects::VIDEO_ESSENTIAL).then(|| {
-        "The player's settings panel changed these for this session; its Save as Default \
-         writes them here."
-            .to_owned()
+        tr!("The player's settings panel changed these for this session; its Save as Default \
+             writes them here.")
+        .to_owned()
     })
 }
 
@@ -117,41 +123,54 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     SettingDef::new(
         "video.enabled",
         OUTPUT,
-        "Enable video",
+        tr_noop!("Enable video"),
         Control::Toggle,
         toggle!(prefs.video.enabled),
     )
-    .info(
+    .info(tr_noop!(
         "Off, media plays its sound only: video isn't decoded, which saves power, and the video \
-         area says why it is empty.",
-    )
+         area says why it is empty."
+    ))
     .applies(ApplyMode::NextMedia)
     .keywords(&["audio only", "black screen", "decode", "battery"]),
     SettingDef::new(
         "video.start_fullscreen",
         OUTPUT,
-        "Start videos in fullscreen",
+        tr_noop!("Start videos in fullscreen"),
         Control::Toggle,
         toggle!(prefs.video.start_fullscreen),
     )
-    .info("Each video goes fullscreen as it starts. Escape leaves fullscreen.")
+    .info(tr_noop!("Each video goes fullscreen as it starts. Escape leaves fullscreen."))
     .keywords(&["full screen", "maximize"]),
     SettingDef::new(
         "video.keep_display_awake",
         OUTPUT,
-        "Stop the screensaver during playback",
+        tr_noop!("Stop the screensaver during playback"),
         Control::Toggle,
         toggle!(prefs.video.keep_display_awake),
     )
-    .info(
-        "Keeps the display from sleeping or starting the screensaver while video plays in a \
-         window that shows.",
-    )
+    .info(tr_noop!(
+        "Keeps the display from sleeping or starting the screensaver while video plays in a window \
+         that shows."
+    ))
     .keywords(&["sleep", "display", "power", "idle", "inhibit"]),
+    #[cfg(target_os = "windows")]
+    SettingDef::new(
+        "video.desktop_wallpaper",
+        OUTPUT,
+        tr_noop!("Play video as desktop wallpaper"),
+        Control::Toggle,
+        toggle!(prefs.video.desktop_wallpaper),
+    )
+    .info(tr_noop!(
+        "Plays video behind the desktop icons on the main display, instead of in a window. The \
+         main window keeps the controls."
+    ))
+    .keywords(&["wallpaper", "background", "desktop", "live wallpaper"]),
     SettingDef::new(
         "video.picture.enabled",
         PICTURE,
-        "Adjust the picture",
+        tr_noop!("Adjust the picture"),
         Control::Toggle,
         toggle!(prefs.video.picture.enabled),
     )
@@ -160,7 +179,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     .keywords(&["color", "adjust", "image", "filter", "essential"]),
     picture_row(
         "video.picture.hue",
-        "Hue",
+        tr_noop!("Hue"),
         (
             Control::Slider { marks: Marks::None, format: degrees },
             number!(f32: prefs.video.picture.hue),
@@ -169,7 +188,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     ),
     picture_row(
         "video.picture.brightness",
-        "Brightness",
+        tr_noop!("Brightness"),
         (
             Control::Slider { marks: Marks::None, format: plain },
             number!(f32: prefs.video.picture.brightness),
@@ -178,7 +197,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     ),
     picture_row(
         "video.picture.contrast",
-        "Contrast",
+        tr_noop!("Contrast"),
         (
             Control::Slider { marks: Marks::None, format: plain },
             number!(f32: prefs.video.picture.contrast),
@@ -187,7 +206,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     ),
     picture_row(
         "video.picture.saturation",
-        "Saturation",
+        tr_noop!("Saturation"),
         (
             Control::Slider { marks: Marks::Ticks(1.), format: plain },
             number!(f32: prefs.video.picture.saturation),
@@ -196,7 +215,7 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     ),
     picture_row(
         "video.picture.gamma",
-        "Gamma",
+        tr_noop!("Gamma"),
         (
             Control::Slider { marks: Marks::Ticks(1.), format: plain },
             number!(f32: prefs.video.picture.gamma),
@@ -205,80 +224,80 @@ pub(in crate::settings::registry) static ENTRIES: &[SettingDef] = &[
     ),
     picture_row(
         "video.picture.sharpen",
-        "Sharpen Sigma",
+        tr_noop!("Sharpen Sigma"),
         (
             Control::Slider { marks: Marks::Ticks(0.5), format: strength },
             number!(f32: prefs.video.picture.sharpen),
         ),
         (0., 2., 0.01),
     )
-    .info(
-        "Sharpens edges; 0 is off. A little goes a long way. Seen at once, kept for every video.",
-    ),
+    .info(tr_noop!(
+        "Sharpens edges; 0 is off. A little goes a long way. Seen at once, kept for every video."
+    )),
     picture_row(
         "video.picture.deband_radius",
-        "Banding Removal Radius",
+        tr_noop!("Banding Removal Radius"),
         (
             Control::Slider { marks: Marks::Ticks(4.), format: radius },
             number!(u32: prefs.video.picture.deband_radius),
         ),
         (0., 32., 4.),
     )
-    .info(
-        "Smooths the steps in gradients (skies, dark scenes) over this many pixels; 0 is off. \
-         Seen at once, kept for every video.",
-    )
+    .info(tr_noop!(
+        "Smooths the steps in gradients (skies, dark scenes) over this many pixels; 0 is off. Seen \
+         at once, kept for every video."
+    ))
     .keywords(&["deband", "gradfun", "gradient", "filter"]),
     picture_row(
         "video.picture.grain",
-        "Film Grain Variance",
+        tr_noop!("Film Grain Variance"),
         (
             Control::Slider { marks: Marks::Ticks(1.), format: strength },
             number!(f32: prefs.video.picture.grain),
         ),
         (0., 10., 0.1),
     )
-    .info(
-        "Adds film grain, which can hide banding and compression; 0 is off. Seen at once, kept \
-         for every video.",
-    )
+    .info(tr_noop!(
+        "Adds film grain, which can hide banding and compression; 0 is off. Seen at once, kept for \
+         every video."
+    ))
     .keywords(&["noise", "film", "texture", "filter"]),
     SettingDef::new(
         "video.reset_picture",
         PICTURE,
-        "Reset picture",
-        Control::Button { label: "Reset", action: reset_picture },
+        tr_noop!("Reset picture"),
+        Control::Button { label: tr_noop!("Reset"), action: reset_picture },
         Binding::ACTION,
     )
-    .info(
+    .info(tr_noop!(
         "Puts the picture back as the media has it: hue, brightness, contrast, saturation and \
-         gamma, with sharpening, banding removal and film grain off. The player's settings \
-         panel follows.",
-    )
+         gamma, with sharpening, banding removal and film grain off. The player's settings panel \
+         follows."
+    ))
     .keywords(&["default", "color"]),
     SettingDef::new(
         "video.deinterlace",
         DEINTERLACING,
-        "Deinterlacing",
+        tr_noop!("Deinterlacing"),
         Control::Dropdown(Deinterlace::CHOICES),
         choice!(prefs.video.deinterlace),
     )
-    .info(
-        "Removes the comb lines of interlaced video (TV recordings, DVDs). Automatic does it \
-         when the video says it is interlaced. A change reopens the video where it is.",
-    )
+    .info(tr_noop!(
+        "Removes the comb lines of interlaced video (TV recordings, DVDs). Automatic does it when \
+         the video says it is interlaced. A change reopens the video where it is."
+    ))
     .keywords(&["interlaced", "comb", "tv", "dvd"]),
     SettingDef::new(
         "video.deinterlace_method",
         DEINTERLACING,
-        "Method",
+        tr_noop!("Method"),
         Control::Dropdown(DeinterlaceMethod::CHOICES),
         choice!(prefs.video.deinterlace_method),
     )
-    .info(
-        "How lines are joined. Yadif is sharp, Yadif (2x) and Bob keep motion smooth at twice \
-         the frame rate, Blend is cheap; Film NTSC undoes the telecine of film on NTSC discs.",
-    )
+    .info(tr_noop!(
+        "How lines are joined. Yadif is sharp, Yadif (2x) and Bob keep motion smooth at twice the \
+         frame rate, Blend is cheap; Film NTSC undoes the telecine of film on NTSC discs."
+    ))
     .depends_on("video.deinterlace", Condition::IsNot("off"))
     .keywords(&["yadif", "bob", "blend", "telecine"]),
 ];

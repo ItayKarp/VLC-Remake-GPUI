@@ -27,9 +27,9 @@ impl Refused {
     /// What the dialog says about it.
     pub fn message(self) -> &'static str {
         match self {
-            Self::Unreadable => "Couldn't read that image.",
-            Self::NotAnImage => "That file isn't an image.",
-            Self::TooLarge => "That image is too large. Pick one under 25 MB.",
+            Self::Unreadable => tr!("Couldn't read that image."),
+            Self::NotAnImage => tr!("That file isn't an image."),
+            Self::TooLarge => tr!("That image is too large. Pick one under 25 MB."),
         }
     }
 }

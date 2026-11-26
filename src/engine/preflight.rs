@@ -1,11 +1,26 @@
-//! Checks a local path before it reaches the backend, so a folder, a pipe, a device, an empty
-//! file or a symlink loop is rejected with a clear error instead of hanging or confusing libVLC.
+//! Checks media before it reaches the backend, so a folder, a pipe, a device, an empty file or
+//! a symlink loop is rejected with a clear error instead of hanging or confusing libVLC, and a
+//! link whose scheme isn't media's never reaches it at all (S9.7.2).
 
 use std::fs;
 use std::io;
 use std::path::Path;
 
 use super::state::ErrorKind;
+use crate::app::media::Media;
+
+/// What [`check`] finds for a file, whether a link may open, and `None` for a device, which
+/// only libVLC can check.
+pub fn check_media(media: &Media) -> Option<Result<(), ErrorKind>> {
+    match media {
+        Media::File(path) => Some(check(path)),
+        Media::Url(_) if !media.is_openable() => {
+            tracing::warn!("open: refused a link that isn't media");
+            Some(Err(ErrorKind::RefusedLink))
+        }
+        Media::Url(_) | Media::Device(_) => None,
+    }
+}
 
 /// Whether `path` is a non-empty regular file the backend can be given.
 pub fn check(path: &Path) -> Result<(), ErrorKind> {
@@ -62,6 +77,13 @@ mod tests {
         assert_eq!(check(&dir.join("missing.mp4")), Err(ErrorKind::NotFound));
         assert_eq!(check(&empty), Err(ErrorKind::EmptyFile));
         assert_eq!(check(&dir), Err(ErrorKind::NotAFile));
+    }
+
+    #[test]
+    fn refuses_links_that_are_not_media() {
+        let refused = check_media(&Media::Url("javascript://alert(1)".into()));
+        assert_eq!(refused, Some(Err(ErrorKind::RefusedLink)));
+        assert_eq!(check_media(&Media::Url("https://a/b.mp4".into())), None);
     }
 
     #[cfg(unix)]

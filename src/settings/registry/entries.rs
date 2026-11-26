@@ -1,6 +1,7 @@
 //! The registry's rows, one file per category, and the checks they share.
 //!
-//! Extensions has no file: its add-ons list waits for the extension system (S8.14, D19).
+//! Extensions has no file: its add-ons list waits for the extension system, and the page is
+//! only listed with the `extensions` feature (S8.14, D19).
 
 mod audio;
 mod audio_effects;
@@ -61,7 +62,7 @@ pub(super) static PAGES: [&[SettingDef]; 23] = [
 fn languages(value: &Value) -> Result<(), String> {
     let Value::List(codes) = value else { return Ok(()) };
     match codes.iter().find(|code| Language::parse(code).is_none()) {
-        Some(code) => Err(format!("\"{code}\" isn't a language code")),
+        Some(code) => Err(tr!("\"{code}\" isn't a language code", code)),
         None => Ok(()),
     }
 }

@@ -46,6 +46,7 @@ use gpui::{
 use self::keys::{Dismiss, FocusSearch, NextCategory, PreviousCategory};
 use self::search::Search;
 use self::sidebar::Sidebar;
+use crate::i18n::{self, DirectionalStyle};
 use crate::settings::{self, registry::Category};
 use crate::settings_view::{PAGE_PADDING, PresetPicker, SettingsPage};
 use crate::theme::{self, Palette};
@@ -61,6 +62,25 @@ const COMPACT_SEARCH_WIDTH: f32 = 200.;
 /// The space above and below the preset picker at the foot of a page.
 const PRESET_FOOTER_PADDING: f32 = 16.;
 
+/// The search field at the top of the sidebar, and its subscription.
+fn search_field(
+    window: &mut Window,
+    cx: &mut Context<SettingsWindow>,
+) -> (Entity<TextInput>, Subscription) {
+    let query = cx.new(|cx| {
+        TextInput::new(window, cx)
+            .with_look(Look::Bare)
+            .with_placeholder(tr!("Search"))
+            .with_label(tr!("Search settings"))
+    });
+    let events = cx.subscribe_in(&query, window, |this, _, event, window, cx| {
+        if *event == text_input::Event::Changed {
+            this.search_changed(window, cx);
+        }
+    });
+    (query, events)
+}
+
 /// The Settings window's view.
 pub struct SettingsWindow {
     category: Category,
@@ -71,7 +91,9 @@ pub struct SettingsWindow {
     /// The preset picker at the foot of the pages presets cover (S5.11).
     presets: Entity<PresetPicker>,
     focus_handle: FocusHandle,
-    _query_events: Subscription,
+    query_events: Subscription,
+    /// Rebuilds the pages and the search field in a new interface language.
+    _language: Subscription,
 }
 
 impl SettingsWindow {
@@ -79,17 +101,8 @@ impl SettingsWindow {
     pub fn new(category: Category, window: &mut Window, cx: &mut Context<Self>) -> Self {
         theme::observe(window, cx);
         crate::app::save_geometry_on_change(window, cx, |s| &mut s.local.window.settings);
-        let query = cx.new(|cx| {
-            TextInput::new(window, cx)
-                .with_look(Look::Bare)
-                .with_placeholder("Search")
-                .with_label("Search settings")
-        });
-        let query_events = cx.subscribe_in(&query, window, |this, _, event, window, cx| {
-            if *event == text_input::Event::Changed {
-                this.search_changed(window, cx);
-            }
-        });
+        let (query, query_events) = search_field(window, cx);
+        let language = i18n::on_change(window, cx, Self::rebuild_text);
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window, cx);
         let presets = cx.new(|cx| PresetPicker::new(window, cx));
@@ -100,14 +113,17 @@ impl SettingsWindow {
             search: Search::default(),
             presets,
             focus_handle,
-            _query_events: query_events,
+            query_events,
+            _language: language,
         };
         this.select(category, window, cx);
         this
     }
 
-    /// Shows `category`'s page, answering the current search, and remembers it.
+    /// Shows `category`'s page, answering the current search, and remembers it. A page this
+    /// build doesn't list, saved by one that does, shows General instead.
     pub fn select(&mut self, category: Category, window: &mut Window, cx: &mut Context<Self>) {
+        let category = if category.is_listed() { category } else { Category::default() };
         self.category = category;
         let page = self
             .pages
@@ -130,6 +146,18 @@ impl SettingsWindow {
 
     /// Runs the search as typed. When the current page has no match, the first page with one
     /// shows instead.
+    /// Makes again what keeps text it made once: the pages' controls, the preset picker and the
+    /// search field (whose search starts over).
+    fn rebuild_text(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.pages.clear();
+        self.presets = cx.new(|cx| PresetPicker::new(window, cx));
+        let (query, events) = search_field(window, cx);
+        self.query = query;
+        self.query_events = events;
+        self.search = Search::default();
+        self.select(self.category, window, cx);
+    }
+
     fn search_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.search = Search::new(self.query.read(cx).text());
         let category = if self.search.offers(self.category) {
@@ -173,7 +201,7 @@ impl SettingsWindow {
         let sidebar = div()
             .w(px(width))
             .flex_none()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .py(px(chrome::MARGIN))
             .child(sidebar.render(p, cx));
@@ -186,12 +214,18 @@ impl SettingsWindow {
                 .border_color(p.divider)
                 .child(self.presets.clone())
         });
-        let page = div().flex_1().min_w_0().flex().flex_col().ml(px(chrome::MARGIN)).bg(p.sidebar);
+        let page = div()
+            .flex_1()
+            .min_w_0()
+            .flex_row_start()
+            .flex_col()
+            .ms(px(chrome::MARGIN))
+            .bg(p.sidebar);
         div()
             .flex_1()
             .min_h_0()
-            .flex()
-            .pl(px(chrome::MARGIN))
+            .flex_row_start()
+            .ps(px(chrome::MARGIN))
             .child(sidebar)
             .child(page.child(div().flex_1().min_h_0().child(self.content(p, cx))).children(footer))
     }
@@ -218,6 +252,7 @@ impl Render for SettingsWindow {
         let body = self.body(compact, &p, cx);
         let root = div()
             .id("settings-window")
+            .text_start()
             .key_context(keys::CONTEXT)
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::focus_search))
@@ -229,7 +264,7 @@ impl Render for SettingsWindow {
             }))
             .on_action(cx.listener(Self::dismiss))
             .size_full()
-            .flex()
+            .flex_row_start()
             .flex_col()
             .bg(p.sunken)
             .text_color(p.text);

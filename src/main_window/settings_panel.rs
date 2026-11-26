@@ -7,12 +7,13 @@
 //! resets it; and Save as Default (S7.1.5) writes a tab's values into its Settings page. Speed
 //! already works this way (S2.7.4), its default applying at the next launch.
 //!
-//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6), the Audio Visualizer
-//! (`visualizer_row.rs`, S7.8) and the speed (`playback.rs`). Its other designed rows (Show
-//! Statistics, Reverse, Sleep Timer) come with their story (S8.13) and are hidden until then. The Audio tab holds its Defaults, the
+//! The Playback tab holds Show Subtitle Timeline on Seekbar (S6.6), Show Statistics (S8.13.2),
+//! the Sleep Timer (`sleep_timer_row.rs`, S8.13.1), the Audio Visualizer (`visualizer_row.rs`,
+//! S7.8) and the speed (`playback.rs`). The design's Reverse row is gone: libVLC can't play
+//! backwards (S8.13.3, ADR 0002). The Audio tab holds its Defaults, the
 //! stereo mode with its Test, the playing track's delay (`audio.rs`, S7.6), and its effect
 //! sections: the Equalizer (`equalizer_section.rs`, S7.7), then the Compressor, Spatializer and
-//! Stereo Widener (S7.9). The Video tab holds its Defaults (`video_defaults.rs`, S7.2), the Crop section
+//! Stereo Widener (S7.9). The Video tab holds its Defaults (`video_defaults.rs`, S7.2, with Render in `render_row.rs`, S8.11), the Crop section
 //! (`crop_section.rs`) and the effect sections (`video.rs`, `effect_section.rs`, S7.1), Colors
 //! with its own (`colors_section.rs`, S7.4). The
 //! Subtitles tab holds the subtitle defaults and the showing subtitle's synchronization
@@ -38,8 +39,13 @@ mod equalizer_section;
 mod footer;
 mod number_row;
 mod playback;
+mod render_row;
+mod sleep_timer_row;
 mod subtitles;
 mod sync_rules;
+mod synced_field;
+#[cfg(test)]
+mod tests;
 mod track_defaults;
 mod video;
 mod video_defaults;
@@ -51,6 +57,7 @@ use gpui::{
 };
 
 pub(super) use playback::SpeedControls;
+use sleep_timer_row::SleepTimerControl;
 use visualizer_row::VisualizerControl;
 
 use self::audio::AudioControls;
@@ -69,9 +76,11 @@ use crate::effects::{
     AUDIO_STEREO_WIDENER, EffectSection, VIDEO_COLORS, VIDEO_CROP, VIDEO_ESSENTIAL,
 };
 use crate::engine::tracks::TrackKind;
+use crate::i18n::DirectionalStyle;
 use crate::settings::registry::Category;
 use crate::settings_view::PresetPicker;
 use crate::theme::Palette;
+use crate::theme::text_px;
 use crate::ui::focus;
 use crate::ui::popover::{self, BoundsTracker};
 use crate::ui::tabs::{Tab, Tabs};
@@ -144,10 +153,10 @@ impl PanelTab {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Playback => "Playback",
-            Self::Video => "Video",
-            Self::Audio => "Audio",
-            Self::Subtitles => "Subtitles",
+            Self::Playback => tr!("Playback"),
+            Self::Video => tr!("Video"),
+            Self::Audio => tr!("Audio"),
+            Self::Subtitles => tr!("Subtitles"),
         }
     }
 
@@ -169,6 +178,7 @@ pub(super) struct SettingsPanel {
     button: BoundsTracker,
     speed: SpeedControls,
     visualizer: VisualizerControl,
+    sleep_timer: SleepTimerControl,
     /// The Audio and Subtitles tabs' defaults and synchronization.
     audio: AudioControls,
     subtitles: SubtitleControls,
@@ -191,6 +201,7 @@ impl SettingsPanel {
             button: BoundsTracker::new(),
             speed: SpeedControls::new(window, cx),
             visualizer: VisualizerControl::new(window, cx),
+            sleep_timer: SleepTimerControl::new(window, cx),
             audio: AudioControls::new(window, cx),
             subtitles: SubtitleControls::new(window, cx),
             effects: PanelTab::ALL
@@ -297,14 +308,20 @@ impl MainWindow {
         let footer =
             (tab != PanelTab::Playback).then(|| footer::footer(tab, presets, window, p, cx));
         Some(
-            bar_panel::surface("settings-panel", DESIGN_HEIGHT, window, p)
-                .track_focus(&self.settings_panel.focus)
-                .key_context(focus::context(&["SettingsPanel", focus::CONTROL]))
-                .on_key_down(cx.listener(Self::on_settings_panel_key))
-                .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_settings))
-                .child(Self::render_panel_tabs(tab, p, cx))
-                .child(body)
-                .children(footer),
+            bar_panel::surface(
+                "settings-panel",
+                DESIGN_HEIGHT,
+                self.control_bar_height(),
+                window,
+                p,
+            )
+            .track_focus(&self.settings_panel.focus)
+            .key_context(focus::context(&["SettingsPanel", focus::CONTROL]))
+            .on_key_down(cx.listener(Self::on_settings_panel_key))
+            .on_mouse_down_out(cx.listener(Self::on_mouse_down_out_of_settings))
+            .child(Self::render_panel_tabs(tab, p, cx))
+            .child(body)
+            .children(footer),
         )
     }
 
@@ -354,11 +371,11 @@ impl MainWindow {
 
 /// A section: its heading, the line saying what its rows change, then the rows added to it.
 fn section(heading: &'static str, note: impl Into<SharedString>, p: &Palette) -> Div {
-    let title = div().text_size(px(HEADING_TEXT)).text_color(p.text).child(heading);
+    let title = div().text_size(text_px(HEADING_TEXT)).text_color(p.text).child(heading);
     let note = div()
         .pt(px(SECTION_NOTE_GAP))
-        .text_size(px(SECTION_NOTE_TEXT))
+        .text_size(text_px(SECTION_NOTE_TEXT))
         .text_color(p.text_muted)
         .child(note.into());
-    div().flex().flex_col().p(px(SECTION_PADDING)).child(title).child(note)
+    div().flex_row_start().flex_col().p(px(SECTION_PADDING)).child(title).child(note)
 }

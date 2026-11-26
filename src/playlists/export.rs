@@ -84,6 +84,7 @@ impl Item {
                 path.file_stem().unwrap_or(path.as_os_str()).to_string_lossy().into_owned()
             }
             Media::Url(url) => url.clone(),
+            Media::Device(device) => device.display_name(),
         }
     }
 }
@@ -151,12 +152,12 @@ fn write_synced(path: &Path, bytes: &[u8]) -> io::Result<()> {
 pub fn error_message(error: &io::Error) -> &'static str {
     match error.kind() {
         io::ErrorKind::PermissionDenied | io::ErrorKind::ReadOnlyFilesystem => {
-            "Couldn't export the playlist: that folder can't be written to."
+            tr!("Couldn't export the playlist: that folder can't be written to.")
         }
         io::ErrorKind::StorageFull | io::ErrorKind::QuotaExceeded => {
-            "Couldn't export the playlist: the disk is full."
+            tr!("Couldn't export the playlist: the disk is full.")
         }
-        _ => "Couldn't export the playlist.",
+        _ => tr!("Couldn't export the playlist."),
     }
 }
 

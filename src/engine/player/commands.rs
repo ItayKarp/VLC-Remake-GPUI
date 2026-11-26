@@ -7,6 +7,7 @@ use gpui::Context;
 
 use super::{Info, Intent, Player, PlayerEvent};
 use crate::app::media::Media;
+use crate::engine::ab_loop::AbLoop;
 use crate::engine::preflight;
 use crate::engine::state::PlaybackState;
 use crate::engine::tracks::TrackKind;
@@ -14,7 +15,8 @@ use crate::engine::values::{BackendSeek, Rate, SeekTarget, Start, StepDirection}
 
 impl Player {
     /// Opens `media` and starts playing it, cancelling whatever was open. A local path that
-    /// can't be media (missing, empty, a folder or device) fails at once with an error state.
+    /// can't be media (missing, empty, a folder or device) or a link that isn't media's fails
+    /// at once with an error state.
     pub fn open(&mut self, media: Media, cx: &mut Context<Self>) {
         self.open_at(media, Start::default(), cx);
     }
@@ -26,14 +28,18 @@ impl Player {
         self.intent = if start.paused { Intent::Pause } else { Intent::Play };
         self.audio.user_took_over();
         self.info = Info::default();
+        self.ab_loop = AbLoop::Off;
         self.push_subtitle_delay();
         self.push_audio_delay();
         self.track_choices.forget_media();
         self.position.reset();
         self.seeks.reset();
         self.steps.reset();
-        let preflight = media.as_path().map(preflight::check);
+        let preflight = preflight::check_media(&media);
         self.media = Some(media);
+        // Media that can't open doesn't stream.
+        let stream = start.stream.filter(|_| !matches!(preflight, Some(Err(_))));
+        self.stream_opened(stream, cx);
         // Not `transition`: that ignores repeats, and reopening while opening must still tell
         // the UI to forget the previous media.
         self.state = PlaybackState::Opening;
@@ -102,8 +108,13 @@ impl Player {
 
     /// Seeks. While another seek is in flight only the latest target is kept, and a seek before
     /// the media says it is seekable waits for that (or is dropped if it never becomes so).
+    /// libVLC can't seek while recording, so that is refused with [`PlayerEvent::SeekRefused`].
     pub fn seek(&mut self, target: SeekTarget, cx: &mut Context<Self>) {
         if !self.state.is_active() || self.seeks.is_seekable() == Some(false) {
+            return;
+        }
+        if self.recording.is_some() {
+            cx.emit(PlayerEvent::SeekRefused);
             return;
         }
         let Some(seek) = self.resolve(target) else { return };

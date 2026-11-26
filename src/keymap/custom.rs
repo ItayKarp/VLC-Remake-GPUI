@@ -26,9 +26,9 @@ pub struct Conflict {
 }
 
 impl Conflict {
-    /// The other command's name.
+    /// The other command's name, in the interface language.
     pub fn label(self) -> &'static str {
-        COMMANDS[self.command].label
+        COMMANDS[self.command].title()
     }
 }
 

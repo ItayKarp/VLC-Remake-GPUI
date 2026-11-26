@@ -85,7 +85,8 @@ fn the_privacy_page_matches_the_design() {
 
 /// The Controls page's share of differing pixels: the text, the info icons, the two Keyboard
 /// Shortcuts buttons, which fit their labels where the design stretches them, and the Remotes
-/// rows, which come with S8.15. Measured near 3.4% on macOS (November 2026).
+/// rows' info icons and port. Measured near 3.4% on macOS before the Remotes rows (November
+/// 2026).
 const MAX_CONTROLS_MISMATCH: f64 = 0.045;
 
 #[test]
