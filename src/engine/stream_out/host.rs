@@ -23,15 +23,4 @@ pub fn network_address() -> Option<IpAddr> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_held_port_is_not_free() {
-        let held = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-        let address = held.local_addr().unwrap();
-        assert!(!is_port_free(address));
-        drop(held);
-        assert!(is_port_free(address));
-    }
-}
+mod tests;
